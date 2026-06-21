@@ -25,9 +25,9 @@ outputs/
 ai-hedge-fund/
 
 # 编辑器和操作系统文件
+.worktrees/
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
 desktop.ini
-
