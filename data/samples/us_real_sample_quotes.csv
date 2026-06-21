@@ -1,0 +1,4 @@
+﻿ticker,price,shares_outstanding,net_debt,currency,quote_date,price_unit,shares_unit,debt_unit,quote_source,updated_at
+AAPL,296.8800048828125,14687.356,37142.0,USD,2026-06-17,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-18
+MSFT,384.0199890136719,7428.434704,8157.0,USD,2026-06-17,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-18
+GOOGL,364.3916015625,12116.0,41436.0,USD,2026-06-17,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-18

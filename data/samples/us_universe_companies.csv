@@ -1,0 +1,504 @@
+﻿ticker,cik,company_name,exchange,industry,market_cap,enterprise_value,ebitda,industry_pe_median,industry_pb_median,industry_ev_ebitda_median,roic,gross_margin,current_ratio,revenue_cagr_3y,net_income_cagr_3y,dividend_yield,audit_opinion,risk_flag
+MMM,66740,3M CO,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+AOS,91142,SMITH A O CORP,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+ABT,1800,ABBOTT LABORATORIES,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+ABBV,1551152,AbbVie Inc.,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+ACN,1467373,Accenture plc,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+ADBE,796343,ADOBE INC.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+AMD,2488,ADVANCED MICRO DEVICES INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+AES,874761,AES CORP,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+AFL,4977,AFLAC INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+A,1090872,"AGILENT TECHNOLOGIES, INC.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+APD,2969,"Air Products & Chemicals, Inc.",NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+ABNB,1559720,"Airbnb, Inc.",Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+AKAM,1086222,AKAMAI TECHNOLOGIES INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+ALB,915913,ALBEMARLE CORP,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+ARE,1035443,"ALEXANDRIA REAL ESTATE EQUITIES, INC.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+ALGN,1097149,ALIGN TECHNOLOGY INC,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+ALLE,1579241,Allegion plc,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+LNT,352541,ALLIANT ENERGY CORP,Nasdaq,Utilities,,,,,,,,,,,,,标准无保留,无
+ALL,899051,ALLSTATE CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+GOOGL,1652044,Alphabet Inc.,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+GOOG,1652044,Alphabet Inc.,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+MO,764180,"ALTRIA GROUP, INC.",NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+AMZN,1018724,AMAZON COM INC,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+AMCR,1748790,Amcor plc,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+AEE,1002910,AMEREN CORP,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+AEP,4904,AMERICAN ELECTRIC POWER CO INC,Nasdaq,Utilities,,,,,,,,,,,,,标准无保留,无
+AXP,4962,AMERICAN EXPRESS CO,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+AIG,5272,"AMERICAN INTERNATIONAL GROUP, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+AMT,1053507,AMERICAN TOWER CORP /MA/,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+AWK,1410636,"American Water Works Company, Inc.",NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+AMP,820027,AMERIPRISE FINANCIAL INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+AME,1037868,AMETEK INC/,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+AMGN,318154,AMGEN INC,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+APH,820313,AMPHENOL CORP /DE/,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+ADI,6281,ANALOG DEVICES INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+AON,315293,Aon plc,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+APA,1841666,APA Corp,Nasdaq,Energy,,,,,,,,,,,,,标准无保留,无
+APO,1858681,"Apollo Global Management, Inc.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+AAPL,320193,Apple Inc.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+AMAT,6951,APPLIED MATERIALS INC /DE,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+APP,1751008,AppLovin Corp,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+APTV,1521332,Aptiv PLC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+ACGL,947484,ARCH CAPITAL GROUP LTD.,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+ADM,7084,Archer-Daniels-Midland Co,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+ARES,1176948,Ares Management Corp,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+ANET,1596532,"Arista Networks, Inc.",NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+AJG,354190,Arthur J. Gallagher & Co.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+AIZ,1267238,"ASSURANT, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+T,732717,AT&T INC.,NYSE,Communication Services,,,,,,,,,,,,,标准无保留,无
+ATO,731802,ATMOS ENERGY CORP,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+ADSK,769397,"Autodesk, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+ADP,8670,AUTOMATIC DATA PROCESSING INC,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+AZO,866787,AUTOZONE INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+AVB,915912,AVALONBAY COMMUNITIES INC,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+AVY,8818,Avery Dennison Corp,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+AXON,1069183,"AXON ENTERPRISE, INC.",Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+BKR,1701605,Baker Hughes Co,Nasdaq,Energy,,,,,,,,,,,,,标准无保留,无
+BALL,9389,BALL Corp,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+BAC,70858,BANK OF AMERICA CORP /DE/,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+BAX,10456,BAXTER INTERNATIONAL INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+BDX,10795,BECTON DICKINSON & CO,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+BRK-B,1067983,BERKSHIRE HATHAWAY INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+BBY,764478,BEST BUY CO INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+TECH,842023,BIO-TECHNE Corp,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+BIIB,875045,BIOGEN INC.,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+BLK,2012383,"BlackRock, Inc.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+BX,1393818,Blackstone Inc.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+XYZ,1512673,"Block, Inc.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+BNY,1390777,Bank of New York Mellon Corp,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+BA,12927,BOEING CO,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+BKNG,1075531,Booking Holdings Inc.,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+BSX,885725,BOSTON SCIENTIFIC CORP,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+BMY,14272,BRISTOL MYERS SQUIBB CO,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+AVGO,1730168,Broadcom Inc.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+BR,1383312,"BROADRIDGE FINANCIAL SOLUTIONS, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+BRO,79282,"BROWN & BROWN, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+BF-B,14693,BROWN FORMAN CORP,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+BLDR,1316835,"Builders FirstSource, Inc.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+BG,1996862,Bunge Global SA,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+BXP,1037540,"BXP, Inc.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+CHRW,1043277,"C. H. ROBINSON WORLDWIDE, INC.",Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+CDNS,813672,CADENCE DESIGN SYSTEMS INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+CPT,906345,CAMDEN PROPERTY TRUST,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+COF,927628,CAPITAL ONE FINANCIAL CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+CAH,721371,CARDINAL HEALTH INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+CCL,815097,Carnival Corp Ltd.,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+CARR,1783180,CARRIER GLOBAL Corp,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+CVNA,1690820,CARVANA CO.,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+CASY,726958,CASEYS GENERAL STORES INC,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+CAT,18230,CATERPILLAR INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+CBOE,1374310,"Cboe Global Markets, Inc.",CBOE,Financials,,,,,,,,,,,,,标准无保留,无
+CBRE,1138118,"CBRE GROUP, INC.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+CDW,1402057,CDW Corp,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+COR,1140859,"Cencora, Inc.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+CNC,1071739,CENTENE CORP,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+CNP,1130310,CENTERPOINT ENERGY INC,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+CF,1324404,"CF Industries Holdings, Inc.",NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+CRL,1100682,"CHARLES RIVER LABORATORIES INTERNATIONAL, INC.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+SCHW,316709,SCHWAB CHARLES CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+CHTR,1091667,"CHARTER COMMUNICATIONS, INC. /MO/",Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+CVX,93410,CHEVRON CORP,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+CMG,1058090,CHIPOTLE MEXICAN GRILL INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+CB,896159,Chubb Ltd,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+CHD,313927,CHURCH & DWIGHT CO INC /DE/,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+CIEN,936395,CIENA CORP,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+CI,1739940,Cigna Group,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+CINF,20286,CINCINNATI FINANCIAL CORP,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+CTAS,723254,CINTAS CORP,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+CSCO,858877,"CISCO SYSTEMS, INC.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+C,831001,CITIGROUP INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+CFG,759944,CITIZENS FINANCIAL GROUP INC/RI,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+CLX,21076,CLOROX CO /DE/,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+CME,1156375,CME GROUP INC.,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+CMS,811156,CMS ENERGY CORP,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+KO,21344,COCA COLA CO,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+CTSH,1058290,COGNIZANT TECHNOLOGY SOLUTIONS CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+COHR,820318,COHERENT CORP.,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+COIN,1679788,"Coinbase Global, Inc.",Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+CL,21665,COLGATE PALMOLIVE CO,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+CMCSA,1166691,COMCAST CORP,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+FIX,1035983,COMFORT SYSTEMS USA INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+CAG,23217,CONAGRA BRANDS INC.,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+COP,1163165,CONOCOPHILLIPS,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+ED,1047862,CONSOLIDATED EDISON INC,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+STZ,16918,"CONSTELLATION BRANDS, INC.",NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+CEG,1868275,Constellation Energy Corp,Nasdaq,Utilities,,,,,,,,,,,,,标准无保留,无
+COO,711404,"COOPER COMPANIES, INC.",Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+CPRT,900075,COPART INC,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+GLW,24741,CORNING INC /NY,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+CPAY,1175454,"CORPAY, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+CTVA,1755672,"Corteva, Inc.",NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+CSGP,1057352,"COSTAR GROUP, INC.",Nasdaq,Real Estate,,,,,,,,,,,,,标准无保留,无
+COST,909832,COSTCO WHOLESALE CORP /NEW,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+CRH,849395,CRH PUBLIC LTD CO,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+CRWD,1535527,"CrowdStrike Holdings, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+CCI,1051470,CROWN CASTLE INC.,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+CSX,277948,CSX CORP,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+CMI,26172,CUMMINS INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+CVS,64803,CVS HEALTH Corp,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+DHR,313616,DANAHER CORP /DE/,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+DRI,940944,DARDEN RESTAURANTS INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+DDOG,1561550,"Datadog, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+DVA,927066,DAVITA INC.,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+DECK,910521,DECKERS OUTDOOR CORP,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+DE,315189,DEERE & CO,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+DELL,1571996,Dell Technologies Inc.,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+DAL,27904,"DELTA AIR LINES, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+DVN,1090012,DEVON ENERGY CORP/DE,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+DXCM,1093557,DEXCOM INC,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+FANG,1539838,"Diamondback Energy, Inc.",Nasdaq,Energy,,,,,,,,,,,,,标准无保留,无
+DLR,1297996,"DIGITAL REALTY TRUST, INC.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+DG,29534,DOLLAR GENERAL CORP,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+DLTR,935703,"DOLLAR TREE, INC.",Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+D,715957,"DOMINION ENERGY, INC",NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+DPZ,1286681,DOMINOS PIZZA INC,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+DASH,1792789,"DoorDash, Inc.",Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+DOV,29905,DOVER Corp,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+DOW,1751788,DOW INC.,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+DHI,882184,HORTON D R INC /DE/,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+DTE,936340,DTE ENERGY CO,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+DUK,1326160,Duke Energy CORP,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+DD,1666700,"DuPont de Nemours, Inc.",NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+ETN,1551182,Eaton Corp plc,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+EBAY,1065088,EBAY INC,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+SATS,1415404,EchoStar CORP,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+ECL,31462,ECOLAB INC.,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+EIX,827052,EDISON INTERNATIONAL,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+EW,1099800,Edwards Lifesciences Corp,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+EA,712515,ELECTRONIC ARTS INC.,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+ELV,1156039,"Elevance Health, Inc.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+EME,105634,"EMCOR Group, Inc.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+EMR,32604,EMERSON ELECTRIC CO,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+ETR,65984,ENTERGY CORP /DE/,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+EOG,821189,EOG RESOURCES INC,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+EQT,33213,EQT Corp,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+EFX,33185,EQUIFAX INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+EQIX,1101239,EQUINIX INC,Nasdaq,Real Estate,,,,,,,,,,,,,标准无保留,无
+EQR,906107,EQUITY RESIDENTIAL,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+ERIE,922621,ERIE INDEMNITY CO,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+ESS,920522,"ESSEX PROPERTY TRUST, INC.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+EL,1001250,ESTEE LAUDER COMPANIES INC,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+EG,1095073,"EVEREST GROUP, LTD.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+EVRG,1711269,"Evergy, Inc.",Nasdaq,Utilities,,,,,,,,,,,,,标准无保留,无
+ES,72741,EVERSOURCE ENERGY,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+EXC,1109357,EXELON CORP,Nasdaq,Utilities,,,,,,,,,,,,,标准无保留,无
+EXE,895126,EXPAND ENERGY Corp,Nasdaq,Energy,,,,,,,,,,,,,标准无保留,无
+EXPE,1324424,"Expedia Group, Inc.",Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+EXPD,746515,EXPEDITORS INTERNATIONAL OF WASHINGTON INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+EXR,1289490,Extra Space Storage Inc.,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+XOM,34088,EXXON MOBIL CORP,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+FFIV,1048695,"F5, INC.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+FDS,1013237,FACTSET RESEARCH SYSTEMS INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+FICO,814547,FAIR ISAAC CORP,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+FAST,815556,FASTENAL CO,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+FRT,34903,FEDERAL REALTY INVESTMENT TRUST,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+FDX,1048911,FEDEX CORP,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+FDXF,2082247,"FedEx Freight Holding Company, Inc.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+FIS,1136893,"Fidelity National Information Services, Inc.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+FITB,35527,FIFTH THIRD BANCORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+FSLR,1274494,"FIRST SOLAR, INC.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+FE,1031296,FIRSTENERGY CORP,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+FISV,798354,FISERV INC,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+FLEX,866374,FLEX LTD.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+F,37996,FORD MOTOR CO,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+FTNT,1262039,"Fortinet, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+FTV,1659166,Fortive Corp,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+FOXA,1754301,Fox Corp,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+FOX,1754301,Fox Corp,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+BEN,38777,FRANKLIN RESOURCES INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+FCX,831259,FREEPORT-MCMORAN INC,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+GRMN,1121788,GARMIN LTD,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+IT,749251,GARTNER INC,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+GE,40545,GENERAL ELECTRIC CO,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+GEHC,1932393,GE HealthCare Technologies Inc.,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+GEV,1996810,GE Vernova Inc.,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+GEN,849399,Gen Digital Inc.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+GNRC,1474735,GENERAC HOLDINGS INC.,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+GD,40533,GENERAL DYNAMICS CORP,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+GIS,40704,GENERAL MILLS INC,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+GM,1467858,General Motors Co,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+GPC,40987,GENUINE PARTS CO,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+GILD,882095,"GILEAD SCIENCES, INC.",Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+GPN,1123360,GLOBAL PAYMENTS INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+GL,320335,GLOBE LIFE INC.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+GDDY,1609711,GoDaddy Inc.,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+GS,886982,GOLDMAN SACHS GROUP INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+HAL,45012,HALLIBURTON CO,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+HIG,874766,"HARTFORD INSURANCE GROUP, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+HAS,46080,"HASBRO, INC.",Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+HCA,860730,"HCA Healthcare, Inc.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+DOC,765880,"HEALTHPEAK PROPERTIES, INC.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+HSIC,1000228,HENRY SCHEIN INC,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+HSY,47111,HERSHEY CO,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+HPE,1645590,Hewlett Packard Enterprise Co,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+HLT,1585689,Hilton Worldwide Holdings Inc.,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+HD,354950,"HOME DEPOT, INC.",NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+HON,773840,HONEYWELL INTERNATIONAL INC,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+HRL,48465,HORMEL FOODS CORP /DE/,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+HST,1070750,"HOST HOTELS & RESORTS, INC.",Nasdaq,Real Estate,,,,,,,,,,,,,标准无保留,无
+HWM,4281,Howmet Aerospace Inc.,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+HPQ,47217,HP INC,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+HUBB,48898,HUBBELL INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+HUM,49071,HUMANA INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+HBAN,49196,HUNTINGTON BANCSHARES INC /MD/,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+HII,1501585,"HUNTINGTON INGALLS INDUSTRIES, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+IBM,51143,INTERNATIONAL BUSINESS MACHINES CORP,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+IEX,832101,IDEX CORP /DE/,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+IDXX,874716,IDEXX LABORATORIES INC /DE,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+ITW,49826,ILLINOIS TOOL WORKS INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+INCY,879169,INCYTE CORP,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+IR,1699150,Ingersoll Rand Inc.,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+PODD,1145197,INSULET CORP,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+INTC,50863,INTEL CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+IBKR,1381197,"Interactive Brokers Group, Inc.",Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+ICE,1571949,"Intercontinental Exchange, Inc.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+IFF,51253,INTERNATIONAL FLAVORS & FRAGRANCES INC,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+IP,51434,INTERNATIONAL PAPER CO /NEW/,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+INTU,896878,INTUIT INC.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+ISRG,1035267,INTUITIVE SURGICAL INC,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+IVZ,914208,Invesco Ltd.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+INVH,1687229,Invitation Homes Inc.,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+IQV,1478242,IQVIA HOLDINGS INC.,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+IRM,1020569,IRON MOUNTAIN INC,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+JBHT,728535,HUNT J B TRANSPORT SERVICES INC,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+JBL,898293,JABIL INC,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+JKHY,779152,JACK HENRY & ASSOCIATES INC,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+J,52988,JACOBS SOLUTIONS INC.,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+JNJ,200406,JOHNSON & JOHNSON,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+JCI,833444,Johnson Controls International plc,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+JPM,19617,JPMORGAN CHASE & CO,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+KVUE,1944048,Kenvue Inc.,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+KDP,1418135,Keurig Dr Pepper Inc.,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+KEY,91576,KEYCORP /NEW/,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+KEYS,1601046,"Keysight Technologies, Inc.",NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+KMB,55785,KIMBERLY CLARK CORP,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+KIM,879101,KIMCO REALTY CORP,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+KMI,1506307,"KINDER MORGAN, INC.",NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+KKR,1404912,KKR & Co. Inc.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+KLAC,319201,KLA CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+KHC,1637459,Kraft Heinz Co,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+KR,56873,KROGER CO,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+LHX,202058,"L3HARRIS TECHNOLOGIES, INC. /DE/",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+LH,920148,LABCORP HOLDINGS INC.,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+LRCX,707549,LAM RESEARCH CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+LVS,1300514,LAS VEGAS SANDS CORP,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+LDOS,1336920,"Leidos Holdings, Inc.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+LEN,920760,LENNAR CORP /NEW/,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+LII,1069202,LENNOX INTERNATIONAL INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+LLY,59478,ELI LILLY & Co,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+LIN,1707925,LINDE PLC,Nasdaq,Materials,,,,,,,,,,,,,标准无保留,无
+LYV,1335258,"Live Nation Entertainment, Inc.",NYSE,Communication Services,,,,,,,,,,,,,标准无保留,无
+LMT,936468,LOCKHEED MARTIN CORP,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+L,60086,LOEWS CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+LOW,60667,LOWES COMPANIES INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+LULU,1397187,lululemon athletica inc.,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+LITE,1633978,Lumentum Holdings Inc.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+LYB,1489393,LyondellBasell Industries N.V.,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+MTB,36270,M&T BANK CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+MPC,1510295,Marathon Petroleum Corp,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+MAR,1048286,MARRIOTT INTERNATIONAL INC /MD/,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+MRSH,62709,"MARSH & MCLENNAN COMPANIES, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+MLM,916076,MARTIN MARIETTA MATERIALS INC,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+MRVL,1835632,"Marvell Technology, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+MAS,62996,MASCO CORP /DE/,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+MA,1141391,Mastercard Inc,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+MKC,63754,MCCORMICK & CO INC,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+MCD,63908,MCDONALDS CORP,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+MCK,927653,MCKESSON CORP,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+MDT,1613103,Medtronic plc,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+MRK,310158,"Merck & Co., Inc.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+META,1326801,"Meta Platforms, Inc.",Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+MET,1099219,METLIFE INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+MTD,1037646,METTLER TOLEDO INTERNATIONAL INC/,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+MGM,789570,MGM Resorts International,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+MCHP,827054,MICROCHIP TECHNOLOGY INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+MU,723125,MICRON TECHNOLOGY INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+MSFT,789019,MICROSOFT CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+MAA,912595,MID AMERICA APARTMENT COMMUNITIES INC.,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+MRNA,1682852,"Moderna, Inc.",Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+TAP,24545,MOLSON COORS BEVERAGE CO,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+MDLZ,1103982,"Mondelez International, Inc.",Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+MPWR,1280452,MONOLITHIC POWER SYSTEMS INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+MNST,865752,Monster Beverage Corp,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+MCO,1059556,MOODYS CORP /DE/,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+MS,895421,MORGAN STANLEY,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+MOS,1285785,MOSAIC CO,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+MSI,68505,"Motorola Solutions, Inc.",NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+MSCI,1408198,MSCI Inc.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+NDAQ,1120193,"NASDAQ, INC.",Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+NTAP,1002047,"NetApp, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+NFLX,1065280,NETFLIX INC,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+NEM,1164727,NEWMONT Corp /DE/,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+NWSA,1564708,NEWS CORP,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+NWS,1564708,NEWS CORP,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+NEE,753308,NEXTERA ENERGY INC,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+NKE,320187,"NIKE, Inc.",NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+NI,1111711,NISOURCE INC.,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+NDSN,72331,NORDSON CORP,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+NSC,702165,NORFOLK SOUTHERN CORP,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+NTRS,73124,NORTHERN TRUST CORP,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+NOC,1133421,NORTHROP GRUMMAN CORP /DE/,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+NCLH,1513761,Norwegian Cruise Line Holdings Ltd.,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+NRG,1013871,"NRG ENERGY, INC.",NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+NUE,73309,NUCOR CORP,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+NVDA,1045810,NVIDIA CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+NVR,906163,NVR INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+NXPI,1413447,NXP Semiconductors N.V.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+ORLY,898173,O REILLY AUTOMOTIVE INC,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+OXY,797468,OCCIDENTAL PETROLEUM CORP /DE/,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+ODFL,878927,"OLD DOMINION FREIGHT LINE, INC.",Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+OMC,29989,OMNICOM GROUP INC.,NYSE,Communication Services,,,,,,,,,,,,,标准无保留,无
+ON,1097864,ON SEMICONDUCTOR CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+OKE,1039684,ONEOK INC /NEW/,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+ORCL,1341439,ORACLE CORP,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+OTIS,1781335,Otis Worldwide Corp,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+PCAR,75362,PACCAR INC,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+PKG,75677,PACKAGING CORP OF AMERICA,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+PLTR,1321655,Palantir Technologies Inc.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+PANW,1327567,Palo Alto Networks Inc,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+PSKY,2041610,Paramount Skydance Corp,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+PH,76334,Parker-Hannifin Corp,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+PAYX,723531,PAYCHEX INC,Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+PYPL,1633917,"PayPal Holdings, Inc.",Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+PNR,77360,PENTAIR plc,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+PEP,77476,PEPSICO INC,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+PFE,78003,PFIZER INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+PCG,1004980,PG&E Corp,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+PM,1413329,Philip Morris International Inc.,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+PSX,1534701,Phillips 66,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+PNW,764622,PINNACLE WEST CAPITAL CORP,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+PNC,713676,"PNC FINANCIAL SERVICES GROUP, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+PPG,79879,PPG INDUSTRIES INC,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+PPL,922224,PPL Corp,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+PFG,1126328,PRINCIPAL FINANCIAL GROUP INC,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+PG,80424,PROCTER & GAMBLE Co,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+PGR,80661,PROGRESSIVE CORP/OH/,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+PLD,1045609,"Prologis, Inc.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+PRU,1137774,PRUDENTIAL FINANCIAL INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+PEG,788784,PUBLIC SERVICE ENTERPRISE GROUP INC,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+PTC,857005,PTC INC.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+PSA,1393311,Public Storage,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+PHM,822416,PULTEGROUP INC/MI/,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+PWR,1050915,"QUANTA SERVICES, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+QCOM,804328,QUALCOMM INC/DE,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+DGX,1022079,QUEST DIAGNOSTICS INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+Q,2058873,"Qnity Electronics, Inc.",NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+RL,1037038,RALPH LAUREN CORP,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+RJF,720005,RAYMOND JAMES FINANCIAL INC,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+RTX,101829,RTX Corp,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+O,726728,REALTY INCOME CORP,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+REG,910606,REGENCY CENTERS CORP,Nasdaq,Real Estate,,,,,,,,,,,,,标准无保留,无
+REGN,872589,"REGENERON PHARMACEUTICALS, INC.",Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+RF,1281761,REGIONS FINANCIAL CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+RSG,1060391,"REPUBLIC SERVICES, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+RMD,943819,RESMED INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+RVTY,31791,"REVVITY, INC.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+HOOD,1783879,"Robinhood Markets, Inc.",Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+ROK,1024478,"ROCKWELL AUTOMATION, INC",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+ROL,84839,ROLLINS INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+ROP,882835,ROPER TECHNOLOGIES INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+ROST,745732,"ROSS STORES, INC.",Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+RCL,884887,ROYAL CARIBBEAN CRUISES LTD,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+SPGI,64040,S&P Global Inc.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+CRM,1108524,"Salesforce, Inc.",NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+SNDK,2023554,Sandisk Corp,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+SBAC,1034054,SBA COMMUNICATIONS CORP,Nasdaq,Real Estate,,,,,,,,,,,,,标准无保留,无
+SLB,87347,SLB LIMITED/NV,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+STX,1137789,Seagate Technology Holdings plc,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+SRE,1032208,SEMPRA,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+NOW,1373715,"ServiceNow, Inc.",NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+SHW,89800,SHERWIN WILLIAMS CO,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+SPG,1063761,SIMON PROPERTY GROUP INC.,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+SWKS,4127,"SKYWORKS SOLUTIONS, INC.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+SJM,91419,J M SMUCKER Co,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+SW,2005951,Smurfit Westrock plc,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+SNA,91440,Snap-on Inc,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+SOLV,1964738,Solventum Corp,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+SO,92122,SOUTHERN CO,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+LUV,92380,SOUTHWEST AIRLINES CO,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+SWK,93556,"STANLEY BLACK & DECKER, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+SBUX,829224,STARBUCKS CORP,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+STT,93751,STATE STREET CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+STLD,1022671,STEEL DYNAMICS INC,Nasdaq,Materials,,,,,,,,,,,,,标准无保留,无
+STE,1757898,STERIS plc,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+SYK,310764,STRYKER CORP,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+SMCI,1375365,"Super Micro Computer, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+SYF,1601712,Synchrony Financial,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+SNPS,883241,SYNOPSYS INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+SYY,96021,SYSCO CORP,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+TMUS,1283699,"T-Mobile US, Inc.",Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+TROW,1113169,PRICE T ROWE GROUP INC,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+TTWO,946581,TAKE TWO INTERACTIVE SOFTWARE INC,Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+TPR,1116132,"TAPESTRY, INC.",NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+TRGP,1389170,Targa Resources Corp.,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+TGT,27419,TARGET CORP,NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+TEL,1385157,TE Connectivity plc,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+TDY,1094285,TELEDYNE TECHNOLOGIES INC,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+TER,97210,"TERADYNE, INC",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+TSLA,1318605,"Tesla, Inc.",Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+TXN,97476,TEXAS INSTRUMENTS INC,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+TPL,1811074,Texas Pacific Land Corp,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+TXT,217346,TEXTRON INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+TMO,97745,THERMO FISHER SCIENTIFIC INC.,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+TJX,109198,TJX COMPANIES INC /DE/,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+TKO,1973266,"TKO Group Holdings, Inc.",NYSE,Communication Services,,,,,,,,,,,,,标准无保留,无
+TTD,1671933,"Trade Desk, Inc.",Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+TSCO,916365,TRACTOR SUPPLY CO /DE/,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+TT,1466258,Trane Technologies plc,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+TDG,1260221,TransDigm Group INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+TRV,86312,"TRAVELERS COMPANIES, INC.",NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+TRMB,864749,TRIMBLE INC.,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+TFC,92230,TRUIST FINANCIAL CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+TYL,860731,TYLER TECHNOLOGIES INC,NYSE,Information Technology,,,,,,,,,,,,,标准无保留,无
+TSN,100493,"TYSON FOODS, INC.",NYSE,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+USB,36104,US BANCORP DE,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+UBER,1543151,"Uber Technologies, Inc",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+UDR,74208,"UDR, Inc.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+ULTA,1403568,"Ulta Beauty, Inc.",Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+UNP,100885,UNION PACIFIC CORP,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+UAL,100517,"United Airlines Holdings, Inc.",Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+UPS,1090727,UNITED PARCEL SERVICE INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+URI,1067701,"UNITED RENTALS, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+UNH,731766,UNITEDHEALTH GROUP INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+UHS,352915,UNIVERSAL HEALTH SERVICES INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+VLO,1035002,VALERO ENERGY CORP/TX,NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+VEEV,1393052,VEEVA SYSTEMS INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+VTR,740260,"Ventas, Inc.",NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+VLTO,1967680,Veralto Corp,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+VRSN,1014473,VERISIGN INC/CA,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+VRSK,1442145,"Verisk Analytics, Inc.",Nasdaq,Industrials,,,,,,,,,,,,,标准无保留,无
+VZ,732712,VERIZON COMMUNICATIONS INC,NYSE,Communication Services,,,,,,,,,,,,,标准无保留,无
+VRTX,875320,VERTEX PHARMACEUTICALS INC / MA,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+VRT,1674101,Vertiv Holdings Co,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+VTRS,1792044,Viatris Inc,Nasdaq,Health Care,,,,,,,,,,,,,标准无保留,无
+VICI,1705696,VICI PROPERTIES INC.,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+V,1403161,VISA INC.,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+VST,1692819,Vistra Corp.,NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+VMC,1396009,Vulcan Materials CO,NYSE,Materials,,,,,,,,,,,,,标准无保留,无
+WRB,11544,BERKLEY W R CORP,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+GWW,277135,"W.W. GRAINGER, INC.",NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+WAB,943452,WESTINGHOUSE AIR BRAKE TECHNOLOGIES CORP,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+WMT,104169,Walmart Inc.,Nasdaq,Consumer Staples,,,,,,,,,,,,,标准无保留,无
+DIS,1744489,Walt Disney Co,NYSE,Communication Services,,,,,,,,,,,,,标准无保留,无
+WBD,1437107,"Warner Bros. Discovery, Inc.",Nasdaq,Communication Services,,,,,,,,,,,,,标准无保留,无
+WM,823768,WASTE MANAGEMENT INC,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+WAT,1000697,WATERS CORP /DE/,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+WEC,783325,"WEC ENERGY GROUP, INC.",NYSE,Utilities,,,,,,,,,,,,,标准无保留,无
+WFC,72971,WELLS FARGO & COMPANY/MN,NYSE,Financials,,,,,,,,,,,,,标准无保留,无
+WELL,766704,WELLTOWER INC.,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+WST,105770,WEST PHARMACEUTICAL SERVICES INC,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+WDC,106040,WESTERN DIGITAL CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+WY,106535,WEYERHAEUSER CO,NYSE,Real Estate,,,,,,,,,,,,,标准无保留,无
+WSM,719955,WILLIAMS SONOMA INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+WMB,107263,"WILLIAMS COMPANIES, INC.",NYSE,Energy,,,,,,,,,,,,,标准无保留,无
+WTW,1140536,WILLIS TOWERS WATSON PLC,Nasdaq,Financials,,,,,,,,,,,,,标准无保留,无
+WDAY,1327811,"Workday, Inc.",Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+WYNN,1174922,WYNN RESORTS LTD,Nasdaq,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+XEL,72903,XCEL ENERGY INC,Nasdaq,Utilities,,,,,,,,,,,,,标准无保留,无
+XYL,1524472,Xylem Inc.,NYSE,Industrials,,,,,,,,,,,,,标准无保留,无
+YUM,1041061,YUM BRANDS INC,NYSE,Consumer Discretionary,,,,,,,,,,,,,标准无保留,无
+ZBRA,877212,ZEBRA TECHNOLOGIES CORP,Nasdaq,Information Technology,,,,,,,,,,,,,标准无保留,无
+ZBH,1136869,"ZIMMER BIOMET HOLDINGS, INC.",NYSE,Health Care,,,,,,,,,,,,,标准无保留,无
+ZTS,1555280,Zoetis Inc.,NYSE,Health Care,,,,,,,,,,,,,标准无保留,无

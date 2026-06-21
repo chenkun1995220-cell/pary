@@ -1,0 +1,50 @@
+alias,standard_field
+ticker,ticker
+Ticker,ticker
+symbol,ticker
+Symbol,ticker
+股票代码,ticker
+证券代码,ticker
+代码,ticker
+price,price
+Close,price
+close,price
+Last,price
+最新价,price
+收盘价,price
+股价,price
+shares_outstanding,shares_outstanding
+Shares(M),shares_outstanding
+Shares Outstanding,shares_outstanding
+Diluted Shares,shares_outstanding
+总股本,shares_outstanding
+稀释股本,shares_outstanding
+net_debt,net_debt
+Net Debt(M),net_debt
+Net Debt,net_debt
+净债务,net_debt
+currency,currency
+Currency,currency
+币种,currency
+quote_date,quote_date
+Date,quote_date
+Quote Date,quote_date
+行情日期,quote_date
+数据日期,quote_date
+price_unit,price_unit
+Price Unit,price_unit
+价格单位,price_unit
+shares_unit,shares_unit
+Shares Unit,shares_unit
+股本单位,shares_unit
+debt_unit,debt_unit
+Debt Unit,debt_unit
+债务单位,debt_unit
+quote_source,quote_source
+Source,quote_source
+Data Source,quote_source
+来源,quote_source
+数据来源,quote_source
+updated_at,updated_at
+Updated At,updated_at
+更新时间,updated_at

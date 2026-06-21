@@ -1,0 +1,2 @@
+ticker,cik,company_name,industry,market_cap,enterprise_value,ebitda,industry_pe_median,industry_pb_median,industry_ev_ebitda_median,roic,gross_margin,current_ratio,revenue_cagr_3y,net_income_cagr_3y,dividend_yield,audit_opinion,risk_flag
+AAPL,320193,Apple Inc.,科技硬件,,,,30,10,20,,,,,,,标准无保留,无

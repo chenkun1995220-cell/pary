@@ -1,0 +1,2 @@
+ticker,price,shares_outstanding,net_debt,currency,quote_date,price_unit,shares_unit,debt_unit,quote_source,updated_at
+AAPL,,,,USD,,USD/share,million_shares,USD_million,,

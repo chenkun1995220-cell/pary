@@ -1,0 +1,33 @@
+# 本地依赖与运行环境
+node_modules/
+.pnpm-store/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# 密钥和本地环境变量
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# 抓取缓存、运行结果与临时文件
+data/cache/
+outputs/
+*.log
+*.tmp
+*.temp
+
+# 独立参考项目，不纳入当前仓库
+ai-hedge-fund/
+
+# 编辑器和操作系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+

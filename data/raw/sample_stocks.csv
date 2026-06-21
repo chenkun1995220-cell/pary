@@ -1,0 +1,4 @@
+market,ticker,company_name,industry,market_cap,enterprise_value,net_assets,revenue_ttm,net_income_ttm,ebitda,operating_cash_flow,capex,dividend_yield,industry_pe_median,industry_pb_median,industry_ev_ebitda_median,roe,roic,gross_margin,debt_to_assets,net_debt_to_ebitda,current_ratio,revenue_cagr_3y,net_income_cagr_3y,audit_opinion,risk_flag
+A股,示例001,示例消费公司,消费,50000,48000,25000,30000,3500,5000,4200,-1200,0.025,22,3,12,0.14,0.12,0.42,0.38,1.2,1.8,0.08,0.10,标准无保留,无
+港股,00000.HK,示例公用事业,公用事业,30000,42000,18000,12000,2200,4500,3000,-900,0.055,14,1.5,9,0.10,0.08,0.35,0.55,2.2,1.1,0.03,0.04,标准无保留,无
+美股,DEMO,示例软件公司,科技软件,90000,85000,12000,18000,1500,2500,2800,-500,0,35,7,22,0.11,0.09,0.72,0.28,0.5,2.5,0.18,0.15,标准无保留,重大

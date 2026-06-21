@@ -1,0 +1,4 @@
+Ticker,Close,Shares(M),Net Debt(M),Date,Source
+AAPL,200,15000,-50000,2026-06-18,manual sample
+MSFT,450,7400,-30000,2026-06-18,manual sample
+GOOGL,180,5900,-90000,2026-06-18,manual sample
