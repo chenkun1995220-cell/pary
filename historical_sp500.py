@@ -6,6 +6,7 @@ from copy import deepcopy
 from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlparse
 
 from sp500_constituents import normalize_ticker
 
@@ -267,7 +268,21 @@ def _configured_evidence(config, event):
         source_url = entry.strip()
     else:
         source_url = str((entry or {}).get("source_url", "") or "").strip()
-    return ("verified", source_url) if source_url else ("secondary", "")
+    if not source_url:
+        return "secondary", ""
+    try:
+        parsed = urlparse(source_url)
+        hostname = (parsed.hostname or "").lower()
+        is_official = (
+            parsed.scheme.lower() == "https"
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port in {None, 443}
+            and (hostname == "spglobal.com" or hostname.endswith(".spglobal.com"))
+        )
+    except ValueError:
+        is_official = False
+    return ("verified" if is_official else "secondary"), source_url
 
 
 def parse_change_events_html(html_text, evidence_config=None):

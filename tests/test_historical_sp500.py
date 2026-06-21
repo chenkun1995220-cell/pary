@@ -38,6 +38,16 @@ def event(date, added, removed, added_name="Added Co", removed_name="Removed Co"
     return row
 
 
+def changes_html():
+    return """
+    <table class="wikitable" id="changes">
+      <tr><th>Date</th><th colspan="2">Added</th><th colspan="2">Removed</th><th>Reason</th></tr>
+      <tr><th></th><th>Ticker</th><th>Security</th><th>Ticker</th><th>Security</th><th></th></tr>
+      <tr><td>June 3, 2025</td><td>new.a</td><td>New &amp; Co</td><td>old.b</td><td>Old Co</td><td>Rebalance</td></tr>
+    </table>
+    """
+
+
 class HistoricalSp500Tests(unittest.TestCase):
     def test_reverse_one_event(self):
         current = {"NEW": constituent("NEW", "New Co")}
@@ -108,13 +118,7 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual("BF-B", restored["BF-B"]["ticker"])
 
     def test_html_changes_parser_defaults_to_secondary_and_can_upgrade_from_config(self):
-        html = """
-        <table class="wikitable" id="changes">
-          <tr><th>Date</th><th colspan="2">Added</th><th colspan="2">Removed</th><th>Reason</th></tr>
-          <tr><th></th><th>Ticker</th><th>Security</th><th>Ticker</th><th>Security</th><th></th></tr>
-          <tr><td>June 3, 2025</td><td>new.a</td><td>New &amp; Co</td><td>old.b</td><td>Old Co</td><td>Rebalance</td></tr>
-        </table>
-        """
+        html = changes_html()
 
         parsed = parse_change_events_html(html)
         verified = parse_change_events_html(
@@ -130,6 +134,51 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual("secondary", parsed[0]["membership_evidence"])
         self.assertEqual("", parsed[0]["membership_source_url"])
         self.assertEqual("verified", verified[0]["membership_evidence"])
+
+    def test_only_official_spglobal_domains_can_upgrade_to_verified(self):
+        official_urls = [
+            "https://spglobal.com/spdji/en/announcements/",
+            "https://www.spglobal.com/spdji/en/announcements/",
+            "https://press.spglobal.com/2025/change",
+        ]
+
+        for source_url in official_urls:
+            with self.subTest(source_url=source_url):
+                parsed = parse_change_events_html(
+                    changes_html(),
+                    evidence_config={
+                        ("2025-06-03", "NEW-A", "OLD-B"): {"source_url": source_url}
+                    },
+                )
+                self.assertEqual("verified", parsed[0]["membership_evidence"])
+                self.assertEqual(source_url, parsed[0]["membership_source_url"])
+
+    def test_non_first_party_and_lookalike_urls_remain_secondary(self):
+        rejected_urls = [
+            "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+            "https://example.test/change",
+            "https://spglobal.com.example.test/change",
+            "https://notspglobal.com/change",
+            "https://spglobal-example.com/change",
+            "https://spglobal.com@example.test/change",
+            "spglobal.com/change",
+            "javascript:https://spglobal.com/change",
+            "https://spglobal.com:bad/change",
+            "https://[spglobal.com/change",
+            "not a url",
+            "",
+        ]
+
+        for source_url in rejected_urls:
+            with self.subTest(source_url=source_url):
+                parsed = parse_change_events_html(
+                    changes_html(),
+                    evidence_config={
+                        ("2025-06-03", "NEW-A", "OLD-B"): {"source_url": source_url}
+                    },
+                )
+                self.assertEqual("secondary", parsed[0]["membership_evidence"])
+                self.assertEqual(source_url.strip(), parsed[0]["membership_source_url"])
 
     def test_invalid_dates_and_evidence_are_rejected(self):
         with self.assertRaises(ValueError):
