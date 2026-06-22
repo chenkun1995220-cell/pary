@@ -1,8 +1,11 @@
 import csv
 import copy
+import os
 import tempfile
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
+from unittest import mock
 
 from historical_sp500 import (
     EVIDENCE_LEVELS,
@@ -135,6 +138,33 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual("", parsed[0]["membership_source_url"])
         self.assertEqual("verified", verified[0]["membership_evidence"])
 
+    def test_html_changes_parser_rejects_invalid_date_after_data_begins(self):
+        html = changes_html().replace(
+            "</table>",
+            "<tr><td>not a date</td><td>BAD</td><td>Bad Co</td>"
+            "<td>OLD</td><td>Old Co</td><td>Bad date</td></tr></table>",
+        )
+
+        with self.assertRaises(ValueError) as raised:
+            parse_change_events_html(html)
+
+        self.assertIn("row 4", str(raised.exception))
+        self.assertIn("not a date", str(raised.exception))
+        self.assertIn("BAD", str(raised.exception))
+
+    def test_html_changes_parser_rejects_short_row_after_data_begins(self):
+        html = changes_html().replace(
+            "</table>",
+            "<tr><td>June 10, 2025</td><td>SHORT</td></tr></table>",
+        )
+
+        with self.assertRaises(ValueError) as raised:
+            parse_change_events_html(html)
+
+        self.assertIn("row 4", str(raised.exception))
+        self.assertIn("June 10, 2025", str(raised.exception))
+        self.assertIn("SHORT", str(raised.exception))
+
     def test_only_official_spglobal_domains_can_upgrade_to_verified(self):
         official_urls = [
             "https://spglobal.com/spdji/en/announcements/",
@@ -212,7 +242,11 @@ class HistoricalSp500Tests(unittest.TestCase):
             "ZZZ": constituent("ZZZ", "Z Co"),
             "AAA": constituent("AAA", "A Co"),
         }
-        weeks = [f"2025-{month:02d}-{day:02d}" for month in range(12, 0, -1) for day in range(28, 15, -1)]
+        latest_week = date(2025, 12, 26)
+        weeks = [
+            (latest_week - timedelta(weeks=offset)).isoformat()
+            for offset in range(156)
+        ]
 
         rows = build_weekly_membership(current, [], weeks)
 
@@ -220,6 +254,12 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual(312, len(rows))
         self.assertEqual(sorted((row["week"], row["ticker"]) for row in rows), [(row["week"], row["ticker"]) for row in rows])
         self.assertEqual(MEMBERSHIP_FIELDS, list(rows[0]))
+
+    def test_duplicate_weeks_are_rejected(self):
+        duplicate_week = "2025-01-03"
+
+        with self.assertRaisesRegex(ValueError, "duplicate week"):
+            build_weekly_membership({}, [], [duplicate_week, duplicate_week])
 
     def test_atomic_csv_output_has_utf8_bom_and_replaces_existing_file(self):
         rows = build_weekly_membership(
@@ -236,6 +276,66 @@ class HistoricalSp500Tests(unittest.TestCase):
                 written = list(csv.DictReader(stream))
             self.assertEqual("中文公司", written[0]["company_name"])
             self.assertEqual(MEMBERSHIP_FIELDS, list(written[0]))
+            self.assertEqual([], list(output.parent.glob(f".{output.name}.*.tmp")))
+
+    def test_atomic_csv_closes_raw_descriptor_when_fdopen_fails(self):
+        original_mkstemp = tempfile.mkstemp
+        raw_descriptors = []
+
+        def capture_mkstemp(*args, **kwargs):
+            descriptor, name = original_mkstemp(*args, **kwargs)
+            raw_descriptors.append(descriptor)
+            return descriptor, name
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "historical_membership.csv"
+            failure = RuntimeError("fdopen failed")
+            try:
+                with mock.patch(
+                    "historical_sp500.tempfile.mkstemp", side_effect=capture_mkstemp
+                ), mock.patch("historical_sp500.os.fdopen", side_effect=failure):
+                    with self.assertRaisesRegex(RuntimeError, "fdopen failed"):
+                        write_historical_membership_csv(output, [])
+                self.assertEqual([], list(output.parent.glob(f".{output.name}.*.tmp")))
+            finally:
+                for descriptor in raw_descriptors:
+                    try:
+                        os.close(descriptor)
+                    except OSError:
+                        pass
+                for temporary in output.parent.glob(f".{output.name}.*.tmp"):
+                    temporary.unlink()
+
+    def test_atomic_csv_preserves_writerows_error_when_cleanup_errors(self):
+        original_unlink = Path.unlink
+
+        def unlink_then_error(path, *args, **kwargs):
+            original_unlink(path, *args, **kwargs)
+            raise PermissionError("cleanup failed")
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "historical_membership.csv"
+            writer = mock.Mock()
+            writer.writerows.side_effect = RuntimeError("writerows failed")
+
+            with mock.patch("historical_sp500.csv.DictWriter", return_value=writer), mock.patch(
+                "historical_sp500.Path.unlink", side_effect=unlink_then_error, autospec=True
+            ):
+                with self.assertRaisesRegex(RuntimeError, "writerows failed"):
+                    write_historical_membership_csv(output, [])
+
+            self.assertEqual([], list(output.parent.glob(f".{output.name}.*.tmp")))
+
+    def test_atomic_csv_removes_temp_when_replace_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "historical_membership.csv"
+
+            with mock.patch(
+                "historical_sp500.os.replace", side_effect=RuntimeError("replace failed")
+            ):
+                with self.assertRaisesRegex(RuntimeError, "replace failed"):
+                    write_historical_membership_csv(output, [])
+
             self.assertEqual([], list(output.parent.glob(f".{output.name}.*.tmp")))
 
     def test_public_constants(self):

@@ -299,7 +299,8 @@ def parse_change_events_html(html_text, evidence_config=None):
 
     events = []
     previous_date = ""
-    for row in table:
+    data_started = False
+    for row_number, row in enumerate(table, start=1):
         values = list(row)
         try:
             effective_date = _historical_date(values[0])
@@ -308,10 +309,19 @@ def parse_change_events_html(html_text, evidence_config=None):
             if previous_date and len(values) == 5:
                 effective_date = previous_date
                 values.insert(0, "")
+            elif data_started:
+                raise ValueError(
+                    f"malformed historical changes row {row_number}: {row!r}"
+                )
             else:
                 continue
         if len(values) < 6:
+            if data_started:
+                raise ValueError(
+                    f"malformed historical changes row {row_number}: {row!r}"
+                )
             continue
+        data_started = True
         event = {
             "effective_date": effective_date,
             "added_ticker": normalize_ticker(values[1]),
@@ -335,7 +345,15 @@ def parse_change_events_html(html_text, evidence_config=None):
 
 def build_weekly_membership(current_rows, events, weeks):
     output = []
-    normalized_weeks = sorted(_iso_date(week, "week") for week in deepcopy(weeks))
+    normalized_weeks = [
+        _iso_date(week, "week") for week in deepcopy(weeks)
+    ]
+    seen_weeks = set()
+    for week in normalized_weeks:
+        if week in seen_weeks:
+            raise ValueError(f"duplicate week: {week}")
+        seen_weeks.add(week)
+    normalized_weeks.sort()
     for week in normalized_weeks:
         membership = restore_membership(current_rows, events, week)
         for ticker in sorted(membership):
@@ -356,11 +374,16 @@ def build_weekly_membership(current_rows, events, weeks):
 def write_historical_membership_csv(path, rows):
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary_name = tempfile.mkstemp(
+    raw_descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
     )
+    descriptor_owned = True
     try:
-        with os.fdopen(handle, "w", encoding="utf-8-sig", newline="") as stream:
+        stream = os.fdopen(
+            raw_descriptor, "w", encoding="utf-8-sig", newline=""
+        )
+        descriptor_owned = False
+        with stream:
             writer = csv.DictWriter(
                 stream, fieldnames=MEMBERSHIP_FIELDS, extrasaction="ignore"
             )
@@ -368,5 +391,13 @@ def write_historical_membership_csv(path, rows):
             writer.writerows(rows)
         os.replace(temporary_name, destination)
     except Exception:
-        Path(temporary_name).unlink(missing_ok=True)
+        if descriptor_owned:
+            try:
+                os.close(raw_descriptor)
+            except OSError:
+                pass
+        try:
+            Path(temporary_name).unlink(missing_ok=True)
+        except OSError:
+            pass
         raise
