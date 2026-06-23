@@ -67,9 +67,11 @@ def filter_company_facts_as_of(payload, as_of_date):
     for taxonomy in facts.values():
         if not isinstance(taxonomy, dict):
             continue
-        for concept_data in taxonomy.values():
+        for concept, concept_data in list(taxonomy.items()):
             if not isinstance(concept_data, dict):
-                continue
+                taxonomy[concept] = {}
+                concept_data = taxonomy[concept]
+
             if "units" not in concept_data:
                 continue
             units = concept_data.get("units")

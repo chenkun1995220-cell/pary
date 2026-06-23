@@ -272,6 +272,18 @@ class SecPointInTimeTests(unittest.TestCase):
         self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
         self.assertIn("revenue_ttm", metrics)
 
+    def test_calculate_metrics_as_of_normalizes_list_concept_data(self):
+        payload = {"facts": {"us-gaap": {"RevenueFromContractWithCustomerExcludingAssessedTax": []}}}
+        filtered = filter_company_facts_as_of(payload, "2025-12-31")
+
+        concept = filtered["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"]
+        self.assertIsInstance(concept, dict)
+
+        metrics = calculate_metrics_as_of(payload, "2025-12-31")
+        self.assertEqual(metrics["backtest_date"], "2025-12-31")
+        self.assertEqual(metrics["latest_source_filed"], "")
+        self.assertEqual(metrics["metrics_period_basis"], "partial")
+
     def test_calculate_metrics_as_of_handles_non_dict_facts(self):
         payload = {
             "cik": 320193,
