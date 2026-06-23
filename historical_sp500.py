@@ -549,11 +549,21 @@ def _configured_evidence(config, event):
     entry = config.get(key, config.get("|".join(key), {}))
     if isinstance(entry, str):
         source_url = entry.strip()
+        evidence_level = "verified"
+    elif isinstance(entry, dict):
+        source_url = str(
+            entry.get("membership_source_url", entry.get("source_url", "")) or ""
+        ).strip()
+        evidence_level = _evidence(
+            entry.get("membership_evidence", entry.get("evidence", "secondary")),
+            f"event {event['effective_date']} membership_evidence",
+        )
     else:
-        source_url = str((entry or {}).get("source_url", "") or "").strip()
+        source_url = ""
+        evidence_level = "secondary"
     if not source_url:
         return "secondary", ""
-    return _trusted_evidence("verified", source_url), source_url
+    return _trusted_evidence(evidence_level, source_url), source_url
 
 
 def parse_change_events_html(html_text, evidence_config=None):
@@ -633,6 +643,12 @@ def _validate_history_coverage(events, weeks, require_minimum_weeks=True):
         raise ValueError(
             "insufficient historical coverage: minimum 156 unique weekly snapshots required"
         )
+    if require_minimum_weeks and len(weeks) >= 2:
+        for previous_week, current_week in zip(weeks, weeks[1:]):
+            if (datetime.fromisoformat(current_week) - datetime.fromisoformat(previous_week)).days != 7:
+                raise ValueError(
+                    "coverage is not contiguous weekly: weekly snapshots must be 7 days apart"
+                )
     if len(weeks) < 156:
         return
     if not events:

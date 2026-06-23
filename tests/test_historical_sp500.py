@@ -142,9 +142,7 @@ class HistoricalSp500Tests(unittest.TestCase):
         parsed = parse_change_events_html(html)
         verified = parse_change_events_html(
             html,
-            evidence_config={
-                ("2025-06-03", "NEW-A", "OLD-B"): {"source_url": "https://www.spglobal.com/change"}
-            },
+            evidence_config={("2025-06-03", "NEW-A", "OLD-B"): "https://www.spglobal.com/change"},
         )
 
         self.assertEqual("2025-06-03", parsed[0]["effective_date"])
@@ -153,6 +151,43 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual("secondary", parsed[0]["membership_evidence"])
         self.assertEqual("", parsed[0]["membership_source_url"])
         self.assertEqual("verified", verified[0]["membership_evidence"])
+
+    def test_html_changes_parser_respects_explicit_evidence_and_source_fields_in_config(self):
+        html = changes_html()
+        official_key = ("2025-06-03", "NEW-A", "OLD-B")
+
+        downgraded = parse_change_events_html(
+            html,
+            evidence_config={
+                official_key: {
+                    "membership_evidence": "secondary",
+                    "membership_source_url": "https://www.spglobal.com/spdji/en/announcements/",
+                }
+            },
+        )
+        self.assertEqual("secondary", downgraded[0]["membership_evidence"])
+
+        non_official = parse_change_events_html(
+            html,
+            evidence_config={
+                official_key: {
+                    "membership_evidence": "verified",
+                    "membership_source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+                }
+            },
+        )
+        self.assertEqual("secondary", non_official[0]["membership_evidence"])
+
+        official = parse_change_events_html(
+            html,
+            evidence_config={
+                official_key: {
+                    "membership_evidence": "verified",
+                    "membership_source_url": "https://www.spglobal.com/spdji/en/announcements/",
+                }
+            },
+        )
+        self.assertEqual("verified", official[0]["membership_evidence"])
 
     def test_html_changes_parser_rejects_invalid_date_after_data_begins(self):
         html = changes_html().replace(
@@ -312,7 +347,10 @@ class HistoricalSp500Tests(unittest.TestCase):
                 parsed = parse_change_events_html(
                     changes_html(),
                     evidence_config={
-                        ("2025-06-03", "NEW-A", "OLD-B"): {"source_url": source_url}
+                        ("2025-06-03", "NEW-A", "OLD-B"): {
+                            "source_url": source_url,
+                            "membership_evidence": "verified",
+                        }
                     },
                 )
                 self.assertEqual("verified", parsed[0]["membership_evidence"])
@@ -608,6 +646,23 @@ class HistoricalSp500Tests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "coverage|insufficient|history"):
             build_weekly_membership({"AAA": constituent("AAA", "A Co")}, changes, weeks)
+
+    def test_156_weeks_require_regular_weekly_intervals(self):
+        current = {"ZZZ": constituent("ZZZ", "Z Co")}
+        latest_week = date(2025, 12, 26)
+        weeks = []
+        for offset in range(156):
+            if offset == 80:
+                weeks.append((latest_week - timedelta(days=offset * 7 + 1)).isoformat())
+            else:
+                weeks.append((latest_week - timedelta(weeks=offset)).isoformat())
+
+        with self.assertRaisesRegex(ValueError, "weekly|7"):
+            build_weekly_membership(
+                current,
+                [event("2022-12-30", "NEW", "OLD", removed_name="Old Co")],
+                weeks,
+            )
 
     def test_default_build_weekly_membership_requires_minimum_weeks(self):
         with self.assertRaisesRegex(ValueError, "minimum|156"):
