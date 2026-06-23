@@ -45,6 +45,88 @@ class SecPointInTimeTests(unittest.TestCase):
         ]
         self.assertIn("2025-07-25", values)
 
+    def test_filter_payload_type_errors(self):
+        with self.assertRaises(TypeError) as context:
+            filter_company_facts_as_of(None, "2025-01-01")
+        self.assertIn("payload", str(context.exception))
+
+        with self.assertRaises(TypeError) as context:
+            filter_company_facts_as_of([], "2025-01-01")
+        self.assertIn("payload", str(context.exception))
+
+    def test_filter_as_of_datetime_and_timezone_formats(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1300,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-25T10:00:00",
+            )
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1400,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-26T10:00:00+08:00",
+            )
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1500,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "bad-date-value",
+            )
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1600,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-25T10:00:00Z",
+            )
+        )
+
+        filtered = filter_company_facts_as_of(
+            payload, "2025-07-25T23:00:00+00:00"
+        )
+        values = [
+            entry["filed"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+        self.assertIn("2025-07-25T10:00:00", values)
+        self.assertIn("2025-07-25T10:00:00Z", values)
+        self.assertNotIn("2025-07-26T10:00:00+08:00", values)
+        self.assertNotIn("bad-date-value", values)
+
+    def test_filter_invalid_as_of_date_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            filter_company_facts_as_of({}, "07/25/2025")
+
     def test_filter_excludes_missing_filed(self):
         payload = metric_facts()
         payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"]["units"][
@@ -107,6 +189,62 @@ class SecPointInTimeTests(unittest.TestCase):
         self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
         self.assertEqual(metrics["leakage_status"], "ready")
         self.assertIn("revenue_ttm", metrics)
+
+    def test_calculate_metrics_as_of_payload_type_errors(self):
+        with self.assertRaises(TypeError) as context:
+            calculate_metrics_as_of(None, "2025-01-01")
+        self.assertIn("payload", str(context.exception))
+
+        with self.assertRaises(TypeError) as context:
+            calculate_metrics_as_of([], "2025-01-01")
+        self.assertIn("payload", str(context.exception))
+
+    def test_calculate_metrics_as_of_uses_iso_datetime_and_standardizes_latest_filed(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1400,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-26T15:00:00",
+            )
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1500,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-25T15:00:00Z",
+            )
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1600,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "bad-date-value",
+            )
+        )
+
+        metrics = calculate_metrics_as_of(payload, "2025-07-25T23:00:00")
+
+        self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
+        self.assertEqual(metrics["backtest_date"], "2025-07-25T23:00:00")
 
 
 if __name__ == "__main__":
