@@ -343,6 +343,66 @@ def parse_change_events_html(html_text, evidence_config=None):
     return events
 
 
+def load_change_events_csv(path):
+    source = Path(path)
+    with source.open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.reader(stream)
+        header = None
+        header_line = 0
+        for line_number, row in enumerate(reader, start=1):
+            if not row or not any(str(value).strip() for value in row):
+                continue
+            header = [str(value or "").strip() for value in row]
+            header_line = line_number
+            break
+        if header is None:
+            raise ValueError(f"{source} contained no CSV header")
+        if len(set(header)) != len(header):
+            raise ValueError(f"{source} CSV header contains duplicate fields")
+
+        events = []
+        data_started = False
+        for line_number, row in enumerate(reader, start=header_line + 1):
+            is_blank = not row or not any(str(value).strip() for value in row)
+            if is_blank and not data_started:
+                continue
+            if is_blank or len(row) != len(header):
+                raise ValueError(
+                    f"malformed historical changes CSV line {line_number}: {row!r}"
+                )
+            data_started = True
+            raw_event = dict(zip(header, row))
+            try:
+                events.append(_normalize_event(raw_event, line_number))
+            except ValueError as exc:
+                raise ValueError(
+                    f"malformed historical changes CSV line {line_number}: {row!r}"
+                ) from exc
+    if not events:
+        raise ValueError(f"{source} contained no historical change events")
+    return events
+
+
+def _validate_history_coverage(events, weeks):
+    if len(weeks) < 156:
+        return
+    if not events:
+        raise ValueError(
+            "insufficient historical coverage: no history events for 156+ weeks"
+        )
+    normalized_events = [
+        _normalize_event(event, position)
+        for position, event in enumerate(events, start=1)
+    ]
+    earliest_event = min(event["effective_date"] for event in normalized_events)
+    earliest_week = min(weeks)
+    if earliest_event > earliest_week:
+        raise ValueError(
+            "insufficient historical coverage: earliest history event "
+            f"{earliest_event} is later than earliest week {earliest_week}"
+        )
+
+
 def build_weekly_membership(current_rows, events, weeks):
     output = []
     normalized_weeks = [
@@ -354,6 +414,7 @@ def build_weekly_membership(current_rows, events, weeks):
             raise ValueError(f"duplicate week: {week}")
         seen_weeks.add(week)
     normalized_weeks.sort()
+    _validate_history_coverage(events, normalized_weeks)
     for week in normalized_weeks:
         membership = restore_membership(current_rows, events, week)
         for ticker in sorted(membership):

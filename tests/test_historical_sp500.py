@@ -11,6 +11,7 @@ from historical_sp500 import (
     EVIDENCE_LEVELS,
     MEMBERSHIP_FIELDS,
     build_weekly_membership,
+    load_change_events_csv,
     parse_change_events_html,
     restore_membership,
     write_historical_membership_csv,
@@ -226,6 +227,83 @@ class HistoricalSp500Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_membership({"NEW": invalid_current}, [], "2025-05-31")
 
+    def test_load_change_events_csv_normalizes_rows_and_legacy_source_url(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events.csv"
+            with path.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.DictWriter(
+                    stream,
+                    fieldnames=[
+                        "effective_date",
+                        "added_ticker",
+                        "added_company",
+                        "removed_ticker",
+                        "removed_company",
+                        "membership_evidence",
+                        "source_url",
+                        "reason",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "effective_date": "2025-06-01",
+                        "added_ticker": "new.a",
+                        "added_company": "New Co",
+                        "removed_ticker": "old.b",
+                        "removed_company": "Old Co",
+                        "membership_evidence": "verified",
+                        "source_url": "https://www.spglobal.com/change",
+                        "reason": "Rebalance",
+                    }
+                )
+
+            loaded = load_change_events_csv(path)
+
+        self.assertEqual(
+            [
+                {
+                    "effective_date": "2025-06-01",
+                    "added_ticker": "NEW-A",
+                    "added_company_name": "New Co",
+                    "removed_ticker": "OLD-B",
+                    "removed_company_name": "Old Co",
+                    "membership_evidence": "verified",
+                    "membership_source_url": "https://www.spglobal.com/change",
+                    "reason": "Rebalance",
+                }
+            ],
+            loaded,
+        )
+
+    def test_load_change_events_csv_rejects_bad_data_rows(self):
+        cases = [
+            (
+                "bad-date",
+                "effective_date,added_ticker,removed_ticker,membership_evidence\nnot a date,NEW,OLD,secondary\n",
+                "line 2",
+            ),
+            (
+                "bad-evidence",
+                "effective_date,added_ticker,removed_ticker,membership_evidence\n2025-06-01,NEW,OLD,unknown\n",
+                "line 2",
+            ),
+            (
+                "short-row",
+                "effective_date,added_ticker,removed_ticker,membership_evidence\n2025-06-01,NEW\n",
+                "line 2",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            for name, content, message in cases:
+                with self.subTest(name=name):
+                    path = Path(directory) / f"{name}.csv"
+                    path.write_text(content, encoding="utf-8")
+
+                    with self.assertRaisesRegex(ValueError, message):
+                        load_change_events_csv(path)
+
     def test_input_objects_are_not_mutated(self):
         current = {"new": constituent("new", "New Co")}
         events = [event("2025-06-01", "new", "old")]
@@ -237,7 +315,7 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual(current_before, current)
         self.assertEqual(events_before, events)
 
-    def test_156_weeks_are_stably_sorted(self):
+    def test_156_weeks_are_stably_sorted_with_weekly_intervals(self):
         current = {
             "ZZZ": constituent("ZZZ", "Z Co"),
             "AAA": constituent("AAA", "A Co"),
@@ -247,13 +325,44 @@ class HistoricalSp500Tests(unittest.TestCase):
             (latest_week - timedelta(weeks=offset)).isoformat()
             for offset in range(156)
         ]
+        changes = [
+            event("2022-12-30", "NEW", "OLD", removed_name="Old Co"),
+        ]
 
-        rows = build_weekly_membership(current, [], weeks)
+        rows = build_weekly_membership(current, changes, weeks)
+        row_weeks = sorted({date.fromisoformat(row["week"]) for row in rows})
+        intervals = [
+            (later - earlier).days
+            for earlier, later in zip(row_weeks, row_weeks[1:])
+        ]
 
         self.assertEqual(156, len(weeks))
+        self.assertEqual(156, len(row_weeks))
         self.assertEqual(312, len(rows))
         self.assertEqual(sorted((row["week"], row["ticker"]) for row in rows), [(row["week"], row["ticker"]) for row in rows])
+        self.assertTrue(all(interval == 7 for interval in intervals))
         self.assertEqual(MEMBERSHIP_FIELDS, list(rows[0]))
+
+    def test_156_weeks_reject_empty_history_events(self):
+        latest_week = date(2025, 12, 26)
+        weeks = [
+            (latest_week - timedelta(weeks=offset)).isoformat()
+            for offset in range(156)
+        ]
+
+        with self.assertRaisesRegex(ValueError, "coverage|insufficient|history"):
+            build_weekly_membership({"AAA": constituent("AAA", "A Co")}, [], weeks)
+
+    def test_156_weeks_reject_insufficient_history_coverage(self):
+        latest_week = date(2025, 12, 26)
+        weeks = [
+            (latest_week - timedelta(weeks=offset)).isoformat()
+            for offset in range(156)
+        ]
+        changes = [event("2023-01-13", "NEW", "OLD")]
+
+        with self.assertRaisesRegex(ValueError, "coverage|insufficient|history"):
+            build_weekly_membership({"AAA": constituent("AAA", "A Co")}, changes, weeks)
 
     def test_duplicate_weeks_are_rejected(self):
         duplicate_week = "2025-01-03"
