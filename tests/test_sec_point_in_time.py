@@ -33,6 +33,15 @@ class SecPointInTimeTests(unittest.TestCase):
         self.assertIn("2025-07-25", values)
         self.assertNotIn("2025-12-31", values)
 
+    def test_filter_normalizes_non_dict_facts(self):
+        payload = {
+            "cik": 320193,
+            "facts": ["not", "a", "dict"],
+        }
+        filtered = filter_company_facts_as_of(payload, "2025-12-31")
+
+        self.assertEqual(filtered, {"cik": 320193, "facts": {}})
+
     def test_filter_keeps_boundary_filed(self):
         payload = metric_facts()
         filtered = filter_company_facts_as_of(payload, "2025-07-25")
@@ -44,6 +53,32 @@ class SecPointInTimeTests(unittest.TestCase):
             ]["units"]["USD"]
         ]
         self.assertIn("2025-07-25", values)
+
+    def test_filter_excludes_timezone_future_filed(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"]["units"][
+            "USD"
+        ].append(
+            duration_fact(
+                1200,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-24T23:30:00-01:00",
+            )
+        )
+
+        filtered = filter_company_facts_as_of(payload, "2025-07-25T00:00:00+00:00")
+        values = [
+            entry["filed"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+
+        self.assertNotIn("2025-07-24T23:30:00-01:00", values)
 
     def test_filter_payload_type_errors(self):
         with self.assertRaises(TypeError) as context:
@@ -189,6 +224,17 @@ class SecPointInTimeTests(unittest.TestCase):
         self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
         self.assertEqual(metrics["leakage_status"], "ready")
         self.assertIn("revenue_ttm", metrics)
+
+    def test_calculate_metrics_as_of_handles_non_dict_facts(self):
+        payload = {
+            "cik": 320193,
+            "facts": [],
+        }
+        metrics = calculate_metrics_as_of(payload, "2025-12-31")
+
+        self.assertEqual(metrics["backtest_date"], "2025-12-31")
+        self.assertEqual(metrics["latest_source_filed"], "")
+        self.assertEqual(metrics["metrics_period_basis"], "partial")
 
     def test_calculate_metrics_as_of_payload_type_errors(self):
         with self.assertRaises(TypeError) as context:

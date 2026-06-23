@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import sec_financial_metrics
 
@@ -11,10 +11,41 @@ def _parse_payload_filed_date(value):
     try:
         parsed = datetime.fromisoformat(normalized)
         if isinstance(parsed, datetime):
-            return parsed.date()
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
         return parsed
     except (TypeError, ValueError):
         return None
+
+
+def _normalize_filed_for_compare(value):
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime(
+            value.year,
+            value.month,
+            value.day,
+            tzinfo=timezone.utc,
+        )
+    raise TypeError(f"unsupported filed date type: {type(value)!r}")
+
+
+def _is_filed_after_as_of(filed, as_of):
+    if isinstance(filed, date) and not isinstance(filed, datetime):
+        if isinstance(as_of, date) and not isinstance(as_of, datetime):
+            return filed > as_of
+        return _normalize_filed_for_compare(filed) > _normalize_filed_for_compare(as_of)
+    return _normalize_filed_for_compare(filed) > _normalize_filed_for_compare(as_of)
+
+
+def _format_filed_date(value):
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return ""
 
 
 def filter_company_facts_as_of(payload, as_of_date):
@@ -27,7 +58,10 @@ def filter_company_facts_as_of(payload, as_of_date):
 
     filtered = deepcopy(payload)
     facts = filtered.get("facts")
+    if "facts" not in filtered:
+        return filtered
     if not isinstance(facts, dict):
+        filtered["facts"] = {}
         return filtered
 
     for taxonomy in facts.values():
@@ -79,12 +113,14 @@ def calculate_metrics_as_of(payload, as_of_date):
                     filed = _parse_payload_filed_date(entry.get("filed"))
                     if filed is None:
                         continue
-                    if latest_filed is None or filed > latest_filed:
+                    if latest_filed is None or _normalize_filed_for_compare(filed) > _normalize_filed_for_compare(
+                        latest_filed
+                    ):
                         latest_filed = filed
 
     return {
         **metrics,
         "backtest_date": as_of_date,
-        "latest_source_filed": latest_filed.isoformat() if latest_filed else "",
+        "latest_source_filed": _format_filed_date(latest_filed),
         "leakage_status": "ready",
     }
