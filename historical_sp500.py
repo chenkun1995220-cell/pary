@@ -346,7 +346,9 @@ def parse_change_events_html(html_text, evidence_config=None):
             "membership_source_url": "",
         }
         if not event["added_ticker"] and not event["removed_ticker"]:
-            continue
+            raise ValueError(
+                f"historical changes row {row_number} has no added or removed ticker: {row!r}"
+            )
         evidence, source_url = _configured_evidence(evidence_config, event)
         event["membership_evidence"] = evidence
         event["membership_source_url"] = source_url
