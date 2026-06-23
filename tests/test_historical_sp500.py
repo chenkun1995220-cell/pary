@@ -153,6 +153,34 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertIn("not a date", str(raised.exception))
         self.assertIn("BAD", str(raised.exception))
 
+    def test_html_changes_parser_rejects_bad_five_cell_date_after_data_begins(self):
+        html = changes_html().replace(
+            "</table>",
+            "<tr><td>not a date</td><td>NEW</td><td>New Co</td>"
+            "<td>OLD</td><td>Old Co</td></tr></table>",
+        )
+
+        with self.assertRaises(ValueError) as raised:
+            parse_change_events_html(html)
+
+        self.assertIn("row 4", str(raised.exception))
+        self.assertIn("not a date", str(raised.exception))
+
+    def test_html_changes_parser_allows_blank_date_five_cell_continuation(self):
+        html = changes_html().replace(
+            "</table>",
+            "<tr><td>  </td><td>NEXT</td><td>Next Co</td>"
+            "<td>PREV</td><td>Prev Co</td></tr></table>",
+        )
+
+        parsed = parse_change_events_html(html)
+
+        self.assertEqual(2, len(parsed))
+        self.assertEqual("2025-06-03", parsed[1]["effective_date"])
+        self.assertEqual("NEXT", parsed[1]["added_ticker"])
+        self.assertEqual("PREV", parsed[1]["removed_ticker"])
+        self.assertEqual("", parsed[1]["reason"])
+
     def test_html_changes_parser_rejects_short_row_after_data_begins(self):
         html = changes_html().replace(
             "</table>",

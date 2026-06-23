@@ -319,9 +319,9 @@ def parse_change_events_html(html_text, evidence_config=None):
             effective_date = _historical_date(values[0])
             previous_date = effective_date
         except (ValueError, IndexError):
-            if previous_date and len(values) == 5:
+            if previous_date and len(values) == 5 and not values[0].strip():
                 effective_date = previous_date
-                values.insert(0, "")
+                values = [effective_date, *values[1:], ""]
             elif data_started:
                 raise ValueError(
                     f"malformed historical changes row {row_number}: {row!r}"
