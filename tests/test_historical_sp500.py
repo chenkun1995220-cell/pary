@@ -245,6 +245,20 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertIn("June 10, 2025", str(raised.exception))
         self.assertIn("SHORT", str(raised.exception))
 
+    def test_html_changes_parser_rejects_short_first_data_row(self):
+        html = changes_html().replace(
+            "</table>",
+            "<tr><td>June 10, 2025</td><td>SHORT</td></tr>"
+            "<tr><td>June 11, 2025</td><td>NEW</td><td>New Co</td><td>OLD</td><td>Old Co</td><td>Next</td></tr></table>",
+        )
+
+        with self.assertRaises(ValueError) as raised:
+            parse_change_events_html(html)
+
+        self.assertIn("row 4", str(raised.exception))
+        self.assertIn("June 10, 2025", str(raised.exception))
+        self.assertIn("SHORT", str(raised.exception))
+
     def test_html_changes_parser_rejects_empty_tickers_after_data_begins(self):
         html = changes_html().replace(
             "</table>",

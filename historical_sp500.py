@@ -480,8 +480,10 @@ def _parse_change_events_from_table(table, mapping, evidence_config):
     for row_number, row in enumerate(table, start=1):
         values = [str(value or "").strip() for value in row]
         date_value = values[date_index] if date_index < len(values) else ""
+        row_has_date = False
         try:
             effective_date = _historical_date(date_value)
+            row_has_date = True
             previous_date = effective_date
         except (ValueError, IndexError):
             if previous_date and not date_value and len(values) in (5, 6):
@@ -495,11 +497,13 @@ def _parse_change_events_from_table(table, mapping, evidence_config):
 
         minimum_required = max(added_company_index, removed_company_index) + 1
         if len(values) < 5 or len(values) < minimum_required:
-            if data_started:
+            if row_has_date:
                 raise ValueError(
                     f"malformed historical changes row {row_number}: {row!r}"
                 )
-            continue
+            if not data_started:
+                continue
+            raise ValueError(f"malformed historical changes row {row_number}: {row!r}")
 
         reason = values[reason_index] if reason_index < len(values) else ""
         event = {
