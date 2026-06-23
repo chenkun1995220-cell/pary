@@ -3,6 +3,8 @@ from datetime import date, datetime, timedelta, timezone
 import unittest
 
 from sec_point_in_time import (
+    _latest_source_filed_key,
+    _parse_payload_filed_date,
     _normalize_filed_for_compare,
     calculate_metrics_as_of,
     filter_company_facts_as_of,
@@ -84,6 +86,35 @@ class SecPointInTimeTests(unittest.TestCase):
 
         self.assertIn("2025-07-25T23:59:59", values)
         self.assertNotIn("2025-07-26T00:00:00", values)
+
+    def test_filter_excludes_same_day_naive_datetime_when_as_of_is_aware_datetime(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1010,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-25T12:00:00",
+            )
+        )
+
+        filtered = filter_company_facts_as_of(
+            payload, "2025-07-25T10:00:00+00:00"
+        )
+        values = [
+            entry["filed"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+
+        self.assertIn("2025-07-25", values)
+        self.assertNotIn("2025-07-25T12:00:00", values)
 
     def test_filter_keeps_native_date_and_datetime_filed_values(self):
         payload = metric_facts()
@@ -462,6 +493,60 @@ class SecPointInTimeTests(unittest.TestCase):
 
         self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
         self.assertEqual(metrics["backtest_date"], "2025-07-25T23:00:00")
+
+    def test_latest_source_filed_tiebreak_is_order_independent(self):
+        payload = {
+            "facts": {
+                "us-gaap": {
+                    "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                        "units": {
+                            "USD": [
+                                duration_fact(
+                                    2000,
+                                    "2025-01-01",
+                                    "2025-06-30",
+                                    2025,
+                                    "Q2",
+                                    "10-Q",
+                                    "2025-07-25T10:00:00",
+                                ),
+                                duration_fact(
+                                    3000,
+                                    "2025-01-01",
+                                    "2025-06-30",
+                                    2025,
+                                    "Q2",
+                                    "10-K",
+                                    "2025-07-25T10:00:00+00:00",
+                                ),
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        forward = [
+            _latest_source_filed_key(_parse_payload_filed_date(entry["filed"]), entry)
+            for entry in payload["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+        self.assertGreater(forward[0], forward[1])
+        self.assertNotEqual(forward[0], forward[1])
+
+        metrics_forward = calculate_metrics_as_of(
+            payload, "2025-07-25T12:00:00+00:00"
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].reverse()
+        metrics_reversed = calculate_metrics_as_of(
+            payload, "2025-07-25T12:00:00+00:00"
+        )
+
+        self.assertEqual(metrics_forward["latest_source_filed"], "2025-07-25")
+        self.assertEqual(metrics_reversed["latest_source_filed"], "2025-07-25")
 
 if __name__ == "__main__":
     unittest.main()

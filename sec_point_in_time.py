@@ -6,19 +6,21 @@ import sec_financial_metrics
 
 def _parse_payload_filed_date(value):
     if isinstance(value, datetime):
-        if value.tzinfo is None:
-            return value.date()
-        return value.astimezone(timezone.utc)
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc)
+        return value
     if isinstance(value, date):
         return value
     if not isinstance(value, str):
         return None
     normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
     try:
+        if "T" not in normalized and " " not in normalized:
+            return date.fromisoformat(normalized)
         parsed = datetime.fromisoformat(normalized)
         if isinstance(parsed, datetime):
             if parsed.tzinfo is None:
-                return parsed.date()
+                return parsed
             return parsed.astimezone(timezone.utc)
         return parsed
     except (TypeError, ValueError):
@@ -28,7 +30,7 @@ def _parse_payload_filed_date(value):
 def _normalize_filed_for_compare(value):
     if isinstance(value, datetime):
         if value.tzinfo is None:
-            return datetime(value.year, value.month, value.day)
+            return value
         return value.astimezone(timezone.utc).replace(tzinfo=None)
     if isinstance(value, date):
         return datetime(value.year, value.month, value.day)
@@ -46,8 +48,8 @@ def _normalize_filed_for_filter_compare(value):
 def _as_of_for_compare(value):
     if isinstance(value, datetime):
         if value.tzinfo is None:
-            return value.date()
-        return value
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
     if isinstance(value, date):
         return value
     raise TypeError(f"unsupported as_of date type: {type(value)!r}")
@@ -58,10 +60,11 @@ def _is_filed_after_as_of(filed, as_of):
     if isinstance(as_of_cmp, datetime):
         if isinstance(filed, datetime):
             if filed.tzinfo is None:
-                filed_date = filed.date()
-                return filed_date > as_of_cmp.date()
-            return filed > as_of_cmp
-        return filed > as_of_cmp.date()
+                filed_cmp = filed.replace(tzinfo=timezone.utc)
+            else:
+                filed_cmp = filed.astimezone(timezone.utc).replace(tzinfo=timezone.utc)
+            return filed_cmp > as_of_cmp
+        return _normalize_filed_for_filter_compare(filed) > as_of_cmp.date()
 
     filed_date = _normalize_filed_for_filter_compare(filed)
     return filed_date > as_of_cmp
@@ -127,11 +130,23 @@ def filter_company_facts_as_of(payload, as_of_date):
     return filtered
 
 
+def _latest_source_filed_key(filed, entry):
+    return (
+        _normalize_filed_for_compare(filed),
+        str(entry.get("form") or ""),
+        str(entry.get("fp") or ""),
+        str(entry.get("end") or ""),
+        str(entry.get("val") if "val" in entry else ""),
+        str(entry.get("filed", "")),
+    )
+
+
 def calculate_metrics_as_of(payload, as_of_date):
     filtered = filter_company_facts_as_of(payload, as_of_date)
 
     metrics = sec_financial_metrics.calculate_financial_metrics(filtered)
     latest_filed = None
+    latest_filed_key = None
     facts = filtered.get("facts", {})
     for taxonomy in facts.values():
         if not isinstance(taxonomy, dict):
@@ -151,10 +166,10 @@ def calculate_metrics_as_of(payload, as_of_date):
                     filed = _parse_payload_filed_date(entry.get("filed"))
                     if filed is None:
                         continue
-                    if latest_filed is None or _normalize_filed_for_compare(filed) > _normalize_filed_for_compare(
-                        latest_filed
-                    ):
+                    latest_key = _latest_source_filed_key(filed, entry)
+                    if latest_filed is None or latest_key > latest_filed_key:
                         latest_filed = filed
+                        latest_filed_key = latest_key
 
     return {
         **metrics,
