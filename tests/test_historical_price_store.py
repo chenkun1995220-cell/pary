@@ -183,6 +183,75 @@ class HistoricalPriceStoreTests(unittest.TestCase):
                     fetcher=lambda url: (_ for _ in ()).throw(ConnectionError("offline")),
                 )
 
+    def test_build_historical_url_hk_market_uses_provider_symbol(self):
+        url = build_historical_url("0001.HK", market="HK")
+        parsed = urlsplit(url)
+        query = parse_qs(parsed.query)
+
+        self.assertEqual(parsed.path, "/v8/finance/chart/0001.HK")
+        self.assertEqual(query["range"][0], "5y")
+        self.assertEqual(query["interval"][0], "1d")
+        self.assertEqual(query["events"][0], "history")
+
+    def test_load_historical_prices_uses_market_for_url_cache_and_parse(self):
+        with TemporaryDirectoryContext() as root:
+            cache_dir = root / "cache"
+            cache_dir.mkdir()
+            cache_path = cache_dir / "0001.HK.json"
+            cache_payload = yahoo_payload(closes=(99.0,), timestamps=(1704067200,))
+            cache_path.write_text(json.dumps(cache_payload), encoding="utf-8")
+            os.utime(cache_path, None)
+
+            captured = {}
+
+            def fetcher(url):
+                captured["url"] = url
+                return yahoo_payload(closes=(100.0,), timestamps=(1704067200,))
+
+            result = load_historical_prices(
+                "0001.HK",
+                cache_dir,
+                market="HK",
+                fetcher=fetcher,
+            )
+
+            self.assertEqual(result["rows"][0]["market"], "HK")
+            self.assertIn("0001.HK", captured["url"])
+            self.assertEqual(result["cache_path"].name, "0001.HK.json")
+            self.assertNotEqual(result["rows"][0]["close"], 99.0)
+
+    def test_load_historical_prices_no_fallback_when_network_payload_is_invalid(self):
+        with TemporaryDirectoryContext() as root:
+            cache_dir = root / "cache"
+            cache_dir.mkdir()
+            cache_path = cache_dir / "MSFT.json"
+            cache_payload = yahoo_payload(closes=(55.0,), timestamps=(1704067200,))
+            cache_path.write_text(json.dumps(cache_payload), encoding="utf-8")
+            os.utime(cache_path, (time.time() - 600, time.time() - 600))
+
+            with self.assertRaises(ValueError):
+                load_historical_prices(
+                    "MSFT",
+                    cache_dir,
+                    fetcher=lambda url: {"chart": {"error": "provider error"}},
+                )
+
+    def test_load_historical_prices_no_fallback_when_network_rows_empty(self):
+        with TemporaryDirectoryContext() as root:
+            cache_dir = root / "cache"
+            cache_dir.mkdir()
+            cache_path = cache_dir / "MSFT.json"
+            cache_payload = yahoo_payload(closes=(55.0,), timestamps=(1704067200,))
+            cache_path.write_text(json.dumps(cache_payload), encoding="utf-8")
+            os.utime(cache_path, (time.time() - 600, time.time() - 600))
+
+            with self.assertRaises(ValueError):
+                load_historical_prices(
+                    "MSFT",
+                    cache_dir,
+                    fetcher=lambda url: {"chart": {"result": []}},
+                )
+
             cache_path.write_text("not json", encoding="utf-8")
             with self.assertRaises(Exception):
                 load_historical_prices(

@@ -54,8 +54,8 @@ def price_coverage(tickers: Iterable[str], rows: Sequence[Mapping]):
     return len(requested.intersection(ready_tickers)) / len(requested)
 
 
-def build_historical_url(ticker, range_name=HISTORICAL_RANGE):
-    provider = quote(provider_symbol("US", ticker), safe=".-")
+def build_historical_url(ticker, range_name=HISTORICAL_RANGE, market="US"):
+    provider = quote(provider_symbol(market, ticker), safe=".-")
     query = urlencode(
         {"range": range_name, "interval": HISTORICAL_INTERVAL, "events": HISTORICAL_EVENTS}
     )
@@ -76,15 +76,10 @@ def load_historical_prices(
     effective_fetcher = fetcher or fetch_yahoo_history
     cache_path = _cache_path(cache_dir, market, ticker)
     cache_path = Path(cache_path)
-    url = build_historical_url(ticker, range_name=range_name)
+    url = build_historical_url(ticker, range_name=range_name, market=market)
 
     try:
         payload = effective_fetcher(url)
-        rows = parse_history_payload(market, ticker, payload)
-        if not rows:
-            raise ValueError("No price rows from network payload")
-        _write_json(cache_path, payload)
-        source = "network"
     except Exception as error:
         cached_payload = _load_fresh_cache(cache_path, cache_max_age_days)
         if cached_payload is None:
@@ -92,8 +87,14 @@ def load_historical_prices(
 
         rows = parse_history_payload(market, ticker, cached_payload)
         if not rows:
-            raise error
+            raise ValueError("No price rows from cached payload")
         source = "cache_fallback"
+    else:
+        rows = parse_history_payload(market, ticker, payload)
+        if not rows:
+            raise ValueError("No price rows from network payload")
+        _write_json(cache_path, payload)
+        source = "network"
 
     return {
         "ticker": str(ticker),
