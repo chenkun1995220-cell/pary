@@ -216,6 +216,30 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertIn("row 4", str(raised.exception))
         self.assertIn("not a date", str(raised.exception))
 
+    def test_html_changes_parser_rejects_bad_first_data_row(self):
+        html = changes_html().replace(
+            "      <tr><td>June 3, 2025</td><td>new.a</td><td>New &amp; Co</td><td>old.b</td><td>Old Co</td><td>Rebalance</td></tr>\n",
+            "<tr><td>???</td><td>BAD</td><td>Bad Co</td><td>OLD</td><td>Old Co</td><td>Bad first</td></tr>\n"
+            "<tr><td>June 10, 2025</td><td>new.a</td><td>New &amp; Co</td><td>old.b</td><td>Old Co</td><td>Rebalance</td></tr>\n",
+        )
+
+        with self.assertRaises(ValueError) as raised:
+            parse_change_events_html(html)
+
+        self.assertIn("row 3", str(raised.exception))
+        self.assertIn("BAD", str(raised.exception))
+
+    def test_html_changes_parser_rejects_invalid_evidence_entry_in_config(self):
+        official_key = ("2025-06-03", "NEW-A", "OLD-B")
+
+        for entry in ([1, 2, 3], 10):
+            with self.subTest(entry_type=type(entry).__name__):
+                with self.assertRaisesRegex(ValueError, "invalid evidence_config|event"):
+                    parse_change_events_html(
+                        changes_html(),
+                        evidence_config={official_key: entry},
+                    )
+
     def test_html_changes_parser_allows_blank_date_five_cell_continuation(self):
         html = changes_html().replace(
             "</table>",

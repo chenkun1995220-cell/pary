@@ -311,6 +311,16 @@ def _looks_like_data_row(row):
         return False
 
 
+def _is_header_like_row(values):
+    return any(
+        any(
+            keyword in _normalize_header_cell(value)
+            for keyword in ("date", "added", "removed", "ticker", "security", "company", "reason")
+        )
+        for value in values
+    )
+
+
 def _find_change_table_columns(table):
     if not table:
         raise _NotAChangeTable("table contains no rows")
@@ -479,6 +489,8 @@ def _parse_change_events_from_table(table, mapping, evidence_config):
 
     for row_number, row in enumerate(table, start=1):
         values = [str(value or "").strip() for value in row]
+        if not any(values):
+            continue
         date_value = values[date_index] if date_index < len(values) else ""
         row_has_date = False
         try:
@@ -488,7 +500,7 @@ def _parse_change_events_from_table(table, mapping, evidence_config):
         except (ValueError, IndexError):
             if previous_date and not date_value and len(values) in (5, 6):
                 effective_date = previous_date
-            elif data_started:
+            elif data_started or not _is_header_like_row(values):
                 raise ValueError(
                     f"malformed historical changes row {row_number}: {row!r}"
                 )
@@ -501,9 +513,8 @@ def _parse_change_events_from_table(table, mapping, evidence_config):
                 raise ValueError(
                     f"malformed historical changes row {row_number}: {row!r}"
                 )
-            if not data_started:
-                continue
-            raise ValueError(f"malformed historical changes row {row_number}: {row!r}")
+            if data_started:
+                raise ValueError(f"malformed historical changes row {row_number}: {row!r}")
 
         reason = values[reason_index] if reason_index < len(values) else ""
         event = {
@@ -546,7 +557,12 @@ def _configured_evidence(config, event):
         event["added_ticker"],
         event["removed_ticker"],
     )
-    entry = config.get(key, config.get("|".join(key), {}))
+    if isinstance(config, dict) and key in config:
+        entry = config[key]
+    elif isinstance(config, dict) and "|".join(key) in config:
+        entry = config["|".join(key)]
+    else:
+        return "secondary", ""
     if isinstance(entry, str):
         source_url = entry.strip()
         evidence_level = "verified"
@@ -559,8 +575,9 @@ def _configured_evidence(config, event):
             f"event {event['effective_date']} membership_evidence",
         )
     else:
-        source_url = ""
-        evidence_level = "secondary"
+        raise ValueError(
+            f"invalid evidence_config entry for event {key} ({event['effective_date']}): {type(entry).__name__}"
+        )
     if not source_url:
         return "secondary", ""
     return _trusted_evidence(evidence_level, source_url), source_url
