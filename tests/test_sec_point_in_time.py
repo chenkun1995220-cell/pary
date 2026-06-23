@@ -1,0 +1,113 @@
+import copy
+import unittest
+
+from sec_point_in_time import calculate_metrics_as_of, filter_company_facts_as_of
+from tests.test_sec_financial_metrics import duration_fact, metric_facts
+
+
+class SecPointInTimeTests(unittest.TestCase):
+    def test_filter_excludes_future_filed_and_restatement(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"]["units"][
+            "USD"
+        ].append(
+            duration_fact(
+                999,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-12-31",
+            )
+        )
+
+        filtered = filter_company_facts_as_of(payload, "2025-08-01")
+
+        values = [
+            entry["filed"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+        self.assertIn("2025-07-25", values)
+        self.assertNotIn("2025-12-31", values)
+
+    def test_filter_keeps_boundary_filed(self):
+        payload = metric_facts()
+        filtered = filter_company_facts_as_of(payload, "2025-07-25")
+
+        values = [
+            entry["filed"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+        self.assertIn("2025-07-25", values)
+
+    def test_filter_excludes_missing_filed(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"]["units"][
+            "USD"
+        ].append(
+            {
+                "val": 111,
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+            }
+        )
+        filtered = filter_company_facts_as_of(payload, "2025-12-31")
+        entries = filtered["facts"]["us-gaap"][
+            "RevenueFromContractWithCustomerExcludingAssessedTax"
+        ]["units"]["USD"]
+        self.assertFalse(any(entry.get("val") == 111 for entry in entries))
+
+    def test_filter_handles_empty_payload_parts(self):
+        self.assertEqual(filter_company_facts_as_of({}, "2025-01-01"), {})
+        payload = {"facts": {}}
+        self.assertEqual(filter_company_facts_as_of(payload, "2025-01-01"), {"facts": {}})
+        payload_no_units = {
+            "facts": {
+                "us-gaap": {"RevenueFromContractWithCustomerExcludingAssessedTax": {}}
+            }
+        }
+        self.assertEqual(
+            filter_company_facts_as_of(payload_no_units, "2025-01-01"),
+            payload_no_units,
+        )
+
+    def test_filter_does_not_modify_original(self):
+        payload = metric_facts()
+        snapshot = copy.deepcopy(payload)
+        _ = filter_company_facts_as_of(payload, "2024-12-31")
+        self.assertEqual(payload, snapshot)
+
+    def test_calculate_metrics_as_of_reuses_filter_and_tracks_latest_filed(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                1234,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-12-31",
+            )
+        )
+
+        metrics = calculate_metrics_as_of(payload, "2025-07-30")
+
+        self.assertEqual(metrics["backtest_date"], "2025-07-30")
+        self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
+        self.assertEqual(metrics["leakage_status"], "ready")
+        self.assertIn("revenue_ttm", metrics)
+
+
+if __name__ == "__main__":
+    unittest.main()
