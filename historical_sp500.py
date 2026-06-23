@@ -90,8 +90,8 @@ def _normalize_event(raw_event, position):
         "membership_source_url": source_url,
         "reason": str(event.get("reason", "") or "").strip(),
     }
-    if not normalized["added_ticker"] and not normalized["removed_ticker"]:
-        raise ValueError(f"event {position} has no membership transition")
+    if not normalized["added_ticker"] or not normalized["removed_ticker"]:
+        raise ValueError(f"event {position} has incomplete membership transition")
     if normalized["added_ticker"] == normalized["removed_ticker"]:
         raise ValueError(f"event {position} adds and removes the same ticker")
     return normalized
@@ -345,9 +345,9 @@ def parse_change_events_html(html_text, evidence_config=None):
             "membership_evidence": "secondary",
             "membership_source_url": "",
         }
-        if not event["added_ticker"] and not event["removed_ticker"]:
+        if not event["added_ticker"] or not event["removed_ticker"]:
             raise ValueError(
-                f"historical changes row {row_number} has no added or removed ticker: {row!r}"
+                f"historical changes row {row_number} has incomplete membership transition: {row!r}"
             )
         evidence, source_url = _configured_evidence(evidence_config, event)
         event["membership_evidence"] = evidence
@@ -391,7 +391,7 @@ def load_change_events_csv(path):
                 events.append(_normalize_event(raw_event, line_number))
             except ValueError as exc:
                 raise ValueError(
-                    f"malformed historical changes CSV line {line_number}: {row!r}"
+                    f"malformed historical changes CSV line {line_number}: {row!r}: {exc}"
                 ) from exc
     if not events:
         raise ValueError(f"{source} contained no historical change events")

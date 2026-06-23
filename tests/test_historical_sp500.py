@@ -180,6 +180,33 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertIn("June 10, 2025", str(raised.exception))
         self.assertIn("Missing tickers", str(raised.exception))
 
+    def test_html_changes_parser_rejects_incomplete_membership_transitions(self):
+        cases = [
+            (
+                "missing-added",
+                "<tr><td>June 10, 2025</td><td></td><td>Added Name</td>"
+                "<td>OLD</td><td>Removed Name</td><td>Missing added</td></tr>",
+                "OLD",
+            ),
+            (
+                "missing-removed",
+                "<tr><td>June 10, 2025</td><td>NEW</td><td>Added Name</td>"
+                "<td></td><td>Removed Name</td><td>Missing removed</td></tr>",
+                "NEW",
+            ),
+        ]
+
+        for name, row, ticker in cases:
+            with self.subTest(name=name):
+                html = changes_html().replace("</table>", f"{row}</table>")
+
+                with self.assertRaisesRegex(ValueError, "incomplete membership transition") as raised:
+                    parse_change_events_html(html)
+
+                self.assertIn("row 4", str(raised.exception))
+                self.assertIn("June 10, 2025", str(raised.exception))
+                self.assertIn(ticker, str(raised.exception))
+
     def test_only_official_spglobal_domains_can_upgrade_to_verified(self):
         official_urls = [
             "https://spglobal.com/spdji/en/announcements/",
@@ -406,6 +433,27 @@ class HistoricalSp500Tests(unittest.TestCase):
                     path.write_text(content, encoding="utf-8")
 
                     with self.assertRaisesRegex(ValueError, message):
+                        load_change_events_csv(path)
+
+    def test_load_change_events_csv_rejects_incomplete_membership_transitions(self):
+        cases = [
+            (
+                "missing-added",
+                "effective_date,added_ticker,removed_ticker,membership_evidence\n2025-06-01,,OLD,secondary\n",
+            ),
+            (
+                "missing-removed",
+                "effective_date,added_ticker,removed_ticker,membership_evidence\n2025-06-01,NEW,,secondary\n",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            for name, content in cases:
+                with self.subTest(name=name):
+                    path = Path(directory) / f"{name}.csv"
+                    path.write_text(content, encoding="utf-8")
+
+                    with self.assertRaisesRegex(ValueError, "incomplete membership transition"):
                         load_change_events_csv(path)
 
     def test_input_objects_are_not_mutated(self):
