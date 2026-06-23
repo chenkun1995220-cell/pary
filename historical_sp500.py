@@ -240,17 +240,20 @@ class _ChangesTableParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.tables = []
+        self._table_depth = 0
         self._table = None
         self._row = None
         self._cell = None
         self._cell_span = 1
 
     def handle_starttag(self, tag, attrs):
-        if tag == "table" and self._table is None:
-            self._table = []
-        elif self._table is not None and tag == "tr":
+        if tag == "table":
+            self._table_depth += 1
+            if self._table_depth == 1 and self._table is None:
+                self._table = []
+        elif self._table_depth == 1 and self._table is not None and tag == "tr":
             self._row = []
-        elif self._row is not None and tag in {"th", "td"}:
+        elif self._table_depth == 1 and self._row is not None and tag in {"th", "td"}:
             self._cell = []
             span = 1
             for key, value in attrs:
@@ -262,22 +265,24 @@ class _ChangesTableParser(HTMLParser):
             self._cell_span = span
 
     def handle_data(self, data):
-        if self._cell is not None:
+        if self._cell is not None and self._table_depth == 1:
             self._cell.append(data)
 
     def handle_endtag(self, tag):
-        if tag in {"th", "td"} and self._cell is not None:
+        if tag in {"th", "td"} and self._table_depth == 1 and self._cell is not None:
             value = re.sub(r"\s+", " ", "".join(self._cell)).strip()
             self._row.extend([value] * self._cell_span)
             self._cell = None
             self._cell_span = 1
-        elif tag == "tr" and self._row is not None:
+        elif self._table_depth == 1 and tag == "tr" and self._row is not None:
             if self._row:
                 self._table.append(self._row)
             self._row = None
-        elif tag == "table" and self._table is not None:
-            self.tables.append(self._table)
-            self._table = None
+        elif tag == "table" and self._table_depth > 0:
+            if self._table_depth == 1 and self._table is not None:
+                self.tables.append(self._table)
+                self._table = None
+            self._table_depth -= 1
 
 
 def _historical_date(value):

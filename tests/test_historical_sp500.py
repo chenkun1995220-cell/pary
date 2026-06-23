@@ -83,6 +83,23 @@ def changes_html_with_bad_candidate_then_valid_table():
     """
 
 
+def changes_html_with_nested_cell_table():
+    return """
+    <table class="wikitable" id="changes">
+      <tr><th>Date</th><th colspan="2">Added</th><th colspan="2">Removed</th><th>Reason</th></tr>
+      <tr><th></th><th>Ticker</th><th>Security</th><th>Ticker</th><th>Security</th><th></th></tr>
+      <tr>
+        <td>June 3, 2025</td>
+        <td>new.a</td>
+        <td>New <table><tr><td>noise</td></tr></table> Co</td>
+        <td>old.b</td>
+        <td>Old Co</td>
+        <td>Rebalance</td>
+      </tr>
+    </table>
+    """
+
+
 class HistoricalSp500Tests(unittest.TestCase):
     def test_reverse_one_event(self):
         current = {"NEW": constituent("NEW", "New Co")}
@@ -324,6 +341,18 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual(1, len(parsed))
         self.assertEqual("NEW-A", parsed[0]["added_ticker"])
         self.assertEqual("OLD-B", parsed[0]["removed_ticker"])
+
+    def test_html_changes_parser_ignores_nested_tables_in_cells(self):
+        html = changes_html_with_nested_cell_table()
+
+        parsed = parse_change_events_html(html)
+
+        self.assertEqual(1, len(parsed))
+        self.assertEqual("2025-06-03", parsed[0]["effective_date"])
+        self.assertEqual("NEW-A", parsed[0]["added_ticker"])
+        self.assertEqual("New Co", parsed[0]["added_company_name"])
+        self.assertEqual("OLD-B", parsed[0]["removed_ticker"])
+        self.assertEqual("Old Co", parsed[0]["removed_company_name"])
 
     def test_html_changes_parser_rejects_short_row_after_data_begins(self):
         html = changes_html().replace(
