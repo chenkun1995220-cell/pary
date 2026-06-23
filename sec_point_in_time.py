@@ -70,10 +70,14 @@ def filter_company_facts_as_of(payload, as_of_date):
         for concept_data in taxonomy.values():
             if not isinstance(concept_data, dict):
                 continue
+            if "units" not in concept_data:
+                continue
             units = concept_data.get("units")
             if not isinstance(units, dict):
+                concept_data["units"] = {}
                 continue
 
+            normalized_units = {}
             for unit, entries in list(units.items()):
                 if not isinstance(entries, list):
                     continue
@@ -83,11 +87,13 @@ def filter_company_facts_as_of(payload, as_of_date):
                     if not isinstance(entry, dict):
                         continue
                     filed = _parse_payload_filed_date(entry.get("filed"))
-                    if filed is None or filed > as_of:
+                    if filed is None or _is_filed_after_as_of(filed, as_of):
                         continue
                     filtered_entries.append(entry)
 
-                units[unit] = filtered_entries
+                normalized_units[unit] = filtered_entries
+
+            concept_data["units"] = normalized_units
 
     return filtered
 
@@ -104,7 +110,10 @@ def calculate_metrics_as_of(payload, as_of_date):
         for concept in taxonomy.values():
             if not isinstance(concept, dict):
                 continue
-            for unit_entries in concept.get("units", {}).values():
+            units = concept.get("units")
+            if not isinstance(units, dict):
+                continue
+            for unit_entries in units.values():
                 if not isinstance(unit_entries, list):
                     continue
                 for entry in unit_entries:

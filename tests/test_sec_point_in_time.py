@@ -196,6 +196,43 @@ class SecPointInTimeTests(unittest.TestCase):
             payload_no_units,
         )
 
+    def test_filter_normalizes_non_dict_units(self):
+        payload = {
+            "facts": {
+                "us-gaap": {
+                    "RevenueFromContractWithCustomerExcludingAssessedTax": {"units": []},
+                    "NetIncomeLoss": {
+                        "units": {
+                            "USD": [
+                                duration_fact(
+                                    80,
+                                    "2025-01-01",
+                                    "2025-06-30",
+                                    2025,
+                                    "Q2",
+                                    "10-Q",
+                                    "2025-07-25",
+                                )
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+
+        filtered = filter_company_facts_as_of(payload, "2025-12-31")
+
+        self.assertEqual(
+            filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"],
+            {},
+        )
+        self.assertEqual(
+            filtered["facts"]["us-gaap"]["NetIncomeLoss"]["units"]["USD"][0]["val"],
+            80,
+        )
+
     def test_filter_does_not_modify_original(self):
         payload = metric_facts()
         snapshot = copy.deepcopy(payload)
@@ -223,6 +260,16 @@ class SecPointInTimeTests(unittest.TestCase):
         self.assertEqual(metrics["backtest_date"], "2025-07-30")
         self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
         self.assertEqual(metrics["leakage_status"], "ready")
+        self.assertIn("revenue_ttm", metrics)
+
+    def test_calculate_metrics_as_of_with_non_dict_units_does_not_crash(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["WeirdConcept"] = {"units": []}
+
+        metrics = calculate_metrics_as_of(payload, "2025-12-31")
+
+        self.assertEqual(metrics["backtest_date"], "2025-12-31")
+        self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
         self.assertIn("revenue_ttm", metrics)
 
     def test_calculate_metrics_as_of_handles_non_dict_facts(self):
