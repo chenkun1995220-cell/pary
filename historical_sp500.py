@@ -550,8 +550,10 @@ def _parse_change_events_from_table(table, mapping, evidence_config):
 
 
 def _configured_evidence(config, event):
-    if not config:
+    if config is None or config == {}:
         return "secondary", ""
+    if not isinstance(config, dict):
+        raise TypeError(f"invalid evidence_config type: {type(config).__name__}; evidence_config must be a dict, got invalid value")
     key = (
         event["effective_date"],
         event["added_ticker"],
@@ -591,18 +593,15 @@ def parse_change_events_html(html_text, evidence_config=None):
     for candidate in parser.tables:
         try:
             header = _find_change_table_columns(candidate)
-            candidate_events = _parse_change_events_from_table(candidate, header, evidence_config)
-            if candidate_events:
-                events = candidate_events
-                break
-            last_parse_error = ValueError(
-                "S&P 500 historical changes table contained no events"
-            )
         except _NotAChangeTable:
             continue
-        except ValueError as exc:
-            last_parse_error = exc
-            continue
+        candidate_events = _parse_change_events_from_table(candidate, header, evidence_config)
+        if candidate_events:
+            events = candidate_events
+            break
+        last_parse_error = ValueError(
+            "S&P 500 historical changes table contained no events"
+        )
 
     if events is None:
         raise ValueError(

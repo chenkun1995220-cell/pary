@@ -67,6 +67,22 @@ def changes_html_with_interference():
     """
 
 
+def changes_html_with_bad_candidate_then_valid_table():
+    return """
+    <table class="wikitable" id="bad-structure">
+      <tr><th>Date</th><th colspan="2">Added</th><th colspan="2">Removed</th><th>Reason</th></tr>
+      <tr><th></th><th>Ticker</th><th>Security</th><th>Ticker</th><th>Security</th><th></th></tr>
+      <tr><td>N/A</td><td>BAD</td><td>Bad Inc.</td><td>OLD</td><td>Old Co</td><td>Bad row</td></tr>
+      <tr><td>June 10, 2025</td><td>IGNORED</td><td>Ignored Co</td><td>OLD2</td><td>Old2 Co</td><td>Ignored</td></tr>
+    </table>
+    <table class="wikitable" id="changes">
+      <tr><th>Date</th><th colspan="2">Added</th><th colspan="2">Removed</th><th>Reason</th></tr>
+      <tr><th></th><th>Ticker</th><th>Security</th><th>Ticker</th><th>Security</th><th></th></tr>
+      <tr><td>June 3, 2025</td><td>new.a</td><td>New &amp; Co</td><td>old.b</td><td>Old Co</td><td>Rebalance</td></tr>
+    </table>
+    """
+
+
 class HistoricalSp500Tests(unittest.TestCase):
     def test_reverse_one_event(self):
         current = {"NEW": constituent("NEW", "New Co")}
@@ -239,6 +255,24 @@ class HistoricalSp500Tests(unittest.TestCase):
                         changes_html(),
                         evidence_config={official_key: entry},
                     )
+
+    def test_html_changes_parser_rejects_non_dict_evidence_config(self):
+        for config in ([], "bad"):
+            with self.subTest(config=type(config).__name__):
+                with self.assertRaisesRegex(
+                    (TypeError, ValueError), r"evidence_config.*invalid"
+                ):
+                    parse_change_events_html(changes_html(), evidence_config=config)
+
+    def test_html_changes_parser_stops_at_first_matched_but_invalid_table(self):
+        html = changes_html_with_bad_candidate_then_valid_table()
+
+        with self.assertRaises(ValueError) as raised:
+            parse_change_events_html(html)
+
+        self.assertIn("row 3", str(raised.exception))
+        self.assertIn("BAD", str(raised.exception))
+        self.assertIn("N/A", str(raised.exception))
 
     def test_html_changes_parser_allows_blank_date_five_cell_continuation(self):
         html = changes_html().replace(
