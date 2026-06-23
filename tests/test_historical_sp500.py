@@ -276,6 +276,96 @@ class HistoricalSp500Tests(unittest.TestCase):
             loaded,
         )
 
+    def test_load_change_events_csv_downgrades_unofficial_verified_sources(self):
+        cases = [
+            (
+                "wikipedia",
+                "membership_source_url",
+                "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+            ),
+            (
+                "lookalike",
+                "membership_source_url",
+                "https://spglobal.com.example.test/change",
+            ),
+            (
+                "http",
+                "source_url",
+                "http://www.spglobal.com/change",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            for name, source_field, source_url in cases:
+                with self.subTest(name=name):
+                    path = Path(directory) / f"{name}.csv"
+                    fieldnames = [
+                        "effective_date",
+                        "added_ticker",
+                        "removed_ticker",
+                        "membership_evidence",
+                        source_field,
+                    ]
+                    with path.open("w", encoding="utf-8", newline="") as stream:
+                        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+                        writer.writeheader()
+                        writer.writerow(
+                            {
+                                "effective_date": "2025-06-01",
+                                "added_ticker": "NEW",
+                                "removed_ticker": "OLD",
+                                "membership_evidence": "verified",
+                                source_field: source_url,
+                            }
+                        )
+
+                    loaded = load_change_events_csv(path)
+
+                    self.assertEqual("secondary", loaded[0]["membership_evidence"])
+                    self.assertEqual(source_url, loaded[0]["membership_source_url"])
+
+    def test_restore_membership_downgrades_unofficial_current_verified_sources(self):
+        current = {
+            "WIKI": constituent(
+                "WIKI",
+                "Wikipedia Sourced",
+                source_url="https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+            ),
+            "LOOK": constituent(
+                "LOOK",
+                "Lookalike",
+                source_url="https://spglobal.com.example.test/current",
+            ),
+            "HTTP": constituent(
+                "HTTP",
+                "HTTP Source",
+                source_url="http://www.spglobal.com/current",
+            ),
+            "OFF": constituent(
+                "OFF",
+                "Official Source",
+                source_url="https://www.spglobal.com/current",
+            ),
+            "LEG": {
+                "ticker": "LEG",
+                "company_name": "Legacy Source",
+                "membership_evidence": "verified",
+                "source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+            },
+        }
+
+        restored = restore_membership(current, [], "2025-05-31")
+
+        self.assertEqual("secondary", restored["WIKI"]["membership_evidence"])
+        self.assertEqual("secondary", restored["LOOK"]["membership_evidence"])
+        self.assertEqual("secondary", restored["HTTP"]["membership_evidence"])
+        self.assertEqual("verified", restored["OFF"]["membership_evidence"])
+        self.assertEqual("secondary", restored["LEG"]["membership_evidence"])
+        self.assertEqual(
+            "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+            restored["LEG"]["membership_source_url"],
+        )
+
     def test_load_change_events_csv_rejects_bad_data_rows(self):
         cases = [
             (

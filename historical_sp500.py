@@ -40,6 +40,27 @@ def _evidence(value, field_name):
     return level
 
 
+def _is_official_spglobal_source(url):
+    try:
+        parsed = urlparse(str(url or "").strip())
+        hostname = (parsed.hostname or "").lower()
+        return (
+            parsed.scheme.lower() == "https"
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port in {None, 443}
+            and (hostname == "spglobal.com" or hostname.endswith(".spglobal.com"))
+        )
+    except ValueError:
+        return False
+
+
+def _trusted_evidence(level, source_url):
+    if level == "verified" and not _is_official_spglobal_source(source_url):
+        return "secondary"
+    return level
+
+
 def _event_value(event, primary, alias, default=""):
     if primary in event:
         return event.get(primary, default)
@@ -48,6 +69,13 @@ def _event_value(event, primary, alias, default=""):
 
 def _normalize_event(raw_event, position):
     event = deepcopy(raw_event)
+    source_url = str(
+        _event_value(event, "membership_source_url", "source_url") or ""
+    ).strip()
+    evidence = _evidence(
+        _event_value(event, "membership_evidence", "evidence", "insufficient"),
+        f"event {position} membership_evidence",
+    )
     normalized = {
         "effective_date": _iso_date(event.get("effective_date"), f"event {position} effective_date"),
         "added_ticker": normalize_ticker(event.get("added_ticker")),
@@ -58,13 +86,8 @@ def _normalize_event(raw_event, position):
         "removed_company_name": str(
             _event_value(event, "removed_company_name", "removed_company") or ""
         ).strip(),
-        "membership_evidence": _evidence(
-            _event_value(event, "membership_evidence", "evidence", "insufficient"),
-            f"event {position} membership_evidence",
-        ),
-        "membership_source_url": str(
-            _event_value(event, "membership_source_url", "source_url") or ""
-        ).strip(),
+        "membership_evidence": _trusted_evidence(evidence, source_url),
+        "membership_source_url": source_url,
         "reason": str(event.get("reason", "") or "").strip(),
     }
     if not normalized["added_ticker"] and not normalized["removed_ticker"]:
@@ -165,17 +188,19 @@ def restore_membership(current_rows, events, as_of_date):
             effective_date = _iso_date(
                 effective_date, f"current ticker {ticker} effective_date"
             )
+        source_url = str(
+            row.get("membership_source_url", row.get("source_url", "")) or ""
+        ).strip()
+        evidence = _evidence(
+            evidence, f"current ticker {ticker} membership_evidence"
+        )
         row.update(
             {
                 "ticker": ticker,
                 "company_name": str(row.get("company_name", "") or "").strip(),
                 "effective_date": effective_date,
-                "membership_evidence": _evidence(
-                    evidence, f"current ticker {ticker} membership_evidence"
-                ),
-                "membership_source_url": str(
-                    row.get("membership_source_url", row.get("source_url", "")) or ""
-                ).strip(),
+                "membership_evidence": _trusted_evidence(evidence, source_url),
+                "membership_source_url": source_url,
             }
         )
         membership[ticker] = row
@@ -270,19 +295,7 @@ def _configured_evidence(config, event):
         source_url = str((entry or {}).get("source_url", "") or "").strip()
     if not source_url:
         return "secondary", ""
-    try:
-        parsed = urlparse(source_url)
-        hostname = (parsed.hostname or "").lower()
-        is_official = (
-            parsed.scheme.lower() == "https"
-            and parsed.username is None
-            and parsed.password is None
-            and parsed.port in {None, 443}
-            and (hostname == "spglobal.com" or hostname.endswith(".spglobal.com"))
-        )
-    except ValueError:
-        is_official = False
-    return ("verified" if is_official else "secondary"), source_url
+    return _trusted_evidence("verified", source_url), source_url
 
 
 def parse_change_events_html(html_text, evidence_config=None):
