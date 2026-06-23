@@ -52,6 +52,21 @@ def changes_html():
     """
 
 
+def changes_html_with_interference():
+    return """
+    <table class="wikitable" id="interference">
+      <tr><th>Date</th><th>Removed</th><th>Added</th><th>Reason</th></tr>
+      <tr><th>Ticker</th><th>Ticker</th><th>Ticker</th><th>Reason</th></tr>
+      <tr><td>June 1, 2025</td><td>BAD</td><td>WORSE</td><td>Noise row</td></tr>
+    </table>
+    <table class="wikitable" id="changes">
+      <tr><th>Date</th><th colspan="2">Added</th><th colspan="2">Removed</th><th>Reason</th></tr>
+      <tr><th></th><th>Ticker</th><th>Security</th><th>Ticker</th><th>Security</th><th></th></tr>
+      <tr><td>June 3, 2025</td><td>new.a</td><td>New &amp; Co</td><td>old.b</td><td>Old Co</td><td>Rebalance</td></tr>
+    </table>
+    """
+
+
 class HistoricalSp500Tests(unittest.TestCase):
     def test_reverse_one_event(self):
         current = {"NEW": constituent("NEW", "New Co")}
@@ -180,6 +195,42 @@ class HistoricalSp500Tests(unittest.TestCase):
         self.assertEqual("NEXT", parsed[1]["added_ticker"])
         self.assertEqual("PREV", parsed[1]["removed_ticker"])
         self.assertEqual("", parsed[1]["reason"])
+
+    def test_html_changes_parser_allows_blank_date_six_cell_continuation_with_reason(self):
+        html = changes_html().replace(
+            "</table>",
+            "<tr><td>  </td><td>NEXT</td><td>Next Co</td>"
+            "<td>PREV</td><td>Prev Co</td><td>Carry forward</td></tr></table>",
+        )
+
+        parsed = parse_change_events_html(html)
+
+        self.assertEqual(2, len(parsed))
+        self.assertEqual("2025-06-03", parsed[1]["effective_date"])
+        self.assertEqual("NEXT", parsed[1]["added_ticker"])
+        self.assertEqual("PREV", parsed[1]["removed_ticker"])
+        self.assertEqual("Carry forward", parsed[1]["reason"])
+
+    def test_html_changes_parser_rejects_bad_six_cell_date_after_data_begins(self):
+        html = changes_html().replace(
+            "</table>",
+            "<tr><td>not a date</td><td>NEW</td><td>New Co</td>"
+            "<td>OLD</td><td>Old Co</td><td>Bad six</td></tr></table>",
+        )
+
+        with self.assertRaises(ValueError) as raised:
+            parse_change_events_html(html)
+
+        self.assertIn("row 4", str(raised.exception))
+        self.assertIn("not a date", str(raised.exception))
+        self.assertIn("NEW", str(raised.exception))
+
+    def test_html_changes_parser_skips_interference_table_and_uses_real_target_table(self):
+        parsed = parse_change_events_html(changes_html_with_interference())
+
+        self.assertEqual(1, len(parsed))
+        self.assertEqual("NEW-A", parsed[0]["added_ticker"])
+        self.assertEqual("OLD-B", parsed[0]["removed_ticker"])
 
     def test_html_changes_parser_rejects_short_row_after_data_begins(self):
         html = changes_html().replace(
@@ -544,15 +595,42 @@ class HistoricalSp500Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "coverage|insufficient|history"):
             build_weekly_membership({"AAA": constituent("AAA", "A Co")}, changes, weeks)
 
+    def test_default_build_weekly_membership_requires_minimum_weeks(self):
+        with self.assertRaisesRegex(ValueError, "minimum|156"):
+            build_weekly_membership(
+                {"AAA": constituent("AAA", "A Co")},
+                [],
+                ["2025-01-03", "2025-01-10"],
+            )
+
+    def test_build_weekly_membership_can_skip_minimum_weeks_gate(self):
+        rows = build_weekly_membership(
+            {"AAA": constituent("AAA", "A Co")},
+            [],
+            ["2025-01-03", "2025-01-10"],
+            require_minimum_weeks=False,
+        )
+
+        self.assertEqual(2, len(rows))
+        self.assertEqual("A Co", rows[0]["company_name"])
+
     def test_duplicate_weeks_are_rejected(self):
         duplicate_week = "2025-01-03"
 
         with self.assertRaisesRegex(ValueError, "duplicate week"):
-            build_weekly_membership({}, [], [duplicate_week, duplicate_week])
+            build_weekly_membership(
+                {},
+                [],
+                [duplicate_week, duplicate_week],
+                require_minimum_weeks=False,
+            )
 
     def test_atomic_csv_output_has_utf8_bom_and_replaces_existing_file(self):
         rows = build_weekly_membership(
-            {"AAA": constituent("AAA", "中文公司")}, [], ["2025-01-03"]
+            {"AAA": constituent("AAA", "中文公司")},
+            [],
+            ["2025-01-03"],
+            require_minimum_weeks=False,
         )
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "historical_membership.csv"

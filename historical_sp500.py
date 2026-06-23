@@ -243,6 +243,7 @@ class _ChangesTableParser(HTMLParser):
         self._table = None
         self._row = None
         self._cell = None
+        self._cell_span = 1
 
     def handle_starttag(self, tag, attrs):
         if tag == "table" and self._table is None:
@@ -251,6 +252,14 @@ class _ChangesTableParser(HTMLParser):
             self._row = []
         elif self._row is not None and tag in {"th", "td"}:
             self._cell = []
+            span = 1
+            for key, value in attrs:
+                if key.lower() == "colspan":
+                    try:
+                        span = max(1, int(value))
+                    except (TypeError, ValueError):
+                        span = 1
+            self._cell_span = span
 
     def handle_data(self, data):
         if self._cell is not None:
@@ -259,8 +268,9 @@ class _ChangesTableParser(HTMLParser):
     def handle_endtag(self, tag):
         if tag in {"th", "td"} and self._cell is not None:
             value = re.sub(r"\s+", " ", "".join(self._cell)).strip()
-            self._row.append(value)
+            self._row.extend([value] * self._cell_span)
             self._cell = None
+            self._cell_span = 1
         elif tag == "tr" and self._row is not None:
             if self._row:
                 self._table.append(self._row)
@@ -278,6 +288,250 @@ def _historical_date(value):
         except ValueError:
             pass
     raise ValueError(f"unrecognized historical change date: {value}")
+
+
+class _NotAChangeTable(ValueError):
+    pass
+
+
+def _normalize_header_cell(value):
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+
+def _looks_like_data_row(row):
+    if not row:
+        return False
+    values = [str(value or "").strip() for value in row]
+    if not values[0]:
+        return False
+    try:
+        _historical_date(values[0])
+        return True
+    except ValueError:
+        return False
+
+
+def _find_change_table_columns(table):
+    if not table:
+        raise _NotAChangeTable("table contains no rows")
+
+    first_data_index = None
+    for index, row in enumerate(table):
+        if _looks_like_data_row(row):
+            first_data_index = index
+            break
+
+    if first_data_index is None:
+        raise _NotAChangeTable("table data body not found")
+
+    header_rows = table[:first_data_index]
+    if not header_rows:
+        raise _NotAChangeTable("table has no header rows")
+
+    data_width = 0
+    for row in table[first_data_index:]:
+        if row:
+            data_width = max(data_width, len(row))
+    if data_width == 0:
+        raise _NotAChangeTable("table data rows are empty")
+
+    max_columns = max(len(row) for row in table)
+    column_labels = [[] for _ in range(max_columns)]
+    for row in header_rows:
+        for index, value in enumerate(row):
+            normalized = _normalize_header_cell(value)
+            if normalized:
+                column_labels[index].append(normalized)
+
+    date_candidates = [
+        index for index, values in enumerate(column_labels) if any("date" in value for value in values)
+    ]
+    reason_candidates = [
+        index
+        for index, values in enumerate(column_labels)
+        if any("reason" in value for value in values)
+    ]
+    if not date_candidates or not reason_candidates:
+        raise _NotAChangeTable("table header missing required Date/Reason columns")
+
+    date_index = min(date_candidates)
+    reason_index = max(reason_candidates)
+    if reason_index <= date_index:
+        raise _NotAChangeTable("table header Date/Reason order is invalid")
+
+    added_group = [
+        index
+        for index, values in enumerate(column_labels)
+        if index > date_index
+        and index < reason_index
+        and any("added" in value for value in values)
+    ]
+    removed_group = [
+        index
+        for index, values in enumerate(column_labels)
+        if index > date_index
+        and index < reason_index
+        and any("removed" in value for value in values)
+    ]
+
+    # Directly mapped when explicit Added / Removed headers are present.
+    mapping = None
+    if added_group and removed_group:
+        added_index = min(added_group)
+        removed_index = min(removed_group)
+        if not (date_index < added_index < removed_index < reason_index):
+            raise _NotAChangeTable("table header Added/Removed order is invalid")
+        added_company_index = added_index + 1
+        removed_company_index = removed_index + 1
+        if removed_company_index >= reason_index:
+            raise _NotAChangeTable("table header Added/Removed columns are incomplete")
+        if (
+            added_company_index >= data_width
+            or removed_company_index >= data_width
+        ):
+            raise _NotAChangeTable(
+                "table header Added/Removed columns do not match data width"
+            )
+        mapping = {
+            "date_index": date_index,
+            "added_ticker_index": added_index,
+            "added_company_index": added_company_index,
+            "removed_ticker_index": removed_index,
+            "removed_company_index": removed_company_index,
+            "reason_index": reason_index,
+            "data_width": data_width,
+        }
+
+    # Fallback for two-row header layouts where Added / Removed headers are implied.
+    if mapping is None:
+        ticker_indices = [
+            index
+            for index, values in enumerate(column_labels)
+            if index > date_index
+            and index < reason_index
+            and any("ticker" in value for value in values)
+        ]
+        company_indices = [
+            index
+            for index, values in enumerate(column_labels)
+            if index > date_index
+            and index < reason_index
+            and any(
+                ("security" in value or "company" in value or "name" in value)
+                for value in values
+            )
+        ]
+        if len(ticker_indices) >= 2 and len(company_indices) >= 2:
+            added_ticker_index = ticker_indices[0]
+            removed_ticker_index = ticker_indices[1]
+            added_company_index = added_ticker_index + 1
+            removed_company_index = removed_ticker_index + 1
+            if not (
+                date_index
+                < added_ticker_index
+                < added_company_index
+                < removed_ticker_index
+                < removed_company_index
+                < reason_index
+            ):
+                raise _NotAChangeTable("table header columns are not in expected order")
+            if (
+                added_company_index not in company_indices
+                or removed_company_index not in company_indices
+            ):
+                raise _NotAChangeTable(
+                    "table header Added/Removed columns are not paired correctly"
+                )
+            if (
+                added_company_index >= data_width
+                or removed_company_index >= data_width
+            ):
+                raise _NotAChangeTable(
+                    "table header Added/Removed columns do not match data width"
+                )
+            mapping = {
+                "date_index": date_index,
+                "added_ticker_index": added_ticker_index,
+                "added_company_index": added_company_index,
+                "removed_ticker_index": removed_ticker_index,
+                "removed_company_index": removed_company_index,
+                "reason_index": reason_index,
+                "data_width": data_width,
+            }
+    if mapping is None:
+        raise _NotAChangeTable(
+            "table header could not map explicit Date/Added/Removed/Reason columns"
+        )
+    return mapping
+
+
+def _parse_change_events_from_table(table, mapping, evidence_config):
+    events = []
+    date_index = mapping["date_index"]
+    added_ticker_index = mapping["added_ticker_index"]
+    added_company_index = mapping["added_company_index"]
+    removed_ticker_index = mapping["removed_ticker_index"]
+    removed_company_index = mapping["removed_company_index"]
+    reason_index = mapping["reason_index"]
+
+    data_started = False
+    previous_date = ""
+
+    for row_number, row in enumerate(table, start=1):
+        values = [str(value or "").strip() for value in row]
+        date_value = values[date_index] if date_index < len(values) else ""
+        try:
+            effective_date = _historical_date(date_value)
+            previous_date = effective_date
+        except (ValueError, IndexError):
+            if previous_date and not date_value and len(values) in (5, 6):
+                effective_date = previous_date
+            elif data_started:
+                raise ValueError(
+                    f"malformed historical changes row {row_number}: {row!r}"
+                )
+            else:
+                continue
+
+        minimum_required = max(added_company_index, removed_company_index) + 1
+        if len(values) < 5 or len(values) < minimum_required:
+            if data_started:
+                raise ValueError(
+                    f"malformed historical changes row {row_number}: {row!r}"
+                )
+            continue
+
+        reason = values[reason_index] if reason_index < len(values) else ""
+        event = {
+            "effective_date": effective_date,
+            "added_ticker": normalize_ticker(
+                values[added_ticker_index] if added_ticker_index < len(values) else ""
+            ),
+            "added_company_name": values[added_company_index]
+            if added_company_index < len(values)
+            else "",
+            "removed_ticker": normalize_ticker(
+                values[removed_ticker_index] if removed_ticker_index < len(values) else ""
+            ),
+            "removed_company_name": values[removed_company_index]
+            if removed_company_index < len(values)
+            else "",
+            "reason": reason,
+            "membership_evidence": "secondary",
+            "membership_source_url": "",
+        }
+        if not event["added_ticker"] or not event["removed_ticker"]:
+            raise ValueError(
+                f"historical changes row {row_number} has incomplete membership transition: {row!r}"
+            )
+
+        evidence, source_url = _configured_evidence(evidence_config, event)
+        event["membership_evidence"] = evidence
+        event["membership_source_url"] = source_url
+        events.append(event)
+        data_started = True
+
+    return events
 
 
 def _configured_evidence(config, event):
@@ -301,58 +555,30 @@ def _configured_evidence(config, event):
 def parse_change_events_html(html_text, evidence_config=None):
     parser = _ChangesTableParser()
     parser.feed(html_text)
-    table = None
+    events = None
+    last_parse_error = None
     for candidate in parser.tables:
-        header_text = " ".join(" ".join(row) for row in candidate[:2]).lower()
-        if all(label in header_text for label in ("date", "added", "removed", "reason")):
-            table = candidate
-            break
-    if table is None:
-        raise ValueError("S&P 500 historical changes table was not found")
-
-    events = []
-    previous_date = ""
-    data_started = False
-    for row_number, row in enumerate(table, start=1):
-        values = list(row)
         try:
-            effective_date = _historical_date(values[0])
-            previous_date = effective_date
-        except (ValueError, IndexError):
-            if previous_date and len(values) == 5 and not values[0].strip():
-                effective_date = previous_date
-                values = [effective_date, *values[1:], ""]
-            elif data_started:
-                raise ValueError(
-                    f"malformed historical changes row {row_number}: {row!r}"
-                )
-            else:
-                continue
-        if len(values) < 6:
-            if data_started:
-                raise ValueError(
-                    f"malformed historical changes row {row_number}: {row!r}"
-                )
-            continue
-        data_started = True
-        event = {
-            "effective_date": effective_date,
-            "added_ticker": normalize_ticker(values[1]),
-            "added_company_name": values[2].strip(),
-            "removed_ticker": normalize_ticker(values[3]),
-            "removed_company_name": values[4].strip(),
-            "reason": values[5].strip(),
-            "membership_evidence": "secondary",
-            "membership_source_url": "",
-        }
-        if not event["added_ticker"] or not event["removed_ticker"]:
-            raise ValueError(
-                f"historical changes row {row_number} has incomplete membership transition: {row!r}"
+            header = _find_change_table_columns(candidate)
+            candidate_events = _parse_change_events_from_table(candidate, header, evidence_config)
+            if candidate_events:
+                events = candidate_events
+                break
+            last_parse_error = ValueError(
+                "S&P 500 historical changes table contained no events"
             )
-        evidence, source_url = _configured_evidence(evidence_config, event)
-        event["membership_evidence"] = evidence
-        event["membership_source_url"] = source_url
-        events.append(event)
+        except _NotAChangeTable:
+            continue
+        except ValueError as exc:
+            last_parse_error = exc
+            continue
+
+    if events is None:
+        raise ValueError(
+            "S&P 500 historical changes table was not found"
+            if last_parse_error is None
+            else str(last_parse_error)
+        )
     if not events:
         raise ValueError("S&P 500 historical changes table contained no events")
     return events
@@ -398,7 +624,11 @@ def load_change_events_csv(path):
     return events
 
 
-def _validate_history_coverage(events, weeks):
+def _validate_history_coverage(events, weeks, require_minimum_weeks=True):
+    if require_minimum_weeks and len(weeks) < 156:
+        raise ValueError(
+            "insufficient historical coverage: minimum 156 unique weekly snapshots required"
+        )
     if len(weeks) < 156:
         return
     if not events:
@@ -418,7 +648,12 @@ def _validate_history_coverage(events, weeks):
         )
 
 
-def build_weekly_membership(current_rows, events, weeks):
+def build_weekly_membership(
+    current_rows,
+    events,
+    weeks,
+    require_minimum_weeks=True,
+):
     output = []
     normalized_weeks = [
         _iso_date(week, "week") for week in deepcopy(weeks)
@@ -429,7 +664,7 @@ def build_weekly_membership(current_rows, events, weeks):
             raise ValueError(f"duplicate week: {week}")
         seen_weeks.add(week)
     normalized_weeks.sort()
-    _validate_history_coverage(events, normalized_weeks)
+    _validate_history_coverage(events, normalized_weeks, require_minimum_weeks)
     for week in normalized_weeks:
         membership = restore_membership(current_rows, events, week)
         for ticker in sorted(membership):
