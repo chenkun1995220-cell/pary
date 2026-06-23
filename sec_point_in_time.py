@@ -5,6 +5,12 @@ import sec_financial_metrics
 
 
 def _parse_payload_filed_date(value):
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.date()
+        return value.astimezone(timezone.utc)
+    if isinstance(value, date):
+        return value
     if not isinstance(value, str):
         return None
     normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
@@ -12,7 +18,7 @@ def _parse_payload_filed_date(value):
         parsed = datetime.fromisoformat(normalized)
         if isinstance(parsed, datetime):
             if parsed.tzinfo is None:
-                return parsed.replace(tzinfo=timezone.utc)
+                return parsed.date()
             return parsed.astimezone(timezone.utc)
         return parsed
     except (TypeError, ValueError):
@@ -21,23 +27,34 @@ def _parse_payload_filed_date(value):
 
 def _normalize_filed_for_compare(value):
     if isinstance(value, datetime):
-        return value
+        return value.date()
     if isinstance(value, date):
-        return datetime(
-            value.year,
-            value.month,
-            value.day,
-            tzinfo=timezone.utc,
-        )
+        return value
     raise TypeError(f"unsupported filed date type: {type(value)!r}")
 
 
+def _as_of_for_compare(value):
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.date()
+        return value
+    if isinstance(value, date):
+        return value
+    raise TypeError(f"unsupported as_of date type: {type(value)!r}")
+
+
 def _is_filed_after_as_of(filed, as_of):
-    if isinstance(filed, date) and not isinstance(filed, datetime):
-        if isinstance(as_of, date) and not isinstance(as_of, datetime):
-            return filed > as_of
-        return _normalize_filed_for_compare(filed) > _normalize_filed_for_compare(as_of)
-    return _normalize_filed_for_compare(filed) > _normalize_filed_for_compare(as_of)
+    as_of_cmp = _as_of_for_compare(as_of)
+    if isinstance(as_of_cmp, datetime):
+        if isinstance(filed, datetime):
+            if filed.tzinfo is None:
+                filed_date = filed.date()
+                return filed_date > as_of_cmp.date()
+            return filed > as_of_cmp
+        return filed > as_of_cmp.date()
+
+    filed_date = _normalize_filed_for_compare(filed)
+    return filed_date > as_of_cmp
 
 
 def _format_filed_date(value):

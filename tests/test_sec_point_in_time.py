@@ -1,9 +1,9 @@
-import copy
+﻿import copy
+from datetime import date, datetime, timezone
 import unittest
 
 from sec_point_in_time import calculate_metrics_as_of, filter_company_facts_as_of
 from tests.test_sec_financial_metrics import duration_fact, metric_facts
-
 
 class SecPointInTimeTests(unittest.TestCase):
     def test_filter_excludes_future_filed_and_restatement(self):
@@ -45,6 +45,99 @@ class SecPointInTimeTests(unittest.TestCase):
     def test_filter_keeps_boundary_filed(self):
         payload = metric_facts()
         filtered = filter_company_facts_as_of(payload, "2025-07-25")
+
+        values = [
+            entry["filed"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+        self.assertIn("2025-07-25", values)
+
+    def test_filter_keeps_same_day_naive_datetime_when_as_of_is_date(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            duration_fact(
+                101,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-25T23:59:59",
+            )
+        )
+
+        filtered = filter_company_facts_as_of(payload, "2025-07-25")
+        values = [
+            entry["filed"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+
+        self.assertIn("2025-07-25T23:59:59", values)
+        self.assertNotIn("2025-07-26T00:00:00", values)
+
+    def test_filter_keeps_native_date_and_datetime_filed_values(self):
+        payload = metric_facts()
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            {
+                "val": 901,
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": date(2025, 7, 25),
+            }
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            {
+                "val": 902,
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": datetime(2025, 7, 25, 10, 0, 0),
+            }
+        )
+        payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"][
+            "units"
+        ]["USD"].append(
+            {
+                "val": 903,
+                "start": "2025-01-01",
+                "end": "2025-06-30",
+                "fy": 2025,
+                "fp": "Q2",
+                "form": "10-Q",
+                "filed": datetime(2025, 7, 26, 10, 0, 0, tzinfo=timezone.utc),
+            }
+        )
+
+        filtered = filter_company_facts_as_of(payload, date(2025, 7, 25))
+        values = [
+            entry["val"]
+            for entry in filtered["facts"]["us-gaap"][
+                "RevenueFromContractWithCustomerExcludingAssessedTax"
+            ]["units"]["USD"]
+        ]
+
+        self.assertIn(901, values)
+        self.assertIn(902, values)
+        self.assertNotIn(903, values)
+
+    def test_filter_accepts_native_datetime_as_of(self):
+        payload = metric_facts()
+        filtered = filter_company_facts_as_of(payload, datetime(2025, 7, 25, 15, 0, 0))
 
         values = [
             entry["filed"]
@@ -351,6 +444,6 @@ class SecPointInTimeTests(unittest.TestCase):
         self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
         self.assertEqual(metrics["backtest_date"], "2025-07-25T23:00:00")
 
-
 if __name__ == "__main__":
     unittest.main()
+
