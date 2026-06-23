@@ -27,6 +27,16 @@ def _parse_payload_filed_date(value):
 
 def _normalize_filed_for_compare(value):
     if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return datetime(value.year, value.month, value.day)
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+    raise TypeError(f"unsupported filed date type: {type(value)!r}")
+
+
+def _normalize_filed_for_filter_compare(value):
+    if isinstance(value, datetime):
         return value.date()
     if isinstance(value, date):
         return value
@@ -53,7 +63,7 @@ def _is_filed_after_as_of(filed, as_of):
             return filed > as_of_cmp
         return filed > as_of_cmp.date()
 
-    filed_date = _normalize_filed_for_compare(filed)
+    filed_date = _normalize_filed_for_filter_compare(filed)
     return filed_date > as_of_cmp
 
 

@@ -1,8 +1,12 @@
 ﻿import copy
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import unittest
 
-from sec_point_in_time import calculate_metrics_as_of, filter_company_facts_as_of
+from sec_point_in_time import (
+    _normalize_filed_for_compare,
+    calculate_metrics_as_of,
+    filter_company_facts_as_of,
+)
 from tests.test_sec_financial_metrics import duration_fact, metric_facts
 
 class SecPointInTimeTests(unittest.TestCase):
@@ -250,6 +254,21 @@ class SecPointInTimeTests(unittest.TestCase):
         self.assertIn("2025-07-25T10:00:00Z", values)
         self.assertNotIn("2025-07-26T10:00:00+08:00", values)
         self.assertNotIn("bad-date-value", values)
+
+    def test_normalize_filed_for_compare_preserves_aware_datetime_utc_order(self):
+        earlier = datetime(2025, 7, 25, 23, 30, tzinfo=timezone(timedelta(hours=14)))
+        later = datetime(2025, 7, 25, 17, 30, tzinfo=timezone(timedelta(hours=3)))
+
+        self.assertLess(
+            _normalize_filed_for_compare(earlier),
+            _normalize_filed_for_compare(later),
+        )
+        self.assertEqual(
+            _normalize_filed_for_compare(earlier).tzinfo,
+            None,
+        )
+        self.assertEqual(_normalize_filed_for_compare(earlier).date(), date(2025, 7, 25))
+        self.assertEqual(_normalize_filed_for_compare(later).date(), date(2025, 7, 25))
 
     def test_filter_invalid_as_of_date_raises_value_error(self):
         with self.assertRaises(ValueError):
