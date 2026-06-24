@@ -29,6 +29,15 @@ def _read_csv(path):
         return list(csv.DictReader(handle))
 
 
+def _read_optional_csv(path):
+    if not path:
+        return []
+    evidence_path = Path(path)
+    if not evidence_path.exists():
+        return []
+    return _read_csv(evidence_path)
+
+
 def _iso_date(value, field_name):
     text = str(value or "").strip()
     try:
@@ -186,7 +195,15 @@ def write_backtest_membership_csv(path, rows):
         raise
 
 
-def prepare_backtest_membership(universe_config, output, weeks=156, end_date=None, market="US", company_limit=0):
+def prepare_backtest_membership(
+    universe_config,
+    output,
+    weeks=156,
+    end_date=None,
+    market="US",
+    company_limit=0,
+    evidence_pack=None,
+):
     rows = build_backtest_membership(
         _read_csv(universe_config),
         weeks=weeks,
@@ -194,6 +211,7 @@ def prepare_backtest_membership(universe_config, output, weeks=156, end_date=Non
         market=market,
         source_url=str(universe_config),
         company_limit=company_limit,
+        evidence_rows=_read_optional_csv(evidence_pack),
     )
     write_backtest_membership_csv(output, rows)
     return {"rows": len(rows), "weeks": len({row["week"] for row in rows}), "output": Path(output)}
@@ -207,6 +225,7 @@ def main():
     parser.add_argument("--end-date")
     parser.add_argument("--market", default="US")
     parser.add_argument("--max-companies", type=int, default=0)
+    parser.add_argument("--evidence-pack")
     args = parser.parse_args()
     result = prepare_backtest_membership(
         args.universe_config,
@@ -215,6 +234,7 @@ def main():
         end_date=args.end_date,
         market=args.market,
         company_limit=args.max_companies,
+        evidence_pack=args.evidence_pack,
     )
     print(f"Backtest membership weeks: {result['weeks']}")
     print(f"Backtest membership rows: {result['rows']}")
