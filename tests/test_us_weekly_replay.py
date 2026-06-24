@@ -361,6 +361,72 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             self.assertEqual(rows[1]["generated_date"], "2025-08-01")
             self.assertEqual(rows[1]["config_digest"], "digest-2")
 
+    def test_replay_week_drops_current_model_forecasts_that_left_candidate_pool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stale_current_week = {
+                "market": "US",
+                "ticker": "MSFT",
+                "company_name": "Microsoft Corp.",
+                "generated_date": self.backtest_date,
+                "current_price": "20",
+                "price_date": "2025-07-24",
+                "buy_price": "15",
+                "target_price": "25",
+                "input_available_at_max": "2025-07-24",
+                "week_eligible": "true",
+                "config_digest": "old-digest",
+            }
+            with (root / "forecast_history.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(stale_current_week.keys()))
+                writer.writeheader()
+                writer.writerow(stale_current_week)
+            with (root / "backtest_forecasts.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(stale_current_week.keys()))
+                writer.writeheader()
+                writer.writerow(stale_current_week)
+
+            self._run_week(root)
+
+            with (root / "forecast_history.csv").open(encoding="utf-8-sig", newline="") as handle:
+                history_rows = list(csv.DictReader(handle))
+            with (root / "backtest_forecasts.csv").open(encoding="utf-8-sig", newline="") as handle:
+                backtest_rows = list(csv.DictReader(handle))
+
+            self.assertEqual([row["ticker"] for row in history_rows], ["AAPL", "MSFT"])
+            self.assertEqual([row["ticker"] for row in backtest_rows], ["AAPL"])
+            self.assertEqual(backtest_rows[0]["config_digest"], self.config_digest)
+
+    def test_replay_week_preserves_same_day_forecasts_from_other_models(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            other_model = {
+                "market": "US",
+                "ticker": "MSFT",
+                "company_name": "Microsoft Corp.",
+                "generated_date": self.backtest_date,
+                "current_price": "20",
+                "price_date": "2025-07-24",
+                "buy_price": "15",
+                "target_price": "25",
+                "input_available_at_max": "2025-07-24",
+                "week_eligible": "true",
+                "config_digest": "other-digest",
+                "model_version": "other_model_v1",
+            }
+            with (root / "backtest_forecasts.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(other_model.keys()))
+                writer.writeheader()
+                writer.writerow(other_model)
+
+            self._run_week(root)
+
+            with (root / "backtest_forecasts.csv").open(encoding="utf-8-sig", newline="") as handle:
+                backtest_rows = list(csv.DictReader(handle))
+
+            self.assertEqual([row["model_version"] for row in backtest_rows], ["valuation_trend_v1", "other_model_v1"])
+            self.assertEqual([row["ticker"] for row in backtest_rows], ["AAPL", "MSFT"])
+
     def test_replay_week_treats_same_day_timestamps_as_available(self):
         self.membership_rows[0]["available_at"] = "2025-07-25T00:00:00"
         self.price_rows[0]["available_at"] = "2025-07-25T00:00:00"

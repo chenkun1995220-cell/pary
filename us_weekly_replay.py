@@ -6,7 +6,7 @@ import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from candidate_valuation import TARGET_FIELDS, run_candidate_valuation
+from candidate_valuation import MODEL_VERSION, TARGET_FIELDS, run_candidate_valuation
 from historical_price_store import price_coverage, prices_available_as_of
 from industry_medians import apply_industry_medians, calculate_industry_medians, median_rows
 from sec_point_in_time import calculate_metrics_as_of
@@ -655,7 +655,26 @@ def replay_week(
         generated_date=backtest_date_text,
     )
 
-    forecast_history = _read_csv(output / "forecast_history.csv")
+    current_candidate_keys = {
+        (
+            _as_text(row.get("market")),
+            _as_text(row.get("ticker")).upper(),
+        )
+        for row in candidate_rows
+    }
+    current_forecast_rows = []
+    for row in _read_csv(output / "forecast_history.csv"):
+        key = (
+            _as_text(row.get("market")),
+            _as_text(row.get("ticker")).upper(),
+        )
+        if (
+            _as_text(row.get("generated_date")) == backtest_date_text
+            and _as_text(row.get("model_version")) == MODEL_VERSION
+            and key in current_candidate_keys
+        ):
+            current_forecast_rows.append(row)
+
     available_by_key = {}
     for row in weekly_inputs:
         key = (
@@ -665,9 +684,7 @@ def replay_week(
         available_by_key[key] = row
 
     augmented_forecasts = []
-    for row in forecast_history:
-        if _as_text(row.get("generated_date")) != backtest_date_text:
-            continue
+    for row in current_forecast_rows:
         key = (
             _as_text(row.get("market")),
             _as_text(row.get("ticker")).upper(),
@@ -694,7 +711,14 @@ def replay_week(
         )
         augmented_forecasts.append(augmented)
 
-    existing_backtest_forecasts = _read_csv(output / "backtest_forecasts.csv")
+    existing_backtest_forecasts = [
+        row
+        for row in _read_csv(output / "backtest_forecasts.csv")
+        if not (
+            _as_text(row.get("generated_date")) == backtest_date_text
+            and _as_text(row.get("model_version")) in {"", MODEL_VERSION}
+        )
+    ]
     combined_forecasts = _dedupe_forecasts(existing_backtest_forecasts + augmented_forecasts)
     _atomic_write_csv(output / "backtest_forecasts.csv", combined_forecasts, BACKTEST_FORECAST_FIELDS)
 
