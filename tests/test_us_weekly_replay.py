@@ -162,7 +162,7 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
                 {
                     "market": "US",
                     "ticker": "AAPL",
-                    "date": "2025-07-26",
+                    "date": "2025-07-24",
                     "close": "99",
                     "adjusted_close": "99",
                     "data_status": "ready",
@@ -174,15 +174,26 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             price_history = (root / "price_history.csv").read_text(encoding="utf-8-sig")
             with (root / "backtest_forecasts.csv").open(encoding="utf-8-sig", newline="") as handle:
                 forecasts = list(csv.DictReader(handle))
+            with (root / "data_leakage_audit.csv").open(encoding="utf-8-sig", newline="") as handle:
+                audit_rows = list(csv.DictReader(handle))
 
             self.assertFalse(result["eligible"])
             self.assertIn("data_leakage_detected", result["quality_reasons"])
-            self.assertNotIn("2025-07-26", price_history)
+            self.assertNotIn("99", price_history)
             self.assertEqual(len(forecasts), 1)
             self.assertEqual(forecasts[0]["current_price"], "10.0")
             self.assertEqual(forecasts[0]["price_date"], "2025-07-24")
             self.assertEqual(forecasts[0]["week_eligible"], "false")
             self.assertEqual(forecasts[0]["input_available_at_max"], "2025-07-25")
+
+            severe_price_rows = [
+                row
+                for row in audit_rows
+                if row["record_type"] == "price" and row["severity"] == "severe"
+            ]
+            self.assertTrue(severe_price_rows)
+            self.assertEqual(severe_price_rows[0]["available_at"], "2025-07-26")
+            self.assertEqual(severe_price_rows[0]["reason"], "future_data_used")
 
     def test_replay_week_ignores_future_facts_in_screening_inputs(self):
         future_fact = duration_fact(
@@ -204,10 +215,24 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
 
             with (root / "screening_results.csv").open(encoding="utf-8-sig", newline="") as handle:
                 screening_rows = list(csv.DictReader(handle))
+            with (root / "data_leakage_audit.csv").open(encoding="utf-8-sig", newline="") as handle:
+                audit_rows = list(csv.DictReader(handle))
 
-            self.assertTrue(result["eligible"])
+            self.assertFalse(result["eligible"])
+            self.assertIn("data_leakage_detected", result["quality_reasons"])
             self.assertEqual(screening_rows[0]["latest_source_filed"], "2025-07-25")
             self.assertEqual(screening_rows[0]["revenue_ttm"], "1100")
+
+            severe_financial_rows = [
+                row
+                for row in audit_rows
+                if row["record_type"] == "financial" and row["severity"] == "severe"
+            ]
+            self.assertTrue(severe_financial_rows)
+            self.assertEqual(severe_financial_rows[0]["ticker"], "AAPL")
+            self.assertEqual(severe_financial_rows[0]["cik"], "320193")
+            self.assertEqual(severe_financial_rows[0]["available_at"], "2025-12-31")
+            self.assertEqual(severe_financial_rows[0]["reason"], "future_data_used")
 
     def test_replay_week_records_future_membership_price_and_benchmark_leakage(self):
         self.membership_rows.append(
@@ -261,6 +286,38 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             self.assertIn("price", severe_types)
             self.assertIn("benchmark", severe_types)
             self.assertTrue((root / "data_leakage_audit.md").exists())
+
+    def test_replay_week_rejects_late_benchmark_rows_before_quality_gate(self):
+        self.benchmark_rows = [
+            {
+                "market": "US",
+                "ticker": "SPY",
+                "date": "2025-07-24",
+                "close": "500",
+                "data_status": "ready",
+                "available_at": "2025-07-26",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = self._run_week(root)
+
+            with (root / "data_leakage_audit.csv").open(encoding="utf-8-sig", newline="") as handle:
+                audit_rows = list(csv.DictReader(handle))
+
+            severe_benchmark_rows = [
+                row
+                for row in audit_rows
+                if row["record_type"] == "benchmark" and row["severity"] == "severe"
+            ]
+            self.assertFalse(result["benchmark_ready"])
+            self.assertFalse(result["eligible"])
+            self.assertIn("benchmark_missing", result["quality_reasons"])
+            self.assertIn("data_leakage_detected", result["quality_reasons"])
+            self.assertTrue(severe_benchmark_rows)
+            self.assertEqual(severe_benchmark_rows[0]["available_at"], "2025-07-26")
+            self.assertEqual(severe_benchmark_rows[0]["reason"], "future_data_used")
 
     def test_replay_week_deduplicates_backtest_forecasts_by_key(self):
         with tempfile.TemporaryDirectory() as tmp:

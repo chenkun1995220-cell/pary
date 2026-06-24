@@ -245,6 +245,25 @@ def _latest_rows_by_ticker(rows):
     return latest
 
 
+def _availability_text(row):
+    return _as_text(row.get("available_at") or row.get("quote_date") or row.get("date"))
+
+
+def _split_rows_by_availability(rows, backtest_date_text):
+    available_rows = []
+    late_rows = []
+    for row in rows or []:
+        available_at = _availability_text(row)
+        normalized = dict(row)
+        if available_at and not _as_text(normalized.get("available_at")):
+            normalized["available_at"] = available_at
+        if available_at and available_at > backtest_date_text:
+            late_rows.append(normalized)
+        else:
+            available_rows.append(normalized)
+    return available_rows, late_rows
+
+
 def _normalize_quote_row(row, backtest_date_text):
     quote = dict(row)
     price = to_float(quote.get("price"))
@@ -262,6 +281,14 @@ def _normalize_quote_row(row, backtest_date_text):
     return quote
 
 
+def _company_facts_payload_for_row(row, company_facts_by_cik):
+    cik = str(row.get("cik", "")).strip()
+    payload = company_facts_by_cik.get(cik)
+    if payload is None and cik:
+        payload = company_facts_by_cik.get(cik.lstrip("0"))
+    return cik, payload
+
+
 def _membership_evidence_label(rows):
     labels = []
     for row in rows or []:
@@ -273,10 +300,7 @@ def _membership_evidence_label(rows):
 
 
 def _financial_metrics_for_row(row, company_facts_by_cik, backtest_date_text):
-    cik = str(row.get("cik", "")).strip()
-    payload = company_facts_by_cik.get(cik)
-    if payload is None and cik:
-        payload = company_facts_by_cik.get(cik.lstrip("0"))
+    cik, payload = _company_facts_payload_for_row(row, company_facts_by_cik)
     if payload is None:
         return None, ""
     try:
@@ -284,6 +308,50 @@ def _financial_metrics_for_row(row, company_facts_by_cik, backtest_date_text):
     except Exception:
         return None, ""
     return metrics, _as_text(metrics.get("latest_source_filed"))
+
+
+def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text):
+    cik, payload = _company_facts_payload_for_row(row, company_facts_by_cik)
+    if not isinstance(payload, dict):
+        return []
+
+    future_rows = []
+    facts = payload.get("facts", {})
+    if not isinstance(facts, dict):
+        return []
+
+    for taxonomy in facts.values():
+        if not isinstance(taxonomy, dict):
+            continue
+        for concept in taxonomy.values():
+            if not isinstance(concept, dict):
+                continue
+            units = concept.get("units")
+            if not isinstance(units, dict):
+                continue
+            for unit_entries in units.values():
+                if not isinstance(unit_entries, list):
+                    continue
+                for entry in unit_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    filed = _as_text(entry.get("filed"))
+                    if filed and filed > backtest_date_text:
+                        future_rows.append(
+                            _audit_record(
+                                "financial",
+                                {
+                                    **row,
+                                    "cik": cik,
+                                    "available_at": filed,
+                                },
+                                backtest_date_text,
+                                "company_facts_by_cik",
+                                severity="severe",
+                                reason="future_data_used",
+                            )
+                        )
+    return future_rows
 
 
 def _extract_share_equity_cash_debt(payload, backtest_date_text):
@@ -400,10 +468,17 @@ def replay_week(
     available_memberships, future_memberships = _available_membership_rows(
         membership_rows, backtest_date_text
     )
-    filtered_price_rows = prices_available_as_of(_normalize_price_rows(price_rows), backtest_date_text)
-    filtered_benchmark_rows = prices_available_as_of(
-        _normalize_price_rows(benchmark_rows), backtest_date_text
+    normalized_price_rows = _normalize_price_rows(price_rows)
+    available_price_rows, late_price_rows = _split_rows_by_availability(
+        normalized_price_rows, backtest_date_text
     )
+    filtered_price_rows = prices_available_as_of(available_price_rows, backtest_date_text)
+
+    normalized_benchmark_rows = _normalize_price_rows(benchmark_rows)
+    available_benchmark_rows, late_benchmark_rows = _split_rows_by_availability(
+        normalized_benchmark_rows, backtest_date_text
+    )
+    filtered_benchmark_rows = prices_available_as_of(available_benchmark_rows, backtest_date_text)
 
     membership_tickers = [str(row.get("ticker", "")).strip() for row in available_memberships if row.get("ticker")]
     quote_map = _latest_rows_by_ticker(filtered_price_rows)
@@ -413,6 +488,9 @@ def replay_week(
     financial_success_count = 0
     for row in available_memberships:
         quote_row = _normalize_quote_row(quote_map.get(str(row.get("ticker", "")).strip().upper(), {}), backtest_date_text)
+        audit_rows.extend(
+            _financial_leakage_audit_rows(row, company_facts_by_cik or {}, backtest_date_text)
+        )
         metrics, financial_available_at = _financial_metrics_for_row(
             row, company_facts_by_cik or {}, backtest_date_text
         )
@@ -450,7 +528,11 @@ def replay_week(
                     reason="",
                 )
             )
-        if metrics is not None:
+        if metrics is not None and not any(
+            entry["record_type"] == "financial" and entry["ticker"] == _as_text(row.get("ticker"))
+            and entry["severity"] == "severe"
+            for entry in audit_rows
+        ):
             audit_rows.append(
                 _audit_record(
                     "financial",
@@ -477,7 +559,7 @@ def replay_week(
             )
         )
 
-    for row in filtered_price_rows:
+    for row in available_price_rows:
         audit_rows.append(
             _audit_record(
                 "price",
@@ -488,15 +570,7 @@ def replay_week(
                 reason="",
             )
         )
-    for row in prices_available_as_of(_normalize_price_rows(price_rows), backtest_date_text):
-        pass
-
-    future_price_rows = [
-        _normalize_price_rows([row])[0]
-        for row in (price_rows or [])
-        if _as_text(row.get("available_at") or row.get("date")) > backtest_date_text
-    ]
-    for row in future_price_rows:
+    for row in late_price_rows:
         audit_rows.append(
             _audit_record(
                 "price",
@@ -508,12 +582,7 @@ def replay_week(
             )
         )
 
-    future_benchmark_rows = [
-        _normalize_price_rows([row])[0]
-        for row in (benchmark_rows or [])
-        if _as_text(row.get("available_at") or row.get("date")) > backtest_date_text
-    ]
-    for row in future_benchmark_rows:
+    for row in late_benchmark_rows:
         audit_rows.append(
             _audit_record(
                 "benchmark",
@@ -524,7 +593,7 @@ def replay_week(
                 reason="future_data_used",
             )
         )
-    for row in filtered_benchmark_rows:
+    for row in available_benchmark_rows:
         audit_rows.append(
             _audit_record(
                 "benchmark",
@@ -612,13 +681,14 @@ def replay_week(
         source = available_by_key.get(key, {})
         augmented = dict(row)
         augmented["config_digest"] = config_digest
-        augmented["week_eligible"] = "true" if _as_text(assess_week_quality(
+        week_quality = assess_week_quality(
             _membership_evidence_label(available_memberships),
             price_coverage(membership_tickers, _normalize_price_rows(filtered_price_rows)),
             (financial_success_count / len(available_memberships)) if available_memberships else 0.0,
             bool(filtered_benchmark_rows),
             len(leakage_findings(audit_rows, backtest_date_text)),
-        )["eligible"]).lower() == "true" else "false"
+        )
+        augmented["week_eligible"] = "true" if week_quality["eligible"] else "false"
         augmented["input_available_at_max"] = _max_temporal_value(
             [
                 source.get("input_available_at_max"),
@@ -636,9 +706,8 @@ def replay_week(
 
     findings = leakage_findings(audit_rows, backtest_date_text)
     for row in audit_rows:
-        if _as_text(row.get("available_at")) > backtest_date_text:
-            row["severity"] = "severe"
-            row["reason"] = "future_data_used"
+        if row.get("severity") == "severe":
+            row.setdefault("reason", "future_data_used")
         else:
             row.setdefault("severity", "ok")
             row.setdefault("reason", "")
