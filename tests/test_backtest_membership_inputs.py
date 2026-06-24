@@ -114,6 +114,37 @@ class BacktestMembershipInputsTests(unittest.TestCase):
 
         self.assertEqual(membership[0]["membership_evidence"], "secondary")
 
+    def test_evidence_pack_ignores_events_outside_limited_universe(self):
+        rows = [
+            {
+                "ticker": "AAPL",
+                "cik": "320193",
+                "company_name": "Apple Inc.",
+                "industry": "Technology",
+                "gics_sub_industry": "Hardware",
+                "date_added": "2020-01-01",
+                "enabled": "1",
+            },
+        ]
+        evidence_rows = [
+            {
+                "effective_date": "2025-09-22",
+                "added_ticker": "APP",
+                "removed_ticker": "MKTX",
+                "membership_evidence": "verified",
+                "membership_source_url": "https://www.spglobal.com/spdji/en/documents/indexnews/announcements/example.pdf",
+            }
+        ]
+
+        membership = build_backtest_membership(
+            rows,
+            weeks=1,
+            end_date="2025-09-19",
+            evidence_rows=evidence_rows,
+        )
+
+        self.assertEqual(["AAPL"], [row["ticker"] for row in membership])
+
     def test_prepare_membership_reads_evidence_pack_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

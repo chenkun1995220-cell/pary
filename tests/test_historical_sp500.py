@@ -17,6 +17,8 @@ from historical_sp500 import (
     write_historical_membership_csv,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 
 def constituent(ticker, name, evidence="verified", source_url="https://example.com/current"):
     return {
@@ -874,6 +876,19 @@ class HistoricalSp500Tests(unittest.TestCase):
             ],
             MEMBERSHIP_FIELDS,
         )
+
+    def test_seed_membership_evidence_pack_uses_official_verified_sources(self):
+        path = PROJECT_ROOT / "data" / "config" / "us_sp500_membership_evidence.csv"
+
+        events = load_change_events_csv(path)
+
+        self.assertGreaterEqual(len(events), 6)
+        for row in events:
+            self.assertEqual("verified", row["membership_evidence"])
+            self.assertTrue(row["membership_source_url"].startswith("https://www.spglobal.com/spdji/"))
+            self.assertTrue(row["membership_source_url"].endswith(".pdf"))
+            self.assertTrue(row["added_ticker"])
+            self.assertTrue(row["removed_ticker"])
 
 
 if __name__ == "__main__":
