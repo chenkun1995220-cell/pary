@@ -124,6 +124,9 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("FullRun", script)
         self.assertIn("MaxCompanies", script)
         self.assertIn("--max-companies", script)
+        self.assertIn("us_sp500_membership_evidence.csv", script)
+        self.assertIn("EvidencePack", script)
+        self.assertIn("--evidence-pack", script)
         self.assertIn("Length -le 0", script)
         self.assertIn("CIK*.json", script)
 

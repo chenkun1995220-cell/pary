@@ -31,6 +31,7 @@ $CompanyFactsCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
 $HistoricalPriceCache = Join-Path $ProjectRoot "data\cache\historical_price_store"
 $BenchmarkConfig = Join-Path $ProjectRoot "data\config\market_benchmarks.csv"
 $UniverseConfig = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
+$EvidencePack = Join-Path $ProjectRoot "data\config\us_sp500_membership_evidence.csv"
 
 $Steps = @(
   "1/8 Build historical S&P 500 membership",
@@ -49,6 +50,8 @@ Write-Host "Years: $Years"
 Write-Host "PilotWeeks: $PilotWeeks"
 Write-Host "MaxCompanies: $MaxCompanies"
 Write-Host "FullRun: $([bool]$FullRun)"
+Write-Host "EvidencePack: $EvidencePack"
+Write-Host "EvidencePackReady: $((Test-Path -LiteralPath $EvidencePack))"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
 Write-Host "backtest_membership_inputs.py -> $HistoricalMembership"
 Write-Host "backtest_sec_cache.py -> $CompanyFactsCache"
@@ -77,12 +80,18 @@ $membershipReady = (Test-Path -LiteralPath $HistoricalMembership) -and ((Get-Ite
 if (-not $membershipReady) {
   Write-Host "Running: $($Steps[0])"
   $membershipWeeks = [Math]::Max(1, $Years * 52)
-  & $Python -B backtest_membership_inputs.py `
-    --universe-config $UniverseConfig `
-    --output $HistoricalMembership `
-    --weeks "$membershipWeeks" `
-    --market US `
-    --max-companies "$MaxCompanies"
+  $membershipArgs = @(
+    "-B", "backtest_membership_inputs.py",
+    "--universe-config", $UniverseConfig,
+    "--output", $HistoricalMembership,
+    "--weeks", "$membershipWeeks",
+    "--market", "US",
+    "--max-companies", "$MaxCompanies"
+  )
+  if (Test-Path -LiteralPath $EvidencePack) {
+    $membershipArgs += @("--evidence-pack", $EvidencePack)
+  }
+  & $Python @membershipArgs
   if ($LASTEXITCODE -ne 0) {
     throw "$($Steps[0]) failed with exit code $LASTEXITCODE."
   }
