@@ -27,11 +27,13 @@ $LeakageAudit = Join-Path $OutputRoot "data_leakage_audit.md"
 $PreparedPriceHistory = Join-Path $OutputRoot "price_history.csv"
 $PreparedBenchmarkHistory = Join-Path $OutputRoot "benchmark_history.csv"
 $CompanyFactsCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
+$HistoricalPriceCache = Join-Path $ProjectRoot "data\cache\historical_price_store"
+$BenchmarkConfig = Join-Path $ProjectRoot "data\config\market_benchmarks.csv"
 
 $Steps = @(
   "1/8 Build historical S&P 500 membership",
   "2/8 Load point-in-time SEC facts",
-  "3/8 Load historical prices",
+  "3/8 Prepare historical prices",
   "4/8 Replay weekly screening",
   "5/8 Write replay manifest and checkpoint",
   "6/8 Evaluate backtest forecasts",
@@ -45,6 +47,7 @@ Write-Host "Years: $Years"
 Write-Host "PilotWeeks: $PilotWeeks"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
+Write-Host "backtest_price_inputs.py -> $PreparedPriceHistory"
 Write-Host "us_weekly_replay.py -> $BacktestForecasts"
 Write-Host "shadow_backtest.py -> $ModelComparison"
 Write-Host "us_point_in_time_backtest.py -> $ReplayManifest"
@@ -63,6 +66,25 @@ if ($DryRun) {
 
 if (-not $SecUserAgent) {
   throw "SEC_USER_AGENT is required. Pass -SecUserAgent or set the environment variable."
+}
+
+$priceInputsReady = $false
+if ((Test-Path -LiteralPath $PreparedPriceHistory) -and (Test-Path -LiteralPath $PreparedBenchmarkHistory)) {
+  $priceInputsReady = ((Get-Item -LiteralPath $PreparedPriceHistory).Length -gt 0) -and ((Get-Item -LiteralPath $PreparedBenchmarkHistory).Length -gt 0)
+}
+if ((Test-Path -LiteralPath $HistoricalMembership) -and (-not $priceInputsReady)) {
+  Write-Host "Running: $($Steps[2])"
+  & $Python -B backtest_price_inputs.py `
+    --membership $HistoricalMembership `
+    --output-root $OutputRoot `
+    --cache-dir $HistoricalPriceCache `
+    --benchmark-config $BenchmarkConfig `
+    --market US `
+    --range 5y `
+    --minimum-coverage 0.80
+  if ($LASTEXITCODE -ne 0) {
+    throw "$($Steps[2]) failed with exit code $LASTEXITCODE."
+  }
 }
 
 $requiredInputs = @($HistoricalMembership, $PreparedPriceHistory, $PreparedBenchmarkHistory)

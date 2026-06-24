@@ -107,6 +107,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         )
 
         self.assertIn("historical_sp500.py", script)
+        self.assertIn("backtest_price_inputs.py", script)
         self.assertIn("us_weekly_replay.py", script)
         self.assertIn("shadow_backtest.py", script)
         self.assertIn("-PilotWeeks 8", script)
@@ -152,7 +153,7 @@ class WeeklyAutomationTests(unittest.TestCase):
             expected_steps = [
                 "1/8 Build historical S&P 500 membership",
                 "2/8 Load point-in-time SEC facts",
-                "3/8 Load historical prices",
+                "3/8 Prepare historical prices",
                 "4/8 Replay weekly screening",
                 "5/8 Write replay manifest and checkpoint",
                 "6/8 Evaluate backtest forecasts",
