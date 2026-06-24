@@ -53,6 +53,14 @@ class WeeklyReplayQualityTests(unittest.TestCase):
             ],
         )
 
+    def test_leakage_findings_ignores_same_day_timestamps(self):
+        findings = leakage_findings(
+            [{"ticker": "AAPL", "available_at": "2025-07-25T00:00:00"}],
+            "2025-07-25",
+        )
+
+        self.assertEqual(findings, [])
+
 
 class WeeklyReplayIntegrationTests(unittest.TestCase):
     def setUp(self):
@@ -331,6 +339,67 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["market"], "US")
             self.assertEqual(rows[0]["ticker"], "AAPL")
+
+    def test_replay_week_preserves_forecast_metadata_across_backtest_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            self.backtest_date = "2025-07-25"
+            self.config_digest = "digest-1"
+            self._run_week(root)
+
+            self.backtest_date = "2025-08-01"
+            self.config_digest = "digest-2"
+            self._run_week(root)
+
+            with (root / "backtest_forecasts.csv").open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["generated_date"], "2025-07-25")
+            self.assertEqual(rows[0]["config_digest"], "digest-1")
+            self.assertEqual(rows[1]["generated_date"], "2025-08-01")
+            self.assertEqual(rows[1]["config_digest"], "digest-2")
+
+    def test_replay_week_treats_same_day_timestamps_as_available(self):
+        self.membership_rows[0]["available_at"] = "2025-07-25T00:00:00"
+        self.price_rows[0]["available_at"] = "2025-07-25T00:00:00"
+        self.price_rows[0]["date"] = "2025-07-25"
+        self.benchmark_rows[0]["available_at"] = "2025-07-25T00:00:00"
+        self.benchmark_rows[0]["date"] = "2025-07-25"
+        self.company_facts_by_cik["320193"]["facts"]["us-gaap"][
+            "RevenueFromContractWithCustomerExcludingAssessedTax"
+        ]["units"]["USD"].append(
+            duration_fact(
+                650,
+                "2025-01-01",
+                "2025-06-30",
+                2025,
+                "Q2",
+                "10-Q",
+                "2025-07-25T00:00:00",
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = self._run_week(root)
+
+            with (root / "data_leakage_audit.csv").open(encoding="utf-8-sig", newline="") as handle:
+                audit_rows = list(csv.DictReader(handle))
+
+            severe_types = {
+                row["record_type"]
+                for row in audit_rows
+                if row.get("severity") == "severe"
+            }
+            self.assertTrue(result["eligible"])
+            self.assertTrue(result["benchmark_ready"])
+            self.assertEqual(result["quality_reasons"], [])
+            self.assertNotIn("membership", severe_types)
+            self.assertNotIn("price", severe_types)
+            self.assertNotIn("benchmark", severe_types)
+            self.assertNotIn("financial", severe_types)
 
 
 if __name__ == "__main__":

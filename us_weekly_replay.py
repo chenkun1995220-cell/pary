@@ -6,7 +6,6 @@ import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-import sec_financial_metrics
 from candidate_valuation import TARGET_FIELDS, run_candidate_valuation
 from historical_price_store import price_coverage, prices_available_as_of
 from industry_medians import apply_industry_medians, calculate_industry_medians, median_rows
@@ -61,7 +60,7 @@ def leakage_findings(records, generated_date):
     generated_text = str(generated_date)
     for row in records or []:
         available_at = str(row.get("available_at", ""))
-        if available_at and available_at > generated_text:
+        if available_at and _is_after(available_at, generated_text):
             findings.append(
                 {
                     "generated_date": generated_text,
@@ -106,6 +105,14 @@ def _temporal_key(value):
         return parsed.astimezone(timezone.utc).replace(tzinfo=None)
     except ValueError:
         return None
+
+
+def _is_after(value, cutoff):
+    value_key = _temporal_key(value)
+    cutoff_key = _temporal_key(cutoff)
+    if value_key is None or cutoff_key is None:
+        return False
+    return value_key.date() > cutoff_key.date()
 
 
 def _max_temporal_value(values):
@@ -196,7 +203,7 @@ def _available_membership_rows(membership_rows, backtest_date_text):
     future_rows = []
     for row in membership_rows or []:
         available_at = _as_text(row.get("available_at"))
-        if available_at and available_at > backtest_date_text:
+        if available_at and _is_after(available_at, backtest_date_text):
             future_rows.append(dict(row, available_at=available_at))
             continue
         available.append(dict(row, available_at=available_at))
@@ -257,7 +264,7 @@ def _split_rows_by_availability(rows, backtest_date_text):
         normalized = dict(row)
         if available_at and not _as_text(normalized.get("available_at")):
             normalized["available_at"] = available_at
-        if available_at and available_at > backtest_date_text:
+        if available_at and _is_after(available_at, backtest_date_text):
             late_rows.append(normalized)
         else:
             available_rows.append(normalized)
@@ -336,7 +343,7 @@ def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text)
                     if not isinstance(entry, dict):
                         continue
                     filed = _as_text(entry.get("filed"))
-                    if filed and filed > backtest_date_text:
+                    if filed and _is_after(filed, backtest_date_text):
                         future_rows.append(
                             _audit_record(
                                 "financial",
@@ -352,21 +359,6 @@ def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text)
                             )
                         )
     return future_rows
-
-
-def _extract_share_equity_cash_debt(payload, backtest_date_text):
-    try:
-        filtered = sec_point_in_time.filter_company_facts_as_of(payload, backtest_date_text)
-    except Exception:
-        return None, None, None
-    equity = sec_financial_metrics.latest_instant_value(
-        filtered, sec_financial_metrics.INSTANT_CONCEPTS["equity"]
-    )
-    cash = sec_financial_metrics.latest_instant_value(
-        filtered, sec_financial_metrics.INSTANT_CONCEPTS["cash"]
-    )
-    debt = sec_financial_metrics.debt_value(filtered)
-    return equity, cash, debt
 
 
 def _build_weekly_input_row(
@@ -513,8 +505,8 @@ def replay_week(
                 row,
                 backtest_date_text,
                 "membership_rows",
-                severity="severe" if _as_text(row.get("available_at")) > backtest_date_text else "ok",
-                reason="future_data_used" if _as_text(row.get("available_at")) > backtest_date_text else "",
+                severity="severe" if _is_after(_as_text(row.get("available_at")), backtest_date_text) else "ok",
+                reason="future_data_used" if _is_after(_as_text(row.get("available_at")), backtest_date_text) else "",
             )
         )
         if quote_row:
@@ -674,6 +666,8 @@ def replay_week(
 
     augmented_forecasts = []
     for row in forecast_history:
+        if _as_text(row.get("generated_date")) != backtest_date_text:
+            continue
         key = (
             _as_text(row.get("market")),
             _as_text(row.get("ticker")).upper(),
