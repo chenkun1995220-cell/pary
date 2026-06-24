@@ -117,7 +117,40 @@ def _dedupe_evaluations(rows):
     )
 
 
+def _screening_diagnostics(rows):
+    total = len(rows or [])
+    candidates = 0
+    blocked = 0
+    risk_excluded = 0
+    low_score = 0
+    for row in rows or []:
+        score_text = row.get("total_score")
+        try:
+            score = float(score_text) if score_text not in (None, "") else None
+        except (TypeError, ValueError):
+            score = None
+        is_blocked = row.get("data_quality_status") == "blocked"
+        is_major_risk = row.get("risk_flag") == "重大"
+        is_candidate = score is not None and score >= 80 and not is_blocked and not is_major_risk
+        if is_candidate:
+            candidates += 1
+        if is_blocked:
+            blocked += 1
+        if is_major_risk:
+            risk_excluded += 1
+        if score is None or score < 80:
+            low_score += 1
+    return {
+        "screened_rows": total,
+        "candidate_rows": candidates,
+        "data_quality_blocked": blocked,
+        "major_risk_excluded": risk_excluded,
+        "below_score_threshold": low_score,
+    }
+
+
 def _write_backtest_report(output_root, result):
+    diagnostics = result.get("screening_diagnostics") or {}
     text = "\n".join(
         [
             "# 美股严格时点回测报告",
@@ -126,6 +159,15 @@ def _write_backtest_report(output_root, result):
             f"- 失败周数：{result['weeks_failed']}",
             f"- 预测记录：{result['forecast_rows']}",
             f"- 评价记录：{result['evaluation_rows']}",
+            "",
+            "## 最后一周筛选诊断",
+            "",
+            f"- 参与筛选：{diagnostics.get('screened_rows', 0)}",
+            f"- 进入候选池：{diagnostics.get('candidate_rows', 0)}",
+            f"- 低于评分门槛：{diagnostics.get('below_score_threshold', 0)}",
+            f"- 数据质量阻断：{diagnostics.get('data_quality_blocked', 0)}",
+            f"- 重大风险标记排除：{diagnostics.get('major_risk_excluded', 0)}",
+            "",
             "- 结论：样本或证据积累中，不得自动升级正式模型。",
             "",
         ]
@@ -257,6 +299,7 @@ def run_point_in_time_backtest(
         "weeks_failed": failed,
         "forecast_rows": len(_read_csv(output / "backtest_forecasts.csv")),
         "evaluation_rows": len(evaluation_rows),
+        "screening_diagnostics": _screening_diagnostics(_read_csv(output / "screening_results.csv")),
     }
     write_checkpoint(
         output / "checkpoint.json",

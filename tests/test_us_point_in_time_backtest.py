@@ -177,6 +177,9 @@ class UsPointInTimeBacktestTests(unittest.TestCase):
             self.assertEqual({row["checkpoint_weeks"] for row in evaluations}, {"4", "12", "26", "52"})
             self.assertEqual({row["generated_date"] for row in audit_rows}, {"2025-07-25", "2025-08-01"})
             self.assertIn("\u7f8e\u80a1\u4e25\u683c\u65f6\u70b9\u56de\u6d4b\u62a5\u544a", backtest_report)
+            self.assertIn("最后一周筛选诊断", backtest_report)
+            self.assertIn("进入候选池：1", backtest_report)
+            self.assertIn("重大风险标记排除：1", backtest_report)
             self.assertIn("\u6570\u636e\u6cc4\u6f0f\u5ba1\u8ba1", leakage_report)
 
 
