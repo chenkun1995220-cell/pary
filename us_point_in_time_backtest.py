@@ -73,6 +73,35 @@ def _group_membership_by_week(rows):
     return grouped
 
 
+def _membership_evidence_summary(grouped_membership_rows, selected_weeks):
+    counts = {"verified": 0, "secondary": 0, "insufficient": 0}
+    total = 0
+    weak_weeks = set()
+    for week in selected_weeks or []:
+        week_has_weak_evidence = False
+        for row in grouped_membership_rows.get(week, []):
+            label = str(row.get("membership_evidence") or row.get("evidence_level") or "secondary").strip().lower()
+            if label not in counts:
+                label = "insufficient"
+            counts[label] += 1
+            total += 1
+            if label != "verified":
+                week_has_weak_evidence = True
+        if week_has_weak_evidence:
+            weak_weeks.add(week)
+    weak_rows = counts["secondary"] + counts["insufficient"]
+    verified_ratio = counts["verified"] / total if total else 0.0
+    return {
+        "total_rows": total,
+        "verified_rows": counts["verified"],
+        "secondary_rows": counts["secondary"],
+        "insufficient_rows": counts["insufficient"],
+        "weak_evidence_rows": weak_rows,
+        "weeks_with_weak_evidence": len(weak_weeks),
+        "verified_ratio": verified_ratio,
+    }
+
+
 def _validate_prepared_inputs(membership_rows, price_rows, benchmark_rows, grouped, selected_weeks, company_facts_cache):
     problems = []
     if not membership_rows:
@@ -151,6 +180,10 @@ def _screening_diagnostics(rows):
 
 def _write_backtest_report(output_root, result):
     diagnostics = result.get("screening_diagnostics") or {}
+    evidence = result.get("membership_evidence_summary") or {}
+    evidence_total = evidence.get("total_rows", 0)
+    evidence_verified = evidence.get("verified_rows", 0)
+    evidence_ratio = evidence.get("verified_ratio", 0.0) * 100
     text = "\n".join(
         [
             "# 美股严格时点回测报告",
@@ -159,6 +192,14 @@ def _write_backtest_report(output_root, result):
             f"- 失败周数：{result['weeks_failed']}",
             f"- 预测记录：{result['forecast_rows']}",
             f"- 评价记录：{result['evaluation_rows']}",
+            "",
+            "## 成员证据覆盖",
+            "",
+            f"- 已验证证据：{evidence_verified}/{evidence_total} ({evidence_ratio:.1f}%)",
+            f"- secondary 证据：{evidence.get('secondary_rows', 0)}",
+            f"- insufficient 证据：{evidence.get('insufficient_rows', 0)}",
+            f"- 弱证据行：{evidence.get('weak_evidence_rows', 0)}",
+            f"- 存在弱证据的回放周：{evidence.get('weeks_with_weak_evidence', 0)}",
             "",
             "## 最后一周筛选诊断",
             "",
@@ -300,6 +341,7 @@ def run_point_in_time_backtest(
         "forecast_rows": len(_read_csv(output / "backtest_forecasts.csv")),
         "evaluation_rows": len(evaluation_rows),
         "screening_diagnostics": _screening_diagnostics(_read_csv(output / "screening_results.csv")),
+        "membership_evidence_summary": _membership_evidence_summary(grouped, selected_weeks),
     }
     write_checkpoint(
         output / "checkpoint.json",
