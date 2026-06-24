@@ -882,7 +882,7 @@ class HistoricalSp500Tests(unittest.TestCase):
 
         events = load_change_events_csv(path)
 
-        self.assertGreaterEqual(len(events), 6)
+        self.assertGreaterEqual(len(events), 25)
         for row in events:
             self.assertEqual("verified", row["membership_evidence"])
             self.assertTrue(row["membership_source_url"].startswith("https://www.spglobal.com/spdji/"))
