@@ -71,8 +71,12 @@ def build_backtest_membership(
     market="US",
     evidence="secondary",
     source_url="data/config/us_universe_symbols.csv",
+    company_limit=0,
 ):
     active_rows = _active_universe_rows(universe_rows)
+    limit = int(company_limit or 0)
+    if limit > 0:
+        active_rows = sorted(active_rows, key=lambda item: item["ticker"])[:limit]
     week_dates = _weekly_dates(weeks, end_date=end_date)
     output = []
     for week in week_dates:
@@ -127,13 +131,14 @@ def write_backtest_membership_csv(path, rows):
         raise
 
 
-def prepare_backtest_membership(universe_config, output, weeks=156, end_date=None, market="US"):
+def prepare_backtest_membership(universe_config, output, weeks=156, end_date=None, market="US", company_limit=0):
     rows = build_backtest_membership(
         _read_csv(universe_config),
         weeks=weeks,
         end_date=end_date,
         market=market,
         source_url=str(universe_config),
+        company_limit=company_limit,
     )
     write_backtest_membership_csv(output, rows)
     return {"rows": len(rows), "weeks": len({row["week"] for row in rows}), "output": Path(output)}
@@ -146,6 +151,7 @@ def main():
     parser.add_argument("--weeks", type=int, default=156)
     parser.add_argument("--end-date")
     parser.add_argument("--market", default="US")
+    parser.add_argument("--max-companies", type=int, default=0)
     args = parser.parse_args()
     result = prepare_backtest_membership(
         args.universe_config,
@@ -153,6 +159,7 @@ def main():
         weeks=args.weeks,
         end_date=args.end_date,
         market=args.market,
+        company_limit=args.max_companies,
     )
     print(f"Backtest membership weeks: {result['weeks']}")
     print(f"Backtest membership rows: {result['rows']}")

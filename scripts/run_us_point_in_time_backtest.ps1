@@ -1,6 +1,7 @@
 param(
   [int]$Years = 3,
   [int]$PilotWeeks = 8,
+  [int]$MaxCompanies = 0,
   [string]$OutputRoot = "",
   [string]$SecUserAgent = $env:SEC_USER_AGENT,
   [switch]$FullRun,
@@ -46,6 +47,7 @@ Write-Host "US strict point-in-time backtest pipeline"
 Write-Host "OutputRoot: $OutputRoot"
 Write-Host "Years: $Years"
 Write-Host "PilotWeeks: $PilotWeeks"
+Write-Host "MaxCompanies: $MaxCompanies"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
 Write-Host "backtest_membership_inputs.py -> $HistoricalMembership"
@@ -79,7 +81,8 @@ if (-not $membershipReady) {
     --universe-config $UniverseConfig `
     --output $HistoricalMembership `
     --weeks "$membershipWeeks" `
-    --market US
+    --market US `
+    --max-companies "$MaxCompanies"
   if ($LASTEXITCODE -ne 0) {
     throw "$($Steps[0]) failed with exit code $LASTEXITCODE."
   }

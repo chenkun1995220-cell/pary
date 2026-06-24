@@ -122,6 +122,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("data_leakage_audit.md", script)
         self.assertIn("checkpoint.json", script)
         self.assertIn("FullRun", script)
+        self.assertIn("MaxCompanies", script)
+        self.assertIn("--max-companies", script)
         self.assertIn("Length -le 0", script)
         self.assertIn("CIK*.json", script)
 

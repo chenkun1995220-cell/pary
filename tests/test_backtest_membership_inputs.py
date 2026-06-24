@@ -93,6 +93,21 @@ class BacktestMembershipInputsTests(unittest.TestCase):
                 end_date="2025-01-03",
             )
 
+    def test_company_limit_restricts_each_week_to_stable_ticker_order(self):
+        rows = [
+            {"ticker": "MSFT", "company_name": "Microsoft", "industry": "Technology", "cik": "789019", "date_added": "1986-03-13", "enabled": "1"},
+            {"ticker": "AAPL", "company_name": "Apple", "industry": "Technology", "cik": "320193", "date_added": "1982-11-30", "enabled": "1"},
+            {"ticker": "AMZN", "company_name": "Amazon", "industry": "Consumer Discretionary", "cik": "1018724", "date_added": "2005-11-18", "enabled": "1"},
+        ]
+
+        membership = build_backtest_membership(rows, weeks=2, end_date="2025-01-10", company_limit=2)
+
+        by_week = {}
+        for row in membership:
+            by_week.setdefault(row["week"], []).append(row["ticker"])
+        self.assertEqual(by_week["2025-01-03"], ["AAPL", "AMZN"])
+        self.assertEqual(by_week["2025-01-10"], ["AAPL", "AMZN"])
+
 
 if __name__ == "__main__":
     unittest.main()
