@@ -61,6 +61,21 @@ class WeeklyReplayQualityTests(unittest.TestCase):
 
         self.assertEqual(findings, [])
 
+    def test_leakage_findings_ignores_future_rows_that_were_excluded(self):
+        findings = leakage_findings(
+            [
+                {
+                    "ticker": "AAPL",
+                    "available_at": "2025-07-26",
+                    "severity": "audit",
+                    "reason": "future_data_excluded",
+                }
+            ],
+            "2025-07-25",
+        )
+
+        self.assertEqual(findings, [])
+
 
 class WeeklyReplayEvaluationTests(unittest.TestCase):
     def test_evaluate_backtest_forecast_outputs_four_unique_checkpoint_returns(self):
@@ -335,21 +350,21 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             with (root / "data_leakage_audit.csv").open(encoding="utf-8-sig", newline="") as handle:
                 audit_rows = list(csv.DictReader(handle))
 
-            self.assertFalse(result["eligible"])
-            self.assertIn("data_leakage_detected", result["quality_reasons"])
+            self.assertTrue(result["eligible"])
+            self.assertNotIn("data_leakage_detected", result["quality_reasons"])
             self.assertEqual(screening_rows[0]["latest_source_filed"], "2025-07-25")
             self.assertEqual(screening_rows[0]["revenue_ttm"], "1100")
 
-            severe_financial_rows = [
+            excluded_financial_rows = [
                 row
                 for row in audit_rows
-                if row["record_type"] == "financial" and row["severity"] == "severe"
+                if row["record_type"] == "financial" and row["severity"] == "audit"
             ]
-            self.assertTrue(severe_financial_rows)
-            self.assertEqual(severe_financial_rows[0]["ticker"], "AAPL")
-            self.assertEqual(severe_financial_rows[0]["cik"], "320193")
-            self.assertEqual(severe_financial_rows[0]["available_at"], "2025-12-31")
-            self.assertEqual(severe_financial_rows[0]["reason"], "future_data_used")
+            self.assertTrue(excluded_financial_rows)
+            self.assertEqual(excluded_financial_rows[0]["ticker"], "AAPL")
+            self.assertEqual(excluded_financial_rows[0]["cik"], "320193")
+            self.assertEqual(excluded_financial_rows[0]["available_at"], "2025-12-31")
+            self.assertEqual(excluded_financial_rows[0]["reason"], "future_data_excluded")
 
     def test_replay_week_records_future_membership_price_and_benchmark_leakage(self):
         self.membership_rows.append(

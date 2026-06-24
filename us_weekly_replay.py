@@ -60,6 +60,8 @@ def leakage_findings(records, generated_date):
     findings = []
     generated_text = str(generated_date)
     for row in records or []:
+        if row.get("severity") not in ("", "severe", None):
+            continue
         available_at = str(row.get("available_at", ""))
         if available_at and _is_after(available_at, generated_text):
             findings.append(
@@ -366,8 +368,8 @@ def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text)
                                 },
                                 backtest_date_text,
                                 "company_facts_by_cik",
-                                severity="severe",
-                                reason="future_data_used",
+                                severity="audit",
+                                reason="future_data_excluded",
                             )
                         )
     return future_rows
