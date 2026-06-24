@@ -24,6 +24,9 @@ $BacktestEvaluations = Join-Path $OutputRoot "backtest_evaluations.csv"
 $ModelComparison = Join-Path $OutputRoot "model_comparison.csv"
 $BacktestReport = Join-Path $OutputRoot "backtest_report.md"
 $LeakageAudit = Join-Path $OutputRoot "data_leakage_audit.md"
+$PreparedPriceHistory = Join-Path $OutputRoot "price_history.csv"
+$PreparedBenchmarkHistory = Join-Path $OutputRoot "benchmark_history.csv"
+$CompanyFactsCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
 
 $Steps = @(
   "1/8 Build historical S&P 500 membership",
@@ -44,6 +47,7 @@ Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
 Write-Host "us_weekly_replay.py -> $BacktestForecasts"
 Write-Host "shadow_backtest.py -> $ModelComparison"
+Write-Host "us_point_in_time_backtest.py -> $ReplayManifest"
 Write-Host "replay_manifest.csv -> $ReplayManifest"
 Write-Host "checkpoint.json -> $Checkpoint"
 Write-Host "backtest_evaluations.csv -> $BacktestEvaluations"
@@ -57,10 +61,25 @@ if ($DryRun) {
   exit 0
 }
 
-throw "Batch weekly replay runner is not wired yet. Use -DryRun for plan inspection; implement the week loop before pilot or FullRun execution."
-
 if (-not $SecUserAgent) {
   throw "SEC_USER_AGENT is required. Pass -SecUserAgent or set the environment variable."
+}
+
+$requiredInputs = @($HistoricalMembership, $PreparedPriceHistory, $PreparedBenchmarkHistory)
+$missingInputs = @($requiredInputs | Where-Object { -not (Test-Path -LiteralPath $_) })
+if ($missingInputs.Count -gt 0) {
+  throw "Prepared backtest inputs are required before execution. Missing: $($missingInputs -join ', ')"
+}
+$emptyInputs = @($requiredInputs | Where-Object { (Get-Item -LiteralPath $_).Length -le 0 })
+if ($emptyInputs.Count -gt 0) {
+  throw "Prepared backtest inputs are required before execution. Empty: $($emptyInputs -join ', ')"
+}
+if (-not (Test-Path -LiteralPath $CompanyFactsCache)) {
+  throw "Prepared backtest inputs are required before execution. Missing: $CompanyFactsCache"
+}
+$factFiles = @(Get-ChildItem -LiteralPath $CompanyFactsCache -Filter "CIK*.json" -File)
+if ($factFiles.Count -le 0) {
+  throw "Prepared backtest inputs are required before execution. Empty SEC company facts cache: $CompanyFactsCache"
 }
 
 $env:SEC_USER_AGENT = $SecUserAgent
@@ -81,62 +100,22 @@ try {
   Start-Transcript -Path $logPath | Out-Null
   $transcriptStarted = $true
 
-  $weeksToRun = if ($FullRun) { 156 } else { $PilotWeeks }
-  Write-Host "Running pilot weeks: $weeksToRun"
-
-  Write-Host "Running: $($Steps[0])"
-  & $Python -B historical_sp500.py --output $HistoricalMembership --years $Years
-  if ($LASTEXITCODE -ne 0) { throw "$($Steps[0]) failed with exit code $LASTEXITCODE." }
-
-  Write-Host "Running: $($Steps[1])"
-  Write-Host "SEC facts are loaded by us_weekly_replay.py from the configured Company Facts cache."
-
-  Write-Host "Running: $($Steps[2])"
-  Write-Host "Historical prices are loaded by historical_price_store.py during weekly replay."
-
-  Write-Host "Running: $($Steps[3])"
-  & $Python -B us_weekly_replay.py --help | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "$($Steps[3]) failed with exit code $LASTEXITCODE." }
-
-  Write-Host "Running: $($Steps[4])"
-  $checkpointPayload = @{
-    batch_id = $runStamp
-    output_root = $OutputRoot
-    pilot_weeks = $weeksToRun
-    full_run = [bool]$FullRun
-    updated_at = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-    replay_manifest = $ReplayManifest
-  } | ConvertTo-Json -Depth 4
-  Set-Content -LiteralPath $Checkpoint -Value $checkpointPayload -Encoding UTF8
-  if (-not (Test-Path $ReplayManifest)) {
-    "batch_id,week,status,config_digest,updated_at" | Set-Content -LiteralPath $ReplayManifest -Encoding UTF8
+  Write-Host "Running: $($Steps[3]) through $($Steps[7])"
+  $runnerArgs = @(
+    "-B", "us_point_in_time_backtest.py",
+    "--membership", $HistoricalMembership,
+    "--company-facts-cache", $CompanyFactsCache,
+    "--price-history", $PreparedPriceHistory,
+    "--benchmark-history", $PreparedBenchmarkHistory,
+    "--output-root", $OutputRoot,
+    "--pilot-weeks", "$PilotWeeks"
+  )
+  if ($FullRun) {
+    $runnerArgs += "--full-run"
   }
-
-  Write-Host "Running: $($Steps[5])"
-  if (Test-Path $BacktestForecasts) {
-    & $Python -B forecast_tracker.py --market US --forecasts $BacktestForecasts --stock-history (Join-Path $OutputRoot "price_history.csv") --benchmark-history (Join-Path $OutputRoot "benchmark_history.csv") --output-root $OutputRoot
-    if ($LASTEXITCODE -ne 0) { throw "$($Steps[5]) failed with exit code $LASTEXITCODE." }
-  } else {
-    Write-Host "No backtest_forecasts.csv yet; skipping evaluation until replay output exists."
-  }
-
-  Write-Host "Running: $($Steps[6])"
-  if (Test-Path $BacktestEvaluations) {
-    & $Python -B shadow_backtest.py --evaluations $BacktestEvaluations --output-root $OutputRoot
-    if ($LASTEXITCODE -ne 0) { throw "$($Steps[6]) failed with exit code $LASTEXITCODE." }
-  } else {
-    Write-Host "No backtest_evaluations.csv yet; skipping shadow comparison until evaluations exist."
-  }
-
-  Write-Host "Running: $($Steps[7])"
-  if (-not (Test-Path $BacktestReport)) {
-    @(
-      "# US Strict Point-in-Time Backtest Report",
-      "",
-      "- Conclusion: sample or evidence accumulation in progress; do not auto-upgrade the formal model.",
-      "- OutputRoot: $OutputRoot",
-      "- Log: $logPath"
-    ) | Set-Content -LiteralPath $BacktestReport -Encoding UTF8
+  & $Python @runnerArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "Point-in-time backtest runner failed with exit code $LASTEXITCODE."
   }
 
   Write-Host "Point-in-time backtest completed. OutputRoot: $OutputRoot"

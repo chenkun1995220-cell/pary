@@ -119,6 +119,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("data_leakage_audit.md", script)
         self.assertIn("checkpoint.json", script)
         self.assertIn("FullRun", script)
+        self.assertIn("Length -le 0", script)
+        self.assertIn("CIK*.json", script)
 
     def test_point_in_time_backtest_dry_run_prints_ordered_pipeline_without_writing_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -163,7 +165,7 @@ class WeeklyAutomationTests(unittest.TestCase):
             self.assertIn("PilotWeeks: 8", output)
             self.assertFalse(output_root.exists())
 
-    def test_point_in_time_backtest_non_dry_run_blocks_until_batch_replay_is_wired(self):
+    def test_point_in_time_backtest_non_dry_run_requires_prepared_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_root = Path(tmp) / "backtest_output"
             result = subprocess.run(
@@ -189,7 +191,7 @@ class WeeklyAutomationTests(unittest.TestCase):
 
             output = result.stdout + result.stderr
             self.assertNotEqual(result.returncode, 0, output)
-            self.assertIn("Batch weekly replay runner is not wired yet", output)
+            self.assertIn("Prepared backtest inputs are required", output)
             self.assertNotIn("Point-in-time backtest completed", output)
 
     def test_point_in_time_backtest_docs_describe_run_modes_and_limits(self):
