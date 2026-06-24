@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tests.test_sec_financial_metrics import duration_fact, metric_facts
 
-from us_weekly_replay import assess_week_quality, leakage_findings, replay_week
+from us_weekly_replay import assess_week_quality, evaluate_backtest_forecast, leakage_findings, replay_week
 
 
 class WeeklyReplayQualityTests(unittest.TestCase):
@@ -60,6 +60,115 @@ class WeeklyReplayQualityTests(unittest.TestCase):
         )
 
         self.assertEqual(findings, [])
+
+
+class WeeklyReplayEvaluationTests(unittest.TestCase):
+    def test_evaluate_backtest_forecast_outputs_four_unique_checkpoint_returns(self):
+        forecast = {
+            "market": "US",
+            "ticker": "AAPL",
+            "company_name": "Apple Inc.",
+            "generated_date": "2024-01-07",
+            "model_version": "valuation_trend_v1",
+            "target_price": "150",
+            "expected_return": "0.50",
+            "valuation_confidence": "high",
+            "week_eligible": "true",
+        }
+        stock_rows = [
+            {
+                "market": "US",
+                "ticker": "AAPL",
+                "date": "2024-01-07",
+                "adjusted_close": "100",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "AAPL",
+                "date": "2024-02-04",
+                "adjusted_close": "110",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "AAPL",
+                "date": "2024-03-31",
+                "adjusted_close": "120",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "AAPL",
+                "date": "2024-07-07",
+                "adjusted_close": "130",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "AAPL",
+                "date": "2025-01-05",
+                "adjusted_close": "140",
+                "data_status": "ready",
+            },
+        ]
+        benchmark_rows = [
+            {
+                "market": "US",
+                "ticker": "^GSPC",
+                "date": "2024-01-07",
+                "adjusted_close": "100",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "^GSPC",
+                "date": "2024-02-04",
+                "adjusted_close": "105",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "^GSPC",
+                "date": "2024-03-31",
+                "adjusted_close": "110",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "^GSPC",
+                "date": "2024-07-07",
+                "adjusted_close": "115",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "^GSPC",
+                "date": "2025-01-05",
+                "adjusted_close": "120",
+                "data_status": "ready",
+            },
+        ]
+
+        evaluations = evaluate_backtest_forecast(forecast, stock_rows, benchmark_rows)
+
+        self.assertEqual([row["checkpoint_weeks"] for row in evaluations], [4, 12, 26, 52])
+        unique_keys = {
+            (
+                row["market"],
+                row["ticker"],
+                row["generated_date"],
+                row["model_version"],
+                row["checkpoint_weeks"],
+            )
+            for row in evaluations
+        }
+        self.assertEqual(len(unique_keys), 4)
+        self.assertTrue(all(row["evaluation_status"] == "evaluated" for row in evaluations))
+        self.assertTrue(all(row["backtest_eligible"] == "true" for row in evaluations))
+        self.assertAlmostEqual(evaluations[-1]["actual_return"], 0.40)
+        self.assertAlmostEqual(evaluations[-1]["benchmark_return"], 0.20)
+        self.assertAlmostEqual(evaluations[-1]["excess_return"], 0.20)
 
 
 class WeeklyReplayIntegrationTests(unittest.TestCase):

@@ -3,10 +3,11 @@ from __future__ import annotations
 import csv
 import math
 import tempfile
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from candidate_valuation import MODEL_VERSION, TARGET_FIELDS, run_candidate_valuation
+from forecast_tracker import CHECKPOINTS, evaluate_forecast
 from historical_price_store import price_coverage, prices_available_as_of
 from industry_medians import apply_industry_medians, calculate_industry_medians, median_rows
 from sec_point_in_time import calculate_metrics_as_of
@@ -71,6 +72,17 @@ def leakage_findings(records, generated_date):
                 }
             )
     return findings
+
+
+def evaluate_backtest_forecast(forecast, stock_rows, benchmark_rows):
+    rows = []
+    generated = date.fromisoformat(_as_text(forecast.get("generated_date")))
+    for weeks, days in CHECKPOINTS.items():
+        as_of_date = (generated + timedelta(days=days)).isoformat()
+        row = evaluate_forecast(forecast, stock_rows, benchmark_rows, as_of_date, weeks)
+        row["backtest_eligible"] = _as_text(forecast.get("week_eligible", "false"))
+        rows.append(row)
+    return rows
 
 
 def _as_text(value):
