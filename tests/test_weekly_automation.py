@@ -211,6 +211,9 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("-FullRun", doc)
         self.assertIn("outputs/backtests/us_3y_weekly", doc)
         self.assertIn("data_leakage_audit.md", doc)
+        self.assertIn("us_sp500_membership_evidence.csv", doc)
+        self.assertIn("effective_date, added_ticker, removed_ticker", doc)
+        self.assertIn("S&P Global", doc)
         self.assertIn("不得自动升级正式模型", doc)
 
 
