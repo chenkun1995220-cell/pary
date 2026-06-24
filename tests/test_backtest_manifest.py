@@ -1,4 +1,4 @@
-import json
+import csv
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -49,6 +49,25 @@ class BacktestManifestTests(unittest.TestCase):
     def test_checkpoint_missing_file_returns_none(self):
         with TemporaryDirectory() as root:
             checkpoint = Path(root) / "nested" / "checkpoint.json"
+
+            self.assertIsNone(load_checkpoint(checkpoint))
+
+    def test_checkpoint_invalid_json_returns_none(self):
+        with TemporaryDirectory() as root:
+            checkpoint = Path(root) / "nested" / "checkpoint.json"
+            checkpoint.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint.write_text("{not valid json", encoding="utf-8")
+
+            self.assertIsNone(load_checkpoint(checkpoint))
+
+    def test_checkpoint_missing_required_fields_returns_none(self):
+        with TemporaryDirectory() as root:
+            checkpoint = Path(root) / "nested" / "checkpoint.json"
+            checkpoint.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint.write_text(
+                '{"batch_id": "batch_a", "config_digest": "abc123"}',
+                encoding="utf-8",
+            )
 
             self.assertIsNone(load_checkpoint(checkpoint))
 
@@ -117,6 +136,99 @@ class BacktestManifestTests(unittest.TestCase):
             self.assertEqual(rows[0]["status"], "completed")
             self.assertEqual(rows[0]["week"], "2026-01-01")
             self.assertEqual(rows[0]["batch_id"], "batch_a")
+
+    def test_replay_manifest_auto_creates_nested_parent_directories(self):
+        with TemporaryDirectory() as root:
+            manifest_path = Path(root) / "nested" / "deep" / "replay_manifest.csv"
+            row = {
+                "batch_id": "batch_a",
+                "week": "2026-01-01",
+                "status": "completed",
+                "config_digest": "digest_new",
+                "coverage": "0.99",
+                "quality_gate": "pass",
+                "failure_reason": "",
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+
+            upsert_manifest_row(manifest_path, row)
+
+            self.assertTrue(manifest_path.exists())
+            self.assertTrue(manifest_path.parent.exists())
+            self.assertEqual(load_manifest_rows(manifest_path), [row])
+
+    def test_replay_manifest_rebuilds_duplicate_keys_before_upsert(self):
+        with TemporaryDirectory() as root:
+            manifest_path = Path(root) / "replay_manifest.csv"
+            with manifest_path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=[
+                    "batch_id",
+                    "week",
+                    "status",
+                    "config_digest",
+                    "coverage",
+                    "quality_gate",
+                    "failure_reason",
+                    "updated_at",
+                ])
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "batch_id": "batch_a",
+                        "week": "2026-01-01",
+                        "status": "failed",
+                        "config_digest": "digest_old",
+                        "coverage": "0.40",
+                        "quality_gate": "retry",
+                        "failure_reason": "timeout",
+                        "updated_at": "2026-01-01T00:00:00Z",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "batch_id": "batch_a",
+                        "week": "2026-01-01",
+                        "status": "failed",
+                        "config_digest": "digest_older",
+                        "coverage": "0.38",
+                        "quality_gate": "retry",
+                        "failure_reason": "timeout",
+                        "updated_at": "2026-01-01T01:00:00Z",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "batch_id": "batch_b",
+                        "week": "2026-01-01",
+                        "status": "completed",
+                        "config_digest": "digest_b",
+                        "coverage": "0.97",
+                        "quality_gate": "pass",
+                        "failure_reason": "",
+                        "updated_at": "2026-01-01T02:00:00Z",
+                    }
+                )
+
+            latest = {
+                "batch_id": "batch_a",
+                "week": "2026-01-01",
+                "status": "completed",
+                "config_digest": "digest_new",
+                "coverage": "0.99",
+                "quality_gate": "pass",
+                "failure_reason": "",
+                "updated_at": "2026-01-02T00:00:00Z",
+            }
+            upsert_manifest_row(manifest_path, latest)
+
+            rows = load_manifest_rows(manifest_path)
+            matching_rows = [
+                row for row in rows if (row["batch_id"], row["week"]) == ("batch_a", "2026-01-01")
+            ]
+
+            self.assertEqual(len(matching_rows), 1)
+            self.assertEqual(matching_rows[0], latest)
+            self.assertEqual(len(rows), 2)
 
     def test_replay_manifest_keeps_distinct_batch_or_week_records(self):
         with TemporaryDirectory() as root:

@@ -63,8 +63,16 @@ def load_checkpoint(path):
     path = Path(path)
     if not path.exists():
         return None
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            checkpoint = json.load(handle)
+    except (json.JSONDecodeError, OSError, ValueError):
+        return None
+    if not isinstance(checkpoint, dict):
+        return None
+    if not all(field in checkpoint for field in CHECKPOINT_FIELDS):
+        return None
+    return checkpoint
 
 
 def load_manifest_rows(path):
@@ -80,15 +88,19 @@ def upsert_manifest_row(path, row):
     rows = load_manifest_rows(path)
 
     key = (str(row.get("batch_id", "")), str(row.get("week", "")))
-    replaced = False
-    for index, existing in enumerate(rows):
+    rebuilt_rows = []
+    inserted = False
+    for existing in rows:
         existing_key = (str(existing.get("batch_id", "")), str(existing.get("week", "")))
         if existing_key == key:
-            rows[index] = row
-            replaced = True
-            break
-    if not replaced:
-        rows.append(row)
+            if not inserted:
+                rebuilt_rows.append(row)
+                inserted = True
+            continue
+        rebuilt_rows.append(existing)
+    if not inserted:
+        rebuilt_rows.append(row)
+    rows = rebuilt_rows
 
     fieldnames = list(MANIFEST_CORE_FIELDS)
     extras = set()
@@ -100,6 +112,7 @@ def upsert_manifest_row(path, row):
 
     temp_path = None
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
             "w", encoding="utf-8-sig", newline="", delete=False, dir=path.parent
         ) as handle:
