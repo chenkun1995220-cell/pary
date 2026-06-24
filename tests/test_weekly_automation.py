@@ -221,6 +221,24 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("S&P Global", doc)
         self.assertIn("不得自动升级正式模型", doc)
 
+    def test_self_analysis_docs_describe_summary_entrypoint(self):
+        doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("run_self_analysis.ps1", doc)
+        self.assertIn("outputs/automation/latest_self_analysis.md", doc)
+        self.assertIn("自我分析摘要", doc)
+
+    def test_self_analysis_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "run_self_analysis.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("automation_self_analysis.py", script)
+        self.assertIn("latest_self_analysis.md", script)
+        self.assertIn("DryRun", script)
+
 
 if __name__ == "__main__":
     unittest.main()
