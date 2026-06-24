@@ -99,7 +99,7 @@ class UsPointInTimeBacktestTests(unittest.TestCase):
                             "cik": "789019",
                             "company_name": "Microsoft Corp.",
                             "industry": "Technology",
-                            "membership_evidence": "verified",
+                            "membership_evidence": "secondary",
                             "available_at": "2025-07-20",
                             "market_cap": "10000",
                             "enterprise_value": "12000",
@@ -161,6 +161,10 @@ class UsPointInTimeBacktestTests(unittest.TestCase):
             )
 
             self.assertEqual(result["weeks_completed"], 2)
+            self.assertEqual(result["membership_evidence_summary"]["total_rows"], 4)
+            self.assertEqual(result["membership_evidence_summary"]["verified_rows"], 2)
+            self.assertEqual(result["membership_evidence_summary"]["secondary_rows"], 2)
+            self.assertAlmostEqual(result["membership_evidence_summary"]["verified_ratio"], 0.5)
             self.assertTrue((output / "replay_manifest.csv").exists())
             self.assertTrue((output / "checkpoint.json").exists())
             self.assertTrue((output / "backtest_forecasts.csv").exists())
@@ -177,6 +181,9 @@ class UsPointInTimeBacktestTests(unittest.TestCase):
             self.assertEqual({row["checkpoint_weeks"] for row in evaluations}, {"4", "12", "26", "52"})
             self.assertEqual({row["generated_date"] for row in audit_rows}, {"2025-07-25", "2025-08-01"})
             self.assertIn("\u7f8e\u80a1\u4e25\u683c\u65f6\u70b9\u56de\u6d4b\u62a5\u544a", backtest_report)
+            self.assertIn("成员证据覆盖", backtest_report)
+            self.assertIn("已验证证据：2/4 (50.0%)", backtest_report)
+            self.assertIn("弱证据行：2", backtest_report)
             self.assertIn("最后一周筛选诊断", backtest_report)
             self.assertIn("进入候选池：1", backtest_report)
             self.assertIn("重大风险标记排除：1", backtest_report)
