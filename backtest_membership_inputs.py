@@ -103,6 +103,17 @@ def _current_membership_map(active_rows, evidence, source_url, evidence_rows=Non
     return current
 
 
+def _applicable_evidence_rows(evidence_rows, active_rows):
+    active_tickers = {row["ticker"] for row in active_rows}
+    applicable = []
+    for event in evidence_rows or []:
+        added_ticker = str(event.get("added_ticker", "") or "").strip().upper()
+        removed_ticker = str(event.get("removed_ticker", "") or "").strip().upper()
+        if added_ticker in active_tickers or (not added_ticker and removed_ticker in active_tickers):
+            applicable.append(event)
+    return applicable
+
+
 def build_backtest_membership(
     universe_rows,
     weeks=156,
@@ -117,13 +128,14 @@ def build_backtest_membership(
     limit = int(company_limit or 0)
     if limit > 0:
         active_rows = sorted(active_rows, key=lambda item: item["ticker"])[:limit]
+    applicable_evidence_rows = _applicable_evidence_rows(evidence_rows, active_rows)
     week_dates = _weekly_dates(weeks, end_date=end_date)
     output = []
     for week in week_dates:
         week_date = _iso_date(week, "week")
-        if evidence_rows:
-            current = _current_membership_map(active_rows, evidence, source_url, evidence_rows)
-            week_members = restore_membership(current, evidence_rows, week)
+        if applicable_evidence_rows:
+            current = _current_membership_map(active_rows, evidence, source_url, applicable_evidence_rows)
+            week_members = restore_membership(current, applicable_evidence_rows, week)
             active_by_ticker = {row["ticker"]: row for row in active_rows}
             week_rows = []
             for ticker, restored in sorted(week_members.items()):
