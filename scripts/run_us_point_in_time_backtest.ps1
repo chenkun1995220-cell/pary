@@ -29,6 +29,7 @@ $PreparedBenchmarkHistory = Join-Path $OutputRoot "benchmark_history.csv"
 $CompanyFactsCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
 $HistoricalPriceCache = Join-Path $ProjectRoot "data\cache\historical_price_store"
 $BenchmarkConfig = Join-Path $ProjectRoot "data\config\market_benchmarks.csv"
+$UniverseConfig = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
 
 $Steps = @(
   "1/8 Build historical S&P 500 membership",
@@ -47,6 +48,7 @@ Write-Host "Years: $Years"
 Write-Host "PilotWeeks: $PilotWeeks"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
+Write-Host "backtest_membership_inputs.py -> $HistoricalMembership"
 Write-Host "backtest_price_inputs.py -> $PreparedPriceHistory"
 Write-Host "us_weekly_replay.py -> $BacktestForecasts"
 Write-Host "shadow_backtest.py -> $ModelComparison"
@@ -66,6 +68,28 @@ if ($DryRun) {
 
 if (-not $SecUserAgent) {
   throw "SEC_USER_AGENT is required. Pass -SecUserAgent or set the environment variable."
+}
+
+$membershipReady = (Test-Path -LiteralPath $HistoricalMembership) -and ((Get-Item -LiteralPath $HistoricalMembership).Length -gt 0)
+if (-not $membershipReady) {
+  Write-Host "Running: $($Steps[0])"
+  $membershipWeeks = [Math]::Max(1, $Years * 52)
+  & $Python -B backtest_membership_inputs.py `
+    --universe-config $UniverseConfig `
+    --output $HistoricalMembership `
+    --weeks "$membershipWeeks" `
+    --market US
+  if ($LASTEXITCODE -ne 0) {
+    throw "$($Steps[0]) failed with exit code $LASTEXITCODE."
+  }
+}
+
+if (-not (Test-Path -LiteralPath $CompanyFactsCache)) {
+  throw "Prepared backtest inputs are required before execution. Missing: $CompanyFactsCache"
+}
+$factFiles = @(Get-ChildItem -LiteralPath $CompanyFactsCache -Filter "CIK*.json" -File)
+if ($factFiles.Count -le 0) {
+  throw "Prepared backtest inputs are required before execution. Empty SEC company facts cache: $CompanyFactsCache"
 }
 
 $priceInputsReady = $false
@@ -96,14 +120,6 @@ $emptyInputs = @($requiredInputs | Where-Object { (Get-Item -LiteralPath $_).Len
 if ($emptyInputs.Count -gt 0) {
   throw "Prepared backtest inputs are required before execution. Empty: $($emptyInputs -join ', ')"
 }
-if (-not (Test-Path -LiteralPath $CompanyFactsCache)) {
-  throw "Prepared backtest inputs are required before execution. Missing: $CompanyFactsCache"
-}
-$factFiles = @(Get-ChildItem -LiteralPath $CompanyFactsCache -Filter "CIK*.json" -File)
-if ($factFiles.Count -le 0) {
-  throw "Prepared backtest inputs are required before execution. Empty SEC company facts cache: $CompanyFactsCache"
-}
-
 $env:SEC_USER_AGENT = $SecUserAgent
 $mutex = [System.Threading.Mutex]::new($false, "Local\StockUndervaluationPointInTimeBacktest")
 $hasLock = $false

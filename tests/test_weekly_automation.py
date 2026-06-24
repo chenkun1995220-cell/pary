@@ -107,6 +107,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         )
 
         self.assertIn("historical_sp500.py", script)
+        self.assertIn("backtest_membership_inputs.py", script)
         self.assertIn("backtest_price_inputs.py", script)
         self.assertIn("us_weekly_replay.py", script)
         self.assertIn("shadow_backtest.py", script)
