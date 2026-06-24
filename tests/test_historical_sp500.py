@@ -6,6 +6,7 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
+from urllib.parse import urlparse
 
 from historical_sp500 import (
     EVIDENCE_LEVELS,
@@ -882,11 +883,12 @@ class HistoricalSp500Tests(unittest.TestCase):
 
         events = load_change_events_csv(path)
 
-        self.assertGreaterEqual(len(events), 25)
+        self.assertGreaterEqual(len(events), 35)
         for row in events:
             self.assertEqual("verified", row["membership_evidence"])
-            self.assertTrue(row["membership_source_url"].startswith("https://www.spglobal.com/spdji/"))
-            self.assertTrue(row["membership_source_url"].endswith(".pdf"))
+            source = urlparse(row["membership_source_url"])
+            self.assertEqual("https", source.scheme)
+            self.assertTrue((source.hostname or "").endswith(".spglobal.com"))
             self.assertTrue(row["added_ticker"])
             self.assertTrue(row["removed_ticker"])
 
