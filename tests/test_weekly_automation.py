@@ -129,6 +129,10 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("--evidence-pack", script)
         self.assertIn("Length -le 0", script)
         self.assertIn("CIK*.json", script)
+        self.assertIn("latest_backtest_summary.md", script)
+        self.assertIn("BacktestSummary", script)
+        self.assertIn("Membership evidence verified", script)
+        self.assertIn("Weak evidence rows", script)
 
     def test_point_in_time_backtest_dry_run_prints_ordered_pipeline_without_writing_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -210,6 +214,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("-PilotWeeks 8", doc)
         self.assertIn("-FullRun", doc)
         self.assertIn("outputs/backtests/us_3y_weekly", doc)
+        self.assertIn("outputs/automation/latest_backtest_summary.md", doc)
         self.assertIn("data_leakage_audit.md", doc)
         self.assertIn("us_sp500_membership_evidence.csv", doc)
         self.assertIn("effective_date, added_ticker, removed_ticker", doc)

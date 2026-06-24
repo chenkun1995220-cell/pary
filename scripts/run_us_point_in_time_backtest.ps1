@@ -24,6 +24,7 @@ $BacktestForecasts = Join-Path $OutputRoot "backtest_forecasts.csv"
 $BacktestEvaluations = Join-Path $OutputRoot "backtest_evaluations.csv"
 $ModelComparison = Join-Path $OutputRoot "model_comparison.csv"
 $BacktestReport = Join-Path $OutputRoot "backtest_report.md"
+$BacktestSummary = Join-Path $AutomationRoot "latest_backtest_summary.md"
 $LeakageAudit = Join-Path $OutputRoot "data_leakage_audit.md"
 $PreparedPriceHistory = Join-Path $OutputRoot "price_history.csv"
 $PreparedBenchmarkHistory = Join-Path $OutputRoot "benchmark_history.csv"
@@ -63,6 +64,7 @@ Write-Host "replay_manifest.csv -> $ReplayManifest"
 Write-Host "checkpoint.json -> $Checkpoint"
 Write-Host "backtest_evaluations.csv -> $BacktestEvaluations"
 Write-Host "backtest_report.md -> $BacktestReport"
+Write-Host "latest_backtest_summary.md -> $BacktestSummary"
 Write-Host "data_leakage_audit.md -> $LeakageAudit"
 foreach ($step in $Steps) { Write-Host $step }
 Write-Host "Default command: scripts\run_us_point_in_time_backtest.ps1 -PilotWeeks 8"
@@ -177,6 +179,35 @@ try {
     throw "Point-in-time backtest runner failed with exit code $LASTEXITCODE."
   }
 
+  $checkpointData = Get-Content -Raw -LiteralPath $Checkpoint | ConvertFrom-Json
+  $reportText = Get-Content -Raw -LiteralPath $BacktestReport
+  $reportLines = @($reportText -split "\r?\n")
+  $verifiedLine = ($reportLines | Where-Object { $_ -match "\d+/\d+\s+\(\d+(\.\d+)?%\)" } | Select-Object -First 1)
+  $verifiedValue = if ($verifiedLine) { $verifiedLine -replace "^[^0-9]*", "" } else { "unknown" }
+  $weakLine = $null
+  if ($verifiedLine) {
+    $verifiedIndex = [array]::IndexOf($reportLines, $verifiedLine)
+    if (($verifiedIndex -ge 0) -and (($verifiedIndex + 3) -lt $reportLines.Count)) {
+      $weakLine = $reportLines[$verifiedIndex + 3]
+    }
+  }
+  $weakValue = if ($weakLine) { $weakLine -replace "^[^0-9]*", "" } else { "unknown" }
+  $summary = @(
+    "# US Point-in-Time Backtest Summary",
+    "",
+    "- Run time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+    "- OutputRoot: $OutputRoot",
+    "- Weeks completed: $($checkpointData.success_count)",
+    "- Weeks failed: $($checkpointData.failure_count)",
+    "- Membership evidence verified: $verifiedValue",
+    "- Weak evidence rows: $weakValue",
+    "- Backtest report: $BacktestReport",
+    "- Data leakage audit: $LeakageAudit",
+    "- Model comparison: $ModelComparison",
+    "- Log: $logPath"
+  )
+  Set-Content -LiteralPath $BacktestSummary -Value $summary -Encoding UTF8
+  Write-Host "Backtest summary: $BacktestSummary"
   Write-Host "Point-in-time backtest completed. OutputRoot: $OutputRoot"
 }
 finally {
