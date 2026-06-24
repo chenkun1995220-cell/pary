@@ -108,6 +108,7 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("historical_sp500.py", script)
         self.assertIn("backtest_membership_inputs.py", script)
+        self.assertIn("backtest_sec_cache.py", script)
         self.assertIn("backtest_price_inputs.py", script)
         self.assertIn("us_weekly_replay.py", script)
         self.assertIn("shadow_backtest.py", script)
@@ -167,7 +168,7 @@ class WeeklyAutomationTests(unittest.TestCase):
             self.assertIn("PilotWeeks: 8", output)
             self.assertFalse(output_root.exists())
 
-    def test_point_in_time_backtest_non_dry_run_requires_prepared_inputs(self):
+    def test_point_in_time_backtest_non_dry_run_requires_sec_user_agent_before_network(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_root = Path(tmp) / "backtest_output"
             result = subprocess.run(
@@ -177,8 +178,6 @@ class WeeklyAutomationTests(unittest.TestCase):
                     "Bypass",
                     "-File",
                     "scripts\\run_us_point_in_time_backtest.ps1",
-                    "-SecUserAgent",
-                    "Test test@example.com",
                     "-OutputRoot",
                     str(output_root),
                     "-PilotWeeks",
@@ -193,7 +192,8 @@ class WeeklyAutomationTests(unittest.TestCase):
 
             output = result.stdout + result.stderr
             self.assertNotEqual(result.returncode, 0, output)
-            self.assertIn("Prepared backtest inputs are required", output)
+            self.assertIn("SEC_USER_AGENT is required", output)
+            self.assertNotIn("Running: 1/8 Build historical S&P 500 membership", output)
             self.assertNotIn("Point-in-time backtest completed", output)
 
     def test_point_in_time_backtest_docs_describe_run_modes_and_limits(self):

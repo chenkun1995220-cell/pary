@@ -49,6 +49,7 @@ Write-Host "PilotWeeks: $PilotWeeks"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
 Write-Host "backtest_membership_inputs.py -> $HistoricalMembership"
+Write-Host "backtest_sec_cache.py -> $CompanyFactsCache"
 Write-Host "backtest_price_inputs.py -> $PreparedPriceHistory"
 Write-Host "us_weekly_replay.py -> $BacktestForecasts"
 Write-Host "shadow_backtest.py -> $ModelComparison"
@@ -84,12 +85,20 @@ if (-not $membershipReady) {
   }
 }
 
-if (-not (Test-Path -LiteralPath $CompanyFactsCache)) {
-  throw "Prepared backtest inputs are required before execution. Missing: $CompanyFactsCache"
+$secCacheReady = $false
+if (Test-Path -LiteralPath $CompanyFactsCache) {
+  $secCacheReady = (@(Get-ChildItem -LiteralPath $CompanyFactsCache -Filter "CIK*.json" -File).Count -gt 0)
 }
-$factFiles = @(Get-ChildItem -LiteralPath $CompanyFactsCache -Filter "CIK*.json" -File)
-if ($factFiles.Count -le 0) {
-  throw "Prepared backtest inputs are required before execution. Empty SEC company facts cache: $CompanyFactsCache"
+if (-not $secCacheReady) {
+  Write-Host "Running: $($Steps[1])"
+  & $Python -B backtest_sec_cache.py `
+    --membership $HistoricalMembership `
+    --cache-dir $CompanyFactsCache `
+    --user-agent $SecUserAgent `
+    --minimum-coverage 0.80
+  if ($LASTEXITCODE -ne 0) {
+    throw "$($Steps[1]) failed with exit code $LASTEXITCODE."
+  }
 }
 
 $priceInputsReady = $false
