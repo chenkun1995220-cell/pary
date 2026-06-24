@@ -15,6 +15,101 @@ def write_csv(path, rows):
 
 
 class BacktestMembershipInputsTests(unittest.TestCase):
+    def test_evidence_pack_official_source_can_upgrade_membership(self):
+        rows = [
+            {
+                "ticker": "NEW",
+                "cik": "1",
+                "company_name": "New Co",
+                "industry": "Technology",
+                "gics_sub_industry": "Software",
+                "date_added": "2025-01-01",
+                "enabled": "1",
+            },
+            {
+                "ticker": "OLD",
+                "cik": "2",
+                "company_name": "Old Co",
+                "industry": "Technology",
+                "gics_sub_industry": "Hardware",
+                "date_added": "2020-01-01",
+                "enabled": "1",
+            },
+        ]
+        evidence_rows = [
+            {
+                "effective_date": "2025-01-01",
+                "added_ticker": "NEW",
+                "removed_ticker": "OLD",
+                "membership_evidence": "verified",
+                "membership_source_url": "https://www.spglobal.com/spdji/en/index-announcements/article",
+            }
+        ]
+
+        membership = build_backtest_membership(
+            rows,
+            weeks=1,
+            end_date="2025-01-03",
+            evidence_rows=evidence_rows,
+        )
+
+        by_ticker = {row["ticker"]: row for row in membership}
+        self.assertEqual(by_ticker["NEW"]["membership_evidence"], "verified")
+        self.assertEqual(by_ticker["NEW"]["membership_source_url"], evidence_rows[0]["membership_source_url"])
+
+    def test_evidence_pack_unofficial_verified_source_is_downgraded(self):
+        rows = [
+            {
+                "ticker": "NEW",
+                "cik": "1",
+                "company_name": "New Co",
+                "industry": "Tech",
+                "gics_sub_industry": "Software",
+                "date_added": "2025-01-01",
+                "enabled": "1",
+            },
+            {
+                "ticker": "OLD",
+                "cik": "2",
+                "company_name": "Old Co",
+                "industry": "Tech",
+                "gics_sub_industry": "Hardware",
+                "date_added": "2020-01-01",
+                "enabled": "1",
+            },
+        ]
+        evidence_rows = [
+            {
+                "effective_date": "2025-01-01",
+                "added_ticker": "NEW",
+                "removed_ticker": "OLD",
+                "membership_evidence": "verified",
+                "membership_source_url": "https://example.com/not-official",
+            }
+        ]
+
+        membership = build_backtest_membership(rows, weeks=1, end_date="2025-01-03", evidence_rows=evidence_rows)
+
+        by_ticker = {row["ticker"]: row for row in membership}
+        self.assertEqual(by_ticker["NEW"]["membership_evidence"], "secondary")
+
+    def test_missing_evidence_pack_keeps_secondary_default(self):
+        rows = [
+            {
+                "ticker": "AAPL",
+                "cik": "320193",
+                "company_name": "Apple Inc.",
+                "industry": "Technology",
+                "gics_sub_industry": "Hardware",
+                "date_added": "2020-01-01",
+                "enabled": "1",
+            },
+        ]
+
+        membership = build_backtest_membership(rows, weeks=1, end_date="2025-01-03")
+
+        self.assertEqual(membership[0]["membership_evidence"], "secondary")
+
     def test_builds_weekly_membership_with_cik_and_date_added_gate(self):
         rows = [
             {

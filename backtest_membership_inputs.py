@@ -5,6 +5,8 @@ import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from historical_sp500 import restore_membership
+
 
 BACKTEST_MEMBERSHIP_FIELDS = [
     "week",
@@ -64,6 +66,34 @@ def _active_universe_rows(universe_rows):
     return rows
 
 
+def _current_membership_map(active_rows, evidence, source_url, evidence_rows=None):
+    added_events = {}
+    removed_tickers = set()
+    for event in evidence_rows or []:
+        added_ticker = str(event.get("added_ticker", "") or "").strip().upper()
+        removed_ticker = str(event.get("removed_ticker", "") or "").strip().upper()
+        if added_ticker:
+            added_events[added_ticker] = event
+        if removed_ticker:
+            removed_tickers.add(removed_ticker)
+
+    current = {}
+    for row in active_rows:
+        ticker = row["ticker"]
+        if ticker in removed_tickers and ticker not in added_events:
+            continue
+        event = added_events.get(ticker, {})
+        current[ticker] = {
+            "ticker": ticker,
+            "company_name": row.get("company_name", ""),
+            "effective_date": event.get("effective_date", row.get("date_added", "")),
+            "membership_evidence": event.get("membership_evidence", evidence),
+            "membership_source_url": event.get("membership_source_url", source_url),
+            "_source_row": row,
+        }
+    return current
+
+
 def build_backtest_membership(
     universe_rows,
     weeks=156,
@@ -72,6 +102,7 @@ def build_backtest_membership(
     evidence="secondary",
     source_url="data/config/us_universe_symbols.csv",
     company_limit=0,
+    evidence_rows=None,
 ):
     active_rows = _active_universe_rows(universe_rows)
     limit = int(company_limit or 0)
@@ -81,10 +112,34 @@ def build_backtest_membership(
     output = []
     for week in week_dates:
         week_date = _iso_date(week, "week")
-        for row in sorted(active_rows, key=lambda item: item["ticker"]):
-            added = _iso_date(row.get("date_added"), "date_added")
-            if added > week_date:
-                continue
+        if evidence_rows:
+            current = _current_membership_map(active_rows, evidence, source_url, evidence_rows)
+            week_members = restore_membership(current, evidence_rows, week)
+            active_by_ticker = {row["ticker"]: row for row in active_rows}
+            week_rows = []
+            for ticker, restored in sorted(week_members.items()):
+                source = restored.get("_source_row") or active_by_ticker.get(ticker, {})
+                if not source:
+                    continue
+                added = _iso_date(source.get("date_added"), "date_added")
+                if added <= week_date:
+                    week_rows.append((source, restored))
+        else:
+            week_rows = []
+            for row in sorted(active_rows, key=lambda item: item["ticker"]):
+                added = _iso_date(row.get("date_added"), "date_added")
+                if added <= week_date:
+                    week_rows.append(
+                        (
+                            row,
+                            {
+                                "effective_date": row.get("date_added", ""),
+                                "membership_evidence": evidence,
+                                "membership_source_url": source_url,
+                            },
+                        )
+                    )
+        for row, restored in week_rows:
             output.append(
                 {
                     "week": week,
@@ -95,9 +150,9 @@ def build_backtest_membership(
                     "industry": row.get("industry", ""),
                     "gics_sub_industry": row.get("gics_sub_industry", ""),
                     "date_added": row.get("date_added", ""),
-                    "effective_date": row.get("date_added", ""),
-                    "membership_evidence": evidence,
-                    "membership_source_url": source_url,
+                    "effective_date": restored.get("effective_date", row.get("date_added", "")),
+                    "membership_evidence": restored.get("membership_evidence", evidence),
+                    "membership_source_url": restored.get("membership_source_url", source_url),
                     "available_at": week,
                 }
             )
