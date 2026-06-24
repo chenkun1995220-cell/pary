@@ -3,7 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from backtest_membership_inputs import build_backtest_membership, write_backtest_membership_csv
+from backtest_membership_inputs import (
+    build_backtest_membership,
+    prepare_backtest_membership,
+    write_backtest_membership_csv,
+)
 
 
 def write_csv(path, rows):
@@ -15,6 +19,211 @@ def write_csv(path, rows):
 
 
 class BacktestMembershipInputsTests(unittest.TestCase):
+    def test_evidence_pack_official_source_can_upgrade_membership(self):
+        rows = [
+            {
+                "ticker": "NEW",
+                "cik": "1",
+                "company_name": "New Co",
+                "industry": "Technology",
+                "gics_sub_industry": "Software",
+                "date_added": "2025-01-01",
+                "enabled": "1",
+            },
+            {
+                "ticker": "OLD",
+                "cik": "2",
+                "company_name": "Old Co",
+                "industry": "Technology",
+                "gics_sub_industry": "Hardware",
+                "date_added": "2020-01-01",
+                "enabled": "1",
+            },
+        ]
+        evidence_rows = [
+            {
+                "effective_date": "2025-01-01",
+                "added_ticker": "NEW",
+                "removed_ticker": "OLD",
+                "membership_evidence": "verified",
+                "membership_source_url": "https://www.spglobal.com/spdji/en/index-announcements/article",
+            }
+        ]
+
+        membership = build_backtest_membership(
+            rows,
+            weeks=1,
+            end_date="2025-01-03",
+            evidence_rows=evidence_rows,
+        )
+
+        by_ticker = {row["ticker"]: row for row in membership}
+        self.assertEqual(by_ticker["NEW"]["membership_evidence"], "verified")
+        self.assertEqual(by_ticker["NEW"]["membership_source_url"], evidence_rows[0]["membership_source_url"])
+
+    def test_evidence_pack_unofficial_verified_source_is_downgraded(self):
+        rows = [
+            {
+                "ticker": "NEW",
+                "cik": "1",
+                "company_name": "New Co",
+                "industry": "Tech",
+                "gics_sub_industry": "Software",
+                "date_added": "2025-01-01",
+                "enabled": "1",
+            },
+            {
+                "ticker": "OLD",
+                "cik": "2",
+                "company_name": "Old Co",
+                "industry": "Tech",
+                "gics_sub_industry": "Hardware",
+                "date_added": "2020-01-01",
+                "enabled": "1",
+            },
+        ]
+        evidence_rows = [
+            {
+                "effective_date": "2025-01-01",
+                "added_ticker": "NEW",
+                "removed_ticker": "OLD",
+                "membership_evidence": "verified",
+                "membership_source_url": "https://example.com/not-official",
+            }
+        ]
+
+        membership = build_backtest_membership(rows, weeks=1, end_date="2025-01-03", evidence_rows=evidence_rows)
+
+        by_ticker = {row["ticker"]: row for row in membership}
+        self.assertEqual(by_ticker["NEW"]["membership_evidence"], "secondary")
+
+    def test_missing_evidence_pack_keeps_secondary_default(self):
+        rows = [
+            {
+                "ticker": "AAPL",
+                "cik": "320193",
+                "company_name": "Apple Inc.",
+                "industry": "Technology",
+                "gics_sub_industry": "Hardware",
+                "date_added": "2020-01-01",
+                "enabled": "1",
+            },
+        ]
+
+        membership = build_backtest_membership(rows, weeks=1, end_date="2025-01-03")
+
+        self.assertEqual(membership[0]["membership_evidence"], "secondary")
+
+    def test_prepare_membership_reads_evidence_pack_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            universe = root / "universe.csv"
+            evidence_pack = root / "evidence.csv"
+            output = root / "membership.csv"
+            write_csv(
+                universe,
+                [
+                    {
+                        "ticker": "NEW",
+                        "cik": "1",
+                        "company_name": "New Co",
+                        "industry": "Tech",
+                        "gics_sub_industry": "Software",
+                        "date_added": "2025-01-01",
+                        "enabled": "1",
+                    },
+                    {
+                        "ticker": "OLD",
+                        "cik": "2",
+                        "company_name": "Old Co",
+                        "industry": "Tech",
+                        "gics_sub_industry": "Hardware",
+                        "date_added": "2020-01-01",
+                        "enabled": "1",
+                    },
+                ],
+            )
+            write_csv(
+                evidence_pack,
+                [
+                    {
+                        "effective_date": "2025-01-01",
+                        "added_ticker": "NEW",
+                        "removed_ticker": "OLD",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/index-announcements/article",
+                        "notes": "official fixture",
+                    }
+                ],
+            )
+
+            result = prepare_backtest_membership(
+                universe,
+                output,
+                weeks=1,
+                end_date="2025-01-03",
+                evidence_pack=evidence_pack,
+            )
+
+            with output.open(encoding="utf-8-sig", newline="") as handle:
+                loaded = list(csv.DictReader(handle))
+            self.assertEqual(result["rows"], 1)
+            self.assertEqual(loaded[0]["ticker"], "NEW")
+            self.assertEqual(loaded[0]["membership_evidence"], "verified")
+
+    def test_invalid_evidence_pack_fails_before_writing_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            universe = root / "universe.csv"
+            evidence_pack = root / "evidence.csv"
+            output = root / "membership.csv"
+            write_csv(
+                universe,
+                [
+                    {
+                        "ticker": "NEW",
+                        "cik": "1",
+                        "company_name": "New Co",
+                        "industry": "Tech",
+                        "gics_sub_industry": "Software",
+                        "date_added": "2025-01-01",
+                        "enabled": "1",
+                    },
+                    {
+                        "ticker": "OLD",
+                        "cik": "2",
+                        "company_name": "Old Co",
+                        "industry": "Tech",
+                        "gics_sub_industry": "Hardware",
+                        "date_added": "2020-01-01",
+                        "enabled": "1",
+                    },
+                ],
+            )
+            write_csv(
+                evidence_pack,
+                [
+                    {
+                        "effective_date": "bad-date",
+                        "added_ticker": "NEW",
+                        "removed_ticker": "OLD",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/index-announcements/article",
+                    }
+                ],
+            )
+
+            with self.assertRaisesRegex(ValueError, "effective_date|YYYY-MM-DD"):
+                prepare_backtest_membership(
+                    universe,
+                    output,
+                    weeks=1,
+                    end_date="2025-01-03",
+                    evidence_pack=evidence_pack,
+                )
+
+            self.assertFalse(output.exists())
+
     def test_builds_weekly_membership_with_cik_and_date_added_gate(self):
         rows = [
             {
