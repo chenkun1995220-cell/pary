@@ -336,7 +336,7 @@ def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text)
     if not isinstance(payload, dict):
         return []
 
-    future_rows = []
+    future_filed_dates = set()
     facts = payload.get("facts", {})
     if not isinstance(facts, dict):
         return []
@@ -358,21 +358,24 @@ def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text)
                         continue
                     filed = _as_text(entry.get("filed"))
                     if filed and _is_after(filed, backtest_date_text):
-                        future_rows.append(
-                            _audit_record(
-                                "financial",
-                                {
-                                    **row,
-                                    "cik": cik,
-                                    "available_at": filed,
-                                },
-                                backtest_date_text,
-                                "company_facts_by_cik",
-                                severity="audit",
-                                reason="future_data_excluded",
-                            )
-                        )
-    return future_rows
+                        future_filed_dates.add(filed)
+    if not future_filed_dates:
+        return []
+    earliest_future = min(future_filed_dates, key=lambda value: _temporal_key(value) or datetime.max)
+    return [
+        _audit_record(
+            "financial",
+            {
+                **row,
+                "cik": cik,
+                "available_at": earliest_future,
+            },
+            backtest_date_text,
+            "company_facts_by_cik",
+            severity="audit",
+            reason="future_data_excluded",
+        )
+    ]
 
 
 def _build_weekly_input_row(
@@ -565,17 +568,6 @@ def replay_week(
             )
         )
 
-    for row in available_price_rows:
-        audit_rows.append(
-            _audit_record(
-                "price",
-                row,
-                backtest_date_text,
-                "price_rows",
-                severity="ok",
-                reason="",
-            )
-        )
     for row in late_price_rows:
         audit_rows.append(
             _audit_record(

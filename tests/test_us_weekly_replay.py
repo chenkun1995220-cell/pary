@@ -5,7 +5,13 @@ from pathlib import Path
 
 from tests.test_sec_financial_metrics import duration_fact, metric_facts
 
-from us_weekly_replay import assess_week_quality, evaluate_backtest_forecast, leakage_findings, replay_week
+from us_weekly_replay import (
+    _financial_leakage_audit_rows,
+    assess_week_quality,
+    evaluate_backtest_forecast,
+    leakage_findings,
+    replay_week,
+)
 
 
 class WeeklyReplayQualityTests(unittest.TestCase):
@@ -75,6 +81,39 @@ class WeeklyReplayQualityTests(unittest.TestCase):
         )
 
         self.assertEqual(findings, [])
+
+    def test_financial_future_audit_rows_are_summarized_per_ticker(self):
+        row = {
+            "market": "US",
+            "ticker": "AAPL",
+            "company_name": "Apple Inc.",
+            "industry": "Technology",
+            "cik": "320193",
+        }
+        payload = {
+            "facts": {
+                "us-gaap": {
+                    "Revenue": {
+                        "units": {
+                            "USD": [
+                                {"filed": "2025-01-15"},
+                                {"filed": "2025-02-15"},
+                                {"filed": "2024-05-15"},
+                            ]
+                        }
+                    },
+                    "Assets": {"units": {"USD": [{"filed": "2025-03-15"}]}},
+                }
+            }
+        }
+
+        rows = _financial_leakage_audit_rows(row, {"320193": payload}, "2024-06-01")
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["ticker"], "AAPL")
+        self.assertEqual(rows[0]["available_at"], "2025-01-15")
+        self.assertEqual(rows[0]["severity"], "audit")
+        self.assertEqual(rows[0]["reason"], "future_data_excluded")
 
 
 class WeeklyReplayEvaluationTests(unittest.TestCase):
@@ -323,6 +362,8 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
                 for row in audit_rows
                 if row["record_type"] == "price" and row["severity"] == "severe"
             ]
+            price_audit_rows = [row for row in audit_rows if row["record_type"] == "price"]
+            self.assertEqual(len(price_audit_rows), 3)
             self.assertTrue(severe_price_rows)
             self.assertEqual(severe_price_rows[0]["available_at"], "2025-07-26")
             self.assertEqual(severe_price_rows[0]["reason"], "future_data_used")

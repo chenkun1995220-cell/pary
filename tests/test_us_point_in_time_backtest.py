@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.test_sec_financial_metrics import metric_facts
-from us_point_in_time_backtest import run_point_in_time_backtest
+from us_point_in_time_backtest import _write_leakage_audit_report, run_point_in_time_backtest
 
 
 def write_csv(path, rows):
@@ -24,6 +24,33 @@ def write_empty_csv(path, fieldnames):
 
 
 class UsPointInTimeBacktestTests(unittest.TestCase):
+    def test_leakage_audit_report_limits_markdown_detail_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rows = [
+                {
+                    "record_type": "financial",
+                    "source": "company_facts_by_cik",
+                    "market": "US",
+                    "ticker": f"T{index:04d}",
+                    "company_name": "",
+                    "industry": "",
+                    "cik": "",
+                    "available_at": "2025-01-15",
+                    "generated_date": "2024-06-01",
+                    "severity": "audit",
+                    "reason": "future_data_excluded",
+                }
+                for index in range(1005)
+            ]
+
+            _write_leakage_audit_report(root, rows)
+
+            report = (root / "data_leakage_audit.md").read_text(encoding="utf-8-sig")
+            self.assertIn("Markdown 明细行：1000/1005", report)
+            self.assertIn("T0999", report)
+            self.assertNotIn("T1000", report)
+
     def test_rejects_empty_prepared_inputs_before_reporting_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

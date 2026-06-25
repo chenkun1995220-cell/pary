@@ -216,22 +216,24 @@ def _write_backtest_report(output_root, result):
     (Path(output_root) / "backtest_report.md").write_text(text, encoding="utf-8-sig")
 
 
-def _write_leakage_audit_report(output_root, audit_rows):
+def _write_leakage_audit_report(output_root, audit_rows, detail_limit=1000):
     output = Path(output_root)
     severe_count = sum(1 for row in audit_rows if row.get("severity") == "severe")
     weeks = sorted({str(row.get("generated_date", "")).strip() for row in audit_rows if row.get("generated_date")})
+    detail_rows = audit_rows[:detail_limit]
     lines = [
         "# 数据泄漏审计",
         "",
         f"- 覆盖回放周数：{len(weeks)}",
         f"- 严重泄漏数：{severe_count}",
         f"- 审计记录数：{len(audit_rows)}",
+        f"- Markdown 明细行：{len(detail_rows)}/{len(audit_rows)}",
         "",
         "| 回放日期 | 记录类型 | 来源 | 代码 | 可用时间 | 严重程度 | 原因 |",
         "|---|---|---|---|---|---|---|",
     ]
-    if audit_rows:
-        for row in audit_rows:
+    if detail_rows:
+        for row in detail_rows:
             lines.append(
                 f"| {row.get('generated_date', '')} | {row.get('record_type', '')} | {row.get('source', '')} | "
                 f"{row.get('ticker', '')} | {row.get('available_at', '')} | {row.get('severity', '')} | "
