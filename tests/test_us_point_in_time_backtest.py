@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.test_sec_financial_metrics import metric_facts
-from us_point_in_time_backtest import _write_leakage_audit_report, run_point_in_time_backtest
+from us_point_in_time_backtest import _select_replay_weeks, _write_leakage_audit_report, run_point_in_time_backtest
 
 
 def write_csv(path, rows):
@@ -24,6 +24,16 @@ def write_empty_csv(path, fieldnames):
 
 
 class UsPointInTimeBacktestTests(unittest.TestCase):
+    def test_default_pilot_selects_latest_weeks(self):
+        weeks = ["2024-01-05", "2024-01-12", "2024-01-19"]
+
+        self.assertEqual(_select_replay_weeks(weeks, pilot_weeks=2), ["2024-01-12", "2024-01-19"])
+        self.assertEqual(
+            _select_replay_weeks(weeks, pilot_weeks=2, pilot_window="earliest"),
+            ["2024-01-05", "2024-01-12"],
+        )
+        self.assertEqual(_select_replay_weeks(weeks, pilot_weeks=2, full_run=True), weeks)
+
     def test_leakage_audit_report_limits_markdown_detail_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

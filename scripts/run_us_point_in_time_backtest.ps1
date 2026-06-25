@@ -1,6 +1,8 @@
 param(
   [int]$Years = 3,
   [int]$PilotWeeks = 8,
+  [ValidateSet("latest", "earliest")]
+  [string]$PilotWindow = "latest",
   [int]$MaxCompanies = 0,
   [string]$OutputRoot = "",
   [string]$SecUserAgent = $env:SEC_USER_AGENT,
@@ -49,6 +51,7 @@ Write-Host "US strict point-in-time backtest pipeline"
 Write-Host "OutputRoot: $OutputRoot"
 Write-Host "Years: $Years"
 Write-Host "PilotWeeks: $PilotWeeks"
+Write-Host "PilotWindow: $PilotWindow"
 Write-Host "MaxCompanies: $MaxCompanies"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "EvidencePack: $EvidencePack"
@@ -169,7 +172,8 @@ try {
     "--price-history", $PreparedPriceHistory,
     "--benchmark-history", $PreparedBenchmarkHistory,
     "--output-root", $OutputRoot,
-    "--pilot-weeks", "$PilotWeeks"
+    "--pilot-weeks", "$PilotWeeks",
+    "--pilot-window", $PilotWindow
   )
   if ($FullRun) {
     $runnerArgs += "--full-run"

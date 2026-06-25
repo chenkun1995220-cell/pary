@@ -123,6 +123,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("checkpoint.json", script)
         self.assertIn("FullRun", script)
         self.assertIn("MaxCompanies", script)
+        self.assertIn("PilotWindow", script)
+        self.assertIn("--pilot-window", script)
         self.assertIn("--max-companies", script)
         self.assertIn("us_sp500_membership_evidence.csv", script)
         self.assertIn("EvidencePack", script)
@@ -175,6 +177,7 @@ class WeeklyAutomationTests(unittest.TestCase):
             self.assertEqual(positions, sorted(positions))
             self.assertIn(str(output_root), output)
             self.assertIn("PilotWeeks: 8", output)
+            self.assertIn("PilotWindow: latest", output)
             self.assertFalse(output_root.exists())
 
     def test_point_in_time_backtest_non_dry_run_requires_sec_user_agent_before_network(self):

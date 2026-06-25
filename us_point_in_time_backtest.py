@@ -73,6 +73,21 @@ def _group_membership_by_week(rows):
     return grouped
 
 
+def _select_replay_weeks(weeks, pilot_weeks=8, full_run=False, pilot_window="latest"):
+    ordered = sorted(weeks or [])
+    if full_run:
+        return ordered
+    count = int(pilot_weeks)
+    if count <= 0:
+        raise ValueError("pilot_weeks must be positive")
+    window = str(pilot_window or "latest").strip().lower()
+    if window == "latest":
+        return ordered[-count:]
+    if window == "earliest":
+        return ordered[:count]
+    raise ValueError(f"pilot_window must be latest or earliest: {pilot_window}")
+
+
 def _membership_evidence_summary(grouped_membership_rows, selected_weeks):
     counts = {"verified": 0, "secondary": 0, "insufficient": 0}
     total = 0
@@ -253,6 +268,7 @@ def run_point_in_time_backtest(
     pilot_weeks=8,
     full_run=False,
     config_digest=None,
+    pilot_window="latest",
 ):
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
@@ -261,7 +277,12 @@ def run_point_in_time_backtest(
     benchmark_rows = _read_csv(benchmark_history_path)
     grouped = _group_membership_by_week(membership_rows)
     weeks = sorted(grouped)
-    selected_weeks = weeks if full_run else weeks[: int(pilot_weeks)]
+    selected_weeks = _select_replay_weeks(
+        weeks,
+        pilot_weeks=pilot_weeks,
+        full_run=full_run,
+        pilot_window=pilot_window,
+    )
     _validate_prepared_inputs(
         membership_rows,
         price_rows,
@@ -276,6 +297,7 @@ def run_point_in_time_backtest(
             "price_history": str(price_history_path),
             "benchmark_history": str(benchmark_history_path),
             "pilot_weeks": int(pilot_weeks),
+            "pilot_window": str(pilot_window or "latest"),
             "full_run": bool(full_run),
         }
     )
@@ -368,6 +390,7 @@ def main():
     parser.add_argument("--benchmark-history", required=True)
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--pilot-weeks", type=int, default=8)
+    parser.add_argument("--pilot-window", choices=["latest", "earliest"], default="latest")
     parser.add_argument("--full-run", action="store_true")
     parser.add_argument("--config-digest")
     args = parser.parse_args()
@@ -378,6 +401,7 @@ def main():
         args.benchmark_history,
         args.output_root,
         pilot_weeks=args.pilot_weeks,
+        pilot_window=args.pilot_window,
         full_run=args.full_run,
         config_digest=args.config_digest,
     )
