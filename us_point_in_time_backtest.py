@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import tempfile
+from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,16 +46,46 @@ def _cik_cache_path(cache_dir, cik):
     return Path(cache_dir) / f"CIK{normalized}.json"
 
 
-def _load_company_facts(cache_dir, membership_rows):
-    facts = {}
-    for row in membership_rows:
-        cik = str(row.get("cik", "")).strip()
-        if not cik or cik in facts:
-            continue
-        path = _cik_cache_path(cache_dir, cik)
-        if path.exists():
-            facts[cik] = json.loads(path.read_text(encoding="utf-8-sig"))
-    return facts
+def _normalize_cik(cik):
+    text = str(cik or "").strip()
+    if not text:
+        return ""
+    return text.zfill(10)
+
+
+class _LazyCompanyFactsCache:
+    def __init__(self, cache_dir, allowed_ciks, max_entries=64):
+        self.cache_dir = Path(cache_dir)
+        self.allowed_ciks = {_normalize_cik(cik) for cik in allowed_ciks if _normalize_cik(cik)}
+        self.max_entries = max(1, int(max_entries or 1))
+        self._cache = OrderedDict()
+
+    def get(self, cik, default=None):
+        normalized = _normalize_cik(cik)
+        if not normalized or normalized not in self.allowed_ciks:
+            return default
+        if normalized in self._cache:
+            self._cache.move_to_end(normalized)
+            return self._cache[normalized]
+
+        path = _cik_cache_path(self.cache_dir, normalized)
+        if not path.exists():
+            return default
+
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        self._cache[normalized] = payload
+        self._cache.move_to_end(normalized)
+        while len(self._cache) > self.max_entries:
+            self._cache.popitem(last=False)
+        return payload
+
+
+def _load_company_facts(cache_dir, membership_rows, max_entries=64):
+    return _LazyCompanyFactsCache(
+        cache_dir,
+        [row.get("cik", "") for row in membership_rows or []],
+        max_entries=max_entries,
+    )
 
 
 def _facts_cache_files(cache_dir):

@@ -5,7 +5,12 @@ import unittest
 from pathlib import Path
 
 from tests.test_sec_financial_metrics import metric_facts
-from us_point_in_time_backtest import _select_replay_weeks, _write_leakage_audit_report, run_point_in_time_backtest
+from us_point_in_time_backtest import (
+    _load_company_facts,
+    _select_replay_weeks,
+    _write_leakage_audit_report,
+    run_point_in_time_backtest,
+)
 
 
 def write_csv(path, rows):
@@ -24,6 +29,32 @@ def write_empty_csv(path, fieldnames):
 
 
 class UsPointInTimeBacktestTests(unittest.TestCase):
+    def test_company_facts_loader_is_lazy_and_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp)
+            (cache / "CIK0000000001.json").write_text(
+                json.dumps({"entityName": "One", "facts": {}}),
+                encoding="utf-8",
+            )
+            (cache / "CIK0000000002.json").write_text(
+                json.dumps({"entityName": "Two", "facts": {}}),
+                encoding="utf-8",
+            )
+            (cache / "CIK0000000003.json").write_text("{not-json", encoding="utf-8")
+
+            facts = _load_company_facts(
+                cache,
+                [{"cik": "1"}, {"cik": "2"}, {"cik": "3"}],
+                max_entries=1,
+            )
+
+            self.assertEqual(facts.get("1")["entityName"], "One")
+            self.assertLessEqual(len(facts._cache), 1)
+            self.assertEqual(facts.get("0000000002")["entityName"], "Two")
+            self.assertLessEqual(len(facts._cache), 1)
+            with self.assertRaises(json.JSONDecodeError):
+                facts.get("3")
+
     def test_default_pilot_selects_latest_weeks(self):
         weeks = ["2024-01-05", "2024-01-12", "2024-01-19"]
 
