@@ -7,6 +7,7 @@ from pathlib import Path
 from tests.test_sec_financial_metrics import metric_facts
 from us_point_in_time_backtest import (
     _load_company_facts,
+    _PriceTimeline,
     _select_replay_weeks,
     _write_leakage_audit_report,
     run_point_in_time_backtest,
@@ -29,6 +30,25 @@ def write_empty_csv(path, fieldnames):
 
 
 class UsPointInTimeBacktestTests(unittest.TestCase):
+    def test_price_timeline_returns_sorted_as_of_rows(self):
+        rows = [
+            {"ticker": "AAPL", "date": "2025-01-03", "close": "3"},
+            {"ticker": "AAPL", "date": "bad-date", "close": "bad"},
+            {"ticker": "MSFT", "date": "2025-01-01", "close": "1"},
+            {"ticker": "AAPL", "date": "2025-01-02", "close": "2"},
+        ]
+
+        timeline = _PriceTimeline(rows)
+
+        self.assertEqual(
+            [row["close"] for row in timeline.as_of("2025-01-02")],
+            ["1", "2"],
+        )
+        self.assertEqual(
+            [row["close"] for row in timeline.as_of("2025-01-03")],
+            ["1", "2", "3"],
+        )
+
     def test_company_facts_loader_is_lazy_and_bounded(self):
         with tempfile.TemporaryDirectory() as tmp:
             cache = Path(tmp)

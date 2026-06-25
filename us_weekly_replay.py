@@ -469,6 +469,8 @@ def replay_week(
     benchmark_rows,
     output_root,
     config_digest,
+    price_rows_as_of=False,
+    benchmark_rows_as_of=False,
 ):
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
@@ -478,16 +480,26 @@ def replay_week(
         membership_rows, backtest_date_text
     )
     normalized_price_rows = _normalize_price_rows(price_rows)
-    available_price_rows, late_price_rows = _split_rows_by_availability(
-        normalized_price_rows, backtest_date_text
-    )
-    filtered_price_rows = prices_available_as_of(available_price_rows, backtest_date_text)
+    if price_rows_as_of:
+        available_price_rows = normalized_price_rows
+        late_price_rows = []
+        filtered_price_rows = normalized_price_rows
+    else:
+        available_price_rows, late_price_rows = _split_rows_by_availability(
+            normalized_price_rows, backtest_date_text
+        )
+        filtered_price_rows = prices_available_as_of(available_price_rows, backtest_date_text)
 
     normalized_benchmark_rows = _normalize_price_rows(benchmark_rows)
-    available_benchmark_rows, late_benchmark_rows = _split_rows_by_availability(
-        normalized_benchmark_rows, backtest_date_text
-    )
-    filtered_benchmark_rows = prices_available_as_of(available_benchmark_rows, backtest_date_text)
+    if benchmark_rows_as_of:
+        available_benchmark_rows = normalized_benchmark_rows
+        late_benchmark_rows = []
+        filtered_benchmark_rows = normalized_benchmark_rows
+    else:
+        available_benchmark_rows, late_benchmark_rows = _split_rows_by_availability(
+            normalized_benchmark_rows, backtest_date_text
+        )
+        filtered_benchmark_rows = prices_available_as_of(available_benchmark_rows, backtest_date_text)
 
     membership_tickers = [str(row.get("ticker", "")).strip() for row in available_memberships if row.get("ticker")]
     quote_map = _latest_rows_by_ticker(filtered_price_rows)
@@ -605,8 +617,6 @@ def replay_week(
 
     weekly_inputs = [row for row in weekly_inputs if row.get("ticker")]
     _atomic_write_csv(output / "weekly_inputs.csv", weekly_inputs)
-    _atomic_write_csv(output / "price_history.csv", filtered_price_rows)
-    _atomic_write_csv(output / "quotes.csv", list(quote_map.values()))
 
     median_source_rows = []
     for row in weekly_inputs:
@@ -646,6 +656,18 @@ def replay_week(
 
     _atomic_write_csv(output / "screening_results.csv", scored_rows)
     _atomic_write_csv(output / "candidate_pool.csv", candidate_rows)
+
+    candidate_tickers = {_as_text(row.get("ticker")).upper() for row in candidate_rows}
+    valuation_price_rows = [
+        row for row in filtered_price_rows if _as_text(row.get("ticker")).upper() in candidate_tickers
+    ]
+    valuation_quote_rows = [
+        row for ticker, row in quote_map.items() if _as_text(ticker).upper() in candidate_tickers
+    ]
+    price_fields = list(filtered_price_rows[0]) if filtered_price_rows else None
+    quote_fields = list(next(iter(quote_map.values()))) if quote_map else None
+    _atomic_write_csv(output / "price_history.csv", valuation_price_rows, price_fields)
+    _atomic_write_csv(output / "quotes.csv", valuation_quote_rows, quote_fields)
 
     candidate_path = output / "candidate_pool.csv"
     price_history_path = output / "price_history.csv"

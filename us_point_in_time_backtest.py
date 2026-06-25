@@ -2,14 +2,14 @@ import argparse
 import csv
 import json
 import tempfile
+from bisect import bisect_right
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from backtest_manifest import config_digest as build_config_digest
 from backtest_manifest import upsert_manifest_row, write_checkpoint
 from forecast_tracker import TRACKING_FIELDS
-from historical_price_store import prices_available_as_of
 from shadow_backtest import run_shadow_backtest
 from us_weekly_replay import AUDIT_FIELDS, evaluate_backtest_forecast, replay_week
 
@@ -93,6 +93,39 @@ def _facts_cache_files(cache_dir):
     if not cache.exists():
         return []
     return list(cache.glob("CIK*.json"))
+
+
+def _price_row_date(row):
+    value = row.get("date") if isinstance(row, dict) else None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value).date()
+        except ValueError:
+            return None
+    return None
+
+
+class _PriceTimeline:
+    def __init__(self, rows):
+        dated_rows = []
+        for row in rows or []:
+            row_date = _price_row_date(row)
+            if row_date is not None:
+                dated_rows.append((row_date, row))
+        dated_rows.sort(key=lambda item: item[0])
+        self._dates = [item[0] for item in dated_rows]
+        self._rows = [item[1] for item in dated_rows]
+
+    def as_of(self, as_of_date):
+        cutoff = _price_row_date({"date": as_of_date})
+        if cutoff is None:
+            raise ValueError(f"Invalid as_of_date: {as_of_date!r}")
+        end = bisect_right(self._dates, cutoff)
+        return self._rows[:end]
 
 
 def _group_membership_by_week(rows):
@@ -306,6 +339,8 @@ def run_point_in_time_backtest(
     membership_rows = _read_csv(membership_path)
     price_rows = _read_csv(price_history_path)
     benchmark_rows = _read_csv(benchmark_history_path)
+    price_timeline = _PriceTimeline(price_rows)
+    benchmark_timeline = _PriceTimeline(benchmark_rows)
     grouped = _group_membership_by_week(membership_rows)
     weeks = sorted(grouped)
     selected_weeks = _select_replay_weeks(
@@ -344,9 +379,19 @@ def run_point_in_time_backtest(
         week_rows = grouped[week]
         facts = _load_company_facts(company_facts_cache, week_rows)
         try:
-            replay_price_rows = prices_available_as_of(price_rows, week)
-            replay_benchmark_rows = prices_available_as_of(benchmark_rows, week)
-            replay_result = replay_week(week, week_rows, facts, replay_price_rows, replay_benchmark_rows, output, digest)
+            replay_price_rows = price_timeline.as_of(week)
+            replay_benchmark_rows = benchmark_timeline.as_of(week)
+            replay_result = replay_week(
+                week,
+                week_rows,
+                facts,
+                replay_price_rows,
+                replay_benchmark_rows,
+                output,
+                digest,
+                price_rows_as_of=True,
+                benchmark_rows_as_of=True,
+            )
             batch_audit_rows.extend(_read_csv(output / "data_leakage_audit.csv"))
             completed += 1
             last_week = week

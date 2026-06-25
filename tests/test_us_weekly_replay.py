@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tests.test_sec_financial_metrics import duration_fact, metric_facts
 
+import us_weekly_replay as replay_module
 from us_weekly_replay import (
     _financial_leakage_audit_rows,
     assess_week_quality,
@@ -367,6 +368,64 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             self.assertTrue(severe_price_rows)
             self.assertEqual(severe_price_rows[0]["available_at"], "2025-07-26")
             self.assertEqual(severe_price_rows[0]["reason"], "future_data_used")
+
+    def test_replay_week_can_skip_price_rescan_for_prepared_as_of_rows(self):
+        original = replay_module.prices_available_as_of
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("prepared as-of rows should not be rescanned")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            try:
+                replay_module.prices_available_as_of = fail_if_called
+                result = replay_week(
+                    self.backtest_date,
+                    self.membership_rows,
+                    self.company_facts_by_cik,
+                    self.price_rows,
+                    self.benchmark_rows,
+                    root,
+                    self.config_digest,
+                    price_rows_as_of=True,
+                    benchmark_rows_as_of=True,
+                )
+            finally:
+                replay_module.prices_available_as_of = original
+
+            self.assertEqual(result["quote_coverage"], 1.0)
+            self.assertTrue((root / "price_history.csv").exists())
+
+    def test_replay_week_avoids_full_price_history_write_when_no_candidates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.company_facts_by_cik = {}
+            for row in self.membership_rows:
+                row.update(
+                    {
+                        "market_cap": "100000",
+                        "enterprise_value": "100000",
+                        "net_assets": "1",
+                        "revenue_ttm": "1",
+                        "net_income_ttm": "0.1",
+                        "ebitda": "0.1",
+                        "free_cash_flow": "0",
+                        "roe": "0.01",
+                        "roic": "0.01",
+                        "gross_margin": "0.01",
+                        "debt_to_assets": "0.95",
+                        "net_debt_to_ebitda": "10",
+                        "current_ratio": "0.1",
+                        "revenue_cagr_3y": "0",
+                        "net_income_cagr_3y": "0",
+                    }
+                )
+
+            result = self._run_week(root)
+
+            price_history_lines = (root / "price_history.csv").read_text(encoding="utf-8-sig").splitlines()
+            self.assertEqual(result["candidate_rows"], 0)
+            self.assertEqual(len(price_history_lines), 1)
 
     def test_replay_week_ignores_future_facts_in_screening_inputs(self):
         future_fact = duration_fact(
