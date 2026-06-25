@@ -82,6 +82,20 @@ if (-not $SecUserAgent) {
 }
 
 $membershipReady = (Test-Path -LiteralPath $HistoricalMembership) -and ((Get-Item -LiteralPath $HistoricalMembership).Length -gt 0)
+if ($membershipReady) {
+  $membershipItem = Get-Item -LiteralPath $HistoricalMembership
+  $membershipRefreshReasons = @()
+  if ((Test-Path -LiteralPath $UniverseConfig) -and ((Get-Item -LiteralPath $UniverseConfig).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
+    $membershipRefreshReasons += "universe_config_newer"
+  }
+  if ((Test-Path -LiteralPath $EvidencePack) -and ((Get-Item -LiteralPath $EvidencePack).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
+    $membershipRefreshReasons += "evidence_pack_newer"
+  }
+  if ($membershipRefreshReasons.Count -gt 0) {
+    $membershipReady = $false
+    Write-Host "MembershipRefreshReason: $($membershipRefreshReasons -join ',')"
+  }
+}
 if (-not $membershipReady) {
   Write-Host "Running: $($Steps[0])"
   $membershipWeeks = [Math]::Max(1, $Years * 52)
@@ -121,6 +135,21 @@ if (-not $secCacheReady) {
 $priceInputsReady = $false
 if ((Test-Path -LiteralPath $PreparedPriceHistory) -and (Test-Path -LiteralPath $PreparedBenchmarkHistory)) {
   $priceInputsReady = ((Get-Item -LiteralPath $PreparedPriceHistory).Length -gt 0) -and ((Get-Item -LiteralPath $PreparedBenchmarkHistory).Length -gt 0)
+}
+if ($priceInputsReady) {
+  $priceHistoryItem = Get-Item -LiteralPath $PreparedPriceHistory
+  $benchmarkHistoryItem = Get-Item -LiteralPath $PreparedBenchmarkHistory
+  $priceRefreshReasons = @()
+  if ((Test-Path -LiteralPath $HistoricalMembership) -and ((Get-Item -LiteralPath $HistoricalMembership).LastWriteTimeUtc -gt $priceHistoryItem.LastWriteTimeUtc)) {
+    $priceRefreshReasons += "membership_newer"
+  }
+  if ((Test-Path -LiteralPath $BenchmarkConfig) -and ((Get-Item -LiteralPath $BenchmarkConfig).LastWriteTimeUtc -gt $benchmarkHistoryItem.LastWriteTimeUtc)) {
+    $priceRefreshReasons += "benchmark_config_newer"
+  }
+  if ($priceRefreshReasons.Count -gt 0) {
+    $priceInputsReady = $false
+    Write-Host "PriceRefreshReason: $($priceRefreshReasons -join ',')"
+  }
 }
 if ((Test-Path -LiteralPath $HistoricalMembership) -and (-not $priceInputsReady)) {
   Write-Host "Running: $($Steps[2])"
