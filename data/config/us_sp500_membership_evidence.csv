@@ -1,7 +1,7 @@
 effective_date,added_ticker,removed_ticker,membership_evidence,membership_source_url,notes
 2022-02-15,NDSN,XLNX,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20220210-1449702/1449702_xlnx5.pdf,S&P DJI announcement; Nordson replaced Xilinx in S&P 500.
 2022-03-02,MOH,INFO,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20220225-1450148/1450148_info5.pdf,S&P DJI announcement; Molina Healthcare replaced IHS Markit in S&P 500.
-2022-04-04,CPT,PBCT,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20220329-451101/1451101_pbct5.pdf,S&P DJI announcement; Camden Property Trust replaced People's United Financial in S&P 500.
+2022-04-04,CPT,PBCT,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20220329-1451101/1451101_pbct5.pdf,S&P DJI announcement; Camden Property Trust replaced People's United Financial in S&P 500.
 2022-06-08,VICI,CERN,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20220603-1453030/1453030_shufcernjune2022-546.pdf,S&P DJI June 2022 announcement; VICI Properties replaced Cerner in S&P 500.
 2022-06-21,KDP,UAA,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20220603-1453030/1453030_shufcernjune2022-546.pdf,S&P DJI June 2022 quarterly rebalance; Keurig Dr Pepper replaced Under Armour class A in S&P 500.
 2022-06-21,ON,IPGP,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20220603-1453030/1453030_shufcernjune2022-546.pdf,S&P DJI June 2022 quarterly rebalance; ON Semiconductor replaced IPG Photonics in S&P 500.
