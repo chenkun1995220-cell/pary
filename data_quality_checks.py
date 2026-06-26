@@ -131,6 +131,31 @@ def check_financial_logic(row):
         issues.append(
             make_issue(row, "警告", "pe_unavailable_with_positive_income", "market_cap", row.get("market_cap", ""), "净利润为正但市值缺失或无效，PE 无法可靠计算")
         )
+    revenue = to_float(row.get("revenue_ttm"))
+    operating_cash_flow = to_float(row.get("operating_cash_flow"))
+    free_cash_flow = to_float(row.get("free_cash_flow"))
+    if free_cash_flow is None and operating_cash_flow is not None and capex is not None:
+        free_cash_flow = operating_cash_flow + capex
+    if market_cap is not None and market_cap > 0:
+        if revenue is not None and revenue > 0 and market_cap / revenue < 0.02:
+            issues.append(
+                make_issue(row, "警告", "market_cap_scale_suspect", "market_cap", row.get("market_cap", ""), "市值相对收入低于 2%，疑似股本、价格或金额单位不一致")
+            )
+        if (
+            net_income is not None
+            and net_income > 0
+            and revenue is not None
+            and revenue > 0
+            and market_cap / net_income < 1
+            and market_cap / revenue < 0.02
+        ):
+            issues.append(
+                make_issue(row, "严重", "valuation_ratio_outlier", "market_cap", row.get("market_cap", ""), "净利润为正但 PE 低于 1，疑似市值或财务金额单位异常")
+            )
+        if free_cash_flow is not None and free_cash_flow > 0 and free_cash_flow / market_cap > 1:
+            issues.append(
+                make_issue(row, "严重", "fcf_yield_outlier", "free_cash_flow", free_cash_flow, "自由现金流收益率高于 100%，疑似市值、股本或现金流单位异常")
+            )
     return issues
 
 
