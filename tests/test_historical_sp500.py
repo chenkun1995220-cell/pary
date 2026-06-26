@@ -883,7 +883,7 @@ class HistoricalSp500Tests(unittest.TestCase):
 
         events = load_change_events_csv(path)
 
-        self.assertGreaterEqual(len(events), 70)
+        self.assertGreaterEqual(len(events), 85)
         for row in events:
             self.assertEqual("verified", row["membership_evidence"])
             source = urlparse(row["membership_source_url"])
