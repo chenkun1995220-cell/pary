@@ -2,13 +2,14 @@ import argparse
 import csv
 import json
 import tempfile
-from datetime import datetime, timezone
+from bisect import bisect_right
+from collections import OrderedDict
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from backtest_manifest import config_digest as build_config_digest
 from backtest_manifest import upsert_manifest_row, write_checkpoint
 from forecast_tracker import TRACKING_FIELDS
-from historical_price_store import prices_available_as_of
 from shadow_backtest import run_shadow_backtest
 from us_weekly_replay import AUDIT_FIELDS, evaluate_backtest_forecast, replay_week
 
@@ -45,16 +46,46 @@ def _cik_cache_path(cache_dir, cik):
     return Path(cache_dir) / f"CIK{normalized}.json"
 
 
-def _load_company_facts(cache_dir, membership_rows):
-    facts = {}
-    for row in membership_rows:
-        cik = str(row.get("cik", "")).strip()
-        if not cik or cik in facts:
-            continue
-        path = _cik_cache_path(cache_dir, cik)
-        if path.exists():
-            facts[cik] = json.loads(path.read_text(encoding="utf-8-sig"))
-    return facts
+def _normalize_cik(cik):
+    text = str(cik or "").strip()
+    if not text:
+        return ""
+    return text.zfill(10)
+
+
+class _LazyCompanyFactsCache:
+    def __init__(self, cache_dir, allowed_ciks, max_entries=64):
+        self.cache_dir = Path(cache_dir)
+        self.allowed_ciks = {_normalize_cik(cik) for cik in allowed_ciks if _normalize_cik(cik)}
+        self.max_entries = max(1, int(max_entries or 1))
+        self._cache = OrderedDict()
+
+    def get(self, cik, default=None):
+        normalized = _normalize_cik(cik)
+        if not normalized or normalized not in self.allowed_ciks:
+            return default
+        if normalized in self._cache:
+            self._cache.move_to_end(normalized)
+            return self._cache[normalized]
+
+        path = _cik_cache_path(self.cache_dir, normalized)
+        if not path.exists():
+            return default
+
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        self._cache[normalized] = payload
+        self._cache.move_to_end(normalized)
+        while len(self._cache) > self.max_entries:
+            self._cache.popitem(last=False)
+        return payload
+
+
+def _load_company_facts(cache_dir, membership_rows, max_entries=64):
+    return _LazyCompanyFactsCache(
+        cache_dir,
+        [row.get("cik", "") for row in membership_rows or []],
+        max_entries=max_entries,
+    )
 
 
 def _facts_cache_files(cache_dir):
@@ -64,6 +95,39 @@ def _facts_cache_files(cache_dir):
     return list(cache.glob("CIK*.json"))
 
 
+def _price_row_date(row):
+    value = row.get("date") if isinstance(row, dict) else None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value).date()
+        except ValueError:
+            return None
+    return None
+
+
+class _PriceTimeline:
+    def __init__(self, rows):
+        dated_rows = []
+        for row in rows or []:
+            row_date = _price_row_date(row)
+            if row_date is not None:
+                dated_rows.append((row_date, row))
+        dated_rows.sort(key=lambda item: item[0])
+        self._dates = [item[0] for item in dated_rows]
+        self._rows = [item[1] for item in dated_rows]
+
+    def as_of(self, as_of_date):
+        cutoff = _price_row_date({"date": as_of_date})
+        if cutoff is None:
+            raise ValueError(f"Invalid as_of_date: {as_of_date!r}")
+        end = bisect_right(self._dates, cutoff)
+        return self._rows[:end]
+
+
 def _group_membership_by_week(rows):
     grouped = {}
     for row in rows:
@@ -71,6 +135,21 @@ def _group_membership_by_week(rows):
         if week:
             grouped.setdefault(week, []).append(row)
     return grouped
+
+
+def _select_replay_weeks(weeks, pilot_weeks=8, full_run=False, pilot_window="latest"):
+    ordered = sorted(weeks or [])
+    if full_run:
+        return ordered
+    count = int(pilot_weeks)
+    if count <= 0:
+        raise ValueError("pilot_weeks must be positive")
+    window = str(pilot_window or "latest").strip().lower()
+    if window == "latest":
+        return ordered[-count:]
+    if window == "earliest":
+        return ordered[:count]
+    raise ValueError(f"pilot_window must be latest or earliest: {pilot_window}")
 
 
 def _membership_evidence_summary(grouped_membership_rows, selected_weeks):
@@ -216,22 +295,24 @@ def _write_backtest_report(output_root, result):
     (Path(output_root) / "backtest_report.md").write_text(text, encoding="utf-8-sig")
 
 
-def _write_leakage_audit_report(output_root, audit_rows):
+def _write_leakage_audit_report(output_root, audit_rows, detail_limit=1000):
     output = Path(output_root)
     severe_count = sum(1 for row in audit_rows if row.get("severity") == "severe")
     weeks = sorted({str(row.get("generated_date", "")).strip() for row in audit_rows if row.get("generated_date")})
+    detail_rows = audit_rows[:detail_limit]
     lines = [
         "# 数据泄漏审计",
         "",
         f"- 覆盖回放周数：{len(weeks)}",
         f"- 严重泄漏数：{severe_count}",
         f"- 审计记录数：{len(audit_rows)}",
+        f"- Markdown 明细行：{len(detail_rows)}/{len(audit_rows)}",
         "",
         "| 回放日期 | 记录类型 | 来源 | 代码 | 可用时间 | 严重程度 | 原因 |",
         "|---|---|---|---|---|---|---|",
     ]
-    if audit_rows:
-        for row in audit_rows:
+    if detail_rows:
+        for row in detail_rows:
             lines.append(
                 f"| {row.get('generated_date', '')} | {row.get('record_type', '')} | {row.get('source', '')} | "
                 f"{row.get('ticker', '')} | {row.get('available_at', '')} | {row.get('severity', '')} | "
@@ -251,15 +332,23 @@ def run_point_in_time_backtest(
     pilot_weeks=8,
     full_run=False,
     config_digest=None,
+    pilot_window="latest",
 ):
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
     membership_rows = _read_csv(membership_path)
     price_rows = _read_csv(price_history_path)
     benchmark_rows = _read_csv(benchmark_history_path)
+    price_timeline = _PriceTimeline(price_rows)
+    benchmark_timeline = _PriceTimeline(benchmark_rows)
     grouped = _group_membership_by_week(membership_rows)
     weeks = sorted(grouped)
-    selected_weeks = weeks if full_run else weeks[: int(pilot_weeks)]
+    selected_weeks = _select_replay_weeks(
+        weeks,
+        pilot_weeks=pilot_weeks,
+        full_run=full_run,
+        pilot_window=pilot_window,
+    )
     _validate_prepared_inputs(
         membership_rows,
         price_rows,
@@ -274,6 +363,7 @@ def run_point_in_time_backtest(
             "price_history": str(price_history_path),
             "benchmark_history": str(benchmark_history_path),
             "pilot_weeks": int(pilot_weeks),
+            "pilot_window": str(pilot_window or "latest"),
             "full_run": bool(full_run),
         }
     )
@@ -289,9 +379,20 @@ def run_point_in_time_backtest(
         week_rows = grouped[week]
         facts = _load_company_facts(company_facts_cache, week_rows)
         try:
-            replay_price_rows = prices_available_as_of(price_rows, week)
-            replay_benchmark_rows = prices_available_as_of(benchmark_rows, week)
-            replay_result = replay_week(week, week_rows, facts, replay_price_rows, replay_benchmark_rows, output, digest)
+            replay_price_rows = price_timeline.as_of(week)
+            replay_benchmark_rows = benchmark_timeline.as_of(week)
+            replay_result = replay_week(
+                week,
+                week_rows,
+                facts,
+                replay_price_rows,
+                replay_benchmark_rows,
+                output,
+                digest,
+                price_rows_as_of=True,
+                benchmark_rows_as_of=True,
+                preserve_price_history=True,
+            )
             batch_audit_rows.extend(_read_csv(output / "data_leakage_audit.csv"))
             completed += 1
             last_week = week
@@ -366,6 +467,7 @@ def main():
     parser.add_argument("--benchmark-history", required=True)
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--pilot-weeks", type=int, default=8)
+    parser.add_argument("--pilot-window", choices=["latest", "earliest"], default="latest")
     parser.add_argument("--full-run", action="store_true")
     parser.add_argument("--config-digest")
     args = parser.parse_args()
@@ -376,6 +478,7 @@ def main():
         args.benchmark_history,
         args.output_root,
         pilot_weeks=args.pilot_weeks,
+        pilot_window=args.pilot_window,
         full_run=args.full_run,
         config_digest=args.config_digest,
     )

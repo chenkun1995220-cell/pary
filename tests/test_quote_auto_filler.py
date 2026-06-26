@@ -9,8 +9,10 @@ from datetime import date
 from unittest.mock import patch
 
 from quote_auto_filler import (
+    build_quote_row,
     extract_net_debt,
     extract_shares_outstanding,
+    extract_shares_from_sec_filing_text,
     fetch_price_quote,
     parse_yahoo_chart_quote,
     load_fresh_quotes,
@@ -88,7 +90,7 @@ class QuoteAutoFillerTests(unittest.TestCase):
             state = {"active": 0, "maximum": 0}
             lock = threading.Lock()
 
-            def fake_build(company, facts, price_csv_text=None, quote_override=None):
+            def fake_build(company, facts, price_csv_text=None, quote_override=None, **kwargs):
                 with lock:
                     state["active"] += 1
                     state["maximum"] = max(state["maximum"], state["active"])
@@ -105,15 +107,46 @@ class QuoteAutoFillerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "quotes.csv"
             with path.open("w", encoding="utf-8-sig", newline="") as handle:
-                writer = csv.DictWriter(handle, fieldnames=["ticker", "price", "quote_date", "quote_source"])
+                writer = csv.DictWriter(handle, fieldnames=["ticker", "price", "shares_outstanding", "quote_date", "quote_source"])
                 writer.writeheader()
-                writer.writerow({"ticker": "FRESH", "price": "10", "quote_date": "2026-06-18", "quote_source": "cached"})
-                writer.writerow({"ticker": "STALE", "price": "20", "quote_date": "2026-06-10", "quote_source": "cached"})
+                writer.writerow({"ticker": "FRESH", "price": "10", "shares_outstanding": "100", "quote_date": "2026-06-18", "quote_source": "cached"})
+                writer.writerow({"ticker": "STALE", "price": "20", "shares_outstanding": "200", "quote_date": "2026-06-10", "quote_source": "cached"})
+                writer.writerow({"ticker": "PARTIAL", "price": "30", "shares_outstanding": "", "quote_date": "2026-06-18", "quote_source": "cached"})
 
             rows = load_fresh_quotes(path, date(2026, 6, 21), max_age_days=7)
 
             self.assertEqual(set(rows), {"FRESH"})
             self.assertEqual(rows["FRESH"]["price"], "10")
+
+    def test_extracts_shares_from_sec_filing_text(self):
+        proxy_text = "Shares of common stock outstanding as of the Record Date 171,466,896"
+        spin_text = (
+            "converted the total number of shares of the Common Stock issued and "
+            "outstanding into a number of validly issued shares equal to 149,505,248."
+        )
+
+        self.assertEqual(extract_shares_from_sec_filing_text(proxy_text), 171_466_896)
+        self.assertEqual(extract_shares_from_sec_filing_text(spin_text), 149_505_248)
+
+    def test_build_quote_row_uses_sec_filing_share_fallback(self):
+        facts = company_facts()
+        facts["facts"].pop("dei")
+
+        row = build_quote_row(
+            {"ticker": "FDXF"},
+            facts,
+            quote_override={
+                "ticker": "FDXF",
+                "price": 150,
+                "quote_date": "2026-06-26",
+                "quote_source": "Yahoo Finance chart",
+            },
+            fallback_shares=149_505_248,
+            fallback_share_source="SEC filing text",
+        )
+
+        self.assertEqual(row["shares_outstanding"], 149.505248)
+        self.assertIn("SEC filing text", row["quote_source"])
     def test_parse_yahoo_chart_quote_uses_latest_close(self):
         payload = {
             "chart": {

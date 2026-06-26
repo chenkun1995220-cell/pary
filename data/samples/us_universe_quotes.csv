@@ -1,504 +1,504 @@
 ﻿ticker,price,shares_outstanding,net_debt,currency,quote_date,price_unit,shares_unit,debt_unit,quote_source,updated_at
-MMM,160.60000610351562,521.567261,8847.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AOS,58.220001220703125,75.732188,430.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ABT,88.41000366210938,1741.812429,27244.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ABBV,216.49000549316406,1766.792821,55112.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ACN,127.9800033569336,637.016143,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ADBE,193.36000061035156,397.5,-2169.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AMD,534.1199951171875,1630.600639,-2361.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AES,14.619999885559082,713.157713,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AFL,115.47000122070312,508.984904,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-A,127.05999755859375,282.431944,1548.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-APD,280.2099914550781,222.680686,2831.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ABNB,142.41000366210938,608.0,-4562.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AKAM,124.91000366210938,145.385451,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ALB,160.35000610351562,117.934651,792.022,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ARE,51.029998779296875,174.26948,12101.275,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ALGN,182.0800018310547,71.618127,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ALLE,133.57000732421875,85.935861,1721.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LNT,73.0,258.277037,10892.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ALL,221.1699981689453,257.42093,7294.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GOOGL,362.4800109863281,12116.0,41436.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GOOG,367.4599914550781,12116.0,41436.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MO,69.12000274658203,1669.891235,21071.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AMZN,240.08999633789062,10757.109436,20090.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AMCR,41.08000183105469,462.34569,3819.4,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AEE,108.66999816894531,276.751616,20113.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AEP,127.69000244140625,544.104955,49248.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AXP,338.0,682.326443,6685.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AIG,74.0199966430664,530.206221,7913.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AMT,176.0500030517578,465.893069,22915.3,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AWK,125.06999969482422,195.280521,5459.229,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AMP,467.42999267578125,89.897084,-6205.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AME,237.4199981689453,229.203002,854.668,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AMGN,337.6000061035156,539.708274,45285.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-APH,163.9600067138672,1230.234445,-888.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ADI,434.4599914550781,487.08704,5697.735,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AON,317.739990234375,213.576949,14071.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-APA,33.029998779296875,353.470227,8422.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-APO,137.5,576.517513,-9528.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AAPL,298.4100036621094,14687.356,37142.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AMAT,617.1099853515625,793.95943,154.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-APP,469.7099914550781,336.294,755.351,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-APTV,63.68000030517578,211.620527,4582.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ACGL,91.18000030517578,349.389588,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ADM,75.0999984741211,481.956527,7019.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ARES,129.33999633789062,103.332418,-365.91,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ANET,169.6699981689453,1259.202593,-2690.707,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AJG,214.05999755859375,256.9,12100.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AIZ,259.8599853515625,49.547637,615.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-T,22.010000228881836,6948.338835,51803.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ATO,170.11000061035156,166.919822,3403.758,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ADSK,193.82000732421875,211.0,-171.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ADP,218.41000366210938,399.734282,767.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AZO,3064.47998046875,16.325355,9262.748,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AVB,177.32000732421875,139.112069,9238.987,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AVY,158.67999267578125,76.490385,949.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AXON,423.3999938964844,80.602077,1272.066,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BKR,58.40999984741211,992.068697,-14737.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BALL,57.720001220703125,266.246511,7596.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BAC,56.20000076293945,7096.590651,294598.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BAX,19.889999389648438,516.469008,7421.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BDX,143.97999572753906,275.540427,14645.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BRK-B,489.4599914550781,0.941481,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BBY,74.7300033569336,210.767126,-584.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TECH,57.939998626708984,156.568751,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BIIB,196.5800018310547,147.637117,2905.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BLK,1050.0899658203125,154.926181,2908.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BX,123.79000091552734,742.879807,10960.02,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-XYZ,74.77999877929688,597.586,-2288.358,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BNY,143.6300048828125,686.379045,26192.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BA,222.72000122070312,788.302331,37521.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BKNG,171.77999877929688,774.878436,2389.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BSX,45.290000915527344,1486.355179,3355.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BMY,54.0,2042.071247,34566.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-AVGO,411.3500061035156,4757.580198,45279.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BR,137.60000610351562,115.658297,2922.2,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BRO,59.099998474121094,338.947841,6819.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BF-B,26.639999389648438,466.733,2126.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BLDR,80.58999633789062,107.559876,310.526,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BG,112.58000183105469,194.018115,10469.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BXP,64.69999694824219,159.477391,2787.217,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CHRW,185.0399932861328,117.873042,1183.062,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CDNS,387.3900146484375,275.816,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CPT,108.98999786376953,100.519732,4209.816,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-COF,201.52999877929688,622.292783,-33752.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CAH,221.77000427246094,235.316016,-275.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CCL,30.8700008392334,1239.000212,23866.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CARR,71.80999755859375,830.580423,10056.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CVNA,66.55999755859375,224.277,2674.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CASY,842.25,36.95903,1968.18,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CAT,985.8200073242188,460.637026,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CBOE,249.10000610351562,104.653784,-691.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CBRE,131.5500030517578,292.816579,3427.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CDW,128.3699951171875,127.753451,5062.4,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-COR,271.8299865722656,194.56106,10014.333,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CNC,61.02000045776367,493.797,-4893.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CNP,42.81999969482422,654.16948,22443.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CF,102.93000030517578,153.629274,1673.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CRL,185.0,48.16773,1441.629,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SCHW,91.69999694824219,1739.135507,-9011.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CHTR,126.2300033569336,270.927828,93897.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CVX,173.6300048828125,1991.597732,25883.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CMG,32.4900016784668,1282.734,-246.636,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CB,323.3999938964844,387.860106,14836.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CHD,95.62999725341797,236.943602,1702.3,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CIEN,428.2200012207031,141.552922,485.993,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CI,279.2699890136719,264.532404,32483.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CINF,170.1999969482422,154.686742,-364.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CTAS,170.85000610351562,400.087119,2473.587,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CSCO,118.13500213623047,3941.434665,15786.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-C,143.05999755859375,1749.319009,18126.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CFG,67.08000183105469,422.881942,-16.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CLX,95.80000305175781,120.921351,1300.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CME,246.3800048828125,66.643583,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CMS,73.37999725341797,308.919602,18681.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KO,79.38999938964844,4302.482418,25922.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CTSH,43.70000076293945,473.869469,-721.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-COHR,389.57000732421875,195.639321,1601.051,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-COIN,163.25999450683594,263.411,-2993.338,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CL,89.4800033569336,800.18931,7717.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CMCSA,22.43000030517578,2063.073161,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FIX,1967.4100341796875,35.202424,-1011.085,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CAG,13.199999809265137,478.437156,7207.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-COP,107.73999786376953,1218.294007,16920.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ED,106.36000061035156,368.529705,25654.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-STZ,141.17999267578125,,10194.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CEG,274.05999755859375,361.190063,16564.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-COO,65.91000366210938,195.03063,2120.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CPRT,30.229999542236328,925.811482,-3267.749,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GLW,194.9199981689453,860.637825,1778.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CPAY,345.2799987792969,65.361919,1676.874,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CTVA,78.58999633789062,668.82,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CSGP,30.1200008392334,408.355715,-221.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-COST,953.2847290039062,443.478804,-13276.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CRH,111.23999786376953,668.200216,15198.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CRWD,684.8599853515625,254.56482,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CCI,82.05000305175781,436.451983,24282.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CSX,45.630001068115234,1858.138856,8868.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CMI,716.8599853515625,137.989067,-877.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CVS,98.31999969482422,1275.927307,62131.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DHR,177.1699981689453,707.770627,11907.932,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DRI,213.4499969482422,114.535003,640.5,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DDOG,223.0,364.731,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DVA,207.91000366210938,64.2,5098.003,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DECK,109.11000061035156,138.880957,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DE,589.239990234375,269.937425,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DELL,409.5,649.0,19583.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DAL,84.18000030517578,656.994112,8182.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DVN,42.119998931884766,621.4,6623.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DXCM,72.47000122070312,385.872977,-1115.3,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FANG,183.5,281.313297,13724.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DLR,188.14999389648438,351.40607,845.217,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DG,113.44999694824219,220.586647,5382.615,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DLTR,111.6500015258789,192.174588,1925.3,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-D,68.41000366210938,879.455403,34938.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DPZ,312.4700012207031,33.26187,1303.621,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DASH,173.4600067138672,442.326,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DOV,223.57000732421875,134.661414,1648.197,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DOW,31.729999542236328,720.741438,12160.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DHI,157.80999755859375,283.579613,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DTE,147.55999755859375,208.028313,11705.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DUK,123.86000061035156,779.596217,85732.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DD,47.709999084472656,409.921306,6500.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ETN,421.7699890136719,388.3,20564.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EBAY,108.23999786376953,444.0,4829.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SATS,109.16999816894531,289.014,152.214,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ECL,269.1199951171875,281.437502,4365.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EIX,71.88999938964844,384.793941,40139.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EW,87.36000061035156,575.8,-1847.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EA,202.14999389648438,250.751484,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ELV,388.5,217.16238,21461.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EME,836.5900268554688,44.440278,-916.42,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EMR,150.66000366210938,560.1,6369.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ETR,111.11000061035156,457.83207,29105.036,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EOG,129.97999572753906,532.62853,4082.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EQT,50.720001220703125,625.478,5665.843,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EFX,153.92999267578125,119.072409,4930.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EQIX,1092.18994140625,98.624248,18423.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EQR,64.08999633789062,374.671735,8206.565,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ERIE,221.13999938964844,0.002542,-268.616,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ESS,273.7099914550781,64.262866,6798.797,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EL,84.80999755859375,364.5,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EG,335.6300048828125,39.571602,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EVRG,82.5,230.513025,13495.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ES,69.58999633789062,376.080025,29234.028,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EXC,45.810001373291016,1023.208142,48811.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EXE,86.9800033569336,239.228849,2788.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EXPE,240.89999389648438,114.476,-1070.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EXPD,161.32000732421875,130.791133,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-EXR,145.3300018310547,211.260936,421.627,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-XOM,137.80999755859375,4144.947162,20865.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FFIV,385.489990234375,56.419247,-1442.811,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FDS,221.2899932861328,36.431127,1100.878,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FICO,1096.47998046875,23.190906,3419.644,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FAST,45.88999938964844,1148.035061,-183.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FRT,120.38999938964844,86.389197,4847.969,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FDX,326.20001220703125,238.606756,12191.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FDXF,162.85000610351562,,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FIS,38.209999084472656,516.879151,16137.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FITB,52.7400016784668,906.311548,15958.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FSLR,257.70001220703125,107.453363,-2090.388,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FE,46.45000076293945,578.431175,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FISV,47.86000061035156,533.253986,3220.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FLEX,147.61000061035156,366.377923,1362.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-F,14.0600004196167,3727.332952,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FTNT,144.72999572753906,732.648391,-1727.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FTV,61.029998779296875,304.861021,3133.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FOXA,52.22999954223633,1e-06,3004.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FOX,46.95000076293945,1e-06,3004.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-BEN,33.04999923706055,519.637162,-1753.619,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-FCX,68.68000030517578,1437.559865,5677.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GRMN,234.1999969482422,192.856206,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IT,127.48999786376953,66.951889,1316.025,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GE,357.6400146484375,1043.337235,9508.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GEHC,61.59000015258789,454.891786,7868.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GEV,1109.72998046875,268.719995,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GEN,24.18000030517578,602.433854,7785.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GNRC,279.1499938964844,58.868681,943.273,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GD,350.010009765625,270.430187,4420.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GIS,33.41999816894531,533.681218,9841.9,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GM,79.29000091552734,901.665195,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GPC,108.69999694824219,137.624545,3335.083,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GILD,123.76000213623047,1241.569874,14546.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GPN,66.87999725341797,273.543507,3407.15,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GL,170.75999450683594,77.644761,2066.328,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GDDY,77.04000091552734,132.409847,2515.9,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GS,1096.56005859375,295.007421,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HAL,34.93000030517578,835.397735,5245.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HIG,128.25,274.13082,4743.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HAS,84.73999786376953,141.490692,2734.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HCA,375.1700134277344,221.8398,42070.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DOC,19.559999465942383,689.419702,9251.78,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HSIC,79.91999816894531,113.916757,313.546,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HSY,172.6300048828125,223.805223,4311.468,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HPE,47.40999984741211,1324.203521,15194.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HLT,348.8399963378906,227.648372,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HD,337.2200012207031,997.116682,8148.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HON,229.00999450683594,633.653119,24762.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HRL,24.15999984741211,550.81,2029.589,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HST,25.010000228881836,684.879281,-429.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HWM,277.6600036621094,400.107483,1801.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HPQ,23.5,914.52269,5963.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HUBB,523.6900024414062,52.841777,1550.4,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HUM,360.6499938964844,120.0615,-657.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HBAN,16.860000610351562,2027.130587,4283.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HII,285.42999267578125,39.404029,2988.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IBM,249.10000610351562,939.88528,52034.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IEX,224.92999267578125,74.015052,1286.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IDXX,562.0900268554688,78.882997,249.323,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ITW,264.0899963378906,287.7,6775.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-INCY,98.22000122070312,199.782155,-2455.843,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IR,77.91000366210938,391.336834,1503.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PODD,145.75999450683594,69.264674,906.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-INTC,133.99000549316406,5026.0,28279.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IBKR,96.0,42.231651,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ICE,133.8800048828125,565.512495,19507.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IFF,76.72000122070312,255.303473,5255.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IP,36.81999969482422,529.516974,8595.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-INTU,267.0,273.537,1481.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ISRG,406.7799987792969,354.162842,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IVZ,28.139999389648438,443.296629,638.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-INVH,28.40999984741211,594.041956,8688.241,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IQV,167.77000427246094,166.9,13886.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-IRM,127.83000183105469,297.524681,16852.271,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-JBHT,271.2200012207031,94.299203,1298.275,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-JBL,371.8800048828125,105.502622,2046.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-JKHY,126.2300033569336,71.05078,69.427,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-J,120.97000122070312,118.080879,2712.308,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-JNJ,228.38999938964844,2407.216971,17839.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-JCI,144.82000732421875,610.115603,9379.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-JPM,325.2200012207031,2679.511418,25835.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KVUE,18.1200008392334,1920.008668,6612.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KDP,30.760000228881836,1360.559471,21988.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KEY,22.59000015258789,1084.225688,10268.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KEYS,363.6700134277344,170.895368,119.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KMB,102.55999755859375,331.940357,6860.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KIM,24.3799991607666,674.389792,7550.262,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KMI,31.59000015258789,2224.825757,30798.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KKR,97.01000213623047,897.872941,17429.016,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KLAC,259.55999755859375,130.627521,1635.087,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KHC,22.81999969482422,1185.777638,10341.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-KR,56.61000061035156,612.575611,12541.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LHX,294.82000732421875,186.294951,9155.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LH,255.82000732421875,82.0,5353.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LRCX,389.0400085449219,1250.571,-281.572,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LVS,48.720001220703125,662.637325,6166.002,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LDOS,107.12000274658203,125.785466,706.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LEN,89.7300033569336,244.438,3480.185,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LII,532.4299926757812,34.799968,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LLY,1098.5699462890625,941.741406,35100.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LIN,512.1500244140625,462.599539,17536.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LYV,171.24000549316406,235.547065,-7362.159,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LMT,510.95001220703125,230.563608,18803.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-L,107.27999877929688,205.768873,9229.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LOW,222.1999969482422,560.707041,4291.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LULU,111.7699966430664,108.437957,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LITE,850.0,77.8,664.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LYB,60.06999969482422,322.784773,1670.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MTB,225.1199951171875,146.44506,2678.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MPC,242.91000366210938,291.936635,1170.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MAR,396.20001220703125,263.688623,2073.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MRSH,162.41000366210938,481.794501,17942.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MLM,609.1199951171875,60.0459,5021.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MRVL,310.5799865722656,874.8,1117.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MAS,74.37999725341797,201.734437,2763.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MA,489.7900085449219,122.530193,11054.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MKC,46.63999938964844,269.4,3435.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MCD,278.6099853515625,710.505859,39660.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MCK,750.6300048828125,120.204051,3303.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MDT,79.33999633789062,1280.04519,22967.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MRK,113.87000274658203,2469.824415,43646.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-META,577.219970703125,2564.0,35318.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MET,85.58000183105469,643.436779,-3404.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MTD,1144.8399658203125,20.207601,2027.667,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MGM,46.84000015258789,255.851235,4785.435,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MCHP,99.7699966430664,542.079281,5256.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MU,1133.989990234375,1127.734051,-10284.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MSFT,378.1099853515625,7428.434704,8157.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MAA,132.5,116.384802,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MRNA,63.959999084472656,396.786259,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TAP,39.400001525878906,199.1,5363.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MDLZ,60.119998931884766,1283.649766,25118.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MPWR,1563.699951171875,49.13,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MNST,91.33999633789062,978.00811,-1665.749,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MCO,450.6700134277344,174.7,5494.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MS,223.1699981689453,1577.284817,230421.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MOS,22.899999618530273,317.846644,4312.2,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MSI,395.1700134277344,165.995582,7529.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-MSCI,581.1900024414062,72.8,6018.5,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NDAQ,82.23999786376953,565.540798,8390.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NTAP,159.7100067138672,195.919927,417.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NFLX,77.37999725341797,4212.794271,9275.147,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NEM,103.79000091552734,1067.552764,-3696.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NWSA,25.280000686645508,561.5,-183.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NWS,28.75,561.5,-183.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NEE,86.75,2085.341456,95787.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NKE,45.20000076293945,855.351589,1369.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NI,47.2599983215332,479.439245,7646.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NDSN,295.9200134277344,55.717948,1784.339,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NSC,300.0799865722656,224.594001,9296.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NTRS,172.11000061035156,185.047258,-4394.4,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NOC,521.5,142.033476,13079.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NCLH,20.440000534057617,459.11014,1367.433,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NRG,135.05999755859375,210.98647,22976.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NUE,243.8300018310547,227.74095,2074.308,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NVDA,208.8300018310547,24200.0,-4767.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NVR,6490.93017578125,2.699292,-1129.572,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NXPI,313.2699890136719,252.471079,8514.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ORLY,86.83999633789062,828.715079,6242.559,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-OXY,51.81999969482422,994.634701,12436.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ODFL,221.0399932861328,207.968283,-248.086,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-OMC,71.3499984741211,285.006196,5052.2,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ON,121.62000274658203,391.903191,979.3,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-OKE,85.02999877929688,630.032852,31833.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ORCL,182.25999450683594,2876.046,-38455.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-OTIS,73.2699966430664,383.716076,6740.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PCAR,118.94999694824219,526.286229,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PKG,229.02000427246094,89.098647,3571.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PLTR,128.47000122070312,2397.133,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PANW,287.7799987792969,815.0,-372.5,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PSKY,9.9399995803833,1071.666977,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PH,953.27001953125,126.086389,12401.043,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PAYX,98.23999786376953,358.290881,3211.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PYPL,42.5099983215332,882.105493,3899.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PNR,74.31999969482422,161.605541,1876.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PEP,142.02000427246094,1366.768315,33446.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PFE,25.209999084472656,5699.444169,62723.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PCG,16.479999542236328,2679.968318,59637.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PM,178.39999389648438,1558.558846,11306.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PSX,166.13999938964844,400.93502,-4050.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PNW,102.31999969482422,121.187166,10395.266,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PNC,232.0399932861328,401.564632,34967.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PPG,118.25,222.9,5536.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PPL,35.380001068115234,752.350362,18777.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PFG,109.56999969482422,216.012384,-108.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PG,150.3800048828125,2328.598978,16923.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PGR,204.8699951171875,584.336464,2485.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PLD,140.5399932861328,932.338,33808.448,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PRU,106.52999877929688,347.0,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PEG,79.88999938964844,498.321402,22686.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PTC,114.75,115.505791,1230.295,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PSA,318.1199951171875,175.545748,10272.657,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PHM,126.95999908447266,190.486353,-1763.12,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-PWR,702.25,150.060149,1478.063,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-QCOM,222.56500244140625,1054.0,9376.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DGX,195.0,110.696429,5277.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-Q,168.97999572753906,209.339207,3243.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RL,413.010009765625,62.3,-749.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RJF,155.86000061035156,194.883034,-11219.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RTX,185.60000610351562,1346.683428,34486.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-O,60.2400016784668,932.49253,4301.457,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-REG,76.87999725341797,183.09679,4858.374,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-REGN,609.9400024414062,93.95511,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RF,28.6200008392334,853.379538,-4806.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RSG,204.94000244140625,307.664087,13592.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RMD,188.6300048828125,145.056384,-641.624,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RVTY,100.0,111.559773,2347.583,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-HOOD,108.1500015258789,915.038823,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ROK,473.7900085449219,111.273953,2150.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ROL,44.959999084472656,481.463663,534.01,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ROP,330.260009765625,100.917359,10081.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ROST,232.8000030517578,320.781076,-3112.793,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-RCL,312.510009765625,268.194978,8026.187,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SPGI,410.9200134277344,296.0,11873.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-CRM,152.34500122070312,819.0,30345.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SNDK,2184.75,148.089758,-3735.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SBAC,186.8699951171875,106.063017,12690.667,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SLB,48.09000015258789,1495.057661,8473.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-STX,1070.22998046875,212.677178,4104.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SRE,90.69000244140625,653.690046,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-NOW,95.04000091552734,1031.0,-1218.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SHW,320.7900085449219,246.635621,9106.3,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SPG,211.3300018310547,324.961423,27704.727,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SWKS,72.44999694824219,150.405963,-916.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SJM,110.86000061035156,106.662133,6484.2,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SW,44.20000076293945,524.464078,12549.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SNA,387.25,51.801916,-566.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SOLV,75.43000030517578,173.174712,4014.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SO,93.08999633789062,1127.301098,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-LUV,47.970001220703125,488.773713,-453.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SWK,86.75,155.455564,4424.5,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SBUX,100.6500015258789,1139.7,13549.9,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-STT,168.30999755859375,276.767033,5316.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-STLD,249.91000366210938,144.212781,3644.266,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-STE,202.61000061035156,97.602485,1492.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SYK,307.79998779296875,383.360762,-1104.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SMCI,30.65999984741211,601.418482,-1171.219,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SYF,75.26000213623047,336.951336,-4131.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SNPS,455.510009765625,191.479325,7623.49,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-SYY,78.69999694824219,478.182608,8696.839,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TMUS,181.6699981689453,1082.204717,82791.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TROW,107.6500015258789,214.266606,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TTWO,239.27999877929688,185.666663,1070.268,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TPR,143.5,202.044714,1350.1,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TRGP,258.5799865722656,214.643903,7714.5,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TGT,130.14999389648438,454.191112,11281.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TEL,217.63999938964844,291.895799,4745.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TDY,619.5800170898438,46.329138,1954.9,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TER,437.9200134277344,156.542162,115.778,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TSLA,400.489990234375,3755.723871,-15954.559,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TXN,322.8599853515625,910.092791,10501.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TPL,355.1099853515625,68.974429,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TXT,89.47000122070312,173.888981,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TMO,464.6099853515625,371.621465,40386.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TJX,163.80999755859375,1104.704446,-2710.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TKO,198.77999877929688,194.631394,3851.029,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TTD,18.510000228881836,476.883,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TSCO,30.239999771118164,524.449616,-74.269,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TT,483.3999938964844,221.055477,2171.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TDG,1328.31005859375,55.933583,15639.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TRV,307.80999755859375,212.644693,5846.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TRMB,49.15999984741211,233.111519,1698.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TFC,48.33000183105469,1245.879275,32866.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TYL,278.9100036621094,42.167455,281.924,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-TSN,55.459999084472656,354.0,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-USB,58.13999938964844,1552.299745,12513.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-UBER,71.63999938964844,2035.599013,4956.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-UDR,37.560001373291016,324.915653,5662.016,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ULTA,456.1300048828125,42.989311,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-UNP,256.8800048828125,593.713213,31079.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-UAL,118.31999969482422,324.569728,13397.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-UPS,104.86000061035156,713.924267,14961.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-URI,1076.81005859375,62.646557,14146.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-UNH,400.9599914550781,908.144404,47059.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-UHS,141.1699981689453,61.668,4589.33,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VLO,236.3000030517578,296.932782,2528.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VEEV,153.3000030517578,162.443291,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VTR,81.5999984741211,486.169723,12827.403,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VLTO,84.0199966430664,245.599266,1231.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VRSN,264.6400146484375,91.0,-476.7,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VRSK,173.8000030517578,131.02184,4693.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VZ,45.369998931884766,4175.55891,109521.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VRTX,451.6300048828125,253.805417,-5387.9,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VRT,333.04998779296875,384.108816,771.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VTRS,15.369999885559082,1164.552654,12540.4,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VICI,26.280000686645508,1069.030187,16306.894,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-V,327.239990234375,469.280842,11572.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VST,163.75,337.182468,18529.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-VMC,302.8399963378906,129.754885,4222.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WRB,67.18000030517578,372.276732,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-GWW,1365.4100341796875,47.213119,1716.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WAB,273.8299865722656,169.677346,6007.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WMT,117.37999725341797,7958.079155,30054.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-DIS,103.88999938964844,1736.511424,41676.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WBD,26.200000762939453,2507.136702,11834.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WM,214.60000610351562,401.575752,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WAT,355.44000244140625,98.185855,948.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WEC,112.16999816894531,325.725678,19856.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WFC,82.19999694824219,3060.189494,42950.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WELL,206.64999389648438,705.91445,13229.793,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WST,327.95001220703125,70.647595,-318.6,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WDC,746.22998046875,344.682131,-469.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WY,24.31999969482422,721.043,5275.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WSM,226.9199981689453,117.746611,-651.601,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WMB,73.12000274658203,1222.998265,,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WTW,255.1999969482422,94.447976,4449.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WDAY,116.93000030517578,220.0,2429.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-WYNN,105.52999877929688,103.786729,9336.861,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-XEL,77.41000366210938,624.26956,7753.144,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-XYL,111.41999816894531,237.693493,612.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-YUM,151.99000549316406,275.621202,3946.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ZBRA,235.97999572753906,47.633392,2537.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ZBH,87.97000122070312,193.462482,7046.8,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
-ZTS,78.70999908447266,419.228118,7104.0,USD,2026-06-18,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts; SEC Company Facts,2026-06-21
+MMM,165.94000244140625,521.567261,8847.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AOS,61.540000915527344,75.732188,430.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ABT,95.05000305175781,1741.812429,27244.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ABBV,248.9550018310547,1766.792821,55112.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ACN,127.44000244140625,637.016143,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ADBE,200.2949981689453,397.5,-2169.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AMD,514.9000244140625,1630.600639,-2361.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AES,14.649999618530273,713.157713,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AFL,119.69000244140625,508.984904,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+A,135.64500427246094,282.431944,1548.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+APD,279.4800109863281,222.680686,2831.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ABNB,144.9550018310547,608.0,-4562.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AKAM,109.70999908447266,145.385451,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ALB,134.9550018310547,117.934651,792.022,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ARE,55.779998779296875,174.26948,12101.275,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ALGN,176.72000122070312,71.618127,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ALLE,138.60499572753906,85.935861,1721.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LNT,76.63999938964844,258.277037,10892.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ALL,236.65499877929688,257.42093,7294.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GOOGL,342.1600036621094,12116.0,41436.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GOOG,339.95001220703125,12116.0,41436.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MO,73.44999694824219,1669.891235,21071.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AMZN,231.0500030517578,10757.109436,20090.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AMCR,42.95000076293945,462.34569,3819.4,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AEE,114.87999725341797,276.751616,20113.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AEP,137.92999267578125,544.104955,49248.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AXP,342.364990234375,682.326443,6685.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AIG,76.37999725341797,530.206221,7913.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AMT,176.07000732421875,465.893069,22915.3,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AWK,131.8249969482422,195.280521,5459.229,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AMP,451.3399963378906,89.897084,-6205.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AME,236.89500427246094,229.203002,854.668,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AMGN,360.6000061035156,539.708274,45285.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+APH,162.43499755859375,1230.234445,-888.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ADI,389.885009765625,487.08704,5697.735,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AON,320.9800109863281,213.576949,14071.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+APA,33.095001220703125,353.470227,8422.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+APO,120.75,576.517513,-9528.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AAPL,278.6400146484375,14687.356,37142.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AMAT,636.0,793.95943,154.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+APP,473.95001220703125,336.294,755.351,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+APTV,60.0099983215332,211.620527,4582.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ACGL,96.5999984741211,349.389588,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ADM,77.47000122070312,481.956527,7019.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ARES,113.32499694824219,103.332418,-365.91,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ANET,157.92999267578125,1259.202593,-2690.707,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AJG,224.9149932861328,256.9,12100.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AIZ,265.1400146484375,49.547637,615.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+T,22.485000610351562,6948.338835,51803.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ATO,173.6699981689453,166.919822,3403.758,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ADSK,194.94000244140625,211.0,-171.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ADP,222.49000549316406,399.734282,767.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AZO,3158.35498046875,16.325355,9262.748,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AVB,188.47999572753906,139.112069,9238.987,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AVY,165.1999969482422,76.490385,949.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AXON,466.55999755859375,80.602077,1272.066,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BKR,56.329898834228516,992.068697,-14737.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BALL,61.72999954223633,266.246511,7596.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BAC,57.90999984741211,7096.590651,294598.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BAX,22.06999969482422,516.469008,7421.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BDX,155.97999572753906,275.540427,14645.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BRK-B,496.510009765625,0.941481,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BBY,78.08499908447266,210.767126,-584.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TECH,70.87000274658203,156.568751,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BIIB,214.08999633789062,147.637117,2905.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BLK,977.89501953125,154.926181,2908.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BX,116.19999694824219,742.879807,10960.02,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+XYZ,76.29000091552734,597.586,-2288.358,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BNY,142.72000122070312,686.379045,26192.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BA,220.6750030517578,788.302331,37521.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BKNG,180.64999389648438,774.878436,2389.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BSX,45.11000061035156,1486.355179,3355.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BMY,57.44499969482422,2042.071247,34566.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+AVGO,368.8699951171875,4757.580198,45279.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BR,140.39999389648438,115.658297,2922.2,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BRO,63.16999816894531,338.947841,6819.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BF-B,27.760000228881836,466.733,2126.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BLDR,89.30999755859375,107.559876,310.526,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BG,111.88999938964844,194.018115,10469.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BXP,66.69000244140625,159.477391,2787.217,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CHRW,179.77499389648438,117.873042,1183.062,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CDNS,371.8800048828125,275.816,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CPT,115.97000122070312,100.519732,4209.816,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+COF,205.97000122070312,622.292783,-33752.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CAH,239.69500732421875,235.316016,-275.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CCL,28.899999618530273,1239.000212,23866.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CARR,74.44999694824219,830.580423,10056.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CVNA,64.44000244140625,224.277,2674.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CASY,778.7100219726562,36.95903,1968.18,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CAT,1014.47998046875,460.637026,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CBOE,243.9250030517578,104.653784,-691.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CBRE,136.89500427246094,292.816579,3427.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CDW,129.5500030517578,127.753451,5062.4,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+COR,290.2950134277344,194.56106,10014.333,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CNC,65.33000183105469,493.797,-4893.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CNP,44.61000061035156,654.16948,22443.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CF,105.71499633789062,153.629274,1673.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CRL,211.0,48.16773,1441.629,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SCHW,89.48500061035156,1739.135507,-9011.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CHTR,134.44000244140625,270.927828,93897.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CVX,170.625,1991.597732,25883.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CMG,33.459999084472656,1282.734,-246.636,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CB,336.2749938964844,387.860106,14836.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CHD,99.08499908447266,236.943602,1702.3,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CIEN,470.489990234375,141.552922,485.993,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CI,288.0050048828125,264.532404,32483.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CINF,181.01510620117188,154.686742,-364.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CTAS,172.42999267578125,400.087119,2473.587,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CSCO,114.43000030517578,3941.434665,15786.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+C,142.32000732421875,1749.319009,18126.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CFG,70.26000213623047,422.881942,-16.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CLX,97.25499725341797,120.921351,1300.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CME,222.78500366210938,66.643583,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CMS,77.80000305175781,308.919602,18681.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KO,81.80000305175781,4302.482418,25922.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CTSH,39.779998779296875,473.869469,-721.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+COHR,373.8999938964844,195.639321,1601.051,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+COIN,146.64999389648438,263.411,-2993.338,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CL,91.91000366210938,800.18931,7717.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CMCSA,23.146400451660156,2063.073161,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FIX,1905.199951171875,35.202424,-1011.085,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CAG,14.015000343322754,478.437156,7207.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+COP,106.33000183105469,1218.294007,16920.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ED,111.68000030517578,368.529705,25654.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+STZ,146.92999267578125,171.466896,10194.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC filing text (DEF 14A 2026-06-08),2026-06-27
+CEG,263.6109924316406,361.190063,16564.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+COO,71.86499786376953,195.03063,2120.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CPRT,30.56999969482422,925.811482,-3267.749,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GLW,208.97000122070312,860.637825,1778.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CPAY,326.6050109863281,65.361919,1676.874,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CTVA,82.0199966430664,668.82,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CSGP,30.43000030517578,408.355715,-221.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+COST,959.3800048828125,443.478804,-13276.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CRH,112.91500091552734,668.200216,15198.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CRWD,689.4600219726562,254.56482,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CCI,82.0199966430664,436.451983,24282.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CSX,47.564998626708984,1858.138856,8868.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CMI,691.5599975585938,137.989067,-877.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CVS,105.50499725341797,1275.927307,62131.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DHR,192.94000244140625,707.770627,11907.932,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DRI,211.02999877929688,114.535003,640.5,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DDOG,230.92750549316406,364.731,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DVA,213.6999969482422,64.2,5098.003,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DECK,104.79000091552734,138.880957,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DE,625.8699951171875,269.937425,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DELL,388.94500732421875,649.0,19583.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DAL,92.80999755859375,656.994112,8182.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DVN,42.80500030517578,621.4,6623.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DXCM,69.69000244140625,385.872977,-1115.3,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FANG,182.04750061035156,281.313297,13724.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DLR,191.66000366210938,351.40607,845.217,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DG,120.22000122070312,220.586647,5382.615,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DLTR,123.63500213623047,192.174588,1925.3,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+D,69.5199966430664,879.455403,34938.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DPZ,296.0,33.26187,1303.621,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DASH,182.4949951171875,442.326,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DOV,225.6999969482422,134.661414,1648.197,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DOW,29.100000381469727,720.741438,12160.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DHI,167.72500610351562,283.579613,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DTE,153.55499267578125,208.028313,11705.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DUK,128.1699981689453,779.596217,85732.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DD,134.5,409.921306,6500.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ETN,400.9599914550781,388.3,20564.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EBAY,108.29000091552734,444.0,4829.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SATS,97.12999725341797,289.014,152.214,USD,2026-06-25,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ECL,282.31500244140625,281.437502,4365.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EIX,75.20950317382812,384.793941,40139.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EW,92.20999908447266,575.8,-1847.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EA,205.5850067138672,250.751484,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ELV,393.2550048828125,217.16238,21461.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EME,827.72998046875,44.440278,-916.42,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EMR,142.66000366210938,560.1,6369.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ETR,115.9749984741211,457.83207,29105.036,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EOG,133.42999267578125,532.62853,4082.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EQT,53.150001525878906,625.478,5665.843,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EFX,158.09750366210938,119.072409,4930.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EQIX,1076.7449951171875,98.624248,18423.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EQR,68.05000305175781,374.671735,8206.565,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ERIE,237.11300659179688,0.002542,-268.616,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ESS,292.92999267578125,64.262866,6798.797,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EL,82.54000091552734,364.5,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EG,353.0690002441406,39.571602,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EVRG,87.25,230.513025,13495.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ES,73.13999938964844,376.080025,29234.028,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EXC,47.255001068115234,1023.208142,48811.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EXE,90.19000244140625,239.228849,2788.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EXPE,257.989990234375,114.476,-1070.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EXPD,160.9550018310547,130.791133,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+EXR,149.1199951171875,211.260936,421.627,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+XOM,136.41000366210938,4144.947162,20865.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FFIV,387.95001220703125,56.419247,-1442.811,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FDS,227.7050018310547,36.431127,1100.878,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FICO,1189.0849609375,23.190906,3419.644,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FAST,47.32500076293945,1148.035061,-183.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FRT,124.56500244140625,86.389197,4847.969,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FDX,323.19000244140625,238.606756,12191.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FDXF,151.98500061035156,149.505248,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC filing text (8-K 2026-06-01),2026-06-27
+FIS,38.349998474121094,516.879151,16137.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FITB,56.56999969482422,906.311548,15958.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FSLR,240.11000061035156,107.453363,-2090.388,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FE,48.40999984741211,578.431175,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FISV,48.84429931640625,533.253986,3220.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FLEX,156.69749450683594,366.377923,1362.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+F,14.28499984741211,3727.332952,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FTNT,150.41000366210938,732.648391,-1727.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FTV,61.33000183105469,304.861021,3133.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FOXA,49.040000915527344,1e-06,3004.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FOX,44.630001068115234,1e-06,3004.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+BEN,33.290000915527344,519.637162,-1753.619,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+FCX,62.16999816894531,1437.559865,5677.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GRMN,230.07000732421875,192.856206,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IT,133.11000061035156,66.951889,1316.025,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GE,367.44500732421875,1043.337235,9508.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GEHC,65.6707992553711,454.891786,7868.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GEV,1058.675048828125,268.719995,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GEN,23.9950008392334,602.433854,7785.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GNRC,280.9649963378906,58.868681,943.273,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GD,349.2699890136719,270.430187,4420.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GIS,36.39500045776367,533.681218,9841.9,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GM,79.27649688720703,901.665195,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GPC,114.72000122070312,137.624545,3335.083,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GILD,127.27999877929688,1241.569874,14546.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GPN,68.76000213623047,273.543507,3407.15,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GL,178.31500244140625,77.644761,2066.328,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GDDY,82.48999786376953,132.409847,2515.9,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GS,1028.969970703125,295.007421,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HAL,34.099998474121094,835.397735,5245.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HIG,132.75,274.13082,4743.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HAS,86.0199966430664,141.490692,2734.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HCA,391.29998779296875,221.8398,42070.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DOC,21.475000381469727,689.419702,9251.78,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HSIC,84.72000122070312,113.916757,313.546,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HSY,179.32000732421875,223.805223,4311.468,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HPE,43.21500015258789,1324.203521,15194.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HLT,336.2950134277344,227.648372,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HD,349.45001220703125,997.116682,8148.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HON,229.10000610351562,633.653119,24762.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HRL,26.53499984741211,550.81,2029.589,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HST,25.020000457763672,684.879281,-429.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HWM,266.739990234375,400.107483,1801.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HPQ,22.795000076293945,914.52269,5963.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HUBB,519.405029296875,52.841777,1550.4,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HUM,381.3999938964844,120.0615,-657.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HBAN,17.829999923706055,2027.130587,4283.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HII,283.489990234375,39.404029,2988.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IBM,269.1700134277344,939.88528,52034.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IEX,227.0500030517578,74.015052,1286.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IDXX,556.4099731445312,78.882997,249.323,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ITW,267.989990234375,287.7,6775.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+INCY,114.75,199.782155,-2455.843,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IR,81.08999633789062,391.336834,1503.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PODD,160.47999572753906,69.264674,906.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+INTC,128.3000030517578,5026.0,28279.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IBKR,90.38999938964844,42.231651,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ICE,125.94999694824219,565.512495,19507.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IFF,75.33999633789062,255.303473,5255.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IP,38.84000015258789,529.516974,8595.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+INTU,267.06500244140625,273.537,1481.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ISRG,406.95001220703125,354.162842,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IVZ,26.295000076293945,443.296629,638.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+INVH,30.25,594.041956,8688.241,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IQV,188.3699951171875,166.9,13886.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+IRM,131.50999450683594,297.524681,16852.271,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+JBHT,277.95001220703125,94.299203,1298.275,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+JBL,363.80999755859375,105.502622,2046.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+JKHY,133.9600067138672,71.05078,69.427,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+J,124.72000122070312,118.080879,2712.308,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+JNJ,253.56500244140625,2407.216971,17839.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+JCI,140.1649932861328,610.115603,9379.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+JPM,332.07000732421875,2679.511418,25835.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KVUE,19.100000381469727,1920.008668,6612.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KDP,33.42499923706055,1360.559471,21988.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KEY,23.344999313354492,1084.225688,10268.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KEYS,339.8599853515625,170.895368,119.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KMB,109.36499786376953,331.940357,6860.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KIM,25.68000030517578,674.389792,7550.262,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KMI,33.22999954223633,2224.825757,30798.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KKR,93.51000213623047,897.872941,17429.016,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KLAC,245.6199951171875,130.627521,1635.087,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KHC,24.03499984741211,1185.777638,10341.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+KR,58.25,612.575611,12541.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LHX,295.635009765625,186.294951,9155.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LH,268.30499267578125,82.0,5353.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LRCX,378.6600036621094,1250.571,-281.572,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LVS,47.310001373291016,662.637325,6166.002,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LDOS,102.01000213623047,125.785466,706.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LEN,94.16000366210938,244.438,3480.185,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LII,563.14501953125,34.799968,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LLY,1183.510009765625,941.741406,35100.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LIN,520.760009765625,462.599539,17536.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LYV,178.34500122070312,235.547065,-7362.159,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LMT,517.489990234375,230.563608,18803.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+L,112.86000061035156,205.768873,9229.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LOW,223.8800048828125,560.707041,4291.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LULU,115.51000213623047,108.437957,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LITE,786.2899780273438,77.8,664.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LYB,55.630001068115234,322.784773,1670.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MTB,236.39500427246094,146.44506,2678.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MPC,253.74000549316406,291.936635,1170.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MAR,376.2200012207031,263.688623,2073.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MRSH,165.39999389648438,481.794501,17942.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MLM,613.7999877929688,60.0459,5021.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MRVL,264.6549987792969,874.8,1117.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MAS,79.80000305175781,201.734437,2763.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MA,500.1300048828125,122.530193,11054.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MKC,50.970001220703125,269.4,3435.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MCD,270.5899963378906,710.505859,39660.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MCK,778.1599731445312,120.204051,3303.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MDT,81.7300033569336,1280.04519,22967.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MRK,128.0399932861328,2469.824415,43646.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+META,553.3300170898438,2564.0,35318.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MET,86.34500122070312,643.436779,-3404.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MTD,1257.2449951171875,20.207601,2027.667,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MGM,48.86000061035156,255.851235,4785.435,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MCHP,88.63999938964844,542.079281,5256.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MU,1158.989990234375,1127.734051,-10284.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MSFT,368.4100036621094,7428.434704,8157.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MAA,140.22500610351562,116.384802,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MRNA,68.72000122070312,396.786259,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TAP,41.22999954223633,199.1,5363.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MDLZ,61.959999084472656,1283.649766,25118.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MPWR,1333.22998046875,49.13,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MNST,97.6449966430664,978.00811,-1665.749,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MCO,445.3349914550781,174.7,5494.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MS,213.9250030517578,1577.284817,230421.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MOS,22.290000915527344,317.846644,4312.2,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MSI,402.7200012207031,165.995582,7529.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+MSCI,564.260009765625,72.8,6018.5,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NDAQ,78.80999755859375,565.540798,8390.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NTAP,150.57000732421875,195.919927,417.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NFLX,74.69499969482422,4212.794271,9275.147,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NEM,97.19499969482422,1067.552764,-3696.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NWSA,25.510000228881836,561.5,-183.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NWS,28.850000381469727,561.5,-183.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NEE,88.08000183105469,2085.341456,95787.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NKE,41.064998626708984,855.351589,1369.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NI,48.42499923706055,479.439245,7646.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NDSN,300.5799865722656,55.717948,1784.339,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NSC,312.42999267578125,224.594001,9296.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NTRS,172.74000549316406,185.047258,-4394.4,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NOC,505.3699951171875,142.033476,13079.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NCLH,21.135000228881836,459.11014,1367.433,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NRG,147.89500427246094,210.98647,22976.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NUE,241.1824951171875,227.74095,2074.308,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NVDA,193.14999389648438,24200.0,-4767.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NVR,6859.35009765625,2.699292,-1129.572,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NXPI,282.94000244140625,252.471079,8514.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ORLY,89.80000305175781,828.715079,6242.559,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+OXY,50.5,994.634701,12436.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ODFL,219.0800018310547,207.968283,-248.086,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+OMC,74.1500015258789,285.006196,5052.2,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ON,93.6500015258789,391.903191,979.3,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+OKE,89.72000122070312,630.032852,31833.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ORCL,150.31500244140625,2876.046,-38455.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+OTIS,73.375,383.716076,6740.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PCAR,121.0,526.286229,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PKG,239.83999633789062,89.098647,3571.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PLTR,112.1449966430664,2397.133,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PANW,297.48748779296875,815.0,-372.5,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PSKY,9.675000190734863,1071.666977,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PH,972.9749755859375,126.086389,12401.043,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PAYX,99.01000213623047,358.290881,3211.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PYPL,44.0,882.105493,3899.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PNR,76.92500305175781,161.605541,1876.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PEP,142.0500030517578,1366.768315,33446.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PFE,24.204999923706055,5699.444169,62723.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PCG,17.3799991607666,2679.968318,59637.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PM,182.10000610351562,1558.558846,11306.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PSX,172.4199981689453,400.93502,-4050.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PNW,108.0199966430664,121.187166,10395.266,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PNC,244.1999969482422,401.564632,34967.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PPG,121.38999938964844,222.9,5536.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PPL,37.30500030517578,752.350362,18777.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PFG,107.30999755859375,216.012384,-108.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PG,149.8000030517578,2328.598978,16923.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PGR,221.4499969482422,584.336464,2485.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PLD,140.1999969482422,932.338,33808.448,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PRU,108.66699981689453,347.0,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PEG,83.36000061035156,498.321402,22686.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PTC,115.23999786376953,115.505791,1230.295,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PSA,325.7200012207031,175.545748,10272.657,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PHM,137.33999633789062,190.486353,-1763.12,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+PWR,696.0599975585938,150.060149,1478.063,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+QCOM,203.52999877929688,1054.0,9376.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DGX,207.5,110.696429,5277.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+Q,157.14999389648438,209.339207,3243.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RL,417.3349914550781,62.3,-749.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RJF,149.92999267578125,194.883034,-11219.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RTX,190.1199951171875,1346.683428,34486.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+O,63.02000045776367,932.49253,4301.457,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+REG,80.83999633789062,183.09679,4858.374,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+REGN,636.1900024414062,93.95511,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RF,30.0049991607666,853.379538,-4806.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RSG,217.0800018310547,307.664087,13592.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RMD,201.38499450683594,145.056384,-641.624,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RVTY,113.68499755859375,111.559773,2347.583,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+HOOD,96.82279968261719,915.038823,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ROK,472.1099853515625,111.273953,2150.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ROL,43.380001068115234,481.463663,534.01,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ROP,340.9700012207031,100.917359,10081.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ROST,213.56500244140625,320.781076,-3112.793,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+RCL,323.7900085449219,268.194978,8026.187,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SPGI,407.8699951171875,296.0,11873.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+CRM,155.89999389648438,819.0,30345.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SNDK,2143.0849609375,148.089758,-3735.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SBAC,185.60499572753906,106.063017,12690.667,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SLB,46.91999816894531,1495.057661,8473.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+STX,947.4600219726562,212.677178,4104.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SRE,93.3427963256836,653.690046,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+NOW,96.17279815673828,1031.0,-1218.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SHW,341.8999938964844,246.635621,9106.3,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SPG,226.4149932861328,324.961423,27704.727,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SWKS,67.44000244140625,150.405963,-916.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SJM,115.86000061035156,106.662133,6484.2,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SW,46.900001525878906,524.464078,12549.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SNA,398.3699951171875,51.801916,-566.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SOLV,79.94000244140625,173.174712,4014.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SO,97.11499786376953,1127.301098,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+LUV,52.44879913330078,488.773713,-453.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SWK,91.92369842529297,155.455564,4424.5,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SBUX,104.69999694824219,1139.7,13549.9,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+STT,166.8000030517578,276.767033,5316.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+STLD,244.35000610351562,144.212781,3644.266,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+STE,215.00010681152344,97.602485,1492.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SYK,332.2799987792969,383.360762,-1104.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SMCI,31.104999542236328,601.418482,-1171.219,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SYF,79.0199966430664,336.951336,-4131.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SNPS,447.0299987792969,191.479325,7623.49,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+SYY,82.80000305175781,478.182608,8696.839,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TMUS,182.0800018310547,1082.204717,82791.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TROW,109.79000091552734,214.266606,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TTWO,235.8074951171875,185.666663,1070.268,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TPR,147.9149932861328,202.044714,1350.1,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TRGP,272.7250061035156,214.643903,7714.5,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TGT,141.36000061035156,454.191112,11281.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TEL,195.69000244140625,291.895799,4745.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TDY,627.1500244140625,46.329138,1954.9,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TER,430.31500244140625,156.542162,115.778,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TSLA,382.30999755859375,3755.723871,-15954.559,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TXN,302.8835144042969,910.092791,10501.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TPL,396.44000244140625,68.974429,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TXT,90.26000213623047,173.888981,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TMO,503.67999267578125,371.621465,40386.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TJX,156.57000732421875,1104.704446,-2710.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TKO,216.2050018310547,194.631394,3851.029,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TTD,18.049999237060547,476.883,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TSCO,31.415000915527344,524.449616,-74.269,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TT,482.30499267578125,221.055477,2171.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TDG,1329.6199951171875,55.933583,15639.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TRV,323.4599914550781,212.644693,5846.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TRMB,50.77000045776367,233.111519,1698.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TFC,50.45000076293945,1245.879275,32866.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TYL,292.125,42.167455,281.924,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+TSN,58.84000015258789,354.0,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+USB,61.099998474121094,1552.299745,12513.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+UBER,74.95999908447266,2035.599013,4956.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+UDR,39.755001068115234,324.915653,5662.016,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ULTA,486.1400146484375,42.989311,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+UNP,269.67999267578125,593.713213,31079.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+UAL,137.18499755859375,324.569728,13397.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+UPS,108.9749984741211,713.924267,14961.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+URI,1133.93994140625,62.646557,14146.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+UNH,427.0150146484375,908.144404,47059.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+UHS,146.13499450683594,61.668,4589.33,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VLO,256.6199951171875,296.932782,2528.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VEEV,168.10000610351562,162.443291,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VTR,89.08000183105469,486.169723,12827.403,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VLTO,89.3499984741211,245.599266,1231.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VRSN,255.8800048828125,91.0,-476.7,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VRSK,183.29249572753906,131.02184,4693.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VZ,46.28499984741211,4175.55891,109521.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VRTX,499.6099853515625,253.805417,-5387.9,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VRT,302.19000244140625,384.108816,771.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VTRS,16.315000534057617,1164.552654,12540.4,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VICI,26.96500015258789,1069.030187,16306.894,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+V,337.760009765625,469.280842,11572.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VST,165.35659790039062,337.182468,18529.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+VMC,309.0249938964844,129.754885,4222.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WRB,70.95999908447266,372.276732,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+GWW,1346.030029296875,47.213119,1716.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WAB,272.17999267578125,169.677346,6007.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WMT,117.11000061035156,7958.079155,30054.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+DIS,99.30000305175781,1736.511424,41676.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WBD,26.905000686645508,2507.136702,11834.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WM,227.36000061035156,401.575752,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WAT,369.8699951171875,98.185855,948.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WEC,117.75,325.725678,19856.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WFC,84.44499969482422,3060.189494,42950.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WELL,225.72000122070312,705.91445,13229.793,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WST,345.6199951171875,70.647595,-318.6,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WDC,604.02001953125,344.682131,-469.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WY,25.415000915527344,721.043,5275.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WSM,237.64999389648438,117.746611,-651.601,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WMB,78.2249984741211,1222.998265,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WTW,260.69000244140625,94.447976,4449.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WDAY,120.66999816894531,220.0,2429.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+WYNN,100.87000274658203,103.786729,9336.861,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+XEL,82.37000274658203,624.26956,7753.144,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+XYL,116.83000183105469,237.693493,612.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+YUM,155.1999969482422,275.621202,3946.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ZBRA,248.61000061035156,47.633392,2537.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ZBH,92.9000015258789,193.462482,7046.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
+ZTS,76.7699966430664,419.228118,7104.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27

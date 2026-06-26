@@ -5,7 +5,13 @@ import unittest
 from pathlib import Path
 
 from tests.test_sec_financial_metrics import metric_facts
-from us_point_in_time_backtest import run_point_in_time_backtest
+from us_point_in_time_backtest import (
+    _load_company_facts,
+    _PriceTimeline,
+    _select_replay_weeks,
+    _write_leakage_audit_report,
+    run_point_in_time_backtest,
+)
 
 
 def write_csv(path, rows):
@@ -24,6 +30,88 @@ def write_empty_csv(path, fieldnames):
 
 
 class UsPointInTimeBacktestTests(unittest.TestCase):
+    def test_price_timeline_returns_sorted_as_of_rows(self):
+        rows = [
+            {"ticker": "AAPL", "date": "2025-01-03", "close": "3"},
+            {"ticker": "AAPL", "date": "bad-date", "close": "bad"},
+            {"ticker": "MSFT", "date": "2025-01-01", "close": "1"},
+            {"ticker": "AAPL", "date": "2025-01-02", "close": "2"},
+        ]
+
+        timeline = _PriceTimeline(rows)
+
+        self.assertEqual(
+            [row["close"] for row in timeline.as_of("2025-01-02")],
+            ["1", "2"],
+        )
+        self.assertEqual(
+            [row["close"] for row in timeline.as_of("2025-01-03")],
+            ["1", "2", "3"],
+        )
+
+    def test_company_facts_loader_is_lazy_and_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp)
+            (cache / "CIK0000000001.json").write_text(
+                json.dumps({"entityName": "One", "facts": {}}),
+                encoding="utf-8",
+            )
+            (cache / "CIK0000000002.json").write_text(
+                json.dumps({"entityName": "Two", "facts": {}}),
+                encoding="utf-8",
+            )
+            (cache / "CIK0000000003.json").write_text("{not-json", encoding="utf-8")
+
+            facts = _load_company_facts(
+                cache,
+                [{"cik": "1"}, {"cik": "2"}, {"cik": "3"}],
+                max_entries=1,
+            )
+
+            self.assertEqual(facts.get("1")["entityName"], "One")
+            self.assertLessEqual(len(facts._cache), 1)
+            self.assertEqual(facts.get("0000000002")["entityName"], "Two")
+            self.assertLessEqual(len(facts._cache), 1)
+            with self.assertRaises(json.JSONDecodeError):
+                facts.get("3")
+
+    def test_default_pilot_selects_latest_weeks(self):
+        weeks = ["2024-01-05", "2024-01-12", "2024-01-19"]
+
+        self.assertEqual(_select_replay_weeks(weeks, pilot_weeks=2), ["2024-01-12", "2024-01-19"])
+        self.assertEqual(
+            _select_replay_weeks(weeks, pilot_weeks=2, pilot_window="earliest"),
+            ["2024-01-05", "2024-01-12"],
+        )
+        self.assertEqual(_select_replay_weeks(weeks, pilot_weeks=2, full_run=True), weeks)
+
+    def test_leakage_audit_report_limits_markdown_detail_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rows = [
+                {
+                    "record_type": "financial",
+                    "source": "company_facts_by_cik",
+                    "market": "US",
+                    "ticker": f"T{index:04d}",
+                    "company_name": "",
+                    "industry": "",
+                    "cik": "",
+                    "available_at": "2025-01-15",
+                    "generated_date": "2024-06-01",
+                    "severity": "audit",
+                    "reason": "future_data_excluded",
+                }
+                for index in range(1005)
+            ]
+
+            _write_leakage_audit_report(root, rows)
+
+            report = (root / "data_leakage_audit.md").read_text(encoding="utf-8-sig")
+            self.assertIn("Markdown 明细行：1000/1005", report)
+            self.assertIn("T0999", report)
+            self.assertNotIn("T1000", report)
+
     def test_rejects_empty_prepared_inputs_before_reporting_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

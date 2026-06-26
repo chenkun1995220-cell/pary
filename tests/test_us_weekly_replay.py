@@ -5,7 +5,14 @@ from pathlib import Path
 
 from tests.test_sec_financial_metrics import duration_fact, metric_facts
 
-from us_weekly_replay import assess_week_quality, evaluate_backtest_forecast, leakage_findings, replay_week
+import us_weekly_replay as replay_module
+from us_weekly_replay import (
+    _financial_leakage_audit_rows,
+    assess_week_quality,
+    evaluate_backtest_forecast,
+    leakage_findings,
+    replay_week,
+)
 
 
 class WeeklyReplayQualityTests(unittest.TestCase):
@@ -75,6 +82,39 @@ class WeeklyReplayQualityTests(unittest.TestCase):
         )
 
         self.assertEqual(findings, [])
+
+    def test_financial_future_audit_rows_are_summarized_per_ticker(self):
+        row = {
+            "market": "US",
+            "ticker": "AAPL",
+            "company_name": "Apple Inc.",
+            "industry": "Technology",
+            "cik": "320193",
+        }
+        payload = {
+            "facts": {
+                "us-gaap": {
+                    "Revenue": {
+                        "units": {
+                            "USD": [
+                                {"filed": "2025-01-15"},
+                                {"filed": "2025-02-15"},
+                                {"filed": "2024-05-15"},
+                            ]
+                        }
+                    },
+                    "Assets": {"units": {"USD": [{"filed": "2025-03-15"}]}},
+                }
+            }
+        }
+
+        rows = _financial_leakage_audit_rows(row, {"320193": payload}, "2024-06-01")
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["ticker"], "AAPL")
+        self.assertEqual(rows[0]["available_at"], "2025-01-15")
+        self.assertEqual(rows[0]["severity"], "audit")
+        self.assertEqual(rows[0]["reason"], "future_data_excluded")
 
 
 class WeeklyReplayEvaluationTests(unittest.TestCase):
@@ -323,9 +363,111 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
                 for row in audit_rows
                 if row["record_type"] == "price" and row["severity"] == "severe"
             ]
+            price_audit_rows = [row for row in audit_rows if row["record_type"] == "price"]
+            self.assertEqual(len(price_audit_rows), 3)
             self.assertTrue(severe_price_rows)
             self.assertEqual(severe_price_rows[0]["available_at"], "2025-07-26")
             self.assertEqual(severe_price_rows[0]["reason"], "future_data_used")
+
+    def test_replay_week_can_skip_price_rescan_for_prepared_as_of_rows(self):
+        original = replay_module.prices_available_as_of
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("prepared as-of rows should not be rescanned")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            try:
+                replay_module.prices_available_as_of = fail_if_called
+                result = replay_week(
+                    self.backtest_date,
+                    self.membership_rows,
+                    self.company_facts_by_cik,
+                    self.price_rows,
+                    self.benchmark_rows,
+                    root,
+                    self.config_digest,
+                    price_rows_as_of=True,
+                    benchmark_rows_as_of=True,
+                )
+            finally:
+                replay_module.prices_available_as_of = original
+
+            self.assertEqual(result["quote_coverage"], 1.0)
+            self.assertTrue((root / "price_history.csv").exists())
+
+    def test_replay_week_avoids_full_price_history_write_when_no_candidates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.company_facts_by_cik = {}
+            for row in self.membership_rows:
+                row.update(
+                    {
+                        "market_cap": "100000",
+                        "enterprise_value": "100000",
+                        "net_assets": "1",
+                        "revenue_ttm": "1",
+                        "net_income_ttm": "0.1",
+                        "ebitda": "0.1",
+                        "free_cash_flow": "0",
+                        "roe": "0.01",
+                        "roic": "0.01",
+                        "gross_margin": "0.01",
+                        "debt_to_assets": "0.95",
+                        "net_debt_to_ebitda": "10",
+                        "current_ratio": "0.1",
+                        "revenue_cagr_3y": "0",
+                        "net_income_cagr_3y": "0",
+                    }
+                )
+
+            result = self._run_week(root)
+
+            price_history_lines = (root / "price_history.csv").read_text(encoding="utf-8-sig").splitlines()
+            self.assertEqual(result["candidate_rows"], 0)
+            self.assertEqual(len(price_history_lines), 1)
+
+    def test_replay_week_can_preserve_prepared_price_history_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            prepared = root / "price_history.csv"
+            prepared.write_text("sentinel\n", encoding="utf-8")
+            self.company_facts_by_cik = {}
+            for row in self.membership_rows:
+                row.update(
+                    {
+                        "market_cap": "100000",
+                        "enterprise_value": "100000",
+                        "net_assets": "1",
+                        "revenue_ttm": "1",
+                        "net_income_ttm": "0.1",
+                        "ebitda": "0.1",
+                        "free_cash_flow": "0",
+                        "roe": "0.01",
+                        "roic": "0.01",
+                        "gross_margin": "0.01",
+                        "debt_to_assets": "0.95",
+                        "net_debt_to_ebitda": "10",
+                        "current_ratio": "0.1",
+                        "revenue_cagr_3y": "0",
+                        "net_income_cagr_3y": "0",
+                    }
+                )
+
+            replay_week(
+                self.backtest_date,
+                self.membership_rows,
+                self.company_facts_by_cik,
+                self.price_rows,
+                self.benchmark_rows,
+                root,
+                self.config_digest,
+                preserve_price_history=True,
+            )
+
+            self.assertEqual(prepared.read_text(encoding="utf-8"), "sentinel\n")
+            valuation_lines = (root / "valuation_price_history.csv").read_text(encoding="utf-8-sig").splitlines()
+            self.assertEqual(len(valuation_lines), 1)
 
     def test_replay_week_ignores_future_facts_in_screening_inputs(self):
         future_fact = duration_fact(
@@ -365,6 +507,49 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             self.assertEqual(excluded_financial_rows[0]["cik"], "320193")
             self.assertEqual(excluded_financial_rows[0]["available_at"], "2025-12-31")
             self.assertEqual(excluded_financial_rows[0]["reason"], "future_data_excluded")
+
+    def test_replay_week_uses_metrics_future_filed_without_extra_financial_scan(self):
+        future_fact = duration_fact(
+            9999,
+            "2025-01-01",
+            "2025-06-30",
+            2025,
+            "Q2",
+            "10-Q",
+            "2025-12-31",
+        )
+        self.company_facts_by_cik["320193"]["facts"]["us-gaap"][
+            "RevenueFromContractWithCustomerExcludingAssessedTax"
+        ]["units"]["USD"].append(future_fact)
+        original = replay_module._financial_leakage_audit_rows
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("future filed date should come from metrics")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            try:
+                replay_module._financial_leakage_audit_rows = fail_if_called
+                replay_week(
+                    self.backtest_date,
+                    self.membership_rows,
+                    self.company_facts_by_cik,
+                    self.price_rows,
+                    self.benchmark_rows,
+                    root,
+                    self.config_digest,
+                )
+            finally:
+                replay_module._financial_leakage_audit_rows = original
+
+            with (root / "data_leakage_audit.csv").open(encoding="utf-8-sig", newline="") as handle:
+                audit_rows = list(csv.DictReader(handle))
+            future_financial_rows = [
+                row
+                for row in audit_rows
+                if row["record_type"] == "financial" and row["severity"] == "audit"
+            ]
+            self.assertEqual(future_financial_rows[0]["available_at"], "2025-12-31")
 
     def test_replay_week_records_future_membership_price_and_benchmark_leakage(self):
         self.membership_rows.append(

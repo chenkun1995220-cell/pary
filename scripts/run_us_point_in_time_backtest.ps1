@@ -1,6 +1,8 @@
 param(
   [int]$Years = 3,
   [int]$PilotWeeks = 8,
+  [ValidateSet("latest", "earliest")]
+  [string]$PilotWindow = "latest",
   [int]$MaxCompanies = 0,
   [string]$OutputRoot = "",
   [string]$SecUserAgent = $env:SEC_USER_AGENT,
@@ -49,6 +51,7 @@ Write-Host "US strict point-in-time backtest pipeline"
 Write-Host "OutputRoot: $OutputRoot"
 Write-Host "Years: $Years"
 Write-Host "PilotWeeks: $PilotWeeks"
+Write-Host "PilotWindow: $PilotWindow"
 Write-Host "MaxCompanies: $MaxCompanies"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "EvidencePack: $EvidencePack"
@@ -69,6 +72,15 @@ Write-Host "data_leakage_audit.md -> $LeakageAudit"
 foreach ($step in $Steps) { Write-Host $step }
 Write-Host "Default command: scripts\run_us_point_in_time_backtest.ps1 -PilotWeeks 8"
 
+function Test-CsvHasDataRows {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) {
+    return $false
+  }
+  $lines = @(Get-Content -LiteralPath $Path -TotalCount 2)
+  return $lines.Count -gt 1
+}
+
 if ($DryRun) {
   Write-Host "DryRun: no files or network requests were created."
   exit 0
@@ -79,6 +91,20 @@ if (-not $SecUserAgent) {
 }
 
 $membershipReady = (Test-Path -LiteralPath $HistoricalMembership) -and ((Get-Item -LiteralPath $HistoricalMembership).Length -gt 0)
+if ($membershipReady) {
+  $membershipItem = Get-Item -LiteralPath $HistoricalMembership
+  $membershipRefreshReasons = @()
+  if ((Test-Path -LiteralPath $UniverseConfig) -and ((Get-Item -LiteralPath $UniverseConfig).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
+    $membershipRefreshReasons += "universe_config_newer"
+  }
+  if ((Test-Path -LiteralPath $EvidencePack) -and ((Get-Item -LiteralPath $EvidencePack).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
+    $membershipRefreshReasons += "evidence_pack_newer"
+  }
+  if ($membershipRefreshReasons.Count -gt 0) {
+    $membershipReady = $false
+    Write-Host "MembershipRefreshReason: $($membershipRefreshReasons -join ',')"
+  }
+}
 if (-not $membershipReady) {
   Write-Host "Running: $($Steps[0])"
   $membershipWeeks = [Math]::Max(1, $Years * 52)
@@ -117,7 +143,22 @@ if (-not $secCacheReady) {
 
 $priceInputsReady = $false
 if ((Test-Path -LiteralPath $PreparedPriceHistory) -and (Test-Path -LiteralPath $PreparedBenchmarkHistory)) {
-  $priceInputsReady = ((Get-Item -LiteralPath $PreparedPriceHistory).Length -gt 0) -and ((Get-Item -LiteralPath $PreparedBenchmarkHistory).Length -gt 0)
+  $priceInputsReady = (Test-CsvHasDataRows -Path $PreparedPriceHistory) -and (Test-CsvHasDataRows -Path $PreparedBenchmarkHistory)
+}
+if ($priceInputsReady) {
+  $priceHistoryItem = Get-Item -LiteralPath $PreparedPriceHistory
+  $benchmarkHistoryItem = Get-Item -LiteralPath $PreparedBenchmarkHistory
+  $priceRefreshReasons = @()
+  if ((Test-Path -LiteralPath $HistoricalMembership) -and ((Get-Item -LiteralPath $HistoricalMembership).LastWriteTimeUtc -gt $priceHistoryItem.LastWriteTimeUtc)) {
+    $priceRefreshReasons += "membership_newer"
+  }
+  if ((Test-Path -LiteralPath $BenchmarkConfig) -and ((Get-Item -LiteralPath $BenchmarkConfig).LastWriteTimeUtc -gt $benchmarkHistoryItem.LastWriteTimeUtc)) {
+    $priceRefreshReasons += "benchmark_config_newer"
+  }
+  if ($priceRefreshReasons.Count -gt 0) {
+    $priceInputsReady = $false
+    Write-Host "PriceRefreshReason: $($priceRefreshReasons -join ',')"
+  }
 }
 if ((Test-Path -LiteralPath $HistoricalMembership) -and (-not $priceInputsReady)) {
   Write-Host "Running: $($Steps[2])"
@@ -169,7 +210,8 @@ try {
     "--price-history", $PreparedPriceHistory,
     "--benchmark-history", $PreparedBenchmarkHistory,
     "--output-root", $OutputRoot,
-    "--pilot-weeks", "$PilotWeeks"
+    "--pilot-weeks", "$PilotWeeks",
+    "--pilot-window", $PilotWindow
   )
   if ($FullRun) {
     $runnerArgs += "--full-run"

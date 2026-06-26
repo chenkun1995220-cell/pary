@@ -323,12 +323,16 @@ def _membership_evidence_label(rows):
 def _financial_metrics_for_row(row, company_facts_by_cik, backtest_date_text):
     cik, payload = _company_facts_payload_for_row(row, company_facts_by_cik)
     if payload is None:
-        return None, ""
+        return None, "", ""
     try:
         metrics = calculate_metrics_as_of(payload, backtest_date_text)
     except Exception:
-        return None, ""
-    return metrics, _as_text(metrics.get("latest_source_filed"))
+        return None, "", ""
+    return (
+        metrics,
+        _as_text(metrics.get("latest_source_filed")),
+        _as_text(metrics.get("earliest_future_filed")),
+    )
 
 
 def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text):
@@ -336,7 +340,7 @@ def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text)
     if not isinstance(payload, dict):
         return []
 
-    future_rows = []
+    future_filed_dates = set()
     facts = payload.get("facts", {})
     if not isinstance(facts, dict):
         return []
@@ -358,21 +362,24 @@ def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text)
                         continue
                     filed = _as_text(entry.get("filed"))
                     if filed and _is_after(filed, backtest_date_text):
-                        future_rows.append(
-                            _audit_record(
-                                "financial",
-                                {
-                                    **row,
-                                    "cik": cik,
-                                    "available_at": filed,
-                                },
-                                backtest_date_text,
-                                "company_facts_by_cik",
-                                severity="audit",
-                                reason="future_data_excluded",
-                            )
-                        )
-    return future_rows
+                        future_filed_dates.add(filed)
+    if not future_filed_dates:
+        return []
+    earliest_future = min(future_filed_dates, key=lambda value: _temporal_key(value) or datetime.max)
+    return [
+        _audit_record(
+            "financial",
+            {
+                **row,
+                "cik": cik,
+                "available_at": earliest_future,
+            },
+            backtest_date_text,
+            "company_facts_by_cik",
+            severity="audit",
+            reason="future_data_excluded",
+        )
+    ]
 
 
 def _build_weekly_input_row(
@@ -466,6 +473,9 @@ def replay_week(
     benchmark_rows,
     output_root,
     config_digest,
+    price_rows_as_of=False,
+    benchmark_rows_as_of=False,
+    preserve_price_history=False,
 ):
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
@@ -475,16 +485,26 @@ def replay_week(
         membership_rows, backtest_date_text
     )
     normalized_price_rows = _normalize_price_rows(price_rows)
-    available_price_rows, late_price_rows = _split_rows_by_availability(
-        normalized_price_rows, backtest_date_text
-    )
-    filtered_price_rows = prices_available_as_of(available_price_rows, backtest_date_text)
+    if price_rows_as_of:
+        available_price_rows = normalized_price_rows
+        late_price_rows = []
+        filtered_price_rows = normalized_price_rows
+    else:
+        available_price_rows, late_price_rows = _split_rows_by_availability(
+            normalized_price_rows, backtest_date_text
+        )
+        filtered_price_rows = prices_available_as_of(available_price_rows, backtest_date_text)
 
     normalized_benchmark_rows = _normalize_price_rows(benchmark_rows)
-    available_benchmark_rows, late_benchmark_rows = _split_rows_by_availability(
-        normalized_benchmark_rows, backtest_date_text
-    )
-    filtered_benchmark_rows = prices_available_as_of(available_benchmark_rows, backtest_date_text)
+    if benchmark_rows_as_of:
+        available_benchmark_rows = normalized_benchmark_rows
+        late_benchmark_rows = []
+        filtered_benchmark_rows = normalized_benchmark_rows
+    else:
+        available_benchmark_rows, late_benchmark_rows = _split_rows_by_availability(
+            normalized_benchmark_rows, backtest_date_text
+        )
+        filtered_benchmark_rows = prices_available_as_of(available_benchmark_rows, backtest_date_text)
 
     membership_tickers = [str(row.get("ticker", "")).strip() for row in available_memberships if row.get("ticker")]
     quote_map = _latest_rows_by_ticker(filtered_price_rows)
@@ -494,12 +514,27 @@ def replay_week(
     financial_success_count = 0
     for row in available_memberships:
         quote_row = _normalize_quote_row(quote_map.get(str(row.get("ticker", "")).strip().upper(), {}), backtest_date_text)
-        audit_rows.extend(
-            _financial_leakage_audit_rows(row, company_facts_by_cik or {}, backtest_date_text)
-        )
-        metrics, financial_available_at = _financial_metrics_for_row(
+        metrics, financial_available_at, future_financial_available_at = _financial_metrics_for_row(
             row, company_facts_by_cik or {}, backtest_date_text
         )
+        if future_financial_available_at:
+            audit_rows.append(
+                _audit_record(
+                    "financial",
+                    {
+                        **row,
+                        "available_at": future_financial_available_at,
+                    },
+                    backtest_date_text,
+                    "company_facts_by_cik",
+                    severity="audit",
+                    reason="future_data_excluded",
+                )
+            )
+        elif metrics is None:
+            audit_rows.extend(
+                _financial_leakage_audit_rows(row, company_facts_by_cik or {}, backtest_date_text)
+            )
         if metrics is not None:
             financial_success_count += 1
         weekly_row = _build_weekly_input_row(row, metrics, quote_row, backtest_date_text, config_digest)
@@ -565,17 +600,6 @@ def replay_week(
             )
         )
 
-    for row in available_price_rows:
-        audit_rows.append(
-            _audit_record(
-                "price",
-                row,
-                backtest_date_text,
-                "price_rows",
-                severity="ok",
-                reason="",
-            )
-        )
     for row in late_price_rows:
         audit_rows.append(
             _audit_record(
@@ -613,8 +637,6 @@ def replay_week(
 
     weekly_inputs = [row for row in weekly_inputs if row.get("ticker")]
     _atomic_write_csv(output / "weekly_inputs.csv", weekly_inputs)
-    _atomic_write_csv(output / "price_history.csv", filtered_price_rows)
-    _atomic_write_csv(output / "quotes.csv", list(quote_map.values()))
 
     median_source_rows = []
     for row in weekly_inputs:
@@ -655,8 +677,23 @@ def replay_week(
     _atomic_write_csv(output / "screening_results.csv", scored_rows)
     _atomic_write_csv(output / "candidate_pool.csv", candidate_rows)
 
+    candidate_tickers = {_as_text(row.get("ticker")).upper() for row in candidate_rows}
+    valuation_price_rows = [
+        row for row in filtered_price_rows if _as_text(row.get("ticker")).upper() in candidate_tickers
+    ]
+    valuation_quote_rows = [
+        row for ticker, row in quote_map.items() if _as_text(ticker).upper() in candidate_tickers
+    ]
+    price_fields = list(filtered_price_rows[0]) if filtered_price_rows else None
+    quote_fields = list(next(iter(quote_map.values()))) if quote_map else None
+    valuation_price_history_path = (
+        output / "valuation_price_history.csv" if preserve_price_history else output / "price_history.csv"
+    )
+    _atomic_write_csv(valuation_price_history_path, valuation_price_rows, price_fields)
+    _atomic_write_csv(output / "quotes.csv", valuation_quote_rows, quote_fields)
+
     candidate_path = output / "candidate_pool.csv"
-    price_history_path = output / "price_history.csv"
+    price_history_path = valuation_price_history_path
     medians_path = output / "industry_medians.csv"
     quotes_path = output / "quotes.csv"
     run_candidate_valuation(
