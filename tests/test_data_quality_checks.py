@@ -53,6 +53,30 @@ class DataQualityChecksTests(unittest.TestCase):
         self.assertIn("capex_sign_suspect", issue_codes)
         self.assertIn("risk_field_missing", issue_codes)
 
+    def test_detects_market_cap_scale_and_cash_flow_outliers(self):
+        rows = [
+            {
+                "ticker": "ERIE",
+                "company_name": "ERIE INDEMNITY CO",
+                "industry": "金融",
+                "market_cap": "602741.2627563477",
+                "revenue_ttm": "4089770000",
+                "net_income_ttm": "571392000",
+                "operating_cash_flow": "660431000",
+                "capex": "-123432000",
+                "audit_opinion": "标准无保留",
+                "risk_flag": "无",
+            }
+        ]
+
+        issues = check_rows(rows)
+        issue_codes = {issue["issue_code"] for issue in issues}
+        severe_codes = {issue["issue_code"] for issue in issues if issue["severity"] == "严重"}
+
+        self.assertIn("market_cap_scale_suspect", issue_codes)
+        self.assertIn("valuation_ratio_outlier", severe_codes)
+        self.assertIn("fcf_yield_outlier", severe_codes)
+
     def test_run_checks_writes_csv_and_markdown_report(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
