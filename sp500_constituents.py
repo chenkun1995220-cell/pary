@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 MEDIAWIKI_API_URL = "https://en.wikipedia.org/w/api.php"
 MEDIAWIKI_PAGE = "List of S&P 500 companies"
+SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers_exchange.json"
 OUTPUT_FIELDS = [
     "source_ticker",
     "ticker",
@@ -157,6 +158,44 @@ def fetch_constituents_html(user_agent=None):
     return html_text
 
 
+def fetch_sec_ticker_exchange(user_agent=None):
+    request = Request(
+        SEC_TICKERS_URL,
+        headers={"User-Agent": user_agent or "stock-undervaluation-screen/1.0"},
+    )
+    with urlopen(request, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def reconcile_with_sec_tickers(rows, sec_payload):
+    fields = sec_payload.get("fields", [])
+    tickers_by_cik = {}
+    for values in sec_payload.get("data", []):
+        row = dict(zip(fields, values))
+        cik_text = re.sub(r"\D", "", str(row.get("cik", "")))
+        if not cik_text:
+            continue
+        cik = str(int(cik_text))
+        ticker = normalize_ticker(row.get("ticker", ""))
+        if ticker:
+            tickers_by_cik.setdefault(cik, set()).add(ticker)
+
+    corrections = []
+    reconciled = []
+    for row in rows:
+        current = dict(row)
+        cik = str(current.get("cik", "")).strip()
+        sec_tickers = tickers_by_cik.get(cik, set())
+        ticker = current.get("ticker", "").strip().upper()
+        if ticker not in sec_tickers and len(sec_tickers) == 1:
+            canonical = next(iter(sec_tickers))
+            corrections.append({"cik": cik, "from": ticker, "to": canonical})
+            current["source_ticker"] = canonical
+            current["ticker"] = canonical
+        reconciled.append(current)
+    return reconciled, corrections
+
+
 def _atomic_write_text(path, text, encoding="utf-8"):
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -198,6 +237,7 @@ def refresh_constituents(
     output_path,
     cache_dir,
     fetcher=None,
+    sec_ticker_fetcher=None,
     minimum=450,
     maximum=550,
     user_agent=None,
@@ -208,10 +248,13 @@ def refresh_constituents(
     metadata_json = cache_root / "sp500_refresh_metadata.json"
     fetched_at = datetime.now(timezone.utc).isoformat()
     fetch = fetcher or (lambda: fetch_constituents_html(user_agent=user_agent))
+    fetch_sec = sec_ticker_fetcher or (lambda: fetch_sec_ticker_exchange(user_agent=user_agent))
 
     try:
         html_text = fetch()
         rows = parse_constituents_html(html_text)
+        sec_payload = fetch_sec()
+        rows, corrections = reconcile_with_sec_tickers(rows, sec_payload)
         validate_constituents(rows, minimum=minimum, maximum=maximum)
         write_constituents_csv(cache_csv, rows)
         write_constituents_csv(output_path, rows)
@@ -227,7 +270,12 @@ def refresh_constituents(
                 ensure_ascii=False,
             ),
         )
-        result = {"status": "online", "rows": len(rows), "warning": ""}
+        result = {
+            "status": "online",
+            "rows": len(rows),
+            "warning": "",
+            "ticker_corrections": corrections,
+        }
     except Exception as exc:
         if not cache_csv.exists():
             raise RuntimeError(
@@ -240,6 +288,7 @@ def refresh_constituents(
             "status": "cache_fallback",
             "rows": len(rows),
             "warning": str(exc),
+            "ticker_corrections": [],
         }
 
     metadata = {
@@ -247,6 +296,7 @@ def refresh_constituents(
         "rows": result["rows"],
         "refreshed_at": fetched_at,
         "warning": result["warning"],
+        "ticker_corrections": result["ticker_corrections"],
     }
     _atomic_write_text(metadata_json, json.dumps(metadata, ensure_ascii=False, indent=2))
     return result

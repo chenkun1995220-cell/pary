@@ -6,6 +6,7 @@ from pathlib import Path
 from sp500_constituents import (
     parse_constituents_html,
     refresh_constituents,
+    reconcile_with_sec_tickers,
     validate_constituents,
 )
 
@@ -31,6 +32,16 @@ FIXTURE_HTML = """
 </table>
 </body></html>
 """
+
+
+def sec_ticker_payload():
+    return {
+        "fields": ["cik", "name", "ticker", "exchange"],
+        "data": [
+            [1067983, "Berkshire Hathaway Inc.", "BRK-B", "NYSE"],
+            [789019, "Microsoft Corporation", "MSFT", "Nasdaq"],
+        ],
+    }
 
 
 class Sp500ConstituentTests(unittest.TestCase):
@@ -59,6 +70,30 @@ class Sp500ConstituentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             validate_constituents(rows, minimum=2, maximum=5)
 
+    def test_reconcile_uses_sec_ticker_when_source_symbol_disagrees_for_unique_cik(self):
+        rows = [
+            {
+                "source_ticker": "ECHO",
+                "ticker": "ECHO",
+                "company_name": "EchoStar",
+                "industry": "Communication Services",
+                "gics_sub_industry": "Wireless Telecommunication Services",
+                "cik": "1415404",
+                "date_added": "2026-03-23",
+                "enabled": "1",
+            }
+        ]
+        sec_payload = {
+            "fields": ["cik", "name", "ticker", "exchange"],
+            "data": [[1415404, "EchoStar CORP", "SATS", "Nasdaq"]],
+        }
+
+        reconciled, corrections = reconcile_with_sec_tickers(rows, sec_payload)
+
+        self.assertEqual(reconciled[0]["source_ticker"], "SATS")
+        self.assertEqual(reconciled[0]["ticker"], "SATS")
+        self.assertEqual(corrections, [{"cik": "1415404", "from": "ECHO", "to": "SATS"}])
+
     def test_refresh_writes_last_good_cache_and_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -69,6 +104,7 @@ class Sp500ConstituentTests(unittest.TestCase):
                 output,
                 cache_dir,
                 fetcher=lambda: FIXTURE_HTML,
+                sec_ticker_fetcher=sec_ticker_payload,
                 minimum=2,
                 maximum=5,
             )
@@ -91,6 +127,7 @@ class Sp500ConstituentTests(unittest.TestCase):
                 output,
                 cache_dir,
                 fetcher=lambda: FIXTURE_HTML,
+                sec_ticker_fetcher=sec_ticker_payload,
                 minimum=2,
                 maximum=5,
             )
@@ -121,6 +158,7 @@ class Sp500ConstituentTests(unittest.TestCase):
                     root / "symbols.csv",
                     root / "cache",
                     fetcher=lambda: (_ for _ in ()).throw(OSError("offline")),
+                    sec_ticker_fetcher=sec_ticker_payload,
                     minimum=2,
                     maximum=5,
                 )
