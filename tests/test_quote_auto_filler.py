@@ -112,11 +112,50 @@ class QuoteAutoFillerTests(unittest.TestCase):
                 writer.writerow({"ticker": "FRESH", "price": "10", "shares_outstanding": "100", "quote_date": "2026-06-18", "quote_source": "cached"})
                 writer.writerow({"ticker": "STALE", "price": "20", "shares_outstanding": "200", "quote_date": "2026-06-10", "quote_source": "cached"})
                 writer.writerow({"ticker": "PARTIAL", "price": "30", "shares_outstanding": "", "quote_date": "2026-06-18", "quote_source": "cached"})
+                writer.writerow({"ticker": "TINY", "price": "40", "shares_outstanding": "0.002542", "quote_date": "2026-06-18", "quote_source": "cached"})
 
             rows = load_fresh_quotes(path, date(2026, 6, 21), max_age_days=7)
 
             self.assertEqual(set(rows), {"FRESH"})
             self.assertEqual(rows["FRESH"]["price"], "10")
+
+    def test_build_quote_row_rejects_implausibly_tiny_sec_share_count(self):
+        facts = company_facts()
+        facts["facts"].pop("dei")
+        facts["facts"]["us-gaap"]["WeightedAverageNumberOfDilutedSharesOutstanding"] = {
+            "units": {
+                "shares": [
+                    {
+                        "val": 2_542,
+                        "fy": 2026,
+                        "fp": "Q1",
+                        "form": "10-Q",
+                        "filed": "2026-04-23",
+                        "end": "2026-03-31",
+                    }
+                ]
+            }
+        }
+        facts["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"] = {
+            "units": {"USD": [sec_fact(4_089_770_000)]}
+        }
+        facts["facts"]["us-gaap"]["NetIncomeLoss"] = {
+            "units": {"USD": [sec_fact(571_392_000)]}
+        }
+
+        row = build_quote_row(
+            {"ticker": "ERIE"},
+            facts,
+            quote_override={
+                "ticker": "ERIE",
+                "price": 237.11300659179688,
+                "quote_date": "2026-06-26",
+                "quote_source": "Yahoo Finance chart",
+            },
+        )
+
+        self.assertEqual(row["shares_outstanding"], "")
+        self.assertIn("share sanity failed", row["quote_source"])
 
     def test_extracts_shares_from_sec_filing_text(self):
         proxy_text = "Shares of common stock outstanding as of the Record Date 171,466,896"

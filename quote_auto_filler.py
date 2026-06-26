@@ -33,6 +33,15 @@ US_GAAP_SHARES_CONCEPTS = [
     "WeightedAverageNumberOfDilutedSharesOutstanding",
     "WeightedAverageNumberOfSharesOutstandingBasic",
 ]
+REVENUE_CONCEPTS = [
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "Revenues",
+    "SalesRevenueNet",
+]
+NET_INCOME_CONCEPTS = ["NetIncomeLoss", "ProfitLoss"]
+MIN_REUSABLE_SHARES_MILLIONS = 0.01
+MIN_MARKET_CAP_TO_REVENUE = 0.02
+MIN_MARKET_CAP_TO_NET_INCOME = 1.0
 DEBT_CONCEPT_GROUPS = [
     [
         "LongTermDebtAndFinanceLeaseObligationsCurrent",
@@ -115,6 +124,37 @@ def extract_net_debt(company_facts):
     return debt - cash
 
 
+def numeric(value):
+    if value is None:
+        return None
+    text = str(value).strip().replace(",", "")
+    if text == "":
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def latest_usd_value(company_facts, concept_names):
+    return latest_fact_value(company_facts, "us-gaap", concept_names, "USD")
+
+
+def shares_pass_sanity_check(price, shares, company_facts):
+    price_value = numeric(price)
+    shares_value = numeric(shares)
+    if price_value is None or shares_value is None or shares_value <= 0:
+        return True
+    implied_market_cap = price_value * shares_value
+    revenue = latest_usd_value(company_facts, REVENUE_CONCEPTS)
+    net_income = latest_usd_value(company_facts, NET_INCOME_CONCEPTS)
+    if revenue is not None and revenue > 0 and implied_market_cap / revenue < MIN_MARKET_CAP_TO_REVENUE:
+        return False
+    if net_income is not None and net_income > 0 and implied_market_cap / net_income < MIN_MARKET_CAP_TO_NET_INCOME:
+        return False
+    return True
+
+
 def read_price_fixture(price_fixture_dir, ticker):
     if not price_fixture_dir:
         return None
@@ -135,7 +175,13 @@ def load_fresh_quotes(path, as_of_date=None, max_age_days=7):
                 age = (as_of_date - quote_date).days
             except (TypeError, ValueError):
                 continue
-            if 0 <= age <= max_age_days and row.get("price") and row.get("shares_outstanding"):
+            shares = numeric(row.get("shares_outstanding"))
+            if (
+                0 <= age <= max_age_days
+                and row.get("price")
+                and shares is not None
+                and shares >= MIN_REUSABLE_SHARES_MILLIONS
+            ):
                 fresh[row.get("ticker", "").upper()] = row
     return fresh
 
@@ -267,6 +313,9 @@ def build_quote_row(
     if shares is None and fallback_shares is not None:
         shares = fallback_shares
         share_source = fallback_share_source or "SEC filing text"
+    if shares is not None and not shares_pass_sanity_check(quote.get("price", ""), shares, company_facts):
+        shares = None
+        share_source = f"{share_source} share sanity failed"
     net_debt = extract_net_debt(company_facts)
     return {
         "ticker": ticker,
