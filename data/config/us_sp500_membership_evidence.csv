@@ -1,4 +1,10 @@
 effective_date,added_ticker,removed_ticker,membership_evidence,membership_source_url,notes
+2020-09-21,ETSY,HRB,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20200904-1214656/1214656_finalmigraseptetsyctltter30.pdf,S&P DJI September 2020 quarterly rebalance; Etsy replaced H&R Block in S&P 500.
+2020-09-21,TER,COTY,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20200904-1214656/1214656_finalmigraseptetsyctltter30.pdf,S&P DJI September 2020 quarterly rebalance; Teradyne replaced Coty in S&P 500.
+2020-09-21,CTLT,KSS,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20200904-1214656/1214656_finalmigraseptetsyctltter30.pdf,S&P DJI September 2020 quarterly rebalance; Catalent replaced Kohl's in S&P 500.
+2020-10-07,POOL,ETFC,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20201001-1231161/1231161_dlph400etfc500.pdf,S&P DJI announcement; Pool replaced E*TRADE Financial in S&P 500.
+2020-10-09,VNT,NBL,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20201005-1233159/1233159_ftvspin5nbl.pdf,S&P DJI announcement; Vontier was added to S&P 500 and Noble Energy was removed in the associated change.
+2020-12-21,TSLA,AIV,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20201211-1277389/1277389_tes15aircaivspindnkn4.pdf,S&P DJI announcement; Tesla replaced Apartment Investment & Management in S&P 500.
 2021-01-07,ENPH,TIF,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20201230-1289571/1289571_6enphase4brooks5elf5capri4.pdf,S&P DJI announcement; Enphase Energy replaced Tiffany & Co in S&P 500.
 2021-01-21,TRMB,CXO,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20210115-1298164/1298164_6hilltop45trimbleyeti66.pdf,S&P DJI announcement; Trimble replaced Concho Resources in S&P 500.
 2021-02-12,MPWR,FTI,verified,https://www.spglobal.com/spdji/en/documents/indexnews/announcements/20210208-1312961/1312961_technipfmc20210208.pdf,S&P DJI announcement; Monolithic Power Systems replaced TechnipFMC in S&P 500.
