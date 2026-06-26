@@ -323,12 +323,16 @@ def _membership_evidence_label(rows):
 def _financial_metrics_for_row(row, company_facts_by_cik, backtest_date_text):
     cik, payload = _company_facts_payload_for_row(row, company_facts_by_cik)
     if payload is None:
-        return None, ""
+        return None, "", ""
     try:
         metrics = calculate_metrics_as_of(payload, backtest_date_text)
     except Exception:
-        return None, ""
-    return metrics, _as_text(metrics.get("latest_source_filed"))
+        return None, "", ""
+    return (
+        metrics,
+        _as_text(metrics.get("latest_source_filed")),
+        _as_text(metrics.get("earliest_future_filed")),
+    )
 
 
 def _financial_leakage_audit_rows(row, company_facts_by_cik, backtest_date_text):
@@ -471,6 +475,7 @@ def replay_week(
     config_digest,
     price_rows_as_of=False,
     benchmark_rows_as_of=False,
+    preserve_price_history=False,
 ):
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
@@ -509,12 +514,27 @@ def replay_week(
     financial_success_count = 0
     for row in available_memberships:
         quote_row = _normalize_quote_row(quote_map.get(str(row.get("ticker", "")).strip().upper(), {}), backtest_date_text)
-        audit_rows.extend(
-            _financial_leakage_audit_rows(row, company_facts_by_cik or {}, backtest_date_text)
-        )
-        metrics, financial_available_at = _financial_metrics_for_row(
+        metrics, financial_available_at, future_financial_available_at = _financial_metrics_for_row(
             row, company_facts_by_cik or {}, backtest_date_text
         )
+        if future_financial_available_at:
+            audit_rows.append(
+                _audit_record(
+                    "financial",
+                    {
+                        **row,
+                        "available_at": future_financial_available_at,
+                    },
+                    backtest_date_text,
+                    "company_facts_by_cik",
+                    severity="audit",
+                    reason="future_data_excluded",
+                )
+            )
+        elif metrics is None:
+            audit_rows.extend(
+                _financial_leakage_audit_rows(row, company_facts_by_cik or {}, backtest_date_text)
+            )
         if metrics is not None:
             financial_success_count += 1
         weekly_row = _build_weekly_input_row(row, metrics, quote_row, backtest_date_text, config_digest)
@@ -666,11 +686,14 @@ def replay_week(
     ]
     price_fields = list(filtered_price_rows[0]) if filtered_price_rows else None
     quote_fields = list(next(iter(quote_map.values()))) if quote_map else None
-    _atomic_write_csv(output / "price_history.csv", valuation_price_rows, price_fields)
+    valuation_price_history_path = (
+        output / "valuation_price_history.csv" if preserve_price_history else output / "price_history.csv"
+    )
+    _atomic_write_csv(valuation_price_history_path, valuation_price_rows, price_fields)
     _atomic_write_csv(output / "quotes.csv", valuation_quote_rows, quote_fields)
 
     candidate_path = output / "candidate_pool.csv"
-    price_history_path = output / "price_history.csv"
+    price_history_path = valuation_price_history_path
     medians_path = output / "industry_medians.csv"
     quotes_path = output / "quotes.csv"
     run_candidate_valuation(

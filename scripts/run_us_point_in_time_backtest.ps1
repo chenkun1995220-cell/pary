@@ -72,6 +72,15 @@ Write-Host "data_leakage_audit.md -> $LeakageAudit"
 foreach ($step in $Steps) { Write-Host $step }
 Write-Host "Default command: scripts\run_us_point_in_time_backtest.ps1 -PilotWeeks 8"
 
+function Test-CsvHasDataRows {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) {
+    return $false
+  }
+  $lines = @(Get-Content -LiteralPath $Path -TotalCount 2)
+  return $lines.Count -gt 1
+}
+
 if ($DryRun) {
   Write-Host "DryRun: no files or network requests were created."
   exit 0
@@ -134,7 +143,7 @@ if (-not $secCacheReady) {
 
 $priceInputsReady = $false
 if ((Test-Path -LiteralPath $PreparedPriceHistory) -and (Test-Path -LiteralPath $PreparedBenchmarkHistory)) {
-  $priceInputsReady = ((Get-Item -LiteralPath $PreparedPriceHistory).Length -gt 0) -and ((Get-Item -LiteralPath $PreparedBenchmarkHistory).Length -gt 0)
+  $priceInputsReady = (Test-CsvHasDataRows -Path $PreparedPriceHistory) -and (Test-CsvHasDataRows -Path $PreparedBenchmarkHistory)
 }
 if ($priceInputsReady) {
   $priceHistoryItem = Get-Item -LiteralPath $PreparedPriceHistory

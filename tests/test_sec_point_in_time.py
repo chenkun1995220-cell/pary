@@ -402,6 +402,7 @@ class SecPointInTimeTests(unittest.TestCase):
 
         self.assertEqual(metrics["backtest_date"], "2025-07-30")
         self.assertEqual(metrics["latest_source_filed"], "2025-07-25")
+        self.assertEqual(metrics["earliest_future_filed"], "2025-12-31")
         self.assertEqual(metrics["leakage_status"], "ready")
         self.assertIn("revenue_ttm", metrics)
 

@@ -78,7 +78,7 @@ def _format_filed_date(value):
     return ""
 
 
-def filter_company_facts_as_of(payload, as_of_date):
+def _filter_company_facts_as_of_with_future(payload, as_of_date):
     if not isinstance(payload, dict):
         raise TypeError(f"payload must be dict, got {type(payload)!r}")
 
@@ -87,12 +87,14 @@ def filter_company_facts_as_of(payload, as_of_date):
         raise ValueError("as_of_date must be ISO date string")
 
     filtered = deepcopy(payload)
+    earliest_future_filed = None
+    earliest_future_key = None
     facts = filtered.get("facts")
     if "facts" not in filtered:
-        return filtered
+        return filtered, ""
     if not isinstance(facts, dict):
         filtered["facts"] = {}
-        return filtered
+        return filtered, ""
 
     for taxonomy in facts.values():
         if not isinstance(taxonomy, dict):
@@ -120,6 +122,11 @@ def filter_company_facts_as_of(payload, as_of_date):
                         continue
                     filed = _parse_payload_filed_date(entry.get("filed"))
                     if filed is None or _is_filed_after_as_of(filed, as_of):
+                        if filed is not None:
+                            future_key = _normalize_filed_for_compare(filed)
+                            if earliest_future_key is None or future_key < earliest_future_key:
+                                earliest_future_filed = filed
+                                earliest_future_key = future_key
                         continue
                     filtered_entries.append(entry)
 
@@ -127,6 +134,11 @@ def filter_company_facts_as_of(payload, as_of_date):
 
             concept_data["units"] = normalized_units
 
+    return filtered, _format_filed_date(earliest_future_filed)
+
+
+def filter_company_facts_as_of(payload, as_of_date):
+    filtered, _ = _filter_company_facts_as_of_with_future(payload, as_of_date)
     return filtered
 
 
@@ -142,7 +154,7 @@ def _latest_source_filed_key(filed, entry):
 
 
 def calculate_metrics_as_of(payload, as_of_date):
-    filtered = filter_company_facts_as_of(payload, as_of_date)
+    filtered, earliest_future_filed = _filter_company_facts_as_of_with_future(payload, as_of_date)
 
     metrics = sec_financial_metrics.calculate_financial_metrics(filtered)
     latest_filed = None
@@ -175,5 +187,6 @@ def calculate_metrics_as_of(payload, as_of_date):
         **metrics,
         "backtest_date": as_of_date,
         "latest_source_filed": _format_filed_date(latest_filed),
+        "earliest_future_filed": earliest_future_filed,
         "leakage_status": "ready",
     }

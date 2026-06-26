@@ -427,6 +427,48 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             self.assertEqual(result["candidate_rows"], 0)
             self.assertEqual(len(price_history_lines), 1)
 
+    def test_replay_week_can_preserve_prepared_price_history_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            prepared = root / "price_history.csv"
+            prepared.write_text("sentinel\n", encoding="utf-8")
+            self.company_facts_by_cik = {}
+            for row in self.membership_rows:
+                row.update(
+                    {
+                        "market_cap": "100000",
+                        "enterprise_value": "100000",
+                        "net_assets": "1",
+                        "revenue_ttm": "1",
+                        "net_income_ttm": "0.1",
+                        "ebitda": "0.1",
+                        "free_cash_flow": "0",
+                        "roe": "0.01",
+                        "roic": "0.01",
+                        "gross_margin": "0.01",
+                        "debt_to_assets": "0.95",
+                        "net_debt_to_ebitda": "10",
+                        "current_ratio": "0.1",
+                        "revenue_cagr_3y": "0",
+                        "net_income_cagr_3y": "0",
+                    }
+                )
+
+            replay_week(
+                self.backtest_date,
+                self.membership_rows,
+                self.company_facts_by_cik,
+                self.price_rows,
+                self.benchmark_rows,
+                root,
+                self.config_digest,
+                preserve_price_history=True,
+            )
+
+            self.assertEqual(prepared.read_text(encoding="utf-8"), "sentinel\n")
+            valuation_lines = (root / "valuation_price_history.csv").read_text(encoding="utf-8-sig").splitlines()
+            self.assertEqual(len(valuation_lines), 1)
+
     def test_replay_week_ignores_future_facts_in_screening_inputs(self):
         future_fact = duration_fact(
             9999,
@@ -465,6 +507,49 @@ class WeeklyReplayIntegrationTests(unittest.TestCase):
             self.assertEqual(excluded_financial_rows[0]["cik"], "320193")
             self.assertEqual(excluded_financial_rows[0]["available_at"], "2025-12-31")
             self.assertEqual(excluded_financial_rows[0]["reason"], "future_data_excluded")
+
+    def test_replay_week_uses_metrics_future_filed_without_extra_financial_scan(self):
+        future_fact = duration_fact(
+            9999,
+            "2025-01-01",
+            "2025-06-30",
+            2025,
+            "Q2",
+            "10-Q",
+            "2025-12-31",
+        )
+        self.company_facts_by_cik["320193"]["facts"]["us-gaap"][
+            "RevenueFromContractWithCustomerExcludingAssessedTax"
+        ]["units"]["USD"].append(future_fact)
+        original = replay_module._financial_leakage_audit_rows
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("future filed date should come from metrics")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            try:
+                replay_module._financial_leakage_audit_rows = fail_if_called
+                replay_week(
+                    self.backtest_date,
+                    self.membership_rows,
+                    self.company_facts_by_cik,
+                    self.price_rows,
+                    self.benchmark_rows,
+                    root,
+                    self.config_digest,
+                )
+            finally:
+                replay_module._financial_leakage_audit_rows = original
+
+            with (root / "data_leakage_audit.csv").open(encoding="utf-8-sig", newline="") as handle:
+                audit_rows = list(csv.DictReader(handle))
+            future_financial_rows = [
+                row
+                for row in audit_rows
+                if row["record_type"] == "financial" and row["severity"] == "audit"
+            ]
+            self.assertEqual(future_financial_rows[0]["available_at"], "2025-12-31")
 
     def test_replay_week_records_future_membership_price_and_benchmark_leakage(self):
         self.membership_rows.append(

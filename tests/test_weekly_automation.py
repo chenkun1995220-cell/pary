@@ -133,6 +133,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("universe_config_newer", script)
         self.assertIn("membership_newer", script)
         self.assertIn("benchmark_config_newer", script)
+        self.assertIn("Test-CsvHasDataRows", script)
         self.assertIn("Length -le 0", script)
         self.assertIn("CIK*.json", script)
         self.assertIn("latest_backtest_summary.md", script)

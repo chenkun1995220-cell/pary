@@ -391,6 +391,7 @@ def run_point_in_time_backtest(
                 digest,
                 price_rows_as_of=True,
                 benchmark_rows_as_of=True,
+                preserve_price_history=True,
             )
             batch_audit_rows.extend(_read_csv(output / "data_leakage_audit.csv"))
             completed += 1
