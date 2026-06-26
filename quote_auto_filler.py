@@ -1,6 +1,8 @@
 import argparse
 import csv
+import html
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
@@ -45,6 +47,20 @@ CASH_CONCEPTS = [
     "CashAndCashEquivalentsAtCarryingValue",
     "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
 ]
+SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
+SEC_ARCHIVE_URL = "https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{document}"
+SEC_DEFAULT_USER_AGENT = "stock-screening-tool/0.1"
+SEC_SHARE_TEXT_PATTERNS = [
+    re.compile(
+        r"shares of common stock outstanding as of (?:the )?(?:record date|[a-z0-9,\s]+?)\s+([0-9][0-9,]*)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"shares of (?:the )?common stock issued and outstanding.{0,220}?equal to\s+([0-9][0-9,]*)",
+        re.IGNORECASE,
+    ),
+]
+SEC_SHARE_FORM_SKIP_PREFIXES = ("3", "4", "5", "144", "SC ", "SCHEDULE")
 
 
 def latest_fact_value(company_facts, taxonomy, concept_names, unit):
@@ -119,9 +135,61 @@ def load_fresh_quotes(path, as_of_date=None, max_age_days=7):
                 age = (as_of_date - quote_date).days
             except (TypeError, ValueError):
                 continue
-            if 0 <= age <= max_age_days and row.get("price"):
+            if 0 <= age <= max_age_days and row.get("price") and row.get("shares_outstanding"):
                 fresh[row.get("ticker", "").upper()] = row
     return fresh
+
+
+def normalize_sec_text(text):
+    plain = html.unescape(str(text or ""))
+    plain = re.sub(r"<[^>]+>", " ", plain)
+    return re.sub(r"\s+", " ", plain)
+
+
+def extract_shares_from_sec_filing_text(text):
+    plain = normalize_sec_text(text)
+    for pattern in SEC_SHARE_TEXT_PATTERNS:
+        match = pattern.search(plain)
+        if match:
+            return int(match.group(1).replace(",", ""))
+    return None
+
+
+def sec_request(url, user_agent=None):
+    return Request(url, headers={"User-Agent": user_agent or SEC_DEFAULT_USER_AGENT})
+
+
+def fetch_sec_submission_shares(cik, user_agent=None, max_filings=40):
+    cik_text = str(cik).strip().zfill(10)
+    with urlopen(sec_request(SEC_SUBMISSIONS_URL.format(cik=cik_text), user_agent), timeout=30) as response:
+        submission = json.loads(response.read().decode("utf-8"))
+
+    recent = submission.get("filings", {}).get("recent", {})
+    forms = recent.get("form", [])
+    accession_numbers = recent.get("accessionNumber", [])
+    primary_documents = recent.get("primaryDocument", [])
+    filing_dates = recent.get("filingDate", [])
+
+    for index, form in enumerate(forms[:max_filings]):
+        form_text = str(form or "").upper()
+        if form_text.startswith(SEC_SHARE_FORM_SKIP_PREFIXES):
+            continue
+        accession = accession_numbers[index].replace("-", "")
+        document = primary_documents[index]
+        if not accession or not document:
+            continue
+        url = SEC_ARCHIVE_URL.format(cik=int(cik_text), accession=accession, document=document)
+        with urlopen(sec_request(url, user_agent), timeout=30) as response:
+            text = response.read().decode("utf-8", "replace")
+        shares = extract_shares_from_sec_filing_text(text)
+        if shares is not None:
+            filing_date = filing_dates[index] if index < len(filing_dates) else ""
+            return {
+                "shares": shares,
+                "source": f"SEC filing text ({form_text} {filing_date})",
+                "url": url,
+            }
+    return {}
 
 
 def parse_yahoo_chart_quote(ticker, payload):
@@ -171,10 +239,34 @@ def millions(value):
     return round(float(value) / 1_000_000, 6)
 
 
-def build_quote_row(company, company_facts, price_csv_text=None, quote_override=None):
+def combine_sources(*sources):
+    combined = []
+    seen = set()
+    for source in sources:
+        for part in str(source or "").split(";"):
+            text = part.strip()
+            if not text or text in seen:
+                continue
+            combined.append(text)
+            seen.add(text)
+    return "; ".join(combined)
+
+
+def build_quote_row(
+    company,
+    company_facts,
+    price_csv_text=None,
+    quote_override=None,
+    fallback_shares=None,
+    fallback_share_source=None,
+):
     ticker = company.get("ticker", "").strip().upper()
     quote = quote_override or fetch_price_quote(ticker, price_csv_text=price_csv_text)
     shares = extract_shares_outstanding(company_facts)
+    share_source = "SEC Company Facts"
+    if shares is None and fallback_shares is not None:
+        shares = fallback_shares
+        share_source = fallback_share_source or "SEC filing text"
     net_debt = extract_net_debt(company_facts)
     return {
         "ticker": ticker,
@@ -186,7 +278,7 @@ def build_quote_row(company, company_facts, price_csv_text=None, quote_override=
         "price_unit": "USD/share",
         "shares_unit": "million_shares",
         "debt_unit": "USD_million",
-        "quote_source": f"{quote.get('quote_source', 'price source')}; SEC Company Facts",
+        "quote_source": combine_sources(quote.get("quote_source", "price source"), "SEC Company Facts", share_source),
         "updated_at": date.today().isoformat(),
     }
 
@@ -224,17 +316,32 @@ def run_auto_fill_quotes(
             cache_dir=cache_dir,
         )
         price_csv_text = read_price_fixture(price_fixture_dir, company["ticker"])
+        fallback = {}
+        if not fixture_dir and extract_shares_outstanding(facts) is None:
+            try:
+                fallback = fetch_sec_submission_shares(company["cik"], user_agent=user_agent)
+            except Exception:
+                fallback = {}
         prepared.append(
-            (company, facts, price_csv_text, cached_quotes.get(company["ticker"].strip().upper()))
+            (
+                company,
+                facts,
+                price_csv_text,
+                cached_quotes.get(company["ticker"].strip().upper()),
+                fallback.get("shares"),
+                fallback.get("source"),
+            )
         )
 
     def build(prepared_row):
-        company, facts, price_csv_text, quote_override = prepared_row
+        company, facts, price_csv_text, quote_override, fallback_shares, fallback_share_source = prepared_row
         return build_quote_row(
             company,
             facts,
             price_csv_text=price_csv_text,
             quote_override=quote_override,
+            fallback_shares=fallback_shares,
+            fallback_share_source=fallback_share_source,
         )
 
     worker_count = max(1, min(int(max_workers), 32))
