@@ -27,7 +27,7 @@ $Steps = @(
   @{ Label = "4/10 Run screening"; Script = "run_us_real_sample.ps1"; Arguments = @("-Companies", $Companies, "-Quotes", $Quotes, "-OutputRoot", $OutputRoot, "-CacheDir", $SecCache) },
   @{ Label = "5/10 Generate research packs"; Script = "generate_candidate_research_packs.ps1"; Arguments = @("-ScreeningRoot", $OutputRoot, "-Companies", $Companies) }
 )
-$ValuationSteps = @("6/10 Fetch candidate price history", "7/10 Generate valuation targets", "8/10 Fetch benchmark history", "9/10 Track forecast performance", "10/10 Audit forecast model")
+$ValuationSteps = @("6/10 Fetch candidate price history", "7/10 Generate valuation targets", "8/10 Fetch benchmark history", "9/10 Track forecast performance", "10/10 Audit forecast model", "11/11 Generate investment summary")
 
 Write-Host "US weekly screening pipeline"
 Write-Host "OutputRoot: $OutputRoot"
@@ -104,6 +104,17 @@ try {
   & $Python -B model_audit.py --evaluations (Join-Path $OutputRoot "forecast_evaluations.csv") --tracking (Join-Path $OutputRoot "tracking_snapshot.csv") --output-root $OutputRoot
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[4]) failed with exit code $LASTEXITCODE." }
 
+  $investmentSummaryPath = Join-Path $AutomationRoot "latest_investment_summary.md"
+  Write-Host "Running: $($ValuationSteps[5])"
+  & $Python -B investment_summary.py `
+    --candidates $candidatePath `
+    --valuations (Join-Path $OutputRoot "valuation_targets.csv") `
+    --tracking (Join-Path $OutputRoot "tracking_snapshot.csv") `
+    --forecast-history (Join-Path $OutputRoot "forecast_history.csv") `
+    --model-audit (Join-Path $OutputRoot "model_audit.md") `
+    --output $investmentSummaryPath
+  if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[5]) failed with exit code $LASTEXITCODE." }
+
   $candidateRows = if (Test-Path $candidatePath) { @(Import-Csv -LiteralPath $candidatePath) } else { @() }
   $tickers = @($candidateRows | ForEach-Object { $_.ticker }) -join ", "
   if (-not $tickers) { $tickers = "None" }
@@ -135,6 +146,7 @@ try {
     "- Performance report: $(Join-Path $OutputRoot 'performance_report.md')",
     "- Model audit: $(Join-Path $OutputRoot 'model_audit.md')",
     "- Shadow proposals: $(Join-Path $OutputRoot 'shadow_model_proposals.csv')",
+    "- Investment summary: $investmentSummaryPath",
     "- Research directory: $(Join-Path $OutputRoot 'research')",
     "- Log: $logPath"
   )

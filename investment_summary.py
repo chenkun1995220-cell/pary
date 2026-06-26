@@ -1,0 +1,255 @@
+import argparse
+import csv
+import re
+from pathlib import Path
+
+
+def load_csv_rows(path):
+    csv_path = Path(path)
+    if not csv_path.exists():
+        return []
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+        return [
+            {key.strip(): (value or "").strip() for key, value in row.items() if key is not None}
+            for row in csv.DictReader(handle)
+        ]
+
+
+def to_float(value):
+    if value is None:
+        return None
+    text = str(value).strip().replace(",", "")
+    if text == "":
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def format_money(currency, value):
+    number = to_float(value)
+    if number is None:
+        return ""
+    return f"{currency or 'USD'} {number:.2f}"
+
+
+def format_pct(value):
+    number = to_float(value)
+    if number is None:
+        return ""
+    return f"{number * 100:.1f}%"
+
+
+def compact_list(values, limit=20):
+    items = [value for value in values if value]
+    if not items:
+        return "无"
+    head = items[:limit]
+    suffix = f" 等 {len(items)} 只" if len(items) > limit else ""
+    return "、".join(head) + suffix
+
+
+def read_model_audit_status(path):
+    audit_path = Path(path)
+    if not audit_path.exists():
+        return "unknown", "未找到模型审计报告。"
+    text = audit_path.read_text(encoding="utf-8-sig")
+    status_match = re.search(r"审计状态[:：]\s*([^\n\r]+)", text)
+    conclusion_match = re.search(r"结论[:：]\s*([^\n\r]+)", text)
+    status = status_match.group(1).strip() if status_match else "unknown"
+    conclusion = conclusion_match.group(1).strip() if conclusion_match else ""
+    return status, conclusion
+
+
+def latest_prior_forecast_tickers(forecast_rows, current_generated_date):
+    prior_dates = sorted(
+        {
+            row.get("generated_date", "")
+            for row in forecast_rows
+            if row.get("generated_date", "") and row.get("generated_date", "") < current_generated_date
+        }
+    )
+    if not prior_dates:
+        return set()
+    latest_prior_date = prior_dates[-1]
+    return {
+        row.get("ticker", "").upper()
+        for row in forecast_rows
+        if row.get("generated_date") == latest_prior_date and row.get("ticker")
+    }
+
+
+def merge_candidate_rows(candidate_rows, valuation_rows):
+    valuations_by_ticker = {row.get("ticker", "").upper(): row for row in valuation_rows}
+    merged = []
+    for candidate in candidate_rows:
+        ticker = candidate.get("ticker", "").upper()
+        valuation = valuations_by_ticker.get(ticker, {})
+        row = dict(candidate)
+        row.update({f"valuation_{key}": value for key, value in valuation.items()})
+        row["ticker"] = ticker
+        row["company_name"] = valuation.get("company_name") or candidate.get("company_name", "")
+        row["currency"] = valuation.get("currency") or "USD"
+        row["current_price"] = valuation.get("current_price", "")
+        row["buy_price"] = valuation.get("buy_price", "")
+        row["target_price"] = valuation.get("target_price", "")
+        row["expected_return"] = valuation.get("expected_return", "")
+        row["price_action"] = valuation.get("price_action", "")
+        row["trend_label"] = valuation.get("trend_label", "")
+        row["valuation_confidence"] = valuation.get("valuation_confidence", "")
+        row["valuation_reason"] = valuation.get("reason", "")
+        row["price_date"] = valuation.get("price_date", "")
+        row["generated_date"] = valuation.get("generated_date", "")
+        row["model_version"] = valuation.get("model_version", "")
+        merged.append(row)
+    return sorted(
+        merged,
+        key=lambda row: (
+            to_float(row.get("total_score")) or 0,
+            to_float(row.get("expected_return")) or 0,
+        ),
+        reverse=True,
+    )
+
+
+def build_summary_lines(rows, tracking_rows, previous_tickers, audit_status, audit_conclusion, top_limit):
+    current_tickers = {row.get("ticker", "") for row in rows if row.get("ticker")}
+    current_generated_date = next((row.get("generated_date", "") for row in rows if row.get("generated_date")), "")
+    model_version = next((row.get("model_version", "") for row in rows if row.get("model_version")), "")
+    market = next((row.get("market", "") or row.get("valuation_market", "") for row in rows), "")
+    new_tickers = sorted(current_tickers - previous_tickers)
+    continuous_tickers = sorted(current_tickers & previous_tickers)
+    removed_tickers = sorted(previous_tickers - current_tickers)
+    tracking_count = sum(1 for row in tracking_rows if row.get("evaluation_status") == "tracking")
+    mature_count = sum(1 for row in tracking_rows if row.get("evaluation_status") not in ("", "tracking"))
+
+    lines = [
+        "# 每周低估公司结论",
+        "",
+        f"- 生成日期：{current_generated_date or '未知'}",
+        f"- 市场：{market or '未知'}",
+        f"- 候选公司数量：{len(rows)}",
+        f"- 模型版本：{model_version or '未知'}",
+        f"- 模型审计状态：{audit_status}",
+        f"- 跟踪中样本：{tracking_count}",
+        f"- 成熟评价样本：{mature_count}",
+    ]
+    if audit_conclusion:
+        lines.append(f"- 审计结论：{audit_conclusion}")
+    lines.extend(
+        [
+            "",
+            "## 本周优先关注",
+            "",
+            "| 股票 | 公司 | 评级 | 评分 | 当前价 | 建议买入价 | 目标价 | 预期收益 | 操作判断 | 趋势 | 估值置信度 | 低估理由 |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---|---|---|---|",
+        ]
+    )
+    for row in rows[:top_limit]:
+        currency = row.get("currency") or "USD"
+        reason = row.get("reason") or row.get("valuation_reason") or ""
+        lines.append(
+            "| {ticker} | {company} | {grade} | {score:.1f} | {current_price} | {buy_price} | {target_price} | {expected_return} | {action} | {trend} | {confidence} | {reason} |".format(
+                ticker=row.get("ticker", ""),
+                company=row.get("company_name", ""),
+                grade=row.get("grade", ""),
+                score=to_float(row.get("total_score")) or 0,
+                current_price=format_money(currency, row.get("current_price")),
+                buy_price=format_money(currency, row.get("buy_price")),
+                target_price=format_money(currency, row.get("target_price")),
+                expected_return=format_pct(row.get("expected_return")),
+                action=row.get("price_action", ""),
+                trend=row.get("trend_label", ""),
+                confidence=row.get("valuation_confidence", ""),
+                reason=reason,
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "## 新入选",
+            "",
+            compact_list(new_tickers),
+            "",
+            "## 连续入选",
+            "",
+            compact_list(continuous_tickers),
+            "",
+            "## 本周剔除",
+            "",
+            compact_list(removed_tickers),
+            "",
+            "## 使用提示",
+            "",
+            "优先查看评分高、已达到建议买入区间、且风险标记为无的公司；估值置信度为 low 时，买入价和目标价只作为研究锚点，需要结合后续跟踪样本继续校准。",
+            "",
+            "仅供研究筛选，不构成投资建议。",
+        ]
+    )
+    return lines
+
+
+def generate_investment_summary(
+    candidates_path,
+    valuations_path,
+    tracking_path,
+    forecast_history_path,
+    model_audit_path,
+    output_path,
+    top_limit=20,
+):
+    candidate_rows = load_csv_rows(candidates_path)
+    valuation_rows = load_csv_rows(valuations_path)
+    tracking_rows = load_csv_rows(tracking_path)
+    forecast_rows = load_csv_rows(forecast_history_path)
+    current_generated_date = max((row.get("generated_date", "") for row in valuation_rows), default="")
+    previous_tickers = latest_prior_forecast_tickers(forecast_rows, current_generated_date)
+    audit_status, audit_conclusion = read_model_audit_status(model_audit_path)
+    rows = merge_candidate_rows(candidate_rows, valuation_rows)
+    lines = build_summary_lines(
+        rows,
+        tracking_rows,
+        previous_tickers,
+        audit_status,
+        audit_conclusion,
+        int(top_limit),
+    )
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+    return {
+        "candidate_count": len(rows),
+        "output_path": output,
+        "audit_status": audit_status,
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description="生成每周低估公司最终结论报告。")
+    parser.add_argument("--candidates", default="outputs/us_universe/candidate_pool.csv")
+    parser.add_argument("--valuations", default="outputs/us_universe/valuation_targets.csv")
+    parser.add_argument("--tracking", default="outputs/us_universe/tracking_snapshot.csv")
+    parser.add_argument("--forecast-history", default="outputs/us_universe/forecast_history.csv")
+    parser.add_argument("--model-audit", default="outputs/us_universe/model_audit.md")
+    parser.add_argument("--output", default="outputs/automation/latest_investment_summary.md")
+    parser.add_argument("--top-limit", type=int, default=20)
+    args = parser.parse_args()
+
+    result = generate_investment_summary(
+        args.candidates,
+        args.valuations,
+        args.tracking,
+        args.forecast_history,
+        args.model_audit,
+        args.output,
+        top_limit=args.top_limit,
+    )
+    print(f"已生成低估公司结论报告：{result['output_path']}")
+    print(f"候选公司数量：{result['candidate_count']}")
+    print(f"模型审计状态：{result['audit_status']}")
+
+
+if __name__ == "__main__":
+    main()
