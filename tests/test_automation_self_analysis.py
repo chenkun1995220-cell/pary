@@ -574,6 +574,10 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             result = run_self_analysis(root, as_of_date="2026-06-27")
 
             manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(manifest["data_health_status"], "manual_review_needed")
+            self.assertEqual(manifest["data_health_recommended_action"], "review_data_health")
+            self.assertEqual(manifest["data_health_risk_count"], 3)
+            self.assertEqual(len(manifest["data_health_risks"]), 3)
             self.assertEqual(len(manifest["health"]), 3)
             self.assertEqual(manifest["health"][1]["refresh_status"], "online")
             self.assertEqual(manifest["health"][1]["quote_coverage"], "92.67%")

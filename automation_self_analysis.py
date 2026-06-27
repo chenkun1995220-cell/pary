@@ -695,6 +695,23 @@ def _manifest_health(health):
     ]
 
 
+def _manifest_data_health_status(health):
+    risks = _health_risks(health)
+    if risks:
+        return {
+            "data_health_status": "manual_review_needed",
+            "data_health_recommended_action": "review_data_health",
+            "data_health_risk_count": len(risks),
+            "data_health_risks": risks,
+        }
+    return {
+        "data_health_status": "clear",
+        "data_health_recommended_action": "monitor_next_run",
+        "data_health_risk_count": 0,
+        "data_health_risks": [],
+    }
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -877,6 +894,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "market_count": len(markets),
             "markets": _manifest_markets(markets),
             "health": _manifest_health(health),
+            **_manifest_data_health_status(health),
             "manual_review_queue_count": len(manual_review_queue),
             "manual_review_repeat_count": len(manual_review_history_repeats),
             "review_status": review_status,
