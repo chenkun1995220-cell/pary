@@ -787,6 +787,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("## 人工复核队列", report)
             self.assertIn("| 港股周筛 | 估值口径 | AAA | Alpha | loss_making_or_negative_pe；pe=-3.5 |", report)
             self.assertTrue(Path(result["manual_review_queue_output"]).exists())
+            self.assertEqual(queue_rows[0]["rank"], "1")
+            self.assertEqual(queue_rows[1]["rank"], "2")
             self.assertEqual(queue_rows[0]["market"], "港股周筛")
             self.assertEqual(queue_rows[0]["review_type"], "估值口径")
             self.assertEqual(queue_rows[0]["ticker"], "AAA")

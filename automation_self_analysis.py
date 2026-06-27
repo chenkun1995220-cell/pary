@@ -472,6 +472,19 @@ def _candidate_review_risks(candidate_reviews):
 
 def _manual_review_queue(health, candidate_reviews, limit=12):
     queue = []
+
+    def add_item(name, review_type, ticker, company, detail):
+        queue.append(
+            {
+                "rank": len(queue) + 1,
+                "name": name,
+                "type": review_type,
+                "ticker": ticker,
+                "company": company,
+                "detail": detail,
+            }
+        )
+
     for item in health:
         for sample in item.get("valuation_review_samples", []):
             detail = "；".join(
@@ -479,14 +492,12 @@ def _manual_review_queue(health, candidate_reviews, limit=12):
                 for part in [sample.get("category", ""), sample.get("detail", "")]
                 if part
             )
-            queue.append(
-                {
-                    "name": item["name"],
-                    "type": "估值口径",
-                    "ticker": sample.get("ticker", ""),
-                    "company": sample.get("company", ""),
-                    "detail": detail,
-                }
+            add_item(
+                item["name"],
+                "估值口径",
+                sample.get("ticker", ""),
+                sample.get("company", ""),
+                detail,
             )
             if len(queue) >= limit:
                 return queue
@@ -494,26 +505,22 @@ def _manual_review_queue(health, candidate_reviews, limit=12):
         if review["status"] != "ready":
             continue
         for gap in review["quality_gaps"]:
-            queue.append(
-                {
-                    "name": review["name"],
-                    "type": "结论缺口",
-                    "ticker": gap["ticker"],
-                    "company": gap["company"],
-                    "detail": f"{gap['category']}；{gap['details']}",
-                }
+            add_item(
+                review["name"],
+                "结论缺口",
+                gap["ticker"],
+                gap["company"],
+                f"{gap['category']}；{gap['details']}",
             )
             if len(queue) >= limit:
                 return queue
         for item in review["risk_items"]:
-            queue.append(
-                {
-                    "name": review["name"],
-                    "type": "风险提示",
-                    "ticker": item["ticker"],
-                    "company": item["company"],
-                    "detail": item["risk"],
-                }
+            add_item(
+                review["name"],
+                "风险提示",
+                item["ticker"],
+                item["company"],
+                item["risk"],
             )
             if len(queue) >= limit:
                 return queue
@@ -523,13 +530,14 @@ def _manual_review_queue(health, candidate_reviews, limit=12):
 def _write_manual_review_queue(path, queue):
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["market", "review_type", "ticker", "company", "review_detail"]
+    fieldnames = ["rank", "market", "review_type", "ticker", "company", "review_detail"]
     with output.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
         for item in queue:
             writer.writerow(
                 {
+                    "rank": item.get("rank", ""),
                     "market": item.get("name", ""),
                     "review_type": item.get("type", ""),
                     "ticker": item.get("ticker", ""),
