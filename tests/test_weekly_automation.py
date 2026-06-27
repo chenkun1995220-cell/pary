@@ -256,6 +256,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("review_status", doc)
         self.assertIn("recommended_next_action", doc)
         self.assertIn("markets", doc)
+        self.assertIn("model_audit_status", doc)
+        self.assertIn("model_audit_recommended_action", doc)
         self.assertIn("health", doc)
         self.assertIn("data_health_status", doc)
         self.assertIn("data_health_recommended_action", doc)

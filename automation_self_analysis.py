@@ -695,6 +695,33 @@ def _manifest_health(health):
     ]
 
 
+def _manifest_model_audit_status(markets):
+    statuses = {market.get("name", ""): market.get("audit_status", "unknown") for market in markets}
+    sample_count = sum(1 for status in statuses.values() if status == "sample_accumulating")
+    shadow_ready_count = sum(1 for status in statuses.values() if status == "shadow_analysis_ready")
+    unknown_count = sum(1 for status in statuses.values() if status == "unknown")
+    if sample_count:
+        status = "sample_accumulating"
+        action = "continue_sample_accumulation"
+    elif shadow_ready_count:
+        status = "shadow_analysis_ready"
+        action = "review_shadow_analysis"
+    elif unknown_count:
+        status = "unknown"
+        action = "review_model_audit_inputs"
+    else:
+        status = "clear"
+        action = "monitor_next_run"
+    return {
+        "model_audit_status": status,
+        "model_audit_recommended_action": action,
+        "model_audit_sample_accumulating_count": sample_count,
+        "model_audit_shadow_ready_count": shadow_ready_count,
+        "model_audit_unknown_count": unknown_count,
+        "model_audit_statuses": statuses,
+    }
+
+
 def _manifest_data_health_status(health):
     risks = _health_risks(health)
     if risks:
@@ -914,6 +941,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "as_of_date": as_of_date,
             "market_count": len(markets),
             "markets": _manifest_markets(markets),
+            **_manifest_model_audit_status(markets),
             "health": _manifest_health(health),
             **_manifest_data_health_status(health),
             **_manifest_candidate_review_status(candidate_reviews),
