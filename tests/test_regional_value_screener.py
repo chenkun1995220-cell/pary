@@ -154,11 +154,14 @@ class RegionalValueScreenerTests(unittest.TestCase):
 
             with (output_root / "screening_results.csv").open("r", encoding="utf-8-sig", newline="") as stream:
                 result_rows = {item["ticker"]: item for item in csv.DictReader(stream)}
+            with (output_root / "valuation_review_items.csv").open("r", encoding="utf-8-sig", newline="") as stream:
+                review_rows = list(csv.DictReader(stream))
             report = (output_root / "weekly_report.md").read_text(encoding="utf-8-sig")
 
             self.assertEqual(result_rows["LOSS"]["valuation_review_category"], "loss_making_or_negative_pe")
             self.assertEqual(result_rows["BOOK"]["valuation_review_category"], "non_positive_book_value_or_pb")
             self.assertEqual(result_rows["EMPTY"]["valuation_review_category"], "loss_making_or_negative_pe")
+            self.assertEqual({item["ticker"] for item in review_rows}, {"EMPTY", "LOSS", "BOOK"})
             self.assertIn("loss_making_or_negative_pe", report)
             self.assertIn("non_positive_book_value_or_pb", report)
             self.assertIn("LOSS", report)

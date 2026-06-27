@@ -216,10 +216,14 @@ def run_regional_screening(input_path, output_root, candidate_min_score=75):
     ]
     scored.sort(key=lambda item: (-item["total_score"], item.get("ticker", "")))
     candidates = [item for item in scored if item["candidate_status"] == "candidate"]
+    valuation_review_items = [
+        item for item in scored if item.get("valuation_review_category")
+    ]
     output = Path(output_root)
     output.mkdir(parents=True, exist_ok=True)
     write_csv(output / "screening_results.csv", scored)
     write_csv(output / "candidate_pool.csv", candidates)
+    write_csv(output / "valuation_review_items.csv", valuation_review_items)
     median_rows = [
         {
             "market": key[0],
@@ -249,9 +253,6 @@ def run_regional_screening(input_path, output_root, candidate_min_score=75):
         )
     if not candidates:
         report_lines.append("| - | 本期无满足门槛的候选 | - | - | - | - |")
-    valuation_review_items = [
-        item for item in scored if item.get("valuation_review_category")
-    ]
     if valuation_review_items:
         report_lines.extend(
             [
@@ -269,7 +270,12 @@ def run_regional_screening(input_path, output_root, candidate_min_score=75):
     (output / "weekly_report.md").write_text(
         "\n".join(report_lines) + "\n", encoding="utf-8-sig"
     )
-    return {"rows": len(scored), "candidates": len(candidates), "output_root": output}
+    return {
+        "rows": len(scored),
+        "candidates": len(candidates),
+        "valuation_review_items": len(valuation_review_items),
+        "output_root": output,
+    }
 
 
 def main():
