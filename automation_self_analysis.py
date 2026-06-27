@@ -10,18 +10,21 @@ MARKETS = [
         "summary": Path("outputs/automation/latest_run_summary.md"),
         "default_audit": Path("outputs/us_universe/model_audit.md"),
         "default_health": Path("outputs/us_universe/data_health_history.csv"),
+        "default_investment": Path("outputs/us_universe/latest_investment_summary.md"),
     },
     {
         "name": "A股周筛",
         "summary": Path("outputs/cn_universe/latest_run_summary.md"),
         "default_audit": Path("outputs/cn_universe/model_audit.md"),
         "default_health": Path("outputs/cn_universe/data_health_history.csv"),
+        "default_investment": Path("outputs/cn_universe/latest_investment_summary.md"),
     },
     {
         "name": "港股周筛",
         "summary": Path("outputs/hk_universe/latest_run_summary.md"),
         "default_audit": Path("outputs/hk_universe/model_audit.md"),
         "default_health": Path("outputs/hk_universe/data_health_history.csv"),
+        "default_investment": Path("outputs/hk_universe/latest_investment_summary.md"),
     },
 ]
 
@@ -86,6 +89,7 @@ def _market_snapshot(project_root, config):
             "audit_status": "unknown",
             "summary_path": str(path),
             "health_path": str(Path(project_root) / config["default_health"]),
+            "investment_path": str(Path(project_root) / config["default_investment"]),
         }
     fields = _summary_fields(text)
     audit_path = _resolve_path(project_root, fields.get("Model audit")) or (
@@ -93,6 +97,9 @@ def _market_snapshot(project_root, config):
     )
     health_path = _resolve_path(project_root, fields.get("Data health history")) or (
         Path(project_root) / config["default_health"]
+    )
+    investment_path = _resolve_path(project_root, fields.get("Investment summary")) or (
+        Path(project_root) / config["default_investment"]
     )
     return {
         "name": config["name"],
@@ -102,6 +109,7 @@ def _market_snapshot(project_root, config):
         "audit_status": _audit_status(audit_path),
         "summary_path": str(path),
         "health_path": str(health_path),
+        "investment_path": str(investment_path),
     }
 
 
@@ -152,6 +160,95 @@ def _percent(value):
 def _latest_health_row(path):
     rows = _read_csv_rows(path)
     return rows[-1] if rows else None
+
+
+def _section_lines(text, heading):
+    lines = text.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip() == f"## {heading}":
+            start = index + 1
+            break
+    if start is None:
+        return []
+    section = []
+    for line in lines[start:]:
+        if line.startswith("## "):
+            break
+        section.append(line)
+    return section
+
+
+def _markdown_table_rows(lines):
+    rows = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("|") or not stripped.endswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if not cells or all(set(cell) <= {"-", ":"} for cell in cells):
+            continue
+        rows.append(cells)
+    if rows and all(cell in {"股票", "公司", "风险说明", "缺口分类", "具体缺口"} for cell in rows[0]):
+        return rows[1:]
+    return rows
+
+
+def _investment_review_snapshot(market):
+    path = Path(market["investment_path"])
+    text = _read_text(path)
+    if not text:
+        return {
+            "name": market["name"],
+            "status": "missing",
+            "field_complete": "unknown",
+            "quality_gap_count": 0,
+            "quality_gaps": [],
+            "risk_items": [],
+            "path": str(path),
+        }
+
+    quality_lines = _section_lines(text, "候选结论质量检查")
+    field_complete = "unknown"
+    for line in quality_lines:
+        stripped = line.strip()
+        if stripped.startswith("- 字段完整"):
+            separator = "：" if "：" in stripped else ":"
+            field_complete = stripped.split(separator, 1)[1].strip() if separator in stripped else "unknown"
+            break
+
+    quality_gaps = []
+    for cells in _markdown_table_rows(quality_lines):
+        if len(cells) >= 4:
+            quality_gaps.append(
+                {
+                    "ticker": cells[0],
+                    "company": cells[1],
+                    "category": cells[2],
+                    "details": cells[3],
+                }
+            )
+
+    risk_items = []
+    for cells in _markdown_table_rows(_section_lines(text, "候选风险说明")):
+        if len(cells) >= 3 and not cells[2].startswith("未发现量化硬性风险"):
+            risk_items.append(
+                {
+                    "ticker": cells[0],
+                    "company": cells[1],
+                    "risk": cells[2],
+                }
+            )
+
+    return {
+        "name": market["name"],
+        "status": "ready",
+        "field_complete": field_complete,
+        "quality_gap_count": len(quality_gaps),
+        "quality_gaps": quality_gaps,
+        "risk_items": risk_items,
+        "path": str(path),
+    }
 
 
 def _health_snapshot(market):
@@ -237,12 +334,31 @@ def _risks(markets, backtest, health):
     return risks or ["未发现新的自动化阻断项"]
 
 
+def _candidate_review_risks(candidate_reviews):
+    risks = []
+    for review in candidate_reviews:
+        if review["status"] != "ready":
+            risks.append(f"候选复核缺失：{review['name']}")
+            continue
+        for gap in review["quality_gaps"][:5]:
+            risks.append(
+                f"{review['name']} 候选需复核：{gap['ticker']} {gap['company']} {gap['category']}：{gap['details']}"
+            )
+        for item in review["risk_items"][:5]:
+            risks.append(
+                f"{review['name']} 风险需复核：{item['ticker']} {item['company']} {item['risk']}"
+            )
+    return risks
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
         recommendations.append("先补齐缺失的周筛或回测摘要，再做模型参数判断。")
     if any(risk.startswith("数据健康") for risk in risks):
         recommendations.append("数据健康异常先人工复核，不自动修改正式模型参数。")
+    if any("候选需复核" in risk or "风险需复核" in risk for risk in risks):
+        recommendations.append("优先复核候选风险和结论缺口，不自动调整正式模型参数。")
     if _as_int(backtest.get("weak_rows")):
         recommendations.append("继续补充历史成分 verified 证据，降低严格时点回测的数据质量风险。")
     if any("样本积累" in risk for risk in risks):
@@ -252,8 +368,8 @@ def _recommendations(risks, backtest):
     return recommendations
 
 
-def _render(as_of_date, markets, backtest, health):
-    risks = _risks(markets, backtest, health)
+def _render(as_of_date, markets, backtest, health, candidate_reviews):
+    risks = _risks(markets, backtest, health) + _candidate_review_risks(candidate_reviews)
     recommendations = _recommendations(risks, backtest)
     lines = [
         f"# 每周自我分析摘要（{as_of_date}）",
@@ -286,6 +402,20 @@ def _render(as_of_date, markets, backtest, health):
     lines.extend(
         [
             "",
+            "## 候选复核重点",
+            "",
+            "| 模块 | 状态 | 字段完整 | 结论缺口 | 风险提示 |",
+            "|---|---|---:|---:|---:|",
+        ]
+    )
+    for item in candidate_reviews:
+        lines.append(
+            f"| {item['name']} | {item['status']} | {item['field_complete']} | "
+            f"{item['quality_gap_count']} | {len(item['risk_items'])} |"
+        )
+    lines.extend(
+        [
+            "",
             "## 严格时点回测",
             "",
             f"- 状态：{backtest['status']}",
@@ -314,10 +444,17 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         output = project_root / output
     markets = [_market_snapshot(project_root, config) for config in MARKETS]
     health = [_health_snapshot(market) for market in markets]
+    candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(_render(as_of_date, markets, backtest, health), encoding="utf-8-sig")
-    return {"output": str(output), "markets": markets, "backtest": backtest, "health": health}
+    output.write_text(_render(as_of_date, markets, backtest, health, candidate_reviews), encoding="utf-8-sig")
+    return {
+        "output": str(output),
+        "markets": markets,
+        "backtest": backtest,
+        "health": health,
+        "candidate_reviews": candidate_reviews,
+    }
 
 
 def main():
