@@ -125,6 +125,47 @@ def summarize_data_quality_actions(data_quality_rows, action_limit=5, ticker_lim
     return lines
 
 
+def summarize_candidate_quality_exposure(candidate_rows, data_quality_rows, row_limit=10):
+    candidate_tickers = [row.get("ticker", "").strip().upper() for row in candidate_rows if row.get("ticker")]
+    candidate_set = set(candidate_tickers)
+    if not candidate_set:
+        return []
+
+    affected = [
+        row
+        for row in data_quality_rows
+        if row.get("ticker", "").strip().upper() in candidate_set
+    ]
+    affected_tickers = {row.get("ticker", "").strip().upper() for row in affected if row.get("ticker")}
+    lines = [
+        "",
+        "## 候选公司数据质量影响",
+        "",
+        f"- 受影响候选：{len(affected_tickers)}/{len(candidate_set)}",
+    ]
+    if not affected:
+        lines.append("- 当前候选公司未命中数据质量问题。")
+        return lines
+
+    lines.extend(
+        [
+            "",
+            "| 股票 | 问题代码 | 处置动作 | 评分影响 |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in sorted(affected, key=lambda item: (item.get("ticker", ""), item.get("issue_code", "")))[:row_limit]:
+        lines.append(
+            "| {ticker} | {code} | {action} | {impact} |".format(
+                ticker=row.get("ticker", "").strip().upper(),
+                code=row.get("issue_code", ""),
+                action=row.get("review_action", ""),
+                impact=row.get("impact_on_score", ""),
+            )
+        )
+    return lines
+
+
 def read_model_audit_status(path):
     audit_path = Path(path)
     if not audit_path.exists():
@@ -137,7 +178,7 @@ def read_model_audit_status(path):
     return status, conclusion
 
 
-def build_data_health_summary(quote_gap_rows, data_quality_rows, share_override_rows):
+def build_data_health_summary(quote_gap_rows, data_quality_rows, share_override_rows, candidate_rows=None):
     quote_total = len(quote_gap_rows)
     usable_statuses = {"ready", "manual_override_applied"}
     quote_ready = sum(1 for row in quote_gap_rows if row.get("status") in usable_statuses)
@@ -173,6 +214,8 @@ def build_data_health_summary(quote_gap_rows, data_quality_rows, share_override_
         )
         lines.extend(summarize_data_quality_groups(data_quality_rows))
         lines.extend(summarize_data_quality_actions(data_quality_rows))
+    if candidate_rows:
+        lines.extend(summarize_candidate_quality_exposure(candidate_rows, data_quality_rows))
     return lines
 
 
@@ -333,12 +376,13 @@ def generate_investment_summary(
     current_generated_date = max((row.get("generated_date", "") for row in valuation_rows), default="")
     previous_tickers = latest_prior_forecast_tickers(forecast_rows, current_generated_date)
     audit_status, audit_conclusion = read_model_audit_status(model_audit_path)
+    rows = merge_candidate_rows(candidate_rows, valuation_rows)
     data_health_lines = build_data_health_summary(
         load_csv_rows(quote_gaps_path) if quote_gaps_path else [],
         load_csv_rows(data_quality_issues_path) if data_quality_issues_path else [],
         load_csv_rows(share_override_audit_path) if share_override_audit_path else [],
+        candidate_rows=rows,
     )
-    rows = merge_candidate_rows(candidate_rows, valuation_rows)
     lines = build_summary_lines(
         rows,
         tracking_rows,
