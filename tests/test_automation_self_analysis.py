@@ -747,6 +747,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("AAA Alpha loss_making_or_negative_pe pe=-3.5", report)
             self.assertIn("估值复核待确认：港股周筛 2", report)
             self.assertIn("优先人工复核估值复核清单", report)
+            self.assertIn("## 人工复核队列", report)
+            self.assertIn("| 港股周筛 | 估值口径 | AAA | Alpha | loss_making_or_negative_pe；pe=-3.5 |", report)
 
 
 if __name__ == "__main__":

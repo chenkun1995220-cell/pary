@@ -470,6 +470,56 @@ def _candidate_review_risks(candidate_reviews):
     return risks
 
 
+def _manual_review_queue(health, candidate_reviews, limit=12):
+    queue = []
+    for item in health:
+        for sample in item.get("valuation_review_samples", []):
+            detail = "；".join(
+                part
+                for part in [sample.get("category", ""), sample.get("detail", "")]
+                if part
+            )
+            queue.append(
+                {
+                    "name": item["name"],
+                    "type": "估值口径",
+                    "ticker": sample.get("ticker", ""),
+                    "company": sample.get("company", ""),
+                    "detail": detail,
+                }
+            )
+            if len(queue) >= limit:
+                return queue
+    for review in candidate_reviews:
+        if review["status"] != "ready":
+            continue
+        for gap in review["quality_gaps"]:
+            queue.append(
+                {
+                    "name": review["name"],
+                    "type": "结论缺口",
+                    "ticker": gap["ticker"],
+                    "company": gap["company"],
+                    "detail": f"{gap['category']}；{gap['details']}",
+                }
+            )
+            if len(queue) >= limit:
+                return queue
+        for item in review["risk_items"]:
+            queue.append(
+                {
+                    "name": review["name"],
+                    "type": "风险提示",
+                    "ticker": item["ticker"],
+                    "company": item["company"],
+                    "detail": item["risk"],
+                }
+            )
+            if len(queue) >= limit:
+                return queue
+    return queue
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -492,6 +542,7 @@ def _recommendations(risks, backtest):
 def _render(as_of_date, markets, backtest, health, candidate_reviews):
     risks = _risks(markets, backtest, health) + _candidate_review_risks(candidate_reviews)
     recommendations = _recommendations(risks, backtest)
+    manual_queue = _manual_review_queue(health, candidate_reviews)
     lines = [
         f"# 每周自我分析摘要（{as_of_date}）",
         "",
@@ -560,6 +611,22 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
             f"| {item['name']} | {item['status']} | {item['field_complete']} | "
             f"{item['quality_gap_count']} | {len(item['risk_items'])} |"
         )
+    lines.extend(
+        [
+            "",
+            "## 人工复核队列",
+            "",
+            "| 模块 | 类型 | 股票 | 公司 | 复核要点 |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    if manual_queue:
+        for item in manual_queue:
+            lines.append(
+                f"| {item['name']} | {item['type']} | {item['ticker']} | {item['company']} | {item['detail']} |"
+            )
+    else:
+        lines.append("| - | - | - | - | 本周未发现需优先人工复核的队列项 |")
     lines.extend(
         [
             "",
