@@ -343,6 +343,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("--project-root", script)
         self.assertIn("--automation-root", script)
         self.assertIn("--check", script)
+        self.assertIn("MaxAgeDays", script)
+        self.assertIn("--max-age-days", script)
 
 
 if __name__ == "__main__":

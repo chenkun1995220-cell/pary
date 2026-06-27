@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 from codex_automation_audit import audit_automations
@@ -46,7 +47,25 @@ def _automation_issues(audit_result):
     return issues
 
 
-def run_weekly_ops_check(project_root, automation_root, check):
+def _parse_iso_date(value, field_name):
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError as exc:
+        raise ValueError(f"invalid {field_name}: {value}") from exc
+
+
+def _freshness(as_of_date, today=None, max_age_days=8):
+    check_date = _parse_iso_date(as_of_date, "as_of_date")
+    current_date = _parse_iso_date(today, "today") if today else date.today()
+    age_days = (current_date - check_date).days
+    if age_days < 0:
+        return "future", age_days
+    if age_days > max_age_days:
+        return "stale", age_days
+    return "fresh", age_days
+
+
+def run_weekly_ops_check(project_root, automation_root, check, today=None, max_age_days=8):
     project_root = Path(project_root)
     check_path = Path(check)
     weekly_check = _load_weekly_check(check_path)
@@ -57,10 +76,19 @@ def run_weekly_ops_check(project_root, automation_root, check):
     ready_count = int(weekly_check.get("markets_ready_count", 0) or 0)
     manifest_status = weekly_check.get("manifest_validation_status", "unknown")
     automation_status = automation_audit.get("status", "unknown")
+    freshness_status, check_age_days = _freshness(
+        weekly_check.get("as_of_date", "unknown"),
+        today=today,
+        max_age_days=max_age_days,
+    )
 
     attention_reasons = []
     if automation_status != "ready":
         attention_reasons.append("automation_config_drift")
+    if freshness_status == "stale":
+        attention_reasons.append("stale_check_date")
+    if freshness_status == "future":
+        attention_reasons.append("future_check_date")
     if manifest_status != "valid":
         attention_reasons.append("manifest_validation_not_valid")
     if market_count == 0 or ready_count != market_count:
@@ -74,6 +102,9 @@ def run_weekly_ops_check(project_root, automation_root, check):
         "automation_root": str(Path(automation_root)),
         "check": str(check_path),
         "as_of_date": weekly_check.get("as_of_date", "unknown"),
+        "freshness_status": freshness_status,
+        "check_age_days": check_age_days,
+        "max_age_days": max_age_days,
         "automation_audit_status": automation_status,
         "automation_check_status": weekly_check.get("status", "unknown"),
         "manifest_validation_status": manifest_status,
@@ -102,6 +133,7 @@ def render_weekly_ops_check(result):
         "# 周度运维总检查",
         "",
         f"- 日期：{result.get('as_of_date', 'unknown')}",
+        f"- 验收日期新鲜度：{result.get('freshness_status', 'unknown')} ({result.get('check_age_days', 'unknown')}天/{result.get('max_age_days', 'unknown')}天)",
         f"- 总体状态：{result.get('status', 'unknown')}",
         f"- 自动任务配置：{result.get('automation_audit_status', 'unknown')}",
         f"- 验收结论：{result.get('automation_check_status', 'unknown')}",
@@ -118,6 +150,12 @@ def render_weekly_ops_check(result):
         lines.extend(["", "## 自动任务问题"])
         for issue in result["automation_issues"]:
             lines.append(f"- {issue}")
+    if result.get("freshness_status") in {"stale", "future"}:
+        lines.extend(["", "## 验收日期问题"])
+        if result["freshness_status"] == "stale":
+            lines.append("- 验收文件过期：请重新运行本周三市场周筛和自我分析，不要复用旧结论。")
+        else:
+            lines.append("- 验收日期晚于当前日期：请检查系统日期或验收文件来源。")
     if result.get("missing_output_paths"):
         lines.extend(["", "## 缺失输出路径"])
         for key, path in result["missing_output_paths"].items():
@@ -140,8 +178,16 @@ def main():
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--automation-root", default=str(Path.home() / ".codex" / "automations"))
     parser.add_argument("--check", default="outputs/automation/latest_automation_check.json")
+    parser.add_argument("--today", default="")
+    parser.add_argument("--max-age-days", type=int, default=8)
     args = parser.parse_args()
-    result = run_weekly_ops_check(args.project_root, args.automation_root, args.check)
+    result = run_weekly_ops_check(
+        args.project_root,
+        args.automation_root,
+        args.check,
+        today=args.today or None,
+        max_age_days=args.max_age_days,
+    )
     print(render_weekly_ops_check(result), end="")
     if result["status"] != "ready":
         raise SystemExit(1)

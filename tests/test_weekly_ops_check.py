@@ -39,7 +39,7 @@ def write_expected_automations(root, minute_overrides=None):
         )
 
 
-def write_weekly_check(root, outputs):
+def write_weekly_check(root, outputs, as_of_date="2026-06-28"):
     check_path = Path(root) / "outputs" / "automation" / "latest_automation_check.json"
     check_path.parent.mkdir(parents=True, exist_ok=True)
     check_path.write_text(
@@ -47,7 +47,7 @@ def write_weekly_check(root, outputs):
             {
                 "check_schema": "weekly_automation_check",
                 "check_version": 1,
-                "as_of_date": "2026-06-28",
+                "as_of_date": as_of_date,
                 "status": "manual_review_needed",
                 "recommended_action": "review_manual_queue",
                 "manifest_validation_status": "valid",
@@ -86,7 +86,13 @@ class WeeklyOpsCheckTests(unittest.TestCase):
 
             from weekly_ops_check import render_weekly_ops_check, run_weekly_ops_check
 
-            result = run_weekly_ops_check(root, automation_tmp, check_path)
+            result = run_weekly_ops_check(
+                root,
+                automation_tmp,
+                check_path,
+                today="2026-06-28",
+                max_age_days=8,
+            )
             report = render_weekly_ops_check(result)
 
             self.assertEqual(result["status"], "ready")
@@ -119,7 +125,13 @@ class WeeklyOpsCheckTests(unittest.TestCase):
 
             from weekly_ops_check import render_weekly_ops_check, run_weekly_ops_check
 
-            result = run_weekly_ops_check(root, automation_tmp, check_path)
+            result = run_weekly_ops_check(
+                root,
+                automation_tmp,
+                check_path,
+                today="2026-06-28",
+                max_age_days=8,
+            )
             report = render_weekly_ops_check(result)
 
             self.assertEqual(result["status"], "needs_attention")
@@ -127,6 +139,73 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             self.assertIn("manifest", result["missing_outputs"])
             self.assertIn("manual_review_queue", result["missing_outputs"])
             self.assertIn("缺失输出：manifest, manual_review_queue", report)
+
+    def test_ops_check_needs_attention_when_weekly_check_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
+            root = Path(tmp)
+            output_files = {
+                "self_analysis": "outputs/automation/latest_self_analysis.md",
+                "manifest": "outputs/automation/latest_self_analysis_manifest.json",
+                "manual_review_queue": "outputs/automation/latest_manual_review_queue.csv",
+                "automation_check": "outputs/automation/latest_automation_check.json",
+            }
+            for relative_path in output_files.values():
+                path = root / relative_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("ok\n", encoding="utf-8-sig")
+            check_path = write_weekly_check(root, output_files, as_of_date="2026-06-28")
+            write_expected_automations(automation_tmp)
+
+            from weekly_ops_check import render_weekly_ops_check, run_weekly_ops_check
+
+            result = run_weekly_ops_check(
+                root,
+                automation_tmp,
+                check_path,
+                today="2026-07-07",
+                max_age_days=8,
+            )
+            report = render_weekly_ops_check(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["freshness_status"], "stale")
+            self.assertEqual(result["check_age_days"], 9)
+            self.assertIn("stale_check_date", result["attention_reasons"])
+            self.assertIn("验收日期新鲜度：stale", report)
+            self.assertIn("验收文件过期", report)
+
+    def test_ops_check_needs_attention_when_weekly_check_date_is_in_future(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
+            root = Path(tmp)
+            output_files = {
+                "self_analysis": "outputs/automation/latest_self_analysis.md",
+                "manifest": "outputs/automation/latest_self_analysis_manifest.json",
+                "manual_review_queue": "outputs/automation/latest_manual_review_queue.csv",
+                "automation_check": "outputs/automation/latest_automation_check.json",
+            }
+            for relative_path in output_files.values():
+                path = root / relative_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("ok\n", encoding="utf-8-sig")
+            check_path = write_weekly_check(root, output_files, as_of_date="2026-07-08")
+            write_expected_automations(automation_tmp)
+
+            from weekly_ops_check import render_weekly_ops_check, run_weekly_ops_check
+
+            result = run_weekly_ops_check(
+                root,
+                automation_tmp,
+                check_path,
+                today="2026-07-07",
+                max_age_days=8,
+            )
+            report = render_weekly_ops_check(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["freshness_status"], "future")
+            self.assertEqual(result["check_age_days"], -1)
+            self.assertIn("future_check_date", result["attention_reasons"])
+            self.assertIn("验收日期晚于当前日期", report)
 
     def test_cli_returns_zero_for_ready_ops_check(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
@@ -154,6 +233,10 @@ class WeeklyOpsCheckTests(unittest.TestCase):
                     str(automation_tmp),
                     "--check",
                     str(check_path),
+                    "--today",
+                    "2026-06-28",
+                    "--max-age-days",
+                    "8",
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
