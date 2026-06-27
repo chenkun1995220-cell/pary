@@ -213,6 +213,7 @@ class WeeklyOpsCheckTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
             root = Path(tmp)
             output_path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
+            history_path = root / "outputs" / "automation" / "weekly_ops_check_history.jsonl"
             output_files = {
                 "self_analysis": "outputs/automation/latest_self_analysis.md",
                 "manifest": "outputs/automation/latest_self_analysis_manifest.json",
@@ -242,6 +243,8 @@ class WeeklyOpsCheckTests(unittest.TestCase):
                     "8",
                     "--output",
                     str(output_path),
+                    "--history",
+                    str(history_path),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -259,6 +262,52 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             self.assertEqual(payload["ops_check_version"], 1)
             self.assertEqual(payload["status"], "ready")
             self.assertEqual(payload["freshness_status"], "fresh")
+            history = [
+                json.loads(line)
+                for line in history_path.read_text(encoding="utf-8-sig").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["history_schema"], "weekly_ops_check_history")
+            self.assertEqual(history[0]["history_version"], 1)
+            self.assertEqual(history[0]["ops_check_schema"], "weekly_ops_check")
+            self.assertEqual(history[0]["status"], "ready")
+
+            second = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "weekly_ops_check.py"),
+                    "--project-root",
+                    str(root),
+                    "--automation-root",
+                    str(automation_tmp),
+                    "--check",
+                    str(check_path),
+                    "--today",
+                    "2026-06-29",
+                    "--max-age-days",
+                    "8",
+                    "--output",
+                    str(output_path),
+                    "--history",
+                    str(history_path),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+            second_output = second.stdout + second.stderr
+            self.assertEqual(second.returncode, 0, second_output)
+            history = [
+                json.loads(line)
+                for line in history_path.read_text(encoding="utf-8-sig").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(history), 2)
+            self.assertEqual(history[1]["check_age_days"], 1)
 
 
 if __name__ == "__main__":
