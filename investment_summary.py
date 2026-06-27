@@ -259,6 +259,7 @@ def merge_candidate_rows(candidate_rows, valuation_rows):
         row["price_date"] = valuation.get("price_date", "")
         row["generated_date"] = valuation.get("generated_date", "")
         row["model_version"] = valuation.get("model_version", "")
+        row["risk_summary"] = row.get("risk_summary") or row.get("risk_note") or row.get("risk_flag") or build_candidate_risk_summary(row)
         merged.append(row)
     return sorted(
         merged,
@@ -272,6 +273,81 @@ def merge_candidate_rows(candidate_rows, valuation_rows):
 
 def _is_present(value):
     return str(value or "").strip() not in {"", "None", "none", "nan", "NaN"}
+
+
+def build_candidate_risk_summary(row):
+    risks = []
+    confidence = str(row.get("valuation_confidence", "")).strip().lower()
+    if confidence == "low":
+        risks.append("估值置信度低")
+
+    price_action = str(row.get("price_action", "")).strip()
+    if "无安全边际" in price_action:
+        risks.append("当前无安全边际")
+    elif "等待回调" in price_action:
+        risks.append("需等待更好买点")
+
+    expected_return = to_float(row.get("expected_return"))
+    if expected_return is not None and expected_return < 0:
+        risks.append("预期收益为负")
+
+    trend = str(row.get("trend_label", "")).strip()
+    if trend in {"偏弱", "弱势"}:
+        risks.append("走势偏弱")
+
+    debt_to_assets = to_float(row.get("debt_to_assets"))
+    if debt_to_assets is not None and debt_to_assets >= 0.60:
+        risks.append("资产负债率偏高")
+
+    current_ratio = to_float(row.get("current_ratio"))
+    if current_ratio is not None and current_ratio < 1:
+        risks.append("流动比率低于1")
+
+    revenue_growth = to_float(row.get("revenue_growth"))
+    if revenue_growth is not None and revenue_growth < 0:
+        risks.append("收入增长为负")
+
+    net_income_growth = to_float(row.get("net_income_growth"))
+    if net_income_growth is not None and net_income_growth < 0:
+        risks.append("净利润增长为负")
+
+    data_quality_statuses = [
+        row.get("data_quality_status"),
+        row.get("financial_data_status"),
+        row.get("valuation_valuation_status"),
+    ]
+    weak_quality = [
+        str(status).strip()
+        for status in data_quality_statuses
+        if _is_present(status) and str(status).strip().lower() not in {"ready", "ok", "current", "manual_override_applied"}
+    ]
+    if weak_quality:
+        risks.append("数据质量需复核")
+
+    if not risks:
+        risks.append("未发现量化硬性风险，仍需复核行业周期和财报一次性项目")
+    return "；".join(risks)
+
+
+def build_candidate_risk_lines(rows, row_limit=20):
+    if not rows:
+        return []
+    lines = [
+        "",
+        "## 候选风险说明",
+        "",
+        "| 股票 | 公司 | 风险说明 |",
+        "|---|---|---|",
+    ]
+    for row in rows[:row_limit]:
+        lines.append(
+            "| {ticker} | {company} | {risk} |".format(
+                ticker=row.get("ticker", ""),
+                company=row.get("company_name", ""),
+                risk=row.get("risk_summary") or build_candidate_risk_summary(row),
+            )
+        )
+    return lines
 
 
 def _tracking_status_by_ticker(tracking_rows):
@@ -438,6 +514,7 @@ def build_summary_lines(
                 reason=reason,
             )
         )
+    lines.extend(build_candidate_risk_lines(rows))
     lines.extend(build_conclusion_quality_lines(rows, tracking_rows))
     lines.extend(
         [

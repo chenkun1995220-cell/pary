@@ -14,6 +14,148 @@ def write_csv(path, fieldnames, rows):
 
 
 class InvestmentSummaryTests(unittest.TestCase):
+    def test_generates_candidate_risk_explanations_when_risk_flag_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidates = root / "candidate_pool.csv"
+            valuations = root / "valuation_targets.csv"
+            tracking = root / "tracking_snapshot.csv"
+            forecast_history = root / "forecast_history.csv"
+            model_audit = root / "model_audit.md"
+            output = root / "latest_investment_summary.md"
+
+            write_csv(
+                candidates,
+                [
+                    "market",
+                    "ticker",
+                    "company_name",
+                    "total_score",
+                    "grade",
+                    "reason",
+                    "data_quality_status",
+                    "financial_data_status",
+                    "debt_to_assets",
+                    "current_ratio",
+                    "revenue_growth",
+                    "net_income_growth",
+                ],
+                [
+                    {
+                        "market": "A股",
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "total_score": "90",
+                        "grade": "A",
+                        "reason": "PE低于行业中位数；ROE稳健；经营现金流为正",
+                        "data_quality_status": "ready",
+                        "financial_data_status": "ready",
+                        "debt_to_assets": "0.20",
+                        "current_ratio": "2.5",
+                        "revenue_growth": "0.12",
+                        "net_income_growth": "0.18",
+                    },
+                    {
+                        "market": "A股",
+                        "ticker": "BBB",
+                        "company_name": "Beta",
+                        "total_score": "82",
+                        "grade": "B",
+                        "reason": "PB低于行业中位数；资产负债率可控",
+                        "data_quality_status": "ready",
+                        "financial_data_status": "ready",
+                        "debt_to_assets": "0.72",
+                        "current_ratio": "0.80",
+                        "revenue_growth": "-0.10",
+                        "net_income_growth": "-0.22",
+                    },
+                ],
+            )
+            write_csv(
+                valuations,
+                [
+                    "market",
+                    "ticker",
+                    "company_name",
+                    "currency",
+                    "current_price",
+                    "buy_price",
+                    "target_price",
+                    "expected_return",
+                    "price_action",
+                    "trend_label",
+                    "valuation_confidence",
+                    "reason",
+                    "generated_date",
+                    "model_version",
+                ],
+                [
+                    {
+                        "market": "A股",
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "currency": "CNY",
+                        "current_price": "10",
+                        "buy_price": "9",
+                        "target_price": "14",
+                        "expected_return": "0.4",
+                        "price_action": "达到建议买入区间",
+                        "trend_label": "中性",
+                        "valuation_confidence": "high",
+                        "reason": "混合估值目标价 14",
+                        "generated_date": "2026-06-27",
+                        "model_version": "valuation_trend_v1",
+                    },
+                    {
+                        "market": "A股",
+                        "ticker": "BBB",
+                        "company_name": "Beta",
+                        "currency": "CNY",
+                        "current_price": "30",
+                        "buy_price": "22",
+                        "target_price": "28",
+                        "expected_return": "-0.05",
+                        "price_action": "等待回调/当前无安全边际",
+                        "trend_label": "偏弱",
+                        "valuation_confidence": "low",
+                        "reason": "混合估值目标价 28",
+                        "generated_date": "2026-06-27",
+                        "model_version": "valuation_trend_v1",
+                    },
+                ],
+            )
+            write_csv(
+                tracking,
+                ["ticker", "evaluation_status"],
+                [
+                    {"ticker": "AAA", "evaluation_status": "tracking"},
+                    {"ticker": "BBB", "evaluation_status": "tracking"},
+                ],
+            )
+            write_csv(forecast_history, ["ticker", "generated_date", "model_version"], [])
+            model_audit.write_text("- 审计状态：sample_accumulating\n- 结论：样本积累中\n", encoding="utf-8-sig")
+
+            generate_investment_summary(
+                candidates,
+                valuations,
+                tracking,
+                forecast_history,
+                model_audit,
+                output,
+            )
+
+            report = output.read_text(encoding="utf-8-sig")
+            self.assertIn("## 候选风险说明", report)
+            self.assertIn("| AAA | Alpha | 未发现量化硬性风险", report)
+            self.assertIn("| BBB | Beta | 估值置信度低", report)
+            self.assertIn("当前无安全边际", report)
+            self.assertIn("走势偏弱", report)
+            self.assertIn("资产负债率偏高", report)
+            self.assertIn("流动比率低于1", report)
+            self.assertIn("收入增长为负", report)
+            self.assertIn("净利润增长为负", report)
+            self.assertIn("- 字段完整：2/2", report)
+
     def test_flags_candidate_conclusion_quality_gaps(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -162,7 +304,7 @@ class InvestmentSummaryTests(unittest.TestCase):
             report = output.read_text(encoding="utf-8-sig")
             self.assertIn("## 候选结论质量检查", report)
             self.assertIn("- 字段完整：1/3", report)
-            self.assertIn("| BBB | Beta | 理由不足、数据不足、可读性不足 |", report)
+            self.assertIn("| BBB | Beta | 理由不足、数据不足 |", report)
             self.assertIn("| CCC | Gamma | 数据不足 |", report)
             self.assertIn("缺少低估依据", report)
             self.assertIn("缺少跟踪状态", report)
