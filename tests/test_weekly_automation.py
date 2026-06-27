@@ -248,12 +248,14 @@ class WeeklyAutomationTests(unittest.TestCase):
         )
 
         self.assertIn("run_self_analysis.ps1", doc)
+        self.assertIn("show_automation_check.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
         self.assertIn("outputs/automation/latest_manual_review_queue.csv", doc)
         self.assertIn("outputs/automation/manual_review_queue_history.csv", doc)
         self.assertIn("outputs/automation/manual_review_repeats.csv", doc)
         self.assertIn("outputs/automation/latest_self_analysis_manifest.json", doc)
         self.assertIn("outputs/automation/latest_automation_check.json", doc)
+        self.assertIn("automation_check_report.py", doc)
         self.assertIn("manifest_schema", doc)
         self.assertIn("manifest_version", doc)
         self.assertIn("review_status", doc)
@@ -307,6 +309,15 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("latest_investment_summary", script)
         self.assertIn("quote_gaps", script)
         self.assertIn("DryRun", script)
+
+    def test_automation_check_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "show_automation_check.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("automation_check_report.py", script)
+        self.assertIn("latest_automation_check.json", script)
+        self.assertIn("--check", script)
 
 
 if __name__ == "__main__":
