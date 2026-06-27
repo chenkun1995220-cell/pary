@@ -359,6 +359,13 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             output = Path(result["output"])
             text = output.read_text(encoding="utf-8-sig")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(len(manifest["markets"]), 3)
+            self.assertEqual(manifest["markets"][0]["status"], "ready")
+            self.assertEqual(manifest["markets"][0]["candidate_count"], "2")
+            self.assertEqual(manifest["markets"][1]["candidate_count"], "1")
+            self.assertEqual(manifest["markets"][2]["candidate_count"], "0")
+            self.assertIn("summary_path", manifest["markets"][0])
             self.assertTrue(output.exists())
             self.assertIn("每周自我分析摘要", text)
             self.assertIn("美股周筛", text)

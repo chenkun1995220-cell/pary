@@ -657,6 +657,20 @@ def _manual_review_status(queue_count, repeat_count):
     return "clear", "monitor_next_run"
 
 
+def _manifest_markets(markets):
+    return [
+        {
+            "name": market.get("name", ""),
+            "status": market.get("status", ""),
+            "candidate_count": market.get("candidate_count", ""),
+            "candidate_tickers": market.get("candidate_tickers", ""),
+            "audit_status": market.get("audit_status", ""),
+            "summary_path": market.get("summary_path", ""),
+        }
+        for market in markets
+    ]
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -837,6 +851,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         {
             "as_of_date": as_of_date,
             "market_count": len(markets),
+            "markets": _manifest_markets(markets),
             "manual_review_queue_count": len(manual_review_queue),
             "manual_review_repeat_count": len(manual_review_history_repeats),
             "review_status": review_status,
