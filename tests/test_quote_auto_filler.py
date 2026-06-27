@@ -120,6 +120,43 @@ class QuoteAutoFillerTests(unittest.TestCase):
             self.assertEqual(set(rows), {"FRESH"})
             self.assertEqual(rows["FRESH"]["price"], "10")
 
+    def test_existing_manual_override_quotes_reuse_requires_current_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "quotes.csv"
+            with path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=["ticker", "price", "shares_outstanding", "quote_date", "quote_source"],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "KEEP",
+                        "price": "10",
+                        "shares_outstanding": "100",
+                        "quote_date": "2026-06-18",
+                        "quote_source": "Yahoo; Manual share override (still configured)",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "ticker": "DROP",
+                        "price": "20",
+                        "shares_outstanding": "200",
+                        "quote_date": "2026-06-18",
+                        "quote_source": "Yahoo; Manual share override (removed)",
+                    }
+                )
+
+            rows = load_fresh_quotes(
+                path,
+                date(2026, 6, 21),
+                max_age_days=7,
+                manual_override_tickers={"KEEP"},
+            )
+
+            self.assertEqual(set(rows), {"KEEP"})
+
     def test_build_quote_row_rejects_implausibly_tiny_sec_share_count(self):
         facts = company_facts()
         facts["facts"].pop("dei")
@@ -299,6 +336,77 @@ class QuoteAutoFillerTests(unittest.TestCase):
         }
 
         self.assertEqual(extract_shares_outstanding(facts), 12_345_000_000)
+
+    def test_extracts_newer_us_gaap_shares_instead_of_stale_dei_value(self):
+        facts = company_facts()
+        facts["facts"]["dei"]["EntityCommonStockSharesOutstanding"] = {
+            "units": {
+                "shares": [
+                    {
+                        "val": 1,
+                        "fy": 2019,
+                        "fp": "Q2",
+                        "form": "10-Q",
+                        "filed": "2019-03-18",
+                        "end": "2019-03-18",
+                    }
+                ]
+            }
+        }
+        facts["facts"]["us-gaap"]["WeightedAverageNumberOfDilutedSharesOutstanding"] = {
+            "units": {
+                "shares": [
+                    {
+                        "val": 443_000_000,
+                        "fy": 2026,
+                        "fp": "Q3",
+                        "form": "10-Q",
+                        "filed": "2026-05-11",
+                        "end": "2026-03-31",
+                    }
+                ]
+            }
+        }
+
+        self.assertEqual(extract_shares_outstanding(facts), 443_000_000)
+
+    def test_build_quote_row_uses_newer_us_gaap_shares_without_manual_override(self):
+        facts = company_facts()
+        facts["facts"]["dei"]["EntityCommonStockSharesOutstanding"] = {
+            "units": {
+                "shares": [
+                    {
+                        "val": 1,
+                        "fy": 2019,
+                        "fp": "Q2",
+                        "form": "10-Q",
+                        "filed": "2019-03-18",
+                        "end": "2019-03-18",
+                    }
+                ]
+            }
+        }
+        facts["facts"]["us-gaap"]["WeightedAverageNumberOfDilutedSharesOutstanding"] = {
+            "units": {"shares": [sec_fact(443_000_000, fy=2026, filed="2026-05-11", fp="Q3", unit="shares")]}
+        }
+        facts["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"] = {
+            "units": {"USD": [sec_fact(16_480_000_000, fy=2026, filed="2026-05-11")]}
+        }
+
+        row = build_quote_row(
+            {"ticker": "FOXA"},
+            facts,
+            quote_override={
+                "ticker": "FOXA",
+                "price": 50,
+                "quote_date": "2026-06-26",
+                "quote_source": "Yahoo Finance chart",
+            },
+        )
+
+        self.assertEqual(row["shares_outstanding"], 443.0)
+        self.assertNotIn("Manual share override", row["quote_source"])
+        self.assertNotIn("share sanity failed", row["quote_source"])
 
     def test_run_auto_fill_quotes_writes_standard_quote_csv_from_fixtures(self):
         with tempfile.TemporaryDirectory() as tmp:

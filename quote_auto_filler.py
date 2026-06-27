@@ -73,7 +73,7 @@ SEC_SHARE_TEXT_PATTERNS = [
 SEC_SHARE_FORM_SKIP_PREFIXES = ("3", "4", "5", "144", "SC ", "SCHEDULE")
 
 
-def latest_fact_value(company_facts, taxonomy, concept_names, unit):
+def latest_fact_candidate(company_facts, taxonomy, concept_names, unit, taxonomy_priority=0):
     facts = company_facts.get("facts", {}).get(taxonomy, {})
     candidates = []
     for concept in concept_names:
@@ -86,20 +86,42 @@ def latest_fact_value(company_facts, taxonomy, concept_names, unit):
                     "filed": fact.get("filed") or "",
                     "fy": fact.get("fy") or 0,
                     "end": fact.get("end") or "",
+                    "taxonomy_priority": taxonomy_priority,
                 }
             )
     if not candidates:
         return None
-    candidates.sort(key=lambda item: (item["fy"], item["filed"], item["end"]), reverse=True)
+    candidates.sort(
+        key=lambda item: (item["fy"], item["filed"], item["end"], item["taxonomy_priority"]),
+        reverse=True,
+    )
+    return candidates[0]
+
+
+def latest_fact_value(company_facts, taxonomy, concept_names, unit):
+    candidate = latest_fact_candidate(company_facts, taxonomy, concept_names, unit)
+    if candidate is None:
+        return None
+    return candidate["value"]
+
+
+def latest_share_fact_value(company_facts):
+    candidates = [
+        latest_fact_candidate(company_facts, "dei", SHARES_CONCEPTS, "shares", taxonomy_priority=1),
+        latest_fact_candidate(company_facts, "us-gaap", US_GAAP_SHARES_CONCEPTS, "shares", taxonomy_priority=0),
+    ]
+    candidates = [candidate for candidate in candidates if candidate is not None]
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda item: (item["fy"], item["filed"], item["end"], item["taxonomy_priority"]),
+        reverse=True,
+    )
     return candidates[0]["value"]
 
 
 def extract_shares_outstanding(company_facts):
-    return latest_fact_value(
-        company_facts, "dei", SHARES_CONCEPTS, "shares"
-    ) or latest_fact_value(
-        company_facts, "us-gaap", US_GAAP_SHARES_CONCEPTS, "shares"
-    )
+    return latest_share_fact_value(company_facts)
 
 
 def extract_debt(company_facts):
@@ -163,14 +185,18 @@ def read_price_fixture(price_fixture_dir, ticker):
     return fixture_path.read_text(encoding="utf-8-sig")
 
 
-def load_fresh_quotes(path, as_of_date=None, max_age_days=7):
+def load_fresh_quotes(path, as_of_date=None, max_age_days=7, manual_override_tickers=None):
     output = Path(path)
     if not output.exists():
         return {}
     as_of_date = as_of_date or date.today()
+    manual_override_tickers = {ticker.upper() for ticker in (manual_override_tickers or set())}
     fresh = {}
     with output.open(encoding="utf-8-sig", newline="") as handle:
         for row in csv.DictReader(handle):
+            ticker = row.get("ticker", "").upper()
+            if "Manual share override" in row.get("quote_source", "") and ticker not in manual_override_tickers:
+                continue
             try:
                 quote_date = date.fromisoformat(row.get("quote_date", ""))
                 age = (as_of_date - quote_date).days
@@ -183,7 +209,7 @@ def load_fresh_quotes(path, as_of_date=None, max_age_days=7):
                 and shares is not None
                 and shares >= MIN_REUSABLE_SHARES_MILLIONS
             ):
-                fresh[row.get("ticker", "").upper()] = row
+                fresh[ticker] = row
     return fresh
 
 
@@ -390,7 +416,14 @@ def run_auto_fill_quotes(
     companies = load_sec_config(companies_path)
     share_overrides = load_share_overrides(share_overrides_path)
     cached_quotes = (
-        {} if price_fixture_dir else load_fresh_quotes(output_path, as_of_date, quote_max_age_days)
+        {}
+        if price_fixture_dir
+        else load_fresh_quotes(
+            output_path,
+            as_of_date,
+            quote_max_age_days,
+            manual_override_tickers=set(share_overrides),
+        )
     )
     prepared = []
     for company in companies:
