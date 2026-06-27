@@ -13,6 +13,7 @@ MARKETS = [
         "default_health": Path("outputs/us_universe/data_health_history.csv"),
         "default_investment": Path("outputs/us_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/us_universe/quote_gaps.csv"),
+        "default_valuation_review": Path("outputs/us_universe/valuation_review_items.csv"),
     },
     {
         "name": "A股周筛",
@@ -21,6 +22,7 @@ MARKETS = [
         "default_health": Path("outputs/cn_universe/data_health_history.csv"),
         "default_investment": Path("outputs/cn_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/cn_universe/quote_gaps.csv"),
+        "default_valuation_review": Path("outputs/cn_universe/valuation_review_items.csv"),
     },
     {
         "name": "港股周筛",
@@ -29,6 +31,7 @@ MARKETS = [
         "default_health": Path("outputs/hk_universe/data_health_history.csv"),
         "default_investment": Path("outputs/hk_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/hk_universe/quote_gaps.csv"),
+        "default_valuation_review": Path("outputs/hk_universe/valuation_review_items.csv"),
     },
 ]
 
@@ -99,6 +102,7 @@ def _market_snapshot(project_root, config):
             "health_path": str(Path(project_root) / config["default_health"]),
             "investment_path": str(Path(project_root) / config["default_investment"]),
             "quote_gaps_path": str(Path(project_root) / config["default_quote_gaps"]),
+            "valuation_review_path": str(Path(project_root) / config["default_valuation_review"]),
         }
     fields = _summary_fields(text)
     audit_path = _resolve_path(project_root, fields.get("Model audit")) or (
@@ -109,6 +113,9 @@ def _market_snapshot(project_root, config):
     )
     quote_gaps_path = _resolve_path(project_root, fields.get("Quote gaps")) or (
         Path(project_root) / config["default_quote_gaps"]
+    )
+    valuation_review_path = _resolve_path(project_root, fields.get("Valuation review items")) or (
+        Path(project_root) / config["default_valuation_review"]
     )
     default_investment_path = Path(project_root) / config["default_investment"]
     investment_path = _resolve_path(project_root, fields.get("Investment summary")) or (
@@ -126,6 +133,7 @@ def _market_snapshot(project_root, config):
         "health_path": str(health_path),
         "investment_path": str(investment_path),
         "quote_gaps_path": str(quote_gaps_path),
+        "valuation_review_path": str(valuation_review_path),
     }
 
 
@@ -206,6 +214,19 @@ def _quote_gap_summary(path):
                     category = category.strip()
                     if category:
                         summary["review_categories"][category] = summary["review_categories"].get(category, 0) + 1
+    return summary
+
+
+def _valuation_review_summary(path):
+    rows = _read_csv_rows(path)
+    summary = {"total": 0, "categories": {}}
+    for row in rows:
+        summary["total"] += 1
+        category_text = row.get("valuation_review_category") or row.get("review_category") or ""
+        for category in category_text.split(";"):
+            category = category.strip()
+            if category:
+                summary["categories"][category] = summary["categories"].get(category, 0) + 1
     return summary
 
 
@@ -316,6 +337,7 @@ def _health_snapshot(market):
     path = Path(market["health_path"])
     row = _latest_health_row(path)
     quote_gap_summary = _quote_gap_summary(market["quote_gaps_path"])
+    valuation_review_summary = _valuation_review_summary(market["valuation_review_path"])
     if row is None:
         return {
             "name": market["name"],
@@ -331,6 +353,8 @@ def _health_snapshot(market):
             "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
             "quote_gap_review_count": str(quote_gap_summary["review"]),
             "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
+            "valuation_review_item_count": str(valuation_review_summary["total"]),
+            "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
@@ -347,6 +371,8 @@ def _health_snapshot(market):
         "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
         "quote_gap_review_count": str(quote_gap_summary["review"]),
         "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
+        "valuation_review_item_count": str(valuation_review_summary["total"]),
+        "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
         "data_quality_blocked": row.get("data_quality_blocked", "0"),
         "affected_candidate_count": row.get("affected_candidate_count", "0"),
         "share_override_review": row.get("share_override_review", "0"),
@@ -484,6 +510,10 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
         categories = item.get("quote_gap_review_categories", "none")
         if categories != "none":
             lines.append(f"- {item['name']} 估值复核分类：{categories}")
+        review_count = _as_int(item.get("valuation_review_item_count"))
+        review_categories = item.get("valuation_review_categories", "none")
+        if review_count and review_count > 0:
+            lines.append(f"- {item['name']} 估值复核清单：{review_count}；{review_categories}")
     lines.extend(
         [
             "",
