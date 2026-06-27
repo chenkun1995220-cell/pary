@@ -56,6 +56,18 @@ def _discount_score(value, median, levels):
     return 0
 
 
+def _valuation_review_fields(pe, pb):
+    categories = []
+    details = []
+    if pe is None or pe <= 0:
+        categories.append("loss_making_or_negative_pe")
+        details.append("pe=" if pe is None else f"pe={pe:g}")
+    if pb is None or pb <= 0:
+        categories.append("non_positive_book_value_or_pb")
+        details.append("pb=" if pb is None else f"pb={pb:g}")
+    return ";".join(categories), ";".join(details)
+
+
 def score_row(item, median, candidate_min_score=65):
     pe = to_float(item.get("pe"))
     pb = to_float(item.get("pb"))
@@ -106,6 +118,7 @@ def score_row(item, median, candidate_min_score=65):
     growth_score = growth_points(revenue_growth) + growth_points(net_income_growth)
     valuation_score = pe_score + pb_score
     total_score = valuation_score + profitability_score + balance_sheet_score + cash_flow_score + growth_score
+    valuation_review_category, valuation_review_detail = _valuation_review_fields(pe, pb)
 
     financial_values = [roic, gross_margin, current_ratio, debt_to_assets, operating_cash_flow, revenue_growth, net_income_growth]
     financial_field_count = sum(value is not None for value in financial_values)
@@ -163,6 +176,8 @@ def score_row(item, median, candidate_min_score=65):
             "total_score": total_score,
             "grade": grade,
             "candidate_status": "candidate" if eligible else "excluded",
+            "valuation_review_category": valuation_review_category,
+            "valuation_review_detail": valuation_review_detail,
             "reason": "；".join(reasons),
             "model_version": MODEL_VERSION,
             "model_scope": "估值、盈利质量、资产负债、现金流和增长综合初筛",
@@ -234,6 +249,23 @@ def run_regional_screening(input_path, output_root, candidate_min_score=75):
         )
     if not candidates:
         report_lines.append("| - | 本期无满足门槛的候选 | - | - | - | - |")
+    valuation_review_items = [
+        item for item in scored if item.get("valuation_review_category")
+    ]
+    if valuation_review_items:
+        report_lines.extend(
+            [
+                "",
+                "## 估值口径复核",
+                "",
+                "| 股票 | 公司 | 行业 | 复核分类 | 细节 | 排除理由 |",
+                "|---|---|---|---|---|---|",
+            ]
+        )
+        for item in valuation_review_items[:20]:
+            report_lines.append(
+                f"| {item.get('ticker', '')} | {item.get('company_name', '')} | {item.get('industry', '')} | {item.get('valuation_review_category', '')} | {item.get('valuation_review_detail', '')} | {item['reason']} |"
+            )
     (output / "weekly_report.md").write_text(
         "\n".join(report_lines) + "\n", encoding="utf-8-sig"
     )

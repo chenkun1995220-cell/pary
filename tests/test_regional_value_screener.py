@@ -129,5 +129,41 @@ class RegionalValueScreenerTests(unittest.TestCase):
             self.assertIn("VALUE", report)
 
 
+    def test_screening_report_lists_non_positive_valuation_review_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            input_path = root / "snapshot.csv"
+            output_root = root / "output"
+            rows = [
+                row("VALUE", 5, 0.5, 0.16),
+                row("EMPTY", "", 0.4, 0.11),
+                row("LOSS", -3, 0.5, 0.10),
+                row("BOOK", 6, 0, 0.12),
+                row("B", 10, 1.0, 0.12),
+                row("C", 11, 1.1, 0.10),
+                row("D", 12, 1.2, 0.08),
+                row("E", 13, 1.3, 0.07),
+                row("F", 14, 1.4, 0.06),
+            ]
+            with input_path.open("w", encoding="utf-8-sig", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+
+            run_regional_screening(input_path, output_root, candidate_min_score=65)
+
+            with (output_root / "screening_results.csv").open("r", encoding="utf-8-sig", newline="") as stream:
+                result_rows = {item["ticker"]: item for item in csv.DictReader(stream)}
+            report = (output_root / "weekly_report.md").read_text(encoding="utf-8-sig")
+
+            self.assertEqual(result_rows["LOSS"]["valuation_review_category"], "loss_making_or_negative_pe")
+            self.assertEqual(result_rows["BOOK"]["valuation_review_category"], "non_positive_book_value_or_pb")
+            self.assertEqual(result_rows["EMPTY"]["valuation_review_category"], "loss_making_or_negative_pe")
+            self.assertIn("loss_making_or_negative_pe", report)
+            self.assertIn("non_positive_book_value_or_pb", report)
+            self.assertIn("LOSS", report)
+            self.assertIn("BOOK", report)
+
+
 if __name__ == "__main__":
     unittest.main()
