@@ -95,6 +95,40 @@ class DataQualityChecksTests(unittest.TestCase):
         self.assertIn("missing_financial_statement_data", issue_codes)
         self.assertNotIn("missing_core_numeric_field", issue_codes)
 
+    def test_quality_issues_include_actionable_handling_fields(self):
+        rows = [
+            {
+                "ticker": "GMX",
+                "company_name": "Gross Margin Extreme Co",
+                "industry": "工业",
+                "market_cap": "1000",
+                "net_income_ttm": "100",
+                "gross_margin": "45",
+                "audit_opinion": "标准无保留",
+                "risk_flag": "无",
+            },
+            {
+                "ticker": "FDXF",
+                "company_name": "FedEx Freight Holding Company, Inc.",
+                "industry": "工业",
+                "market_cap": "22722555208",
+                "net_income_ttm": "",
+                "revenue_ttm": "",
+                "audit_opinion": "标准无保留",
+                "risk_flag": "无",
+            },
+        ]
+
+        issues = check_rows(rows)
+        by_code = {issue["issue_code"]: issue for issue in issues}
+
+        self.assertEqual(by_code["percentage_unit_suspect"]["review_action"], "复核源字段")
+        self.assertEqual(by_code["percentage_unit_suspect"]["impact_on_score"], "可能影响盈利质量和估值倍数")
+        self.assertIn("核对 gross_margin", by_code["percentage_unit_suspect"]["recommended_handling"])
+        self.assertEqual(by_code["missing_financial_statement_data"]["review_action"], "补齐财报数据")
+        self.assertEqual(by_code["missing_financial_statement_data"]["impact_on_score"], "可能降低估值置信度")
+        self.assertIn("补齐 revenue_ttm", by_code["missing_financial_statement_data"]["recommended_handling"])
+
     def test_detects_financial_logic_issues(self):
         rows = [
             {
@@ -170,8 +204,12 @@ class DataQualityChecksTests(unittest.TestCase):
 
             self.assertGreater(result["issue_count"], 0)
             self.assertIn("missing_required_field", issues_text)
+            self.assertIn("review_action", issues_text)
+            self.assertIn("impact_on_score", issues_text)
+            self.assertIn("recommended_handling", issues_text)
             self.assertIn("# 数据质量检查报告", report_text)
             self.assertIn("问题公司", report_text)
+            self.assertIn("处置建议", report_text)
 
 
 if __name__ == "__main__":

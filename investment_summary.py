@@ -92,6 +92,39 @@ def summarize_data_quality_groups(data_quality_rows, issue_limit=3, ticker_limit
     return lines
 
 
+def summarize_data_quality_actions(data_quality_rows, action_limit=5, ticker_limit=5):
+    grouped = {}
+    for row in data_quality_rows:
+        code = row.get("issue_code", "").strip() or "unknown_issue"
+        action = row.get("review_action", "").strip()
+        impact = row.get("impact_on_score", "").strip()
+        handling = row.get("recommended_handling", "").strip()
+        if not action and not impact and not handling:
+            continue
+        key = (code, action, impact, handling)
+        if key not in grouped:
+            grouped[key] = {"count": 0, "tickers": set()}
+        grouped[key]["count"] += 1
+        ticker = row.get("ticker", "").strip().upper()
+        if ticker:
+            grouped[key]["tickers"].add(ticker)
+
+    if not grouped:
+        return []
+
+    lines = ["", "## 数据风险处置建议", ""]
+    items = sorted(
+        grouped.items(),
+        key=lambda item: (-item[1]["count"], item[0][0], item[0][1]),
+    )
+    for (code, action, impact, handling), data in items[:action_limit]:
+        tickers = sorted(data["tickers"])
+        ticker_text = compact_list(tickers, limit=ticker_limit)
+        suffix = f"（{data['count']} 项，{ticker_text}）" if tickers else f"（{data['count']} 项）"
+        lines.append(f"- {code}：{action}；{impact}；{handling}{suffix}")
+    return lines
+
+
 def read_model_audit_status(path):
     audit_path = Path(path)
     if not audit_path.exists():
@@ -139,6 +172,7 @@ def build_data_health_summary(quote_gap_rows, data_quality_rows, share_override_
             f"- 数据质量问题：{quality_total} 项（阻断 {quality_blocked}，警告 {quality_warnings}）"
         )
         lines.extend(summarize_data_quality_groups(data_quality_rows))
+        lines.extend(summarize_data_quality_actions(data_quality_rows))
     return lines
 
 
