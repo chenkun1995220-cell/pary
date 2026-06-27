@@ -482,6 +482,48 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0)
             self.assertIn("Self-analysis manifest valid", completed.stdout)
 
+    def test_manifest_completion_validator_reports_not_ready_markets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            from automation_self_analysis import validate_self_analysis_manifest
+
+            validation = validate_self_analysis_manifest(
+                result["manifest_output"],
+                require_markets_ready=True,
+            )
+
+            self.assertEqual(validation["status"], "invalid")
+            self.assertEqual(len(validation["not_ready_markets"]), 1)
+            self.assertIn("market_not_ready", "; ".join(validation["errors"]))
+
+    def test_cli_can_require_ready_market_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "automation_self_analysis.py"),
+                    "--validate-manifest",
+                    result["manifest_output"],
+                    "--require-market-ready",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(completed.returncode, 0)
+            self.assertIn("markets_ready=3", completed.stdout)
+
 
     def test_includes_data_health_history_and_flags_attention_items(self):
         with tempfile.TemporaryDirectory() as tmp:

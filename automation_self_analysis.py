@@ -1080,7 +1080,7 @@ REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
 ]
 
 
-def validate_self_analysis_manifest(path):
+def validate_self_analysis_manifest(path, require_markets_ready=False):
     manifest_path = Path(path)
     if not manifest_path.exists():
         return {
@@ -1088,6 +1088,9 @@ def validate_self_analysis_manifest(path):
             "schema": "",
             "version": "",
             "missing_fields": REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS[:],
+            "market_statuses": [],
+            "not_ready_markets": [],
+            "markets_ready_count": 0,
             "errors": [f"missing_manifest: {manifest_path}"],
         }
     try:
@@ -1098,10 +1101,16 @@ def validate_self_analysis_manifest(path):
             "schema": "",
             "version": "",
             "missing_fields": REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS[:],
+            "market_statuses": [],
+            "not_ready_markets": [],
+            "markets_ready_count": 0,
             "errors": [f"invalid_json: {exc}"],
         }
     missing = [field for field in REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS if field not in data]
     errors = []
+    market_statuses = []
+    not_ready_markets = []
+    markets_ready_count = 0
     schema = data.get("manifest_schema", "")
     version = data.get("manifest_version", "")
     if schema != "self_analysis_manifest":
@@ -1110,11 +1119,40 @@ def validate_self_analysis_manifest(path):
         errors.append(f"unexpected_version: {version}")
     if missing:
         errors.append("missing_fields: " + ", ".join(missing))
+    if require_markets_ready:
+        markets = data.get("markets", [])
+        if not isinstance(markets, list):
+            errors.append("markets_not_list")
+            markets = []
+        expected_market_count = len(MARKETS)
+        if len(markets) != expected_market_count:
+            errors.append(f"market_count: expected {expected_market_count} got {len(markets)}")
+        for index, market in enumerate(markets):
+            if isinstance(market, dict):
+                name = market.get("name") or f"market_{index + 1}"
+                status = market.get("status") or "missing"
+            else:
+                name = f"market_{index + 1}"
+                status = "invalid"
+            status_row = {"name": name, "status": status}
+            market_statuses.append(status_row)
+            if status == "ready":
+                markets_ready_count += 1
+            else:
+                not_ready_markets.append(status_row)
+        if not_ready_markets:
+            errors.append(
+                "market_not_ready: "
+                + ", ".join(f"{market['name']}={market['status']}" for market in not_ready_markets)
+            )
     return {
         "status": "invalid" if errors else "valid",
         "schema": schema,
         "version": version,
         "missing_fields": missing,
+        "market_statuses": market_statuses,
+        "not_ready_markets": not_ready_markets,
+        "markets_ready_count": markets_ready_count,
         "errors": errors,
     }
 
@@ -1125,13 +1163,18 @@ def main():
     parser.add_argument("--output")
     parser.add_argument("--as-of-date")
     parser.add_argument("--validate-manifest")
+    parser.add_argument("--require-market-ready", action="store_true")
     args = parser.parse_args()
     if args.validate_manifest:
-        validation = validate_self_analysis_manifest(args.validate_manifest)
+        validation = validate_self_analysis_manifest(
+            args.validate_manifest,
+            require_markets_ready=args.require_market_ready,
+        )
         if validation["status"] == "valid":
-            print(
-                f"Self-analysis manifest valid: schema={validation['schema']} version={validation['version']}"
-            )
+            message = f"Self-analysis manifest valid: schema={validation['schema']} version={validation['version']}"
+            if args.require_market_ready:
+                message += f" markets_ready={validation['markets_ready_count']}"
+            print(message)
             return
         print("Self-analysis manifest invalid: " + "; ".join(validation["errors"]))
         raise SystemExit(1)
