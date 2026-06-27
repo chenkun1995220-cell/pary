@@ -7,7 +7,8 @@ from pathlib import Path
 MARKETS = [
     {
         "name": "美股周筛",
-        "summary": Path("outputs/automation/latest_run_summary.md"),
+        "summary": Path("outputs/us_universe/latest_run_summary.md"),
+        "legacy_summary": Path("outputs/automation/latest_run_summary.md"),
         "default_audit": Path("outputs/us_universe/model_audit.md"),
         "default_health": Path("outputs/us_universe/data_health_history.csv"),
         "default_investment": Path("outputs/us_universe/latest_investment_summary.md"),
@@ -79,6 +80,10 @@ def _audit_status(path):
 
 def _market_snapshot(project_root, config):
     path = Path(project_root) / config["summary"]
+    legacy_used = False
+    if not path.exists() and config.get("legacy_summary"):
+        path = Path(project_root) / config["legacy_summary"]
+        legacy_used = True
     text = _read_text(path)
     if not text:
         return {
@@ -98,9 +103,12 @@ def _market_snapshot(project_root, config):
     health_path = _resolve_path(project_root, fields.get("Data health history")) or (
         Path(project_root) / config["default_health"]
     )
+    default_investment_path = Path(project_root) / config["default_investment"]
     investment_path = _resolve_path(project_root, fields.get("Investment summary")) or (
-        Path(project_root) / config["default_investment"]
+        default_investment_path
     )
+    if legacy_used and default_investment_path.exists():
+        investment_path = default_investment_path
     return {
         "name": config["name"],
         "status": "ready",
@@ -194,6 +202,14 @@ def _markdown_table_rows(lines):
     return rows
 
 
+def _is_no_risk_text(text):
+    normalized = str(text or "").strip().lower()
+    return (
+        normalized in {"无", "none", "no", "n/a", "na", "未发现"}
+        or normalized.startswith("未发现量化硬性风险")
+    )
+
+
 def _investment_review_snapshot(market):
     path = Path(market["investment_path"])
     text = _read_text(path)
@@ -231,7 +247,7 @@ def _investment_review_snapshot(market):
 
     risk_items = []
     for cells in _markdown_table_rows(_section_lines(text, "候选风险说明")):
-        if len(cells) >= 3 and not cells[2].startswith("未发现量化硬性风险"):
+        if len(cells) >= 3 and not _is_no_risk_text(cells[2]):
             risk_items.append(
                 {
                     "ticker": cells[0],

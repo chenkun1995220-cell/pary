@@ -16,7 +16,6 @@ $Companies = Join-Path $ProjectRoot "data\samples\us_universe_companies.csv"
 $Quotes = Join-Path $ProjectRoot "data\samples\us_universe_quotes.csv"
 $Sp500Cache = Join-Path $ProjectRoot "data\cache\sp500"
 $SecCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
-$AutomationRoot = Join-Path $ProjectRoot "outputs\automation"
 $PowerShell = (Get-Command powershell.exe).Source
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 
@@ -56,9 +55,9 @@ try {
     throw "Another weekly screening run is already in progress."
   }
 
-  New-Item -ItemType Directory -Force -Path $AutomationRoot | Out-Null
+  New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
   $runStamp = Get-Date -Format "yyyyMMdd_HHmmss"
-  $logPath = Join-Path $AutomationRoot "us_universe_$runStamp.log"
+  $logPath = Join-Path $OutputRoot "run_$runStamp.log"
   Start-Transcript -Path $logPath | Out-Null
   $transcriptStarted = $true
 
@@ -105,7 +104,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[4]) failed with exit code $LASTEXITCODE." }
 
   $runTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-  $investmentSummaryPath = Join-Path $AutomationRoot "latest_investment_summary.md"
+  $investmentSummaryPath = Join-Path $OutputRoot "latest_investment_summary.md"
   Write-Host "Running: $($ValuationSteps[5])"
   & $Python -B investment_summary.py `
     --candidates $candidatePath `
@@ -140,7 +139,7 @@ try {
   }
   $secCacheCount = @(Get-ChildItem -Path $SecCache -Filter "CIK*.json" -File -ErrorAction SilentlyContinue).Count
 
-  $summaryPath = Join-Path $AutomationRoot "latest_run_summary.md"
+  $summaryPath = Join-Path $OutputRoot "latest_run_summary.md"
   $summary = @(
     "# US Weekly Screening Run Summary",
     "",
