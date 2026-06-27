@@ -1010,6 +1010,8 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     _write_self_analysis_manifest(
         manifest_output,
         {
+            "manifest_schema": "self_analysis_manifest",
+            "manifest_version": 1,
             "as_of_date": as_of_date,
             "market_count": len(markets),
             "markets": _manifest_markets(markets),

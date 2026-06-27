@@ -360,6 +360,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             output = Path(result["output"])
             text = output.read_text(encoding="utf-8-sig")
             manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(manifest["manifest_schema"], "self_analysis_manifest")
+            self.assertEqual(manifest["manifest_version"], 1)
             self.assertEqual(len(manifest["markets"]), 3)
             self.assertEqual(manifest["markets"][0]["status"], "ready")
             self.assertEqual(manifest["markets"][0]["candidate_count"], "2")
