@@ -29,6 +29,72 @@ class DataQualityChecksTests(unittest.TestCase):
         self.assertIn("industry_unmapped", issue_codes)
         self.assertIn("industry_sample_too_small", issue_codes)
 
+    def test_percent_unit_warnings_use_field_specific_thresholds(self):
+        rows = [
+            {
+                "ticker": "OKRATIO",
+                "company_name": "High But Plausible Co",
+                "industry": "工业",
+                "market_cap": "1000",
+                "net_income_ttm": "100",
+                "roe": "1.5",
+                "roic": "1.6",
+                "debt_to_assets": "1.2",
+                "net_income_cagr_3y": "2.0",
+                "audit_opinion": "标准无保留",
+                "risk_flag": "无",
+            },
+            {
+                "ticker": "BADUNIT",
+                "company_name": "Bad Unit Co",
+                "industry": "工业",
+                "market_cap": "1000",
+                "net_income_ttm": "100",
+                "gross_margin": "45",
+                "roe": "12",
+                "roic": "12",
+                "debt_to_assets": "3",
+                "net_income_cagr_3y": "6",
+                "audit_opinion": "标准无保留",
+                "risk_flag": "无",
+            },
+        ]
+
+        issues = check_rows(rows)
+        by_ticker = {}
+        for issue in issues:
+            by_ticker.setdefault(issue["ticker"], set()).add((issue["issue_code"], issue["field"]))
+
+        self.assertNotIn(("percentage_unit_suspect", "roe"), by_ticker.get("OKRATIO", set()))
+        self.assertNotIn(("percentage_unit_suspect", "roic"), by_ticker.get("OKRATIO", set()))
+        self.assertNotIn(("percentage_unit_suspect", "debt_to_assets"), by_ticker.get("OKRATIO", set()))
+        self.assertNotIn(("percentage_unit_suspect", "net_income_cagr_3y"), by_ticker.get("OKRATIO", set()))
+        self.assertIn(("percentage_unit_suspect", "gross_margin"), by_ticker.get("BADUNIT", set()))
+        self.assertIn(("percentage_unit_suspect", "roe"), by_ticker.get("BADUNIT", set()))
+        self.assertIn(("percentage_unit_suspect", "roic"), by_ticker.get("BADUNIT", set()))
+        self.assertIn(("percentage_unit_suspect", "debt_to_assets"), by_ticker.get("BADUNIT", set()))
+        self.assertIn(("percentage_unit_suspect", "net_income_cagr_3y"), by_ticker.get("BADUNIT", set()))
+
+    def test_missing_income_and_revenue_is_reported_as_statement_gap(self):
+        rows = [
+            {
+                "ticker": "FDXF",
+                "company_name": "FedEx Freight Holding Company, Inc.",
+                "industry": "工业",
+                "market_cap": "22722555208",
+                "net_income_ttm": "",
+                "revenue_ttm": "",
+                "audit_opinion": "标准无保留",
+                "risk_flag": "无",
+            }
+        ]
+
+        issues = check_rows(rows)
+        issue_codes = {issue["issue_code"] for issue in issues}
+
+        self.assertIn("missing_financial_statement_data", issue_codes)
+        self.assertNotIn("missing_core_numeric_field", issue_codes)
+
     def test_detects_financial_logic_issues(self):
         rows = [
             {

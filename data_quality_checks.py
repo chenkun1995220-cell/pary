@@ -28,6 +28,17 @@ PERCENT_FIELDS = [
     "fcf_yield",
 ]
 
+PERCENT_UNIT_SUSPECT_THRESHOLDS = {
+    "dividend_yield": 1,
+    "fcf_yield": 1,
+    "gross_margin": 1,
+    "debt_to_assets": 2,
+    "roe": 10,
+    "roic": 10,
+    "revenue_cagr_3y": 5,
+    "net_income_cagr_3y": 5,
+}
+
 
 def to_float(value):
     if value is None:
@@ -72,6 +83,18 @@ def check_required_fields(row):
             )
     for field in CORE_NUMERIC_FIELDS:
         if is_blank(row.get(field)):
+            if field == "net_income_ttm" and is_blank(row.get("revenue_ttm")):
+                issues.append(
+                    make_issue(
+                        row,
+                        "警告",
+                        "missing_financial_statement_data",
+                        field,
+                        row.get(field, ""),
+                        "营收和净利润字段同时缺失，可能是特殊上市主体或财务报表尚未覆盖",
+                    )
+                )
+                continue
             issues.append(
                 make_issue(row, "警告", "missing_core_numeric_field", field, row.get(field, ""), f"核心数值字段 {field} 缺失，可能影响估值评分")
             )
@@ -82,9 +105,10 @@ def check_percentage_units(row):
     issues = []
     for field in PERCENT_FIELDS:
         value = to_float(row.get(field))
-        if value is not None and value > 1:
+        threshold = PERCENT_UNIT_SUSPECT_THRESHOLDS.get(field, 1)
+        if value is not None and value > threshold:
             issues.append(
-                make_issue(row, "警告", "percentage_unit_suspect", field, row.get(field), f"{field} 大于 1，疑似把百分比按 45 而不是 0.45 填写")
+                make_issue(row, "警告", "percentage_unit_suspect", field, row.get(field), f"{field} 高于字段阈值 {threshold}，疑似单位、口径或分母异常")
             )
     return issues
 
