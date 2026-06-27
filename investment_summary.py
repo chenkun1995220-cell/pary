@@ -62,6 +62,43 @@ def read_model_audit_status(path):
     return status, conclusion
 
 
+def build_data_health_summary(quote_gap_rows, data_quality_rows, share_override_rows):
+    quote_total = len(quote_gap_rows)
+    usable_statuses = {"ready", "manual_override_applied"}
+    quote_ready = sum(1 for row in quote_gap_rows if row.get("status") in usable_statuses)
+    quote_pending = quote_total - quote_ready
+    quote_coverage = (quote_ready / quote_total) if quote_total else None
+
+    override_total = len(share_override_rows)
+    override_review = sum(1 for row in share_override_rows if row.get("status") not in ("", "current"))
+
+    quality_total = len(data_quality_rows)
+    blocked_labels = {"阻断", "错误", "error", "blocked", "blocker"}
+    warning_labels = {"警告", "warning", "warn"}
+    quality_blocked = sum(
+        1 for row in data_quality_rows if row.get("severity", "").strip().lower() in blocked_labels
+    )
+    quality_warnings = sum(
+        1 for row in data_quality_rows if row.get("severity", "").strip().lower() in warning_labels
+    )
+
+    if quote_total == 0 and override_total == 0 and quality_total == 0:
+        return []
+
+    lines = ["", "## 数据健康", ""]
+    if quote_total:
+        lines.append(
+            f"- 行情覆盖：{quote_ready}/{quote_total} ({quote_coverage * 100:.2f}%)；待补 {quote_pending}"
+        )
+    if override_total:
+        lines.append(f"- 人工覆盖：{override_total} 项，需复核 {override_review} 项")
+    if quality_total:
+        lines.append(
+            f"- 数据质量问题：{quality_total} 项（阻断 {quality_blocked}，警告 {quality_warnings}）"
+        )
+    return lines
+
+
 def latest_prior_forecast_tickers(forecast_rows, current_generated_date):
     prior_dates = sorted(
         {
@@ -113,7 +150,15 @@ def merge_candidate_rows(candidate_rows, valuation_rows):
     )
 
 
-def build_summary_lines(rows, tracking_rows, previous_tickers, audit_status, audit_conclusion, top_limit):
+def build_summary_lines(
+    rows,
+    tracking_rows,
+    previous_tickers,
+    audit_status,
+    audit_conclusion,
+    top_limit,
+    data_health_lines=None,
+):
     current_tickers = {row.get("ticker", "") for row in rows if row.get("ticker")}
     current_generated_date = next((row.get("generated_date", "") for row in rows if row.get("generated_date")), "")
     model_version = next((row.get("model_version", "") for row in rows if row.get("model_version")), "")
@@ -137,6 +182,8 @@ def build_summary_lines(rows, tracking_rows, previous_tickers, audit_status, aud
     ]
     if audit_conclusion:
         lines.append(f"- 审计结论：{audit_conclusion}")
+    if data_health_lines:
+        lines.extend(data_health_lines)
     lines.extend(
         [
             "",
@@ -198,6 +245,9 @@ def generate_investment_summary(
     model_audit_path,
     output_path,
     top_limit=20,
+    quote_gaps_path=None,
+    data_quality_issues_path=None,
+    share_override_audit_path=None,
 ):
     candidate_rows = load_csv_rows(candidates_path)
     valuation_rows = load_csv_rows(valuations_path)
@@ -206,6 +256,11 @@ def generate_investment_summary(
     current_generated_date = max((row.get("generated_date", "") for row in valuation_rows), default="")
     previous_tickers = latest_prior_forecast_tickers(forecast_rows, current_generated_date)
     audit_status, audit_conclusion = read_model_audit_status(model_audit_path)
+    data_health_lines = build_data_health_summary(
+        load_csv_rows(quote_gaps_path) if quote_gaps_path else [],
+        load_csv_rows(data_quality_issues_path) if data_quality_issues_path else [],
+        load_csv_rows(share_override_audit_path) if share_override_audit_path else [],
+    )
     rows = merge_candidate_rows(candidate_rows, valuation_rows)
     lines = build_summary_lines(
         rows,
@@ -214,6 +269,7 @@ def generate_investment_summary(
         audit_status,
         audit_conclusion,
         int(top_limit),
+        data_health_lines=data_health_lines,
     )
 
     output = Path(output_path)
@@ -233,6 +289,9 @@ def main():
     parser.add_argument("--tracking", default="outputs/us_universe/tracking_snapshot.csv")
     parser.add_argument("--forecast-history", default="outputs/us_universe/forecast_history.csv")
     parser.add_argument("--model-audit", default="outputs/us_universe/model_audit.md")
+    parser.add_argument("--quote-gaps", default=None)
+    parser.add_argument("--data-quality-issues", default=None)
+    parser.add_argument("--share-override-audit", default=None)
     parser.add_argument("--output", default="outputs/automation/latest_investment_summary.md")
     parser.add_argument("--top-limit", type=int, default=20)
     args = parser.parse_args()
@@ -245,6 +304,9 @@ def main():
         args.model_audit,
         args.output,
         top_limit=args.top_limit,
+        quote_gaps_path=args.quote_gaps,
+        data_quality_issues_path=args.data_quality_issues,
+        share_override_audit_path=args.share_override_audit,
     )
     print(f"已生成低估公司结论报告：{result['output_path']}")
     print(f"候选公司数量：{result['candidate_count']}")
