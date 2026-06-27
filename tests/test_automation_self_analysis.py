@@ -1,9 +1,14 @@
 import csv
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from automation_self_analysis import run_self_analysis
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def write_text(path, text):
@@ -368,6 +373,34 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             self.assertIn("缺失摘要", text)
             self.assertIn("先补齐缺失的周筛或回测摘要", text)
+
+    def test_cli_prints_self_analysis_and_manual_review_queue_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(PROJECT_ROOT / "automation_self_analysis.py"),
+                    "--project-root",
+                    str(root),
+                    "--as-of-date",
+                    "2026-06-28",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            output = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, output)
+            self.assertIn("Self-analysis summary:", output)
+            self.assertIn("Manual review queue:", output)
+            self.assertIn("latest_manual_review_queue.csv", output)
+            self.assertTrue((root / "outputs" / "automation" / "latest_manual_review_queue.csv").exists())
 
 
     def test_includes_data_health_history_and_flags_attention_items(self):

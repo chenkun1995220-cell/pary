@@ -703,6 +703,7 @@ def main():
     args = parser.parse_args()
     result = run_self_analysis(args.project_root, args.output, args.as_of_date)
     print(f"Self-analysis summary: {result['output']}")
+    print(f"Manual review queue: {result['manual_review_queue_output']}")
 
 
 if __name__ == "__main__":
