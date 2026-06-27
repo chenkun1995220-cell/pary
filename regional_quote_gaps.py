@@ -11,6 +11,7 @@ GAP_FIELDS = [
     "issue_type",
     "missing_fields",
     "reason",
+    "remediation_type",
     "cache_status",
     "recommended_action",
 ]
@@ -43,6 +44,19 @@ def _missing_quote_fields(row):
         if number is None or number <= 0:
             missing.append(field)
     return missing
+
+
+def _missing_field_groups(row):
+    missing_values = []
+    non_positive_values = []
+    for field in REQUIRED_QUOTE_FIELDS:
+        value = str(row.get(field) or "").strip()
+        number = _to_number(value)
+        if number is None:
+            missing_values.append(field)
+        elif number <= 0:
+            non_positive_values.append(field)
+    return missing_values, non_positive_values
 
 
 def read_cache_status(cache_dir):
@@ -83,28 +97,41 @@ def build_quote_gap_rows(companies, snapshot_rows, market, cache_status):
                     "issue_type": "missing_quote",
                     "missing_fields": "all_quote_fields",
                     "reason": "Eastmoney batch quote 未返回该 ticker",
+                    "remediation_type": "refetch_quote",
                     "cache_status": cache_status,
                     "recommended_action": "重新运行 regional_market_snapshot.py；若仍缺失，检查 raw_ticker/secid 映射或临时剔除",
                 }
             )
             continue
 
-        missing_fields = _missing_quote_fields(snapshot)
+        missing_values, non_positive_values = _missing_field_groups(snapshot)
+        missing_fields = missing_values + non_positive_values
         status = snapshot.get("data_quality_status", "").strip().lower()
         if status != "ready" or missing_fields:
+            if missing_values:
+                issue_type = "partial_quote"
+                reason = "行情字段不完整或未达到 ready 状态"
+                remediation_type = "refetch_or_supplement_quote"
+                recommended_action = "重新运行 regional_market_snapshot.py；必要时补充行情源或人工复核字段口径"
+            else:
+                issue_type = "non_positive_metric"
+                reason = "PE/PB 非正，通常来自亏损、净资产异常或估值字段口径不可用"
+                remediation_type = "manual_financial_review"
+                recommended_action = "不要反复重抓行情；进入盈利、净资产和估值口径复核，筛选时保持质量门禁"
             gaps.append(
                 {
                     "market": market or company.get("market", ""),
                     "ticker": ticker,
                     "company_name": company_name,
-                    "issue_type": "partial_quote",
+                    "issue_type": issue_type,
                     "missing_fields": ";".join(missing_fields) or "data_quality_status",
-                    "reason": "行情字段不完整或未达到 ready 状态",
+                    "reason": reason,
+                    "remediation_type": remediation_type,
                     "cache_status": cache_status,
-                    "recommended_action": "重新运行 regional_market_snapshot.py；必要时补充行情源或人工复核字段口径",
+                    "recommended_action": recommended_action,
                 }
             )
-    issue_order = {"partial_quote": 0, "missing_quote": 1}
+    issue_order = {"partial_quote": 0, "missing_quote": 1, "non_positive_metric": 2}
     return sorted(gaps, key=lambda row: (issue_order.get(row["issue_type"], 9), row["ticker"]))
 
 
@@ -122,6 +149,7 @@ def write_markdown_report(path, rows, market, cache_status):
     output.parent.mkdir(parents=True, exist_ok=True)
     missing_count = sum(1 for row in rows if row["issue_type"] == "missing_quote")
     partial_count = sum(1 for row in rows if row["issue_type"] == "partial_quote")
+    non_positive_count = sum(1 for row in rows if row["issue_type"] == "non_positive_metric")
     lines = [
         "# 区域行情缺口诊断",
         "",
@@ -129,6 +157,7 @@ def write_markdown_report(path, rows, market, cache_status):
         f"- 缺口数量：{len(rows)}",
         f"- 完全缺行情：{missing_count}",
         f"- 字段不完整：{partial_count}",
+        f"- 非正估值指标：{non_positive_count}",
         f"- 缓存状态：{cache_status}",
         "",
         "| 股票 | 公司 | 缺口类型 | 缺失字段 | 建议动作 |",
