@@ -270,6 +270,112 @@ def merge_candidate_rows(candidate_rows, valuation_rows):
     )
 
 
+def _is_present(value):
+    return str(value or "").strip() not in {"", "None", "none", "nan", "NaN"}
+
+
+def _tracking_status_by_ticker(tracking_rows):
+    status_by_ticker = {}
+    for row in tracking_rows:
+        ticker = row.get("ticker", "").strip().upper()
+        if ticker:
+            status_by_ticker[ticker] = row.get("evaluation_status", "").strip()
+    return status_by_ticker
+
+
+def candidate_conclusion_quality(rows, tracking_rows):
+    tracking_status = _tracking_status_by_ticker(tracking_rows)
+    results = []
+    for row in rows:
+        ticker = row.get("ticker", "").strip().upper()
+        categories = []
+        details = []
+
+        reason = row.get("reason") or row.get("valuation_reason")
+        if len(str(reason or "").strip()) < 8:
+            categories.append("理由不足")
+            details.append("缺少低估依据")
+
+        buy_price = row.get("buy_price")
+        target_price = row.get("target_price")
+        if not _is_present(buy_price):
+            categories.append("数据不足")
+            details.append("缺少建议买入价")
+        if not _is_present(target_price):
+            categories.append("数据不足")
+            details.append("缺少目标价")
+        if not _is_present(tracking_status.get(ticker)):
+            categories.append("数据不足")
+            details.append("缺少跟踪状态")
+
+        data_quality_values = [
+            row.get("data_quality_status"),
+            row.get("financial_data_status"),
+            row.get("valuation_valuation_status"),
+        ]
+        usable_quality_statuses = {"ready", "ok", "current", "manual_override_applied"}
+        has_usable_quality_status = any(
+            str(value or "").strip().lower() in usable_quality_statuses
+            for value in data_quality_values
+        )
+        if not has_usable_quality_status:
+            categories.append("数据不足")
+            details.append("缺少数据质量说明")
+
+        risk_text = row.get("risk_flag") or row.get("risk_note") or row.get("risk_summary")
+        if not _is_present(risk_text):
+            categories.append("可读性不足")
+            details.append("缺少风险说明")
+
+        category_order = ["理由不足", "数据不足", "可读性不足"]
+        unique_categories = [category for category in category_order if category in categories]
+        results.append(
+            {
+                "ticker": ticker,
+                "company_name": row.get("company_name", ""),
+                "status": "complete" if not unique_categories else "needs_review",
+                "categories": unique_categories,
+                "details": details,
+            }
+        )
+    return results
+
+
+def build_conclusion_quality_lines(rows, tracking_rows, row_limit=20):
+    quality_rows = candidate_conclusion_quality(rows, tracking_rows)
+    if not quality_rows:
+        return []
+    complete_count = sum(1 for row in quality_rows if row["status"] == "complete")
+    lines = [
+        "",
+        "## 候选结论质量检查",
+        "",
+        f"- 字段完整：{complete_count}/{len(quality_rows)}",
+    ]
+    review_rows = [row for row in quality_rows if row["status"] != "complete"]
+    if not review_rows:
+        lines.append("- 当前候选结论字段完整。")
+        return lines
+
+    lines.extend(
+        [
+            "",
+            "| 股票 | 公司 | 缺口分类 | 具体缺口 |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in review_rows[:row_limit]:
+        lines.append(
+            "| {ticker} | {company} | {categories} | {details} |".format(
+                ticker=row["ticker"],
+                company=row["company_name"],
+                categories="、".join(row["categories"]),
+                details="；".join(row["details"]),
+            )
+        )
+    return lines
+
+
 def build_summary_lines(
     rows,
     tracking_rows,
@@ -332,6 +438,7 @@ def build_summary_lines(
                 reason=reason,
             )
         )
+    lines.extend(build_conclusion_quality_lines(rows, tracking_rows))
     lines.extend(
         [
             "",
