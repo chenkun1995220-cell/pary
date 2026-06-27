@@ -622,5 +622,68 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("优先复核候选风险和结论缺口，不自动调整正式模型参数", text)
 
 
+    def test_data_health_summarizes_quote_gap_review_categories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: AAA, BBB",
+                        "- Model audit: outputs/hk_universe/model_audit.md",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                        "- Quote gaps: outputs/hk_universe/quote_gaps.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "hk_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "84.10",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "2",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "quote_gaps.csv",
+                ["ticker", "issue_type", "remediation_type", "review_category"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "issue_type": "non_positive_metric",
+                        "remediation_type": "manual_financial_review",
+                        "review_category": "loss_making_or_negative_pe;non_positive_book_value_or_pb",
+                    },
+                    {
+                        "ticker": "BBB",
+                        "issue_type": "non_positive_metric",
+                        "remediation_type": "manual_financial_review",
+                        "review_category": "special_industry_valuation_review",
+                    },
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+
+            self.assertEqual(
+                result["health"][2]["quote_gap_review_categories"],
+                "loss_making_or_negative_pe=1;non_positive_book_value_or_pb=1;special_industry_valuation_review=1",
+            )
+            self.assertIn("loss_making_or_negative_pe=1", report)
+            self.assertIn("special_industry_valuation_review=1", report)
+
+
 if __name__ == "__main__":
     unittest.main()

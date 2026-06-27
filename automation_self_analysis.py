@@ -180,7 +180,7 @@ def _latest_health_row(path):
 
 def _quote_gap_summary(path):
     rows = _read_csv_rows(path)
-    summary = {"total": 0, "refetch": 0, "review": 0}
+    summary = {"total": 0, "refetch": 0, "review": 0, "review_categories": {}}
     ready_statuses = {"", "ready", "current", "manual_override_applied"}
     for row in rows:
         if "status" in row:
@@ -192,13 +192,27 @@ def _quote_gap_summary(path):
             summary["refetch"] += 1
         elif remediation == "manual_financial_review":
             summary["review"] += 1
+            for category in row.get("review_category", "").split(";"):
+                category = category.strip()
+                if category:
+                    summary["review_categories"][category] = summary["review_categories"].get(category, 0) + 1
         else:
             issue_type = row.get("issue_type", "").strip().lower()
             if issue_type in {"missing_quote", "partial_quote"}:
                 summary["refetch"] += 1
             elif issue_type == "non_positive_metric":
                 summary["review"] += 1
+                for category in row.get("review_category", "").split(";"):
+                    category = category.strip()
+                    if category:
+                        summary["review_categories"][category] = summary["review_categories"].get(category, 0) + 1
     return summary
+
+
+def _format_count_map(counts):
+    if not counts:
+        return "none"
+    return ";".join(f"{key}={counts[key]}" for key in sorted(counts))
 
 
 def _section_lines(text, heading):
@@ -316,6 +330,7 @@ def _health_snapshot(market):
             "quote_gap_count": str(quote_gap_summary["total"]),
             "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
             "quote_gap_review_count": str(quote_gap_summary["review"]),
+            "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
@@ -331,6 +346,7 @@ def _health_snapshot(market):
         "quote_gap_count": str(quote_gap_summary["total"]),
         "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
         "quote_gap_review_count": str(quote_gap_summary["review"]),
+        "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
         "data_quality_blocked": row.get("data_quality_blocked", "0"),
         "affected_candidate_count": row.get("affected_candidate_count", "0"),
         "share_override_review": row.get("share_override_review", "0"),
@@ -464,6 +480,10 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
             f"{item['quote_gap_count']} | {item['quote_gap_refetch_count']} | "
             f"{item['quote_gap_review_count']} | {item['candidate_count']} |"
         )
+    for item in health:
+        categories = item.get("quote_gap_review_categories", "none")
+        if categories != "none":
+            lines.append(f"- {item['name']} 估值复核分类：{categories}")
     lines.extend(
         [
             "",
