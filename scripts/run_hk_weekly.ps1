@@ -17,7 +17,7 @@ Write-Host "Market: HK"
 Write-Host "Companies: $Companies"
 Write-Host "Cache: $CacheDir"
 Write-Host "OutputRoot: $OutputRoot"
-Write-Host "Steps: universe -> market snapshot -> financial snapshot -> regional screening -> price history -> valuation_trend_v1 -> benchmark -> forecast tracking -> model audit"
+Write-Host "Steps: universe -> market snapshot -> financial snapshot -> regional screening -> price history -> valuation_trend_v1 -> benchmark -> forecast tracking -> model audit -> data health history"
 
 if ($DryRun) {
   Write-Host "DryRun: no files or network requests were created."
@@ -116,6 +116,19 @@ try {
     --output $investmentSummaryPath
   if ($LASTEXITCODE -ne 0) { throw "HK investment summary failed with exit code $LASTEXITCODE." }
 
+  $runTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+  $dataHealthHistoryPath = Join-Path $OutputRoot "data_health_history.csv"
+  $dataHealthReportPath = Join-Path $OutputRoot "data_health_history.md"
+  & $Python -B regional_data_health_history.py `
+    --market HK `
+    --universe-label "HSLI and HSMI" `
+    --output-root $OutputRoot `
+    --cache-dir $CacheDir `
+    --history $dataHealthHistoryPath `
+    --report $dataHealthReportPath `
+    --run-time $runTime
+  if ($LASTEXITCODE -ne 0) { throw "HK data health history failed with exit code $LASTEXITCODE." }
+
   $rows = @(Import-Csv -LiteralPath $Companies)
   $financialRows = @(Import-Csv -LiteralPath $financialPath)
   $financialReady = @($financialRows | Where-Object { $_.financial_data_status -eq "ready" }).Count
@@ -127,7 +140,7 @@ try {
   $summary = @(
     "# HK Weekly Data Summary",
     "",
-    "- Run time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+    "- Run time: $runTime",
     "- Universe: HSLI and HSMI",
     "- Company count: $($rows.Count)",
     "- Refresh status: $($metadata.status)",
@@ -146,6 +159,8 @@ try {
     "- Model audit: $(Join-Path $OutputRoot 'model_audit.md')",
     "- Shadow proposals: $(Join-Path $OutputRoot 'shadow_model_proposals.csv')",
     "- Investment summary: $investmentSummaryPath",
+    "- Data health history: $dataHealthHistoryPath",
+    "- Data health report: $dataHealthReportPath",
     "- Report: $(Join-Path $OutputRoot 'weekly_report.md')",
     "- Log: $logPath"
   )
