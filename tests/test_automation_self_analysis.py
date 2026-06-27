@@ -772,6 +772,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                 "r", encoding="utf-8-sig", newline=""
             ) as handle:
                 queue_rows = list(csv.DictReader(handle))
+            self.assertEqual(queue_rows[0]["as_of_date"], "2026-06-27")
 
             self.assertEqual(result["health"][2]["valuation_review_item_count"], "2")
             self.assertEqual(

@@ -527,16 +527,17 @@ def _manual_review_queue(health, candidate_reviews, limit=12):
     return queue
 
 
-def _write_manual_review_queue(path, queue):
+def _write_manual_review_queue(path, queue, as_of_date):
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["rank", "market", "review_type", "ticker", "company", "review_detail"]
+    fieldnames = ["as_of_date", "rank", "market", "review_type", "ticker", "company", "review_detail"]
     with output.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
         for item in queue:
             writer.writerow(
                 {
+                    "as_of_date": as_of_date,
                     "rank": item.get("rank", ""),
                     "market": item.get("name", ""),
                     "review_type": item.get("type", ""),
@@ -691,7 +692,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(_render(as_of_date, markets, backtest, health, candidate_reviews), encoding="utf-8-sig")
-    _write_manual_review_queue(manual_review_queue_output, manual_review_queue)
+    _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
     return {
         "output": str(output),
         "manual_review_queue_output": str(manual_review_queue_output),
