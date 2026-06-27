@@ -36,6 +36,10 @@ try {
   $transcriptStarted = $true
 
   Set-Location $ProjectRoot
+  $requirementsPath = Join-Path $ProjectRoot "requirements.txt"
+  & $Python -m pip install --disable-pip-version-check -r $requirementsPath
+  if ($LASTEXITCODE -ne 0) { throw "CN Python requirements install failed with exit code $LASTEXITCODE." }
+
   & $Python -B regional_universe.py --market CN --output $Companies --cache-dir $CacheDir
   if ($LASTEXITCODE -ne 0) { throw "CN universe refresh failed with exit code $LASTEXITCODE." }
 

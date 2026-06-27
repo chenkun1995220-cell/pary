@@ -68,6 +68,19 @@ class RegionalWeeklyScriptTests(unittest.TestCase):
             self.assertIn(str(output_root), output)
             self.assertFalse(output_root.exists())
 
+    def test_cn_weekly_installs_python_requirements_before_universe_refresh(self):
+        script = (PROJECT_ROOT / "scripts" / "run_cn_weekly.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("-m pip install", script)
+        self.assertIn("--disable-pip-version-check", script)
+        self.assertIn("requirements.txt", script)
+
+        requirements_position = script.index("requirements.txt")
+        universe_position = script.index("regional_universe.py")
+        self.assertLess(requirements_position, universe_position)
+
     def test_hk_weekly_dry_run_is_side_effect_free(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_root = Path(tmp) / "hk"
