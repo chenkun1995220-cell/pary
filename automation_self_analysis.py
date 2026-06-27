@@ -649,6 +649,47 @@ def _write_self_analysis_manifest(path, payload):
     )
 
 
+def _candidate_count_total(markets):
+    total = 0
+    for market in markets:
+        count = _as_int(market.get("candidate_count"))
+        if count is not None:
+            total += count
+    return total
+
+
+def _automation_check_payload(manifest, manifest_validation):
+    return {
+        "check_schema": "weekly_automation_check",
+        "check_version": 1,
+        "as_of_date": manifest.get("as_of_date", ""),
+        "status": manifest.get("automation_status", "unknown"),
+        "recommended_action": manifest.get("automation_recommended_action", "unknown"),
+        "priority_actions": manifest.get("automation_priority_actions", []),
+        "manifest_validation_status": manifest_validation.get("status", "invalid"),
+        "manifest_validation_errors": manifest_validation.get("errors", []),
+        "market_count": manifest.get("market_count", 0),
+        "markets_ready_count": manifest_validation.get("markets_ready_count", 0),
+        "not_ready_markets": manifest_validation.get("not_ready_markets", []),
+        "candidate_count_total": _candidate_count_total(manifest.get("markets", [])),
+        "market_candidate_counts": [
+            {
+                "name": market.get("name", ""),
+                "status": market.get("status", ""),
+                "candidate_count": market.get("candidate_count", ""),
+            }
+            for market in manifest.get("markets", [])
+        ],
+        "manual_review_queue_count": manifest.get("manual_review_queue_count", 0),
+        "manual_review_repeat_count": manifest.get("manual_review_repeat_count", 0),
+        "data_health_status": manifest.get("data_health_status", "unknown"),
+        "candidate_review_status": manifest.get("candidate_review_status", "unknown"),
+        "model_audit_status": manifest.get("model_audit_status", "unknown"),
+        "backtest_status": manifest.get("backtest_status", "unknown"),
+        "outputs": manifest.get("outputs", {}),
+    }
+
+
 def _manual_review_status(queue_count, repeat_count):
     if repeat_count > 0:
         return "recurring_manual_review", "review_recurring_items"
@@ -989,6 +1030,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     manual_review_history_output = output.parent / "manual_review_queue_history.csv"
     manual_review_repeats_output = output.parent / "manual_review_repeats.csv"
     manifest_output = output.parent / "latest_self_analysis_manifest.json"
+    automation_check_output = output.parent / "latest_automation_check.json"
     manual_review_history_repeats = _manual_review_history_repeats(
         manual_review_history_output, manual_review_queue, as_of_date
     )
@@ -1007,38 +1049,43 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     backtest_status = _manifest_backtest_status(backtest)
     data_health_status = _manifest_data_health_status(health)
     candidate_review_status = _manifest_candidate_review_status(candidate_reviews)
-    _write_self_analysis_manifest(
-        manifest_output,
-        {
-            "manifest_schema": "self_analysis_manifest",
-            "manifest_version": 1,
-            "as_of_date": as_of_date,
-            "market_count": len(markets),
-            "markets": _manifest_markets(markets),
-            **model_audit_status,
-            **backtest_status,
-            "health": _manifest_health(health),
-            **data_health_status,
-            **candidate_review_status,
-            "manual_review_queue_count": len(manual_review_queue),
-            "manual_review_repeat_count": len(manual_review_history_repeats),
-            "review_status": review_status,
-            "recommended_next_action": recommended_next_action,
-            **_manifest_automation_decision(
-                model_audit_status,
-                backtest_status,
-                data_health_status,
-                candidate_review_status,
-                review_status,
-                recommended_next_action,
-            ),
-            "outputs": {
-                "self_analysis": str(output),
-                "manual_review_queue": str(manual_review_queue_output),
-                "manual_review_history": str(manual_review_history_output),
-                "manual_review_repeats": str(manual_review_repeats_output),
-            },
+    manifest = {
+        "manifest_schema": "self_analysis_manifest",
+        "manifest_version": 1,
+        "as_of_date": as_of_date,
+        "market_count": len(markets),
+        "markets": _manifest_markets(markets),
+        **model_audit_status,
+        **backtest_status,
+        "health": _manifest_health(health),
+        **data_health_status,
+        **candidate_review_status,
+        "manual_review_queue_count": len(manual_review_queue),
+        "manual_review_repeat_count": len(manual_review_history_repeats),
+        "review_status": review_status,
+        "recommended_next_action": recommended_next_action,
+        **_manifest_automation_decision(
+            model_audit_status,
+            backtest_status,
+            data_health_status,
+            candidate_review_status,
+            review_status,
+            recommended_next_action,
+        ),
+        "outputs": {
+            "self_analysis": str(output),
+            "manifest": str(manifest_output),
+            "automation_check": str(automation_check_output),
+            "manual_review_queue": str(manual_review_queue_output),
+            "manual_review_history": str(manual_review_history_output),
+            "manual_review_repeats": str(manual_review_repeats_output),
         },
+    }
+    _write_self_analysis_manifest(manifest_output, manifest)
+    manifest_validation = validate_self_analysis_manifest(manifest_output, require_markets_ready=True)
+    _write_self_analysis_manifest(
+        automation_check_output,
+        _automation_check_payload(manifest, manifest_validation),
     )
     return {
         "output": str(output),
@@ -1046,6 +1093,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "manual_review_history_output": str(manual_review_history_output),
         "manual_review_repeats_output": str(manual_review_repeats_output),
         "manifest_output": str(manifest_output),
+        "automation_check_output": str(automation_check_output),
         "markets": markets,
         "backtest": backtest,
         "health": health,
@@ -1184,6 +1232,7 @@ def main():
     print(f"Manual review history: {result['manual_review_history_output']}")
     print(f"Manual review repeats: {result['manual_review_repeats_output']}")
     print(f"Self-analysis manifest: {result['manifest_output']}")
+    print(f"Automation check: {result['automation_check_output']}")
 
 
 if __name__ == "__main__":
