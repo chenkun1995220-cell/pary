@@ -82,12 +82,40 @@ class InvestmentSummaryTests(unittest.TestCase):
             )
             write_csv(
                 data_quality_issues,
-                ["severity", "issue_code", "ticker"],
+                ["severity", "issue_code", "ticker", "review_action", "impact_on_score", "recommended_handling"],
                 [
-                    {"severity": "警告", "issue_code": "percentage_unit_suspect", "ticker": "AAA"},
-                    {"severity": "警告", "issue_code": "percentage_unit_suspect", "ticker": "BBB"},
-                    {"severity": "阻断", "issue_code": "missing_required_field", "ticker": "BAD"},
-                    {"severity": "提示", "issue_code": "industry_sample_too_small", "ticker": "CCC"},
+                    {
+                        "severity": "警告",
+                        "issue_code": "percentage_unit_suspect",
+                        "ticker": "AAA",
+                        "review_action": "复核源字段",
+                        "impact_on_score": "可能影响盈利质量和估值倍数",
+                        "recommended_handling": "核对 gross_margin 原始口径，确认后再参与估值",
+                    },
+                    {
+                        "severity": "警告",
+                        "issue_code": "percentage_unit_suspect",
+                        "ticker": "BBB",
+                        "review_action": "复核源字段",
+                        "impact_on_score": "可能影响盈利质量和估值倍数",
+                        "recommended_handling": "核对 gross_margin 原始口径，确认后再参与估值",
+                    },
+                    {
+                        "severity": "阻断",
+                        "issue_code": "missing_required_field",
+                        "ticker": "BAD",
+                        "review_action": "补齐必填字段",
+                        "impact_on_score": "阻断评分",
+                        "recommended_handling": "补齐必填字段后重新筛选",
+                    },
+                    {
+                        "severity": "提示",
+                        "issue_code": "industry_sample_too_small",
+                        "ticker": "CCC",
+                        "review_action": "观察",
+                        "impact_on_score": "不直接影响评分",
+                        "recommended_handling": "继续积累行业样本",
+                    },
                 ],
             )
             write_csv(
@@ -116,6 +144,9 @@ class InvestmentSummaryTests(unittest.TestCase):
             self.assertIn("阻断：missing_required_field 1 项，影响 1 只（BAD）", report)
             self.assertIn("需复核：percentage_unit_suspect 2 项，影响 2 只（AAA、BBB）", report)
             self.assertIn("可接受：industry_sample_too_small 1 项，影响 1 只（CCC）", report)
+            self.assertIn("## 数据风险处置建议", report)
+            self.assertIn("percentage_unit_suspect：复核源字段；可能影响盈利质量和估值倍数；核对 gross_margin 原始口径，确认后再参与估值", report)
+            self.assertIn("missing_required_field：补齐必填字段；阻断评分；补齐必填字段后重新筛选", report)
 
     def test_generates_latest_investment_summary_with_lifecycle_sections(self):
         with tempfile.TemporaryDirectory() as tmp:

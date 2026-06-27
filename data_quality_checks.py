@@ -13,6 +13,9 @@ ISSUE_FIELDS = [
     "field",
     "value",
     "message",
+    "review_action",
+    "impact_on_score",
+    "recommended_handling",
 ]
 
 REQUIRED_FIELDS = ["ticker", "company_name", "industry"]
@@ -61,8 +64,76 @@ def load_csv_rows(path):
         return [{key.strip(): value for key, value in row.items() if key is not None} for row in csv.DictReader(f)]
 
 
-def make_issue(row, severity, issue_code, field, value, message):
+def issue_action(issue_code, field):
+    if issue_code == "missing_required_field":
+        return {
+            "review_action": "补齐必填字段",
+            "impact_on_score": "阻断评分",
+            "recommended_handling": "补齐必填字段后重新筛选",
+        }
+    if issue_code == "missing_financial_statement_data":
+        return {
+            "review_action": "补齐财报数据",
+            "impact_on_score": "可能降低估值置信度",
+            "recommended_handling": "补齐 revenue_ttm 和 net_income_ttm，无法补齐时降低估值置信度或排除",
+        }
+    if issue_code == "missing_core_numeric_field":
+        return {
+            "review_action": "补齐核心指标",
+            "impact_on_score": "可能影响估值评分",
+            "recommended_handling": f"补齐 {field} 后重新计算估值指标",
+        }
+    if issue_code == "percentage_unit_suspect":
+        return {
+            "review_action": "复核源字段",
+            "impact_on_score": "可能影响盈利质量和估值倍数",
+            "recommended_handling": f"核对 {field} 原始口径，确认后再参与估值",
+        }
+    if issue_code in {"enterprise_value_logic_error", "valuation_ratio_outlier", "fcf_yield_outlier"}:
+        return {
+            "review_action": "暂停评分并核对单位",
+            "impact_on_score": "阻断评分",
+            "recommended_handling": "核对市值、股本和财务金额单位，修正后重新筛选",
+        }
+    if issue_code in {"market_cap_scale_suspect", "pe_unavailable_with_positive_income"}:
+        return {
+            "review_action": "复核估值输入",
+            "impact_on_score": "可能影响估值倍数",
+            "recommended_handling": "核对市值、价格、股本和利润字段后重新计算",
+        }
+    if issue_code == "capex_sign_suspect":
+        return {
+            "review_action": "复核现金流口径",
+            "impact_on_score": "可能影响自由现金流评分",
+            "recommended_handling": "核对 capex 符号，必要时按现金流出口径修正",
+        }
+    if issue_code == "industry_unmapped":
+        return {
+            "review_action": "补充行业映射",
+            "impact_on_score": "可能影响行业相对估值",
+            "recommended_handling": "补充行业别名或映射规则后重跑行业中位数",
+        }
+    if issue_code == "industry_sample_too_small":
+        return {
+            "review_action": "观察",
+            "impact_on_score": "不直接影响评分",
+            "recommended_handling": "继续积累行业样本，必要时合并相近行业",
+        }
+    if issue_code == "risk_field_missing":
+        return {
+            "review_action": "补齐风险字段",
+            "impact_on_score": "可能影响风险过滤",
+            "recommended_handling": "补齐审计意见和风险标记后重新筛选",
+        }
     return {
+        "review_action": "人工复核",
+        "impact_on_score": "待判断",
+        "recommended_handling": "查看原始数据并补充处理规则",
+    }
+
+
+def make_issue(row, severity, issue_code, field, value, message):
+    issue = {
         "severity": severity,
         "issue_code": issue_code,
         "market": row.get("market", ""),
@@ -72,6 +143,8 @@ def make_issue(row, severity, issue_code, field, value, message):
         "value": value,
         "message": message,
     }
+    issue.update(issue_action(issue_code, field))
+    return issue
 
 
 def check_required_fields(row):
@@ -240,14 +313,22 @@ def write_markdown_report(path, input_path, row_count, issues):
             lines.append(f"| {code} | {count} |")
     else:
         lines.append("| 无 | 0 |")
-    lines.extend(["", "## 明细（前 50 条）", "", "| 级别 | 代码 | 股票 | 字段 | 值 | 说明 |", "|---|---|---|---|---|---|"])
+    lines.extend(
+        [
+            "",
+            "## 明细（前 50 条）",
+            "",
+            "| 级别 | 代码 | 股票 | 字段 | 值 | 说明 | 处置建议 |",
+            "|---|---|---|---|---|---|---|",
+        ]
+    )
     for issue in issues[:50]:
         stock = issue.get("ticker") or issue.get("company_name") or "-"
         lines.append(
-            f"| {issue['severity']} | {issue['issue_code']} | {stock} | {issue['field']} | {issue['value']} | {issue['message']} |"
+            f"| {issue['severity']} | {issue['issue_code']} | {stock} | {issue['field']} | {issue['value']} | {issue['message']} | {issue.get('recommended_handling', '')} |"
         )
     if not issues:
-        lines.append("| - | - | - | - | - | 未发现问题 |")
+        lines.append("| - | - | - | - | - | 未发现问题 | - |")
     output.write_text("\n".join(lines), encoding="utf-8-sig")
 
 
