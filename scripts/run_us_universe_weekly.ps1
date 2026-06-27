@@ -112,6 +112,9 @@ try {
     --tracking (Join-Path $OutputRoot "tracking_snapshot.csv") `
     --forecast-history (Join-Path $OutputRoot "forecast_history.csv") `
     --model-audit (Join-Path $OutputRoot "model_audit.md") `
+    --quote-gaps (Join-Path $OutputRoot "quote_gaps.csv") `
+    --data-quality-issues (Join-Path $OutputRoot "data_quality_issues.csv") `
+    --share-override-audit (Join-Path $OutputRoot "share_override_audit.csv") `
     --output $investmentSummaryPath
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[5]) failed with exit code $LASTEXITCODE." }
 

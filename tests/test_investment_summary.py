@@ -14,6 +14,104 @@ def write_csv(path, fieldnames, rows):
 
 
 class InvestmentSummaryTests(unittest.TestCase):
+    def test_includes_data_health_summary_when_inputs_are_provided(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidates = root / "candidate_pool.csv"
+            valuations = root / "valuation_targets.csv"
+            tracking = root / "tracking_snapshot.csv"
+            forecast_history = root / "forecast_history.csv"
+            model_audit = root / "model_audit.md"
+            quote_gaps = root / "quote_gaps.csv"
+            data_quality_issues = root / "data_quality_issues.csv"
+            share_override_audit = root / "share_override_audit.csv"
+            output = root / "latest_investment_summary.md"
+
+            write_csv(
+                candidates,
+                ["market", "ticker", "company_name", "total_score", "grade", "reason"],
+                [{"market": "美股", "ticker": "AAA", "company_name": "Alpha", "total_score": "90", "grade": "A", "reason": "低估"}],
+            )
+            write_csv(
+                valuations,
+                [
+                    "market",
+                    "ticker",
+                    "company_name",
+                    "currency",
+                    "current_price",
+                    "buy_price",
+                    "target_price",
+                    "expected_return",
+                    "price_action",
+                    "trend_label",
+                    "valuation_confidence",
+                    "reason",
+                    "generated_date",
+                    "model_version",
+                ],
+                [
+                    {
+                        "market": "美股",
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "currency": "USD",
+                        "current_price": "100",
+                        "buy_price": "90",
+                        "target_price": "130",
+                        "expected_return": "0.3",
+                        "price_action": "达到建议买入区间",
+                        "trend_label": "中性",
+                        "valuation_confidence": "low",
+                        "reason": "估值低",
+                        "generated_date": "2026-06-27",
+                        "model_version": "valuation_trend_v1",
+                    }
+                ],
+            )
+            write_csv(tracking, ["ticker", "evaluation_status"], [])
+            write_csv(forecast_history, ["ticker", "generated_date", "model_version"], [])
+            model_audit.write_text("- 审计状态：sample_accumulating\n- 结论：样本积累中\n", encoding="utf-8-sig")
+            write_csv(
+                quote_gaps,
+                ["ticker", "status", "missing_fields", "ready_field_count", "total_required_field_count"],
+                [
+                    {"ticker": "AAA", "status": "ready", "missing_fields": "", "ready_field_count": "9", "total_required_field_count": "9"},
+                    {"ticker": "BRK-B", "status": "manual_override_applied", "missing_fields": "", "ready_field_count": "9", "total_required_field_count": "9"},
+                ],
+            )
+            write_csv(
+                data_quality_issues,
+                ["severity", "issue_code", "ticker"],
+                [
+                    {"severity": "警告", "issue_code": "percentage_unit_suspect", "ticker": "AAA"},
+                    {"severity": "阻断", "issue_code": "missing_required_field", "ticker": "BAD"},
+                ],
+            )
+            write_csv(
+                share_override_audit,
+                ["ticker", "status", "age_days"],
+                [{"ticker": "BRK-B", "status": "current", "age_days": "74"}],
+            )
+
+            generate_investment_summary(
+                candidates,
+                valuations,
+                tracking,
+                forecast_history,
+                model_audit,
+                output,
+                quote_gaps_path=quote_gaps,
+                data_quality_issues_path=data_quality_issues,
+                share_override_audit_path=share_override_audit,
+            )
+
+            report = output.read_text(encoding="utf-8-sig")
+            self.assertIn("## 数据健康", report)
+            self.assertIn("行情覆盖：2/2 (100.00%)", report)
+            self.assertIn("人工覆盖：1 项，需复核 0 项", report)
+            self.assertIn("数据质量问题：2 项（阻断 1，警告 1）", report)
+
     def test_generates_latest_investment_summary_with_lifecycle_sections(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
