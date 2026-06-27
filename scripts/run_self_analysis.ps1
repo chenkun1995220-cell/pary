@@ -30,3 +30,9 @@ if ($DryRun) {
 if ($LASTEXITCODE -ne 0) {
   throw "Weekly self-analysis failed with exit code $LASTEXITCODE."
 }
+
+$Manifest = Join-Path (Split-Path -Parent $Output) "latest_self_analysis_manifest.json"
+& $Python -B automation_self_analysis.py --validate-manifest $Manifest
+if ($LASTEXITCODE -ne 0) {
+  throw "Weekly self-analysis manifest validation failed with exit code $LASTEXITCODE."
+}

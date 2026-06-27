@@ -1055,12 +1055,86 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     }
 
 
+REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
+    "manifest_schema",
+    "manifest_version",
+    "as_of_date",
+    "automation_status",
+    "automation_recommended_action",
+    "automation_priority_actions",
+    "markets",
+    "model_audit_status",
+    "model_audit_recommended_action",
+    "backtest_status",
+    "backtest_recommended_action",
+    "health",
+    "data_health_status",
+    "data_health_recommended_action",
+    "candidate_review_status",
+    "candidate_review_recommended_action",
+    "manual_review_queue_count",
+    "manual_review_repeat_count",
+    "review_status",
+    "recommended_next_action",
+    "outputs",
+]
+
+
+def validate_self_analysis_manifest(path):
+    manifest_path = Path(path)
+    if not manifest_path.exists():
+        return {
+            "status": "invalid",
+            "schema": "",
+            "version": "",
+            "missing_fields": REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS[:],
+            "errors": [f"missing_manifest: {manifest_path}"],
+        }
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        return {
+            "status": "invalid",
+            "schema": "",
+            "version": "",
+            "missing_fields": REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS[:],
+            "errors": [f"invalid_json: {exc}"],
+        }
+    missing = [field for field in REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS if field not in data]
+    errors = []
+    schema = data.get("manifest_schema", "")
+    version = data.get("manifest_version", "")
+    if schema != "self_analysis_manifest":
+        errors.append(f"unexpected_schema: {schema}")
+    if version != 1:
+        errors.append(f"unexpected_version: {version}")
+    if missing:
+        errors.append("missing_fields: " + ", ".join(missing))
+    return {
+        "status": "invalid" if errors else "valid",
+        "schema": schema,
+        "version": version,
+        "missing_fields": missing,
+        "errors": errors,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate weekly automation self-analysis summary.")
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--output")
     parser.add_argument("--as-of-date")
+    parser.add_argument("--validate-manifest")
     args = parser.parse_args()
+    if args.validate_manifest:
+        validation = validate_self_analysis_manifest(args.validate_manifest)
+        if validation["status"] == "valid":
+            print(
+                f"Self-analysis manifest valid: schema={validation['schema']} version={validation['version']}"
+            )
+            return
+        print("Self-analysis manifest invalid: " + "; ".join(validation["errors"]))
+        raise SystemExit(1)
     result = run_self_analysis(args.project_root, args.output, args.as_of_date)
     print(f"Self-analysis summary: {result['output']}")
     print(f"Manual review queue: {result['manual_review_queue_output']}")

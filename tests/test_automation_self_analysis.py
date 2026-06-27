@@ -433,6 +433,55 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("latest_self_analysis_manifest.json", output)
             self.assertTrue((root / "outputs" / "automation" / "latest_manual_review_queue.csv").exists())
 
+    def test_validates_self_analysis_manifest_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            from automation_self_analysis import validate_self_analysis_manifest
+
+            validation = validate_self_analysis_manifest(result["manifest_output"])
+
+            self.assertEqual(validation["status"], "valid")
+            self.assertEqual(validation["schema"], "self_analysis_manifest")
+            self.assertEqual(validation["version"], 1)
+            self.assertEqual(validation["missing_fields"], [])
+
+    def test_manifest_validator_reports_missing_required_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(
+                json.dumps({"manifest_schema": "self_analysis_manifest", "manifest_version": 1}),
+                encoding="utf-8-sig",
+            )
+
+            from automation_self_analysis import validate_self_analysis_manifest
+
+            validation = validate_self_analysis_manifest(path)
+
+            self.assertEqual(validation["status"], "invalid")
+            self.assertIn("automation_status", validation["missing_fields"])
+
+    def test_cli_can_validate_self_analysis_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "automation_self_analysis.py"),
+                    "--validate-manifest",
+                    result["manifest_output"],
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(completed.returncode, 0)
+            self.assertIn("Self-analysis manifest valid", completed.stdout)
+
 
     def test_includes_data_health_history_and_flags_attention_items(self):
         with tempfile.TemporaryDirectory() as tmp:
