@@ -259,6 +259,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("health", doc)
         self.assertIn("data_health_status", doc)
         self.assertIn("data_health_recommended_action", doc)
+        self.assertIn("candidate_review_status", doc)
+        self.assertIn("candidate_review_recommended_action", doc)
         self.assertIn("as_of_date", doc)
         self.assertIn("历史重复项", doc)
         self.assertIn("自我分析摘要", doc)

@@ -673,6 +673,13 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             result = run_self_analysis(root, as_of_date="2026-06-27")
 
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(manifest["candidate_review_status"], "manual_review_needed")
+            self.assertEqual(manifest["candidate_review_recommended_action"], "review_candidate_findings")
+            self.assertEqual(manifest["candidate_review_quality_gap_count"], 1)
+            self.assertEqual(manifest["candidate_review_risk_item_count"], 1)
+            self.assertEqual(len(manifest["candidate_review_risks"]), 4)
+
             text = Path(result["output"]).read_text(encoding="utf-8-sig")
             self.assertIn("## 候选复核重点", text)
             self.assertIn("| 美股周筛 | ready | 1/2 | 1 |", text)

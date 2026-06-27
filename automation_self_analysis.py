@@ -712,6 +712,27 @@ def _manifest_data_health_status(health):
     }
 
 
+def _manifest_candidate_review_status(candidate_reviews):
+    risks = _candidate_review_risks(candidate_reviews)
+    quality_gap_count = sum(_as_int(item.get("quality_gap_count")) or 0 for item in candidate_reviews)
+    risk_item_count = sum(len(item.get("risk_items", [])) for item in candidate_reviews)
+    if risks:
+        return {
+            "candidate_review_status": "manual_review_needed",
+            "candidate_review_recommended_action": "review_candidate_findings",
+            "candidate_review_quality_gap_count": quality_gap_count,
+            "candidate_review_risk_item_count": risk_item_count,
+            "candidate_review_risks": risks,
+        }
+    return {
+        "candidate_review_status": "clear",
+        "candidate_review_recommended_action": "monitor_next_run",
+        "candidate_review_quality_gap_count": quality_gap_count,
+        "candidate_review_risk_item_count": risk_item_count,
+        "candidate_review_risks": [],
+    }
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -895,6 +916,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "markets": _manifest_markets(markets),
             "health": _manifest_health(health),
             **_manifest_data_health_status(health),
+            **_manifest_candidate_review_status(candidate_reviews),
             "manual_review_queue_count": len(manual_review_queue),
             "manual_review_repeat_count": len(manual_review_history_repeats),
             "review_status": review_status,
