@@ -106,6 +106,16 @@ try {
   & $Python -B model_audit.py --evaluations (Join-Path $OutputRoot "forecast_evaluations.csv") --tracking (Join-Path $OutputRoot "tracking_snapshot.csv") --output-root $OutputRoot
   if ($LASTEXITCODE -ne 0) { throw "CN model audit failed with exit code $LASTEXITCODE." }
 
+  $investmentSummaryPath = Join-Path $OutputRoot "latest_investment_summary.md"
+  & $Python -B investment_summary.py `
+    --candidates $candidatesPath `
+    --valuations (Join-Path $OutputRoot "valuation_targets.csv") `
+    --tracking (Join-Path $OutputRoot "tracking_snapshot.csv") `
+    --forecast-history (Join-Path $OutputRoot "forecast_history.csv") `
+    --model-audit (Join-Path $OutputRoot "model_audit.md") `
+    --output $investmentSummaryPath
+  if ($LASTEXITCODE -ne 0) { throw "CN investment summary failed with exit code $LASTEXITCODE." }
+
   $rows = @(Import-Csv -LiteralPath $Companies)
   $financialRows = @(Import-Csv -LiteralPath $financialPath)
   $financialReady = @($financialRows | Where-Object { $_.financial_data_status -eq "ready" }).Count
@@ -135,6 +145,7 @@ try {
     "- Performance report: $(Join-Path $OutputRoot 'performance_report.md')",
     "- Model audit: $(Join-Path $OutputRoot 'model_audit.md')",
     "- Shadow proposals: $(Join-Path $OutputRoot 'shadow_model_proposals.csv')",
+    "- Investment summary: $investmentSummaryPath",
     "- Report: $(Join-Path $OutputRoot 'weekly_report.md')",
     "- Log: $logPath"
   )

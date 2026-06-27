@@ -25,6 +25,8 @@ class RegionalWeeklyScriptTests(unittest.TestCase):
             self.assertIn("tracking_snapshot.csv", script)
             self.assertIn("forecast_evaluations.csv", script)
             self.assertIn("model_audit.md", script)
+            self.assertIn("investment_summary.py", script)
+            self.assertIn("latest_investment_summary.md", script)
             self.assertIn('--candidates (Join-Path $OutputRoot "forecast_history.csv")', script)
             self.assertIn("regional_fundamental_v2", script)
             self.assertIn("candidate_pool.csv", script)
