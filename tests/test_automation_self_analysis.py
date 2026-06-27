@@ -716,10 +716,20 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             )
             write_csv(
                 root / "outputs" / "hk_universe" / "valuation_review_items.csv",
-                ["ticker", "valuation_review_category"],
+                ["ticker", "company_name", "valuation_review_category", "valuation_review_detail"],
                 [
-                    {"ticker": "AAA", "valuation_review_category": "loss_making_or_negative_pe"},
-                    {"ticker": "BBB", "valuation_review_category": "loss_making_or_negative_pe;non_positive_book_value_or_pb"},
+                    {
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "valuation_review_category": "loss_making_or_negative_pe",
+                        "valuation_review_detail": "pe=-3.5",
+                    },
+                    {
+                        "ticker": "BBB",
+                        "company_name": "Beta",
+                        "valuation_review_category": "loss_making_or_negative_pe;non_positive_book_value_or_pb",
+                        "valuation_review_detail": "pe=-1;pb=0",
+                    },
                 ],
             )
 
@@ -731,8 +741,10 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                 result["health"][2]["valuation_review_categories"],
                 "loss_making_or_negative_pe=2;non_positive_book_value_or_pb=1",
             )
+            self.assertEqual(result["health"][2]["valuation_review_samples"][0]["ticker"], "AAA")
             self.assertIn("估值复核清单：2", report)
             self.assertIn("non_positive_book_value_or_pb=1", report)
+            self.assertIn("AAA Alpha loss_making_or_negative_pe pe=-3.5", report)
 
 
 if __name__ == "__main__":

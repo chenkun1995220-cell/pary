@@ -219,7 +219,7 @@ def _quote_gap_summary(path):
 
 def _valuation_review_summary(path):
     rows = _read_csv_rows(path)
-    summary = {"total": 0, "categories": {}}
+    summary = {"total": 0, "categories": {}, "samples": []}
     for row in rows:
         summary["total"] += 1
         category_text = row.get("valuation_review_category") or row.get("review_category") or ""
@@ -227,6 +227,15 @@ def _valuation_review_summary(path):
             category = category.strip()
             if category:
                 summary["categories"][category] = summary["categories"].get(category, 0) + 1
+        if len(summary["samples"]) < 5:
+            summary["samples"].append(
+                {
+                    "ticker": row.get("ticker", ""),
+                    "company": row.get("company_name") or row.get("company", ""),
+                    "category": category_text,
+                    "detail": row.get("valuation_review_detail") or row.get("review_detail") or "",
+                }
+            )
     return summary
 
 
@@ -355,6 +364,7 @@ def _health_snapshot(market):
             "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
             "valuation_review_item_count": str(valuation_review_summary["total"]),
             "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
+            "valuation_review_samples": valuation_review_summary["samples"],
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
@@ -373,6 +383,7 @@ def _health_snapshot(market):
         "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
         "valuation_review_item_count": str(valuation_review_summary["total"]),
         "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
+        "valuation_review_samples": valuation_review_summary["samples"],
         "data_quality_blocked": row.get("data_quality_blocked", "0"),
         "affected_candidate_count": row.get("affected_candidate_count", "0"),
         "share_override_review": row.get("share_override_review", "0"),
@@ -514,6 +525,22 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
         review_categories = item.get("valuation_review_categories", "none")
         if review_count and review_count > 0:
             lines.append(f"- {item['name']} 估值复核清单：{review_count}；{review_categories}")
+            samples = []
+            for sample in item.get("valuation_review_samples", []):
+                samples.append(
+                    " ".join(
+                        part
+                        for part in [
+                            sample.get("ticker", ""),
+                            sample.get("company", ""),
+                            sample.get("category", ""),
+                            sample.get("detail", ""),
+                        ]
+                        if part
+                    )
+                )
+            if samples:
+                lines.append(f"- {item['name']} 估值复核样例：" + "; ".join(samples))
     lines.extend(
         [
             "",
