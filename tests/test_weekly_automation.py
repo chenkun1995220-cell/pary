@@ -31,6 +31,9 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("--share-override-audit", script)
         self.assertIn("investment_summary.py", script)
         self.assertIn("latest_investment_summary.md", script)
+        self.assertIn("data_health_history.py", script)
+        self.assertIn("data_health_history.csv", script)
+        self.assertIn("data_health_history.md", script)
         self.assertIn('--candidates (Join-Path $OutputRoot "forecast_history.csv")', script)
 
     def test_orchestrator_dry_run_prints_ordered_pipeline_without_writing_outputs(self):

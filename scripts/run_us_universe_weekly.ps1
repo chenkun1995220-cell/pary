@@ -104,6 +104,7 @@ try {
   & $Python -B model_audit.py --evaluations (Join-Path $OutputRoot "forecast_evaluations.csv") --tracking (Join-Path $OutputRoot "tracking_snapshot.csv") --output-root $OutputRoot
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[4]) failed with exit code $LASTEXITCODE." }
 
+  $runTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
   $investmentSummaryPath = Join-Path $AutomationRoot "latest_investment_summary.md"
   Write-Host "Running: $($ValuationSteps[5])"
   & $Python -B investment_summary.py `
@@ -117,6 +118,15 @@ try {
     --share-override-audit (Join-Path $OutputRoot "share_override_audit.csv") `
     --output $investmentSummaryPath
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[5]) failed with exit code $LASTEXITCODE." }
+
+  $dataHealthHistoryPath = Join-Path $OutputRoot "data_health_history.csv"
+  $dataHealthReportPath = Join-Path $OutputRoot "data_health_history.md"
+  & $Python -B data_health_history.py `
+    --output-root $OutputRoot `
+    --history $dataHealthHistoryPath `
+    --report $dataHealthReportPath `
+    --run-time $runTime
+  if ($LASTEXITCODE -ne 0) { throw "Data health history update failed with exit code $LASTEXITCODE." }
 
   $candidateRows = if (Test-Path $candidatePath) { @(Import-Csv -LiteralPath $candidatePath) } else { @() }
   $tickers = @($candidateRows | ForEach-Object { $_.ticker }) -join ", "
@@ -134,7 +144,7 @@ try {
   $summary = @(
     "# US Weekly Screening Run Summary",
     "",
-    "- Run time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+    "- Run time: $runTime",
     "- Universe count: $($universeRows.Count)",
     "- Constituent refresh status: $refreshStatus",
     "- SEC cache files: $secCacheCount",
@@ -149,6 +159,8 @@ try {
     "- Performance report: $(Join-Path $OutputRoot 'performance_report.md')",
     "- Model audit: $(Join-Path $OutputRoot 'model_audit.md')",
     "- Share override audit: $(Join-Path $OutputRoot 'share_override_audit.md')",
+    "- Data health history: $dataHealthHistoryPath",
+    "- Data health report: $dataHealthReportPath",
     "- Shadow proposals: $(Join-Path $OutputRoot 'shadow_model_proposals.csv')",
     "- Investment summary: $investmentSummaryPath",
     "- Research directory: $(Join-Path $OutputRoot 'research')",
