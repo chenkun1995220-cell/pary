@@ -3,7 +3,8 @@ param(
   [string]$Output = "",
   [string]$FixtureDir = "",
   [string]$PriceFixtureDir = "",
-  [string]$CacheDir = ""
+  [string]$CacheDir = "",
+  [string]$ShareOverrides = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,6 +49,9 @@ if ($PriceFixtureDir) {
 }
 if ($CacheDir) {
   $argsList += @("--cache-dir", $CacheDir)
+}
+if ($ShareOverrides) {
+  $argsList += @("--share-overrides", $ShareOverrides)
 }
 
 & $Python @argsList

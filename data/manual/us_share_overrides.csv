@@ -1,0 +1,5 @@
+ticker,shares_outstanding,shares_unit,as_of_date,source,source_url,note
+BRK-B,2156.854177,million_shares,2026-04-14,SEC 10-Q 2026-05-04 B-equivalent common shares,https://www.sec.gov/Archives/edgar/data/1067983/000119312526202243/brka-20260331.htm,Class A shares converted at 1:1500 and added to Class B shares for BRK-B price context.
+ERIE,52.30018,million_shares,2026-03-31,SEC 10-Q 2026-04-23 diluted Class A shares,https://www.sec.gov/Archives/edgar/data/922621/000162828026026866/erie-20260331.htm,SEC Company Facts only exposes Class B 2542 shares; use diluted Class A shares for ERIE trading symbol.
+FOXA,443,million_shares,2026-03-31,SEC 10-Q 2026-05-11 diluted weighted average shares,https://www.sec.gov/Archives/edgar/data/1754301/000162828026033172/fox-20260331.htm,SEC Company Facts stale DEI value is 1 share; use diluted weighted average shares in millions.
+FOX,443,million_shares,2026-03-31,SEC 10-Q 2026-05-11 diluted weighted average shares,https://www.sec.gov/Archives/edgar/data/1754301/000162828026033172/fox-20260331.htm,Same Fox Corporation CIK as FOXA; use diluted weighted average shares in millions.

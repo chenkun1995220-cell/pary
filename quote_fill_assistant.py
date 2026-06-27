@@ -22,6 +22,7 @@ GAP_FIELDS = [
     "ready_field_count",
     "total_required_field_count",
 ]
+USABLE_STATUSES = {"ready", "manual_override_applied"}
 
 
 def load_csv_rows(path):
@@ -36,6 +37,15 @@ def missing_fields_for_row(row):
     return [field for field in REQUIRED_FILL_FIELDS if not row.get(field, "").strip()]
 
 
+def status_for_quote_row(row, missing):
+    quote_source = row.get("quote_source", "")
+    if not missing and "Manual share override" in quote_source:
+        return "manual_override_applied"
+    if "shares_outstanding" in missing and "share sanity failed" in quote_source:
+        return "needs_manual_review"
+    return "ready" if not missing else "needs_fill"
+
+
 def find_quote_fill_gaps(quotes_path):
     gaps = []
     for row in load_csv_rows(quotes_path):
@@ -46,7 +56,7 @@ def find_quote_fill_gaps(quotes_path):
         gaps.append(
             {
                 "ticker": ticker,
-                "status": "ready" if not missing else "needs_fill",
+                "status": status_for_quote_row(row, missing),
                 "missing_fields": ", ".join(missing),
                 "ready_field_count": len(REQUIRED_FILL_FIELDS) - len(missing),
                 "total_required_field_count": len(REQUIRED_FILL_FIELDS),
@@ -67,12 +77,14 @@ def write_gap_csv(path, gaps):
 def write_gap_report(path, gaps):
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    needs_fill = [gap for gap in gaps if gap.get("status") != "ready"]
+    needs_fill = [gap for gap in gaps if gap.get("status") not in USABLE_STATUSES]
+    manual_overrides = [gap for gap in gaps if gap.get("status") == "manual_override_applied"]
     lines = [
         "# 真实行情待补清单",
         "",
         f"- 股票数量：{len(gaps)}",
         f"- 待补股票：{len(needs_fill)}",
+        f"- 已应用人工覆盖：{len(manual_overrides)}",
         "",
     ]
     if not needs_fill:
@@ -94,6 +106,18 @@ def write_gap_report(path, gaps):
                 "补齐后建议重新运行样本包校验，再执行真实样本试跑。",
             ]
         )
+    if manual_overrides:
+        lines.extend(
+            [
+                "",
+                "## 已应用人工覆盖",
+                "",
+                "| 股票 | 状态 | 字段 |",
+                "|---|---|---|",
+            ]
+        )
+        for gap in manual_overrides:
+            lines.append(f"| {gap['ticker']} | {gap['status']} | shares_outstanding |")
     output.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
 
 
@@ -103,7 +127,7 @@ def run_quote_fill_check(quotes_path, output_csv, output_report):
     write_gap_report(output_report, gaps)
     return {
         "rows": len(gaps),
-        "needs_fill": sum(1 for gap in gaps if gap.get("status") != "ready"),
+        "needs_fill": sum(1 for gap in gaps if gap.get("status") not in USABLE_STATUSES),
         "output_csv": Path(output_csv),
         "output_report": Path(output_report),
     }

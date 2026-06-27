@@ -15,6 +15,7 @@ from quote_auto_filler import (
     extract_shares_from_sec_filing_text,
     fetch_price_quote,
     parse_yahoo_chart_quote,
+    load_share_overrides,
     load_fresh_quotes,
     run_auto_fill_quotes,
 )
@@ -156,6 +157,69 @@ class QuoteAutoFillerTests(unittest.TestCase):
 
         self.assertEqual(row["shares_outstanding"], "")
         self.assertIn("share sanity failed", row["quote_source"])
+
+    def test_load_share_overrides_converts_million_share_units(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "overrides.csv"
+            with path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "ticker",
+                        "shares_outstanding",
+                        "shares_unit",
+                        "as_of_date",
+                        "source",
+                        "source_url",
+                        "note",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "erie",
+                        "shares_outstanding": "52.3",
+                        "shares_unit": "million_shares",
+                        "as_of_date": "2026-06-26",
+                        "source": "manual review",
+                        "source_url": "https://example.com",
+                        "note": "class-adjusted shares",
+                    }
+                )
+
+            overrides = load_share_overrides(path)
+
+        self.assertEqual(overrides["ERIE"]["shares"], 52_300_000)
+        self.assertEqual(overrides["ERIE"]["source"], "manual review")
+
+    def test_build_quote_row_uses_manual_share_override_after_sec_sanity_failure(self):
+        facts = company_facts()
+        facts["facts"].pop("dei")
+        facts["facts"]["us-gaap"]["WeightedAverageNumberOfDilutedSharesOutstanding"] = {
+            "units": {"shares": [sec_fact(2_542, unit="shares")]}
+        }
+        facts["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"] = {
+            "units": {"USD": [sec_fact(4_089_770_000)]}
+        }
+
+        row = build_quote_row(
+            {"ticker": "ERIE"},
+            facts,
+            quote_override={
+                "ticker": "ERIE",
+                "price": 237.11,
+                "quote_date": "2026-06-26",
+                "quote_source": "Yahoo Finance chart",
+            },
+            share_override={
+                "shares": 52_300_000,
+                "source": "manual review",
+            },
+        )
+
+        self.assertEqual(row["shares_outstanding"], 52.3)
+        self.assertIn("Manual share override", row["quote_source"])
+        self.assertIn("manual review", row["quote_source"])
 
     def test_extracts_shares_from_sec_filing_text(self):
         proxy_text = "Shares of common stock outstanding as of the Record Date 171,466,896"
