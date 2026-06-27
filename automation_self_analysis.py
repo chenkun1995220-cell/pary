@@ -422,6 +422,9 @@ def _health_risks(health):
         review_gaps = _as_int(item.get("quote_gap_review_count"))
         if review_gaps and review_gaps > 0:
             risks.append(f"数据健康需关注：{name} 估值口径复核 {review_gaps}")
+        valuation_reviews = _as_int(item.get("valuation_review_item_count"))
+        if valuation_reviews and valuation_reviews > 0:
+            risks.append(f"估值复核待确认：{name} {valuation_reviews}")
         review = _as_int(item.get("share_override_review"))
         if review and review > 0:
             risks.append(f"数据健康需关注：{name} 人工覆盖需复核 {review}")
@@ -475,6 +478,8 @@ def _recommendations(risks, backtest):
         recommendations.append("数据健康异常先人工复核，不自动修改正式模型参数。")
     if any("候选需复核" in risk or "风险需复核" in risk for risk in risks):
         recommendations.append("优先复核候选风险和结论缺口，不自动调整正式模型参数。")
+    if any(risk.startswith("估值复核待确认") for risk in risks):
+        recommendations.append("优先人工复核估值复核清单，确认亏损、非正净资产或特殊行业估值口径后再解读候选缺口。")
     if _as_int(backtest.get("weak_rows")):
         recommendations.append("继续补充历史成分 verified 证据，降低严格时点回测的数据质量风险。")
     if any("样本积累" in risk for risk in risks):
