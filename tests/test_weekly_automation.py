@@ -249,6 +249,7 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("run_self_analysis.ps1", doc)
         self.assertIn("show_automation_check.ps1", doc)
+        self.assertIn("audit_codex_automations.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
         self.assertIn("outputs/automation/latest_manual_review_queue.csv", doc)
         self.assertIn("outputs/automation/manual_review_queue_history.csv", doc)
@@ -256,6 +257,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/latest_self_analysis_manifest.json", doc)
         self.assertIn("outputs/automation/latest_automation_check.json", doc)
         self.assertIn("automation_check_report.py", doc)
+        self.assertIn("codex_automation_audit.py", doc)
         self.assertIn("manifest_schema", doc)
         self.assertIn("manifest_version", doc)
         self.assertIn("review_status", doc)
@@ -318,6 +320,15 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("automation_check_report.py", script)
         self.assertIn("latest_automation_check.json", script)
         self.assertIn("--check", script)
+
+    def test_codex_automation_audit_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "audit_codex_automations.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("codex_automation_audit.py", script)
+        self.assertIn("C:\\Users\\pechen\\.codex\\automations", script)
+        self.assertIn("--automation-root", script)
 
 
 if __name__ == "__main__":
