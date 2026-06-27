@@ -259,5 +259,91 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("数据健康异常先人工复核，不自动修改正式模型参数", text)
 
 
+    def test_includes_candidate_review_priorities_from_investment_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "automation" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# US Weekly Screening Run Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: AAA, BBB",
+                        "- Model audit: outputs/us_universe/model_audit.md",
+                        "- Investment summary: outputs/us_universe/latest_investment_summary.md",
+                    ]
+                ),
+            )
+            write_text(
+                root / "outputs" / "cn_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# CN Weekly Data Summary",
+                        "- Candidate count: 0",
+                        "- Candidate tickers: None",
+                        "- Model audit: outputs/cn_universe/model_audit.md",
+                    ]
+                ),
+            )
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 0",
+                        "- Candidate tickers: None",
+                        "- Model audit: outputs/hk_universe/model_audit.md",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "us_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "cn_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "hk_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(
+                root / "outputs" / "automation" / "latest_backtest_summary.md",
+                "\n".join(
+                    [
+                        "# US Point-in-Time Backtest Summary",
+                        "- Weeks completed: 8",
+                        "- Weeks failed: 0",
+                        "- Membership evidence verified: 40/40 (100.0%)",
+                        "- Weak evidence rows: 0",
+                    ]
+                ),
+            )
+            write_text(
+                root / "outputs" / "us_universe" / "latest_investment_summary.md",
+                "\n".join(
+                    [
+                        "# 每周低估公司结论",
+                        "",
+                        "## 候选风险说明",
+                        "",
+                        "| 股票 | 公司 | 风险说明 |",
+                        "|---|---|---|",
+                        "| AAA | Alpha | 未发现量化硬性风险，仍需复核行业周期和财报一次性项目 |",
+                        "| BBB | Beta | 当前无安全边际；预期收益为负 |",
+                        "",
+                        "## 候选结论质量检查",
+                        "",
+                        "- 字段完整：1/2",
+                        "",
+                        "| 股票 | 公司 | 缺口分类 | 具体缺口 |",
+                        "|---|---|---|---|",
+                        "| BBB | Beta | 数据不足 | 缺少跟踪状态 |",
+                    ]
+                ),
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            text = Path(result["output"]).read_text(encoding="utf-8-sig")
+            self.assertIn("## 候选复核重点", text)
+            self.assertIn("| 美股周筛 | ready | 1/2 | 1 |", text)
+            self.assertIn("美股周筛 候选需复核：BBB Beta 数据不足：缺少跟踪状态", text)
+            self.assertIn("美股周筛 风险需复核：BBB Beta 当前无安全边际；预期收益为负", text)
+            self.assertIn("优先复核候选风险和结论缺口，不自动调整正式模型参数", text)
+
+
 if __name__ == "__main__":
     unittest.main()
