@@ -17,7 +17,7 @@ Write-Host "Market: HK"
 Write-Host "Companies: $Companies"
 Write-Host "Cache: $CacheDir"
 Write-Host "OutputRoot: $OutputRoot"
-Write-Host "Steps: universe -> market snapshot -> quote gap diagnostics -> financial snapshot -> regional screening -> price history -> valuation_trend_v1 -> benchmark -> forecast tracking -> model audit -> data health history"
+Write-Host "Steps: universe -> market snapshot -> quote gap diagnostics -> quote retry -> final quote gap diagnostics -> financial snapshot -> regional screening -> price history -> valuation_trend_v1 -> benchmark -> forecast tracking -> model audit -> data health history"
 
 if ($DryRun) {
   Write-Host "DryRun: no files or network requests were created."
@@ -58,6 +58,24 @@ try {
     --report $quoteGapReportPath `
     --cache-dir $CacheDir
   if ($LASTEXITCODE -ne 0) { throw "HK quote gap diagnostics failed with exit code $LASTEXITCODE." }
+
+  $quoteRetryReportPath = Join-Path $OutputRoot "quote_retry.md"
+  & $Python -B regional_quote_retry.py `
+    --companies $Companies `
+    --snapshot $snapshotPath `
+    --gaps $quoteGapsPath `
+    --output $snapshotPath `
+    --report $quoteRetryReportPath
+  if ($LASTEXITCODE -ne 0) { throw "HK quote retry failed with exit code $LASTEXITCODE." }
+
+  & $Python -B regional_quote_gaps.py `
+    --market HK `
+    --companies $Companies `
+    --snapshot $snapshotPath `
+    --output $quoteGapsPath `
+    --report $quoteGapReportPath `
+    --cache-dir $CacheDir
+  if ($LASTEXITCODE -ne 0) { throw "HK final quote gap diagnostics failed with exit code $LASTEXITCODE." }
 
   $financialPath = Join-Path $OutputRoot "financial_snapshot.csv"
   $rawFinancialPath = Join-Path $CacheDir "financial_snapshot_raw.json"
@@ -172,6 +190,7 @@ try {
     "- Investment summary: $investmentSummaryPath",
     "- Quote gaps: $quoteGapsPath",
     "- Quote gap report: $quoteGapReportPath",
+    "- Quote retry report: $quoteRetryReportPath",
     "- Data health history: $dataHealthHistoryPath",
     "- Data health report: $dataHealthReportPath",
     "- Report: $(Join-Path $OutputRoot 'weekly_report.md')",
