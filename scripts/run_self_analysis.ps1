@@ -18,7 +18,7 @@ $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependenc
 Write-Host "Weekly self-analysis aggregator"
 Write-Host "ProjectRoot: $ProjectRoot"
 Write-Host "Output: $Output"
-Write-Host "Reads: latest_run_summary.md, latest_backtest_summary.md, model_audit.md, data_health_history.csv, latest_investment_summary.md"
+Write-Host "Reads: latest_run_summary.md, latest_backtest_summary.md, model_audit.md, data_health_history.csv, quote_gaps.csv, latest_investment_summary.md"
 Write-Host "Writes: latest_self_analysis.md"
 
 if ($DryRun) {
