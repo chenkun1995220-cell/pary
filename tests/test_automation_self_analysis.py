@@ -402,6 +402,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("latest_manual_review_queue.csv", output)
             self.assertIn("Manual review history:", output)
             self.assertIn("manual_review_queue_history.csv", output)
+            self.assertIn("Manual review repeats:", output)
+            self.assertIn("manual_review_repeats.csv", output)
             self.assertTrue((root / "outputs" / "automation" / "latest_manual_review_queue.csv").exists())
 
 
@@ -942,9 +944,17 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             result = run_self_analysis(root, as_of_date="2026-06-27")
             report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            with Path(result["manual_review_repeats_output"]).open(
+                "r", encoding="utf-8-sig", newline=""
+            ) as handle:
+                repeat_rows = list(csv.DictReader(handle))
 
             self.assertEqual(result["manual_review_history_repeats"][0]["ticker"], "AAA")
             self.assertEqual(result["manual_review_history_repeats"][0]["previous_count"], 1)
+            self.assertEqual(repeat_rows[0]["as_of_date"], "2026-06-27")
+            self.assertEqual(repeat_rows[0]["ticker"], "AAA")
+            self.assertEqual(repeat_rows[0]["previous_count"], "1")
+            self.assertEqual(repeat_rows[0]["previous_dates"], "2026-06-20")
             self.assertIn("AAA", report)
             self.assertIn("2026-06-20", report)
 

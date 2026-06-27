@@ -537,6 +537,15 @@ MANUAL_REVIEW_QUEUE_FIELDNAMES = [
     "review_detail",
 ]
 
+MANUAL_REVIEW_REPEAT_FIELDNAMES = [
+    "as_of_date",
+    "ticker",
+    "company",
+    "review_type",
+    "previous_count",
+    "previous_dates",
+]
+
 
 def _manual_review_queue_rows(queue, as_of_date):
     rows = []
@@ -609,6 +618,25 @@ def _manual_review_history_repeats(path, queue, as_of_date, limit=10):
         if len(repeats) >= limit:
             break
     return repeats
+
+
+def _write_manual_review_repeats(path, repeats, as_of_date):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=MANUAL_REVIEW_REPEAT_FIELDNAMES)
+        writer.writeheader()
+        for item in repeats:
+            writer.writerow(
+                {
+                    "as_of_date": as_of_date,
+                    "ticker": item.get("ticker", ""),
+                    "company": item.get("company", ""),
+                    "review_type": item.get("review_type", ""),
+                    "previous_count": item.get("previous_count", ""),
+                    "previous_dates": ";".join(item.get("previous_dates", [])),
+                }
+            )
 
 
 def _recommendations(risks, backtest):
@@ -770,6 +798,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     manual_review_queue = _manual_review_queue(health, candidate_reviews)
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     manual_review_history_output = output.parent / "manual_review_queue_history.csv"
+    manual_review_repeats_output = output.parent / "manual_review_repeats.csv"
     manual_review_history_repeats = _manual_review_history_repeats(
         manual_review_history_output, manual_review_queue, as_of_date
     )
@@ -779,11 +808,13 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         encoding="utf-8-sig",
     )
     _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
+    _write_manual_review_repeats(manual_review_repeats_output, manual_review_history_repeats, as_of_date)
     _write_manual_review_history(manual_review_history_output, manual_review_queue, as_of_date)
     return {
         "output": str(output),
         "manual_review_queue_output": str(manual_review_queue_output),
         "manual_review_history_output": str(manual_review_history_output),
+        "manual_review_repeats_output": str(manual_review_repeats_output),
         "markets": markets,
         "backtest": backtest,
         "health": health,
@@ -803,6 +834,7 @@ def main():
     print(f"Self-analysis summary: {result['output']}")
     print(f"Manual review queue: {result['manual_review_queue_output']}")
     print(f"Manual review history: {result['manual_review_history_output']}")
+    print(f"Manual review repeats: {result['manual_review_repeats_output']}")
 
 
 if __name__ == "__main__":
