@@ -247,6 +247,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("run_self_analysis.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
         self.assertIn("自我分析摘要", doc)
+        self.assertIn("data_health_history.csv", doc)
 
     def test_self_analysis_script_static_contract(self):
         script = (PROJECT_ROOT / "scripts" / "run_self_analysis.ps1").read_text(
@@ -255,6 +256,7 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("automation_self_analysis.py", script)
         self.assertIn("latest_self_analysis.md", script)
+        self.assertIn("data_health_history", script)
         self.assertIn("DryRun", script)
 
 
