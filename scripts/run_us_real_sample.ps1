@@ -56,8 +56,9 @@ if ($LASTEXITCODE -ne 0) { throw "Real sample pack validation failed with exit c
   --output-report $QuoteGapsReport
 
 $QuoteGapRows = Import-Csv -LiteralPath $QuoteGapsCsv
-$NeedsFillRows = @($QuoteGapRows | Where-Object { $_.status -ne "ready" })
-$ReadyQuoteRows = @($QuoteGapRows | Where-Object { $_.status -eq "ready" })
+$UsableQuoteStatuses = @("ready", "manual_override_applied")
+$NeedsFillRows = @($QuoteGapRows | Where-Object { $UsableQuoteStatuses -notcontains $_.status })
+$ReadyQuoteRows = @($QuoteGapRows | Where-Object { $UsableQuoteStatuses -contains $_.status })
 $QuoteCoverage = if ($QuoteGapRows.Count -gt 0) { $ReadyQuoteRows.Count / $QuoteGapRows.Count } else { 0 }
 Write-Host ("QuoteCoverage: {0:P2}" -f $QuoteCoverage)
 if ($QuoteCoverage -lt $MinimumQuoteCoverage -and -not $AllowIncompleteQuotes) {

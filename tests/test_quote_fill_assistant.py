@@ -10,6 +10,12 @@ from quote_fill_assistant import (
 )
 
 
+QUOTE_HEADER = (
+    "ticker,price,shares_outstanding,net_debt,currency,quote_date,"
+    "price_unit,shares_unit,debt_unit,quote_source,updated_at"
+)
+
+
 class QuoteFillAssistantTests(unittest.TestCase):
     def test_finds_missing_fields_in_real_sample_quotes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -17,7 +23,7 @@ class QuoteFillAssistantTests(unittest.TestCase):
             quote_path.write_text(
                 "\n".join(
                     [
-                        "ticker,price,shares_outstanding,net_debt,currency,quote_date,price_unit,shares_unit,debt_unit,quote_source,updated_at",
+                        QUOTE_HEADER,
                         "AAPL,,,,USD,,USD/share,million_shares,USD_million,,",
                         "MSFT,,,,USD,,USD/share,million_shares,USD_million,,",
                         "GOOGL,,,,USD,,USD/share,million_shares,USD_million,,",
@@ -84,7 +90,7 @@ class QuoteFillAssistantTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "quotes.csv"
             path.write_text(
-                "ticker,price,shares_outstanding,net_debt,currency,quote_date,price_unit,shares_unit,debt_unit,quote_source,updated_at\n"
+                QUOTE_HEADER + "\n"
                 "TEST,100,10,,USD,2026-06-21,USD/share,million_shares,USD_million,Yahoo,2026-06-21\n",
                 encoding="utf-8-sig",
             )
@@ -93,6 +99,36 @@ class QuoteFillAssistantTests(unittest.TestCase):
 
             self.assertEqual(gap["status"], "ready")
             self.assertNotIn("net_debt", gap["missing_fields"])
+
+    def test_marks_manual_override_rows_as_applied(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "quotes.csv"
+            path.write_text(
+                QUOTE_HEADER + "\n"
+                "ERIE,237.11,52.3,,USD,2026-06-26,USD/share,million_shares,USD_million,"
+                "Yahoo Finance chart; Manual share override (manual review),2026-06-27\n",
+                encoding="utf-8-sig",
+            )
+
+            gap = find_quote_fill_gaps(path)[0]
+
+            self.assertEqual(gap["status"], "manual_override_applied")
+            self.assertEqual(gap["missing_fields"], "")
+
+    def test_marks_sanity_failed_missing_shares_for_manual_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "quotes.csv"
+            path.write_text(
+                QUOTE_HEADER + "\n"
+                "ERIE,237.11,,,USD,2026-06-26,USD/share,million_shares,USD_million,"
+                "Yahoo Finance chart; SEC Company Facts share sanity failed,2026-06-27\n",
+                encoding="utf-8-sig",
+            )
+
+            gap = find_quote_fill_gaps(path)[0]
+
+            self.assertEqual(gap["status"], "needs_manual_review")
+            self.assertEqual(gap["missing_fields"], "shares_outstanding")
 
     def test_writes_csv_and_markdown_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -103,7 +139,7 @@ class QuoteFillAssistantTests(unittest.TestCase):
             quote_path.write_text(
                 "\n".join(
                     [
-                        "ticker,price,shares_outstanding,net_debt,currency,quote_date,price_unit,shares_unit,debt_unit,quote_source,updated_at",
+                        QUOTE_HEADER,
                         "AAPL,,,,USD,,USD/share,million_shares,USD_million,,",
                         "MSFT,,,,USD,,USD/share,million_shares,USD_million,,",
                         "GOOGL,,,,USD,,USD/share,million_shares,USD_million,,",

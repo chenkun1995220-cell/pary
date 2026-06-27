@@ -42,6 +42,7 @@ NET_INCOME_CONCEPTS = ["NetIncomeLoss", "ProfitLoss"]
 MIN_REUSABLE_SHARES_MILLIONS = 0.01
 MIN_MARKET_CAP_TO_REVENUE = 0.02
 MIN_MARKET_CAP_TO_NET_INCOME = 1.0
+DEFAULT_SHARE_OVERRIDES_PATH = "data/manual/us_share_overrides.csv"
 DEBT_CONCEPT_GROUPS = [
     [
         "LongTermDebtAndFinanceLeaseObligationsCurrent",
@@ -186,6 +187,34 @@ def load_fresh_quotes(path, as_of_date=None, max_age_days=7):
     return fresh
 
 
+def load_share_overrides(path):
+    override_path = Path(path)
+    if not path or not override_path.exists():
+        return {}
+    overrides = {}
+    with override_path.open(encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            ticker = row.get("ticker", "").strip().upper()
+            shares = numeric(row.get("shares_outstanding"))
+            if not ticker or shares is None or shares <= 0:
+                continue
+            unit = row.get("shares_unit", "million_shares").strip().lower()
+            if unit in ("shares", "share"):
+                raw_shares = shares
+            else:
+                raw_shares = shares * 1_000_000
+            if raw_shares / 1_000_000 < MIN_REUSABLE_SHARES_MILLIONS:
+                continue
+            overrides[ticker] = {
+                "shares": raw_shares,
+                "source": row.get("source", "").strip() or "manual review",
+                "source_url": row.get("source_url", "").strip(),
+                "as_of_date": row.get("as_of_date", "").strip(),
+                "note": row.get("note", "").strip(),
+            }
+    return overrides
+
+
 def normalize_sec_text(text):
     plain = html.unescape(str(text or ""))
     plain = re.sub(r"<[^>]+>", " ", plain)
@@ -305,6 +334,7 @@ def build_quote_row(
     quote_override=None,
     fallback_shares=None,
     fallback_share_source=None,
+    share_override=None,
 ):
     ticker = company.get("ticker", "").strip().upper()
     quote = quote_override or fetch_price_quote(ticker, price_csv_text=price_csv_text)
@@ -316,6 +346,10 @@ def build_quote_row(
     if shares is not None and not shares_pass_sanity_check(quote.get("price", ""), shares, company_facts):
         shares = None
         share_source = f"{share_source} share sanity failed"
+    if share_override:
+        shares = share_override.get("shares")
+        override_source = share_override.get("source") or "manual review"
+        share_source = f"Manual share override ({override_source})"
     net_debt = extract_net_debt(company_facts)
     return {
         "ticker": ticker,
@@ -351,8 +385,10 @@ def run_auto_fill_quotes(
     as_of_date=None,
     quote_max_age_days=7,
     max_workers=12,
+    share_overrides_path=DEFAULT_SHARE_OVERRIDES_PATH,
 ):
     companies = load_sec_config(companies_path)
+    share_overrides = load_share_overrides(share_overrides_path)
     cached_quotes = (
         {} if price_fixture_dir else load_fresh_quotes(output_path, as_of_date, quote_max_age_days)
     )
@@ -379,11 +415,20 @@ def run_auto_fill_quotes(
                 cached_quotes.get(company["ticker"].strip().upper()),
                 fallback.get("shares"),
                 fallback.get("source"),
+                share_overrides.get(company["ticker"].strip().upper()),
             )
         )
 
     def build(prepared_row):
-        company, facts, price_csv_text, quote_override, fallback_shares, fallback_share_source = prepared_row
+        (
+            company,
+            facts,
+            price_csv_text,
+            quote_override,
+            fallback_shares,
+            fallback_share_source,
+            share_override,
+        ) = prepared_row
         return build_quote_row(
             company,
             facts,
@@ -391,6 +436,7 @@ def run_auto_fill_quotes(
             quote_override=quote_override,
             fallback_shares=fallback_shares,
             fallback_share_source=fallback_share_source,
+            share_override=share_override,
         )
 
     worker_count = max(1, min(int(max_workers), 32))
@@ -408,6 +454,7 @@ def main():
     parser.add_argument("--fixture-dir", default=None)
     parser.add_argument("--price-fixture-dir", default=None)
     parser.add_argument("--cache-dir", default=None)
+    parser.add_argument("--share-overrides", default=DEFAULT_SHARE_OVERRIDES_PATH)
     parser.add_argument("--max-workers", type=int, default=12)
     args = parser.parse_args()
 
@@ -419,6 +466,7 @@ def main():
         price_fixture_dir=args.price_fixture_dir,
         cache_dir=args.cache_dir,
         max_workers=args.max_workers,
+        share_overrides_path=args.share_overrides,
     )
     print(f"已自动补齐行情行数：{result['rows']}")
     print(f"输出文件：{result['output_path']}")

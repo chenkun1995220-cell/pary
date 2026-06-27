@@ -60,7 +60,7 @@ BALL,61.72999954223633,266.246511,7596.0,USD,2026-06-26,USD/share,million_shares
 BAC,57.90999984741211,7096.590651,294598.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 BAX,22.06999969482422,516.469008,7421.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 BDX,155.97999572753906,275.540427,14645.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
-BRK-B,496.6000061035156,,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts share sanity failed,2026-06-27
+BRK-B,498.6600036621094,2156.854177,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; Manual share override (SEC 10-Q 2026-05-04 B-equivalent common shares),2026-06-27
 BBY,78.08499908447266,210.767126,-584.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 TECH,70.87000274658203,156.568751,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 BIIB,214.08999633789062,147.637117,2905.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
@@ -177,7 +177,7 @@ EQT,53.150001525878906,625.478,5665.843,USD,2026-06-26,USD/share,million_shares,
 EFX,158.09750366210938,119.072409,4930.8,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 EQIX,1076.7449951171875,98.624248,18423.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 EQR,68.05000305175781,374.671735,8206.565,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
-ERIE,239.18499755859375,,-268.616,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts share sanity failed,2026-06-27
+ERIE,238.7100067138672,52.30018,-268.616,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; Manual share override (SEC 10-Q 2026-04-23 diluted Class A shares),2026-06-27
 ESS,292.92999267578125,64.262866,6798.797,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 EL,82.54000091552734,364.5,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 EG,353.0690002441406,39.571602,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
@@ -205,8 +205,8 @@ FLEX,156.69749450683594,366.377923,1362.0,USD,2026-06-26,USD/share,million_share
 F,14.28499984741211,3727.332952,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 FTNT,150.41000366210938,732.648391,-1727.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 FTV,61.33000183105469,304.861021,3133.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
-FOXA,49.97999954223633,,3004.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts share sanity failed,2026-06-27
-FOX,45.58000183105469,,3004.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; SEC Company Facts share sanity failed,2026-06-27
+FOXA,50.099998474121094,443.0,3004.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; Manual share override (SEC 10-Q 2026-05-11 diluted weighted average shares),2026-06-27
+FOX,45.90999984741211,443.0,3004.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts; Manual share override (SEC 10-Q 2026-05-11 diluted weighted average shares),2026-06-27
 BEN,33.290000915527344,519.637162,-1753.619,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 FCX,62.16999816894531,1437.559865,5677.0,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
 GRMN,230.07000732421875,192.856206,,USD,2026-06-26,USD/share,million_shares,USD_million,Yahoo Finance chart; SEC Company Facts,2026-06-27
