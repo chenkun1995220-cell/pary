@@ -9,6 +9,8 @@ from codex_automation_audit import audit_automations
 
 CHECK_SCHEMA = "weekly_automation_check"
 CHECK_VERSION = 1
+OPS_CHECK_SCHEMA = "weekly_ops_check"
+OPS_CHECK_VERSION = 1
 
 
 def _load_weekly_check(path):
@@ -97,6 +99,8 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
         attention_reasons.append("missing_outputs")
 
     return {
+        "ops_check_schema": OPS_CHECK_SCHEMA,
+        "ops_check_version": OPS_CHECK_VERSION,
         "status": "ready" if not attention_reasons else "needs_attention",
         "project_root": str(project_root),
         "automation_root": str(Path(automation_root)),
@@ -171,6 +175,16 @@ def render_weekly_ops_check(result):
     return "\n".join(lines) + "\n"
 
 
+def write_weekly_ops_check(result, output):
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8-sig",
+    )
+    return output_path
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -180,6 +194,7 @@ def main():
     parser.add_argument("--check", default="outputs/automation/latest_automation_check.json")
     parser.add_argument("--today", default="")
     parser.add_argument("--max-age-days", type=int, default=8)
+    parser.add_argument("--output", default="")
     args = parser.parse_args()
     result = run_weekly_ops_check(
         args.project_root,
@@ -188,6 +203,8 @@ def main():
         today=args.today or None,
         max_age_days=args.max_age_days,
     )
+    if args.output:
+        write_weekly_ops_check(result, args.output)
     print(render_weekly_ops_check(result), end="")
     if result["status"] != "ready":
         raise SystemExit(1)

@@ -339,10 +339,12 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("weekly_ops_check.py", script)
         self.assertIn("latest_automation_check.json", script)
+        self.assertIn("latest_weekly_ops_check.json", script)
         self.assertIn("C:\\Users\\pechen\\.codex\\automations", script)
         self.assertIn("--project-root", script)
         self.assertIn("--automation-root", script)
         self.assertIn("--check", script)
+        self.assertIn("--output", script)
         self.assertIn("MaxAgeDays", script)
         self.assertIn("--max-age-days", script)
 

@@ -96,6 +96,8 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             report = render_weekly_ops_check(result)
 
             self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["ops_check_schema"], "weekly_ops_check")
+            self.assertEqual(result["ops_check_version"], 1)
             self.assertEqual(result["automation_audit_status"], "ready")
             self.assertEqual(result["automation_check_status"], "manual_review_needed")
             self.assertEqual(result["missing_outputs"], [])
@@ -210,6 +212,7 @@ class WeeklyOpsCheckTests(unittest.TestCase):
     def test_cli_returns_zero_for_ready_ops_check(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
             root = Path(tmp)
+            output_path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
             output_files = {
                 "self_analysis": "outputs/automation/latest_self_analysis.md",
                 "manifest": "outputs/automation/latest_self_analysis_manifest.json",
@@ -237,6 +240,8 @@ class WeeklyOpsCheckTests(unittest.TestCase):
                     "2026-06-28",
                     "--max-age-days",
                     "8",
+                    "--output",
+                    str(output_path),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -249,6 +254,11 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             output = result.stdout + result.stderr
             self.assertEqual(result.returncode, 0, output)
             self.assertIn("周度运维总检查", output)
+            payload = json.loads(output_path.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["ops_check_schema"], "weekly_ops_check")
+            self.assertEqual(payload["ops_check_version"], 1)
+            self.assertEqual(payload["status"], "ready")
+            self.assertEqual(payload["freshness_status"], "fresh")
 
 
 if __name__ == "__main__":
