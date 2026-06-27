@@ -17,7 +17,7 @@ Write-Host "Market: HK"
 Write-Host "Companies: $Companies"
 Write-Host "Cache: $CacheDir"
 Write-Host "OutputRoot: $OutputRoot"
-Write-Host "Steps: universe -> market snapshot -> financial snapshot -> regional screening -> price history -> valuation_trend_v1 -> benchmark -> forecast tracking -> model audit -> data health history"
+Write-Host "Steps: universe -> market snapshot -> quote gap diagnostics -> financial snapshot -> regional screening -> price history -> valuation_trend_v1 -> benchmark -> forecast tracking -> model audit -> data health history"
 
 if ($DryRun) {
   Write-Host "DryRun: no files or network requests were created."
@@ -47,6 +47,17 @@ try {
     --raw-cache $rawSnapshotPath `
     --minimum-coverage 0.95
   if ($LASTEXITCODE -ne 0) { throw "HK market snapshot failed with exit code $LASTEXITCODE." }
+
+  $quoteGapsPath = Join-Path $OutputRoot "quote_gaps.csv"
+  $quoteGapReportPath = Join-Path $OutputRoot "quote_gaps.md"
+  & $Python -B regional_quote_gaps.py `
+    --market HK `
+    --companies $Companies `
+    --snapshot $snapshotPath `
+    --output $quoteGapsPath `
+    --report $quoteGapReportPath `
+    --cache-dir $CacheDir
+  if ($LASTEXITCODE -ne 0) { throw "HK quote gap diagnostics failed with exit code $LASTEXITCODE." }
 
   $financialPath = Join-Path $OutputRoot "financial_snapshot.csv"
   $rawFinancialPath = Join-Path $CacheDir "financial_snapshot_raw.json"
@@ -159,6 +170,8 @@ try {
     "- Model audit: $(Join-Path $OutputRoot 'model_audit.md')",
     "- Shadow proposals: $(Join-Path $OutputRoot 'shadow_model_proposals.csv')",
     "- Investment summary: $investmentSummaryPath",
+    "- Quote gaps: $quoteGapsPath",
+    "- Quote gap report: $quoteGapReportPath",
     "- Data health history: $dataHealthHistoryPath",
     "- Data health report: $dataHealthReportPath",
     "- Report: $(Join-Path $OutputRoot 'weekly_report.md')",

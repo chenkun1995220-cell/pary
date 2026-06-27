@@ -14,6 +14,9 @@ class RegionalWeeklyScriptTests(unittest.TestCase):
                 encoding="utf-8-sig"
             )
             self.assertIn("regional_market_snapshot.py", script)
+            self.assertIn("regional_quote_gaps.py", script)
+            self.assertIn("quote_gaps.csv", script)
+            self.assertIn("quote_gaps.md", script)
             self.assertIn("regional_financials.py", script)
             self.assertIn("regional_value_screener.py", script)
             self.assertIn("candidate_price_history.py", script)
@@ -30,6 +33,8 @@ class RegionalWeeklyScriptTests(unittest.TestCase):
             self.assertIn("regional_data_health_history.py", script)
             self.assertIn("data_health_history.csv", script)
             self.assertIn("data_health_history.md", script)
+            self.assertIn("Quote gaps", script)
+            self.assertIn("Quote gap report", script)
             self.assertIn('--candidates (Join-Path $OutputRoot "forecast_history.csv")', script)
             self.assertIn("regional_fundamental_v2", script)
             self.assertIn("candidate_pool.csv", script)

@@ -132,6 +132,112 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(len(result["candidate_reviews"][0]["risk_items"]), 1)
             self.assertEqual(result["candidate_reviews"][0]["risk_items"][0]["ticker"], "RISK")
 
+    def test_data_health_includes_quote_gap_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "cn_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# CN Weekly Data Summary",
+                        "- Candidate count: 1",
+                        "- Candidate tickers: AAA",
+                        "- Model audit: outputs/cn_universe/model_audit.md",
+                        "- Data health history: outputs/cn_universe/data_health_history.csv",
+                        "- Quote gaps: outputs/cn_universe/quote_gaps.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "cn_universe" / "data_health_history.csv",
+                [
+                    "run_time",
+                    "refresh_status",
+                    "quote_coverage_pct",
+                    "financial_coverage_pct",
+                    "candidate_count",
+                    "data_quality_blocked",
+                    "affected_candidate_count",
+                    "share_override_review",
+                ],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "92.67",
+                        "financial_coverage_pct": "100.00",
+                        "candidate_count": "1",
+                        "data_quality_blocked": "0",
+                        "affected_candidate_count": "0",
+                        "share_override_review": "0",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "cn_universe" / "quote_gaps.csv",
+                ["ticker", "issue_type"],
+                [
+                    {"ticker": "AAA", "issue_type": "partial_quote"},
+                    {"ticker": "BBB", "issue_type": "partial_quote"},
+                ],
+            )
+
+            result = run_self_analysis(root)
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+
+            self.assertEqual(result["health"][1]["quote_gap_count"], "2")
+            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 2 | 1 |", report)
+            self.assertIn("数据健康需关注：A股周筛 行情缺口 2", report)
+
+    def test_quote_gap_count_ignores_ready_status_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "us_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# US Weekly Screening Run Summary",
+                        "- Candidate count: 1",
+                        "- Candidate tickers: AAA",
+                        "- Model audit: outputs/us_universe/model_audit.md",
+                        "- Data health history: outputs/us_universe/data_health_history.csv",
+                        "- Quote gaps: outputs/us_universe/quote_gaps.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            write_text(root / "outputs" / "us_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "us_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "n/a",
+                        "quote_coverage_pct": "100.00",
+                        "candidate_count": "1",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "us_universe" / "quote_gaps.csv",
+                ["ticker", "status", "missing_fields"],
+                [
+                    {"ticker": "AAA", "status": "ready", "missing_fields": ""},
+                    {"ticker": "BBB", "status": "missing", "missing_fields": "price"},
+                ],
+            )
+
+            result = run_self_analysis(root)
+
+            self.assertEqual(result["health"][0]["quote_gap_count"], "1")
+
     def test_generates_summary_from_weekly_market_and_backtest_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -363,8 +469,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             text = Path(result["output"]).read_text(encoding="utf-8-sig")
             self.assertIn("## 数据健康", text)
-            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 7 |", text)
-            self.assertIn("| 港股周筛 | ready | cache_fallback | 84.10% | 99.69% | 35 |", text)
+            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 0 | 7 |", text)
+            self.assertIn("| 港股周筛 | ready | cache_fallback | 84.10% | 99.69% | 0 | 35 |", text)
             self.assertIn("数据健康需关注：A股周筛 行情覆盖 92.67%", text)
             self.assertIn("数据健康需关注：港股周筛 刷新状态 cache_fallback", text)
             self.assertIn("数据健康需关注：港股周筛 行情覆盖 84.10%", text)

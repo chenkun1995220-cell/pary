@@ -12,6 +12,7 @@ MARKETS = [
         "default_audit": Path("outputs/us_universe/model_audit.md"),
         "default_health": Path("outputs/us_universe/data_health_history.csv"),
         "default_investment": Path("outputs/us_universe/latest_investment_summary.md"),
+        "default_quote_gaps": Path("outputs/us_universe/quote_gaps.csv"),
     },
     {
         "name": "A股周筛",
@@ -19,6 +20,7 @@ MARKETS = [
         "default_audit": Path("outputs/cn_universe/model_audit.md"),
         "default_health": Path("outputs/cn_universe/data_health_history.csv"),
         "default_investment": Path("outputs/cn_universe/latest_investment_summary.md"),
+        "default_quote_gaps": Path("outputs/cn_universe/quote_gaps.csv"),
     },
     {
         "name": "港股周筛",
@@ -26,6 +28,7 @@ MARKETS = [
         "default_audit": Path("outputs/hk_universe/model_audit.md"),
         "default_health": Path("outputs/hk_universe/data_health_history.csv"),
         "default_investment": Path("outputs/hk_universe/latest_investment_summary.md"),
+        "default_quote_gaps": Path("outputs/hk_universe/quote_gaps.csv"),
     },
 ]
 
@@ -95,6 +98,7 @@ def _market_snapshot(project_root, config):
             "summary_path": str(path),
             "health_path": str(Path(project_root) / config["default_health"]),
             "investment_path": str(Path(project_root) / config["default_investment"]),
+            "quote_gaps_path": str(Path(project_root) / config["default_quote_gaps"]),
         }
     fields = _summary_fields(text)
     audit_path = _resolve_path(project_root, fields.get("Model audit")) or (
@@ -102,6 +106,9 @@ def _market_snapshot(project_root, config):
     )
     health_path = _resolve_path(project_root, fields.get("Data health history")) or (
         Path(project_root) / config["default_health"]
+    )
+    quote_gaps_path = _resolve_path(project_root, fields.get("Quote gaps")) or (
+        Path(project_root) / config["default_quote_gaps"]
     )
     default_investment_path = Path(project_root) / config["default_investment"]
     investment_path = _resolve_path(project_root, fields.get("Investment summary")) or (
@@ -118,6 +125,7 @@ def _market_snapshot(project_root, config):
         "summary_path": str(path),
         "health_path": str(health_path),
         "investment_path": str(investment_path),
+        "quote_gaps_path": str(quote_gaps_path),
     }
 
 
@@ -168,6 +176,19 @@ def _percent(value):
 def _latest_health_row(path):
     rows = _read_csv_rows(path)
     return rows[-1] if rows else None
+
+
+def _quote_gap_count(path):
+    rows = _read_csv_rows(path)
+    count = 0
+    ready_statuses = {"", "ready", "current", "manual_override_applied"}
+    for row in rows:
+        if "status" in row:
+            if row.get("status", "").strip().lower() not in ready_statuses:
+                count += 1
+        else:
+            count += 1
+    return count
 
 
 def _section_lines(text, heading):
@@ -270,6 +291,7 @@ def _investment_review_snapshot(market):
 def _health_snapshot(market):
     path = Path(market["health_path"])
     row = _latest_health_row(path)
+    quote_gap_count = _quote_gap_count(market["quote_gaps_path"])
     if row is None:
         return {
             "name": market["name"],
@@ -281,6 +303,7 @@ def _health_snapshot(market):
             "data_quality_blocked": "unknown",
             "affected_candidate_count": "unknown",
             "share_override_review": "unknown",
+            "quote_gap_count": str(quote_gap_count),
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
@@ -293,6 +316,7 @@ def _health_snapshot(market):
         "financial_coverage": _percent(financial_value) if financial_value is not None else "n/a",
         "financial_coverage_number": _as_float(financial_value),
         "candidate_count": row.get("candidate_count", "unknown"),
+        "quote_gap_count": str(quote_gap_count),
         "data_quality_blocked": row.get("data_quality_blocked", "0"),
         "affected_candidate_count": row.get("affected_candidate_count", "0"),
         "share_override_review": row.get("share_override_review", "0"),
@@ -322,6 +346,9 @@ def _health_risks(health):
         affected = _as_int(item.get("affected_candidate_count"))
         if affected and affected > 0:
             risks.append(f"数据健康需关注：{name} 受影响候选 {affected}")
+        quote_gaps = _as_int(item.get("quote_gap_count"))
+        if quote_gaps and quote_gaps > 0:
+            risks.append(f"数据健康需关注：{name} 行情缺口 {quote_gaps}")
         review = _as_int(item.get("share_override_review"))
         if review and review > 0:
             risks.append(f"数据健康需关注：{name} 人工覆盖需复核 {review}")
@@ -406,14 +433,15 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
             "",
             "## 数据健康",
             "",
-            "| 模块 | 状态 | 刷新状态 | 行情覆盖 | 财务覆盖 | 候选数 |",
-            "|---|---|---|---:|---:|---:|",
+            "| 模块 | 状态 | 刷新状态 | 行情覆盖 | 财务覆盖 | 行情缺口 | 候选数 |",
+            "|---|---|---|---:|---:|---:|---:|",
         ]
     )
     for item in health:
         lines.append(
             f"| {item['name']} | {item['status']} | {item['refresh_status']} | "
-            f"{item['quote_coverage']} | {item['financial_coverage']} | {item['candidate_count']} |"
+            f"{item['quote_coverage']} | {item['financial_coverage']} | "
+            f"{item['quote_gap_count']} | {item['candidate_count']} |"
         )
     lines.extend(
         [

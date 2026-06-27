@@ -264,6 +264,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("latest_self_analysis.md", script)
         self.assertIn("data_health_history", script)
         self.assertIn("latest_investment_summary", script)
+        self.assertIn("quote_gaps", script)
         self.assertIn("DryRun", script)
 
 
