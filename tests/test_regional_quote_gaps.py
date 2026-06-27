@@ -110,6 +110,70 @@ class RegionalQuoteGapsTests(unittest.TestCase):
             self.assertIn("| 00005.HK | HSBC | partial_quote | pe;pb |", text)
             self.assertIn("| 09999.HK | Missing Co | missing_quote | all_quote_fields |", text)
 
+    def test_classifies_non_positive_valuation_metrics_as_review_not_refetch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            companies = root / "companies.csv"
+            snapshot = root / "market_snapshot.csv"
+            output = root / "quote_gaps.csv"
+            report = root / "quote_gaps.md"
+
+            write_csv(
+                companies,
+                ["market", "ticker", "company_name", "currency"],
+                [
+                    {
+                        "market": "CN",
+                        "ticker": "000002.SZ",
+                        "company_name": "Vanke",
+                        "currency": "CNY",
+                    }
+                ],
+            )
+            write_csv(
+                snapshot,
+                [
+                    "ticker",
+                    "company_name",
+                    "price",
+                    "market_cap",
+                    "pe",
+                    "pb",
+                    "data_quality_status",
+                ],
+                [
+                    {
+                        "ticker": "000002.SZ",
+                        "company_name": "Vanke",
+                        "price": "3.01",
+                        "market_cap": "35911435508",
+                        "pe": "-1.51",
+                        "pb": "0",
+                        "data_quality_status": "partial",
+                    }
+                ],
+            )
+
+            run_regional_quote_gaps(
+                companies_path=companies,
+                snapshot_path=snapshot,
+                output_path=output,
+                report_path=report,
+                market="CN",
+                cache_dir=root / "cache",
+            )
+
+            with output.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            text = report.read_text(encoding="utf-8-sig")
+
+            self.assertEqual(rows[0]["issue_type"], "non_positive_metric")
+            self.assertEqual(rows[0]["missing_fields"], "pe;pb")
+            self.assertEqual(rows[0]["remediation_type"], "manual_financial_review")
+            self.assertIn("PE/PB 非正", rows[0]["reason"])
+            self.assertNotIn("重新运行 regional_market_snapshot.py", rows[0]["recommended_action"])
+            self.assertIn("- 非正估值指标：1", text)
+
 
 if __name__ == "__main__":
     unittest.main()

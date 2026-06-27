@@ -190,7 +190,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             report = Path(result["output"]).read_text(encoding="utf-8-sig")
 
             self.assertEqual(result["health"][1]["quote_gap_count"], "2")
-            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 2 | 1 |", report)
+            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 2 | 2 | 0 | 1 |", report)
             self.assertIn("数据健康需关注：A股周筛 行情缺口 2", report)
 
     def test_quote_gap_count_ignores_ready_status_rows(self):
@@ -237,6 +237,65 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             result = run_self_analysis(root)
 
             self.assertEqual(result["health"][0]["quote_gap_count"], "1")
+
+    def test_data_health_summarizes_quote_gap_remediation_types(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: AAA, BBB",
+                        "- Model audit: outputs/hk_universe/model_audit.md",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                        "- Quote gaps: outputs/hk_universe/quote_gaps.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "84.10",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "2",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "quote_gaps.csv",
+                ["ticker", "issue_type", "remediation_type"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "issue_type": "partial_quote",
+                        "remediation_type": "refetch_or_supplement_quote",
+                    },
+                    {
+                        "ticker": "BBB",
+                        "issue_type": "non_positive_metric",
+                        "remediation_type": "manual_financial_review",
+                    },
+                ],
+            )
+
+            result = run_self_analysis(root)
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+
+            self.assertEqual(result["health"][2]["quote_gap_refetch_count"], "1")
+            self.assertEqual(result["health"][2]["quote_gap_review_count"], "1")
+            self.assertIn("| 港股周筛 | ready | online | 84.10% | 99.69% | 2 | 1 | 1 | 2 |", report)
+            self.assertIn("数据健康需关注：港股周筛 行情可重抓缺口 1", report)
+            self.assertIn("数据健康需关注：港股周筛 估值口径复核 1", report)
 
     def test_generates_summary_from_weekly_market_and_backtest_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -469,8 +528,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             text = Path(result["output"]).read_text(encoding="utf-8-sig")
             self.assertIn("## 数据健康", text)
-            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 0 | 7 |", text)
-            self.assertIn("| 港股周筛 | ready | cache_fallback | 84.10% | 99.69% | 0 | 35 |", text)
+            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 0 | 0 | 0 | 7 |", text)
+            self.assertIn("| 港股周筛 | ready | cache_fallback | 84.10% | 99.69% | 0 | 0 | 0 | 35 |", text)
             self.assertIn("数据健康需关注：A股周筛 行情覆盖 92.67%", text)
             self.assertIn("数据健康需关注：港股周筛 刷新状态 cache_fallback", text)
             self.assertIn("数据健康需关注：港股周筛 行情覆盖 84.10%", text)

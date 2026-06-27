@@ -178,17 +178,27 @@ def _latest_health_row(path):
     return rows[-1] if rows else None
 
 
-def _quote_gap_count(path):
+def _quote_gap_summary(path):
     rows = _read_csv_rows(path)
-    count = 0
+    summary = {"total": 0, "refetch": 0, "review": 0}
     ready_statuses = {"", "ready", "current", "manual_override_applied"}
     for row in rows:
         if "status" in row:
-            if row.get("status", "").strip().lower() not in ready_statuses:
-                count += 1
+            if row.get("status", "").strip().lower() in ready_statuses:
+                continue
+        summary["total"] += 1
+        remediation = row.get("remediation_type", "").strip().lower()
+        if remediation in {"refetch_quote", "refetch_or_supplement_quote"}:
+            summary["refetch"] += 1
+        elif remediation == "manual_financial_review":
+            summary["review"] += 1
         else:
-            count += 1
-    return count
+            issue_type = row.get("issue_type", "").strip().lower()
+            if issue_type in {"missing_quote", "partial_quote"}:
+                summary["refetch"] += 1
+            elif issue_type == "non_positive_metric":
+                summary["review"] += 1
+    return summary
 
 
 def _section_lines(text, heading):
@@ -291,7 +301,7 @@ def _investment_review_snapshot(market):
 def _health_snapshot(market):
     path = Path(market["health_path"])
     row = _latest_health_row(path)
-    quote_gap_count = _quote_gap_count(market["quote_gaps_path"])
+    quote_gap_summary = _quote_gap_summary(market["quote_gaps_path"])
     if row is None:
         return {
             "name": market["name"],
@@ -303,7 +313,9 @@ def _health_snapshot(market):
             "data_quality_blocked": "unknown",
             "affected_candidate_count": "unknown",
             "share_override_review": "unknown",
-            "quote_gap_count": str(quote_gap_count),
+            "quote_gap_count": str(quote_gap_summary["total"]),
+            "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
+            "quote_gap_review_count": str(quote_gap_summary["review"]),
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
@@ -316,7 +328,9 @@ def _health_snapshot(market):
         "financial_coverage": _percent(financial_value) if financial_value is not None else "n/a",
         "financial_coverage_number": _as_float(financial_value),
         "candidate_count": row.get("candidate_count", "unknown"),
-        "quote_gap_count": str(quote_gap_count),
+        "quote_gap_count": str(quote_gap_summary["total"]),
+        "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
+        "quote_gap_review_count": str(quote_gap_summary["review"]),
         "data_quality_blocked": row.get("data_quality_blocked", "0"),
         "affected_candidate_count": row.get("affected_candidate_count", "0"),
         "share_override_review": row.get("share_override_review", "0"),
@@ -349,6 +363,12 @@ def _health_risks(health):
         quote_gaps = _as_int(item.get("quote_gap_count"))
         if quote_gaps and quote_gaps > 0:
             risks.append(f"数据健康需关注：{name} 行情缺口 {quote_gaps}")
+        refetch = _as_int(item.get("quote_gap_refetch_count"))
+        if refetch and refetch > 0:
+            risks.append(f"数据健康需关注：{name} 行情可重抓缺口 {refetch}")
+        review_gaps = _as_int(item.get("quote_gap_review_count"))
+        if review_gaps and review_gaps > 0:
+            risks.append(f"数据健康需关注：{name} 估值口径复核 {review_gaps}")
         review = _as_int(item.get("share_override_review"))
         if review and review > 0:
             risks.append(f"数据健康需关注：{name} 人工覆盖需复核 {review}")
@@ -433,15 +453,16 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
             "",
             "## 数据健康",
             "",
-            "| 模块 | 状态 | 刷新状态 | 行情覆盖 | 财务覆盖 | 行情缺口 | 候选数 |",
-            "|---|---|---|---:|---:|---:|---:|",
+            "| 模块 | 状态 | 刷新状态 | 行情覆盖 | 财务覆盖 | 行情缺口 | 可重抓 | 需复核 | 候选数 |",
+            "|---|---|---|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for item in health:
         lines.append(
             f"| {item['name']} | {item['status']} | {item['refresh_status']} | "
             f"{item['quote_coverage']} | {item['financial_coverage']} | "
-            f"{item['quote_gap_count']} | {item['candidate_count']} |"
+            f"{item['quote_gap_count']} | {item['quote_gap_refetch_count']} | "
+            f"{item['quote_gap_review_count']} | {item['candidate_count']} |"
         )
     lines.extend(
         [
