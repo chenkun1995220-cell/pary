@@ -1,4 +1,5 @@
 import argparse
+import csv
 from datetime import date
 from pathlib import Path
 
@@ -8,16 +9,19 @@ MARKETS = [
         "name": "美股周筛",
         "summary": Path("outputs/automation/latest_run_summary.md"),
         "default_audit": Path("outputs/us_universe/model_audit.md"),
+        "default_health": Path("outputs/us_universe/data_health_history.csv"),
     },
     {
         "name": "A股周筛",
         "summary": Path("outputs/cn_universe/latest_run_summary.md"),
         "default_audit": Path("outputs/cn_universe/model_audit.md"),
+        "default_health": Path("outputs/cn_universe/data_health_history.csv"),
     },
     {
         "name": "港股周筛",
         "summary": Path("outputs/hk_universe/latest_run_summary.md"),
         "default_audit": Path("outputs/hk_universe/model_audit.md"),
+        "default_health": Path("outputs/hk_universe/data_health_history.csv"),
     },
 ]
 
@@ -27,6 +31,17 @@ def _read_text(path):
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8-sig")
+
+
+def _read_csv_rows(path):
+    csv_path = Path(path)
+    if not csv_path.exists():
+        return []
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+        return [
+            {key.strip(): (value or "").strip() for key, value in row.items() if key is not None}
+            for row in csv.DictReader(handle)
+        ]
 
 
 def _summary_fields(text):
@@ -70,9 +85,15 @@ def _market_snapshot(project_root, config):
             "candidate_tickers": "unknown",
             "audit_status": "unknown",
             "summary_path": str(path),
+            "health_path": str(Path(project_root) / config["default_health"]),
         }
     fields = _summary_fields(text)
-    audit_path = _resolve_path(project_root, fields.get("Model audit")) or (Path(project_root) / config["default_audit"])
+    audit_path = _resolve_path(project_root, fields.get("Model audit")) or (
+        Path(project_root) / config["default_audit"]
+    )
+    health_path = _resolve_path(project_root, fields.get("Data health history")) or (
+        Path(project_root) / config["default_health"]
+    )
     return {
         "name": config["name"],
         "status": "ready",
@@ -80,6 +101,7 @@ def _market_snapshot(project_root, config):
         "candidate_tickers": fields.get("Candidate tickers", "unknown"),
         "audit_status": _audit_status(audit_path),
         "summary_path": str(path),
+        "health_path": str(health_path),
     }
 
 
@@ -113,14 +135,97 @@ def _as_int(value):
         return None
 
 
-def _risks(markets, backtest):
+def _as_float(value):
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _percent(value):
+    number = _as_float(value)
+    if number is None:
+        return "unknown"
+    return f"{number:.2f}%"
+
+
+def _latest_health_row(path):
+    rows = _read_csv_rows(path)
+    return rows[-1] if rows else None
+
+
+def _health_snapshot(market):
+    path = Path(market["health_path"])
+    row = _latest_health_row(path)
+    if row is None:
+        return {
+            "name": market["name"],
+            "status": "missing",
+            "refresh_status": "unknown",
+            "quote_coverage": "unknown",
+            "financial_coverage": "unknown",
+            "candidate_count": "unknown",
+            "data_quality_blocked": "unknown",
+            "affected_candidate_count": "unknown",
+            "share_override_review": "unknown",
+            "path": str(path),
+        }
+    financial_value = row.get("financial_coverage_pct")
+    return {
+        "name": market["name"],
+        "status": "ready",
+        "refresh_status": row.get("refresh_status") or "n/a",
+        "quote_coverage": _percent(row.get("quote_coverage_pct")),
+        "quote_coverage_number": _as_float(row.get("quote_coverage_pct")),
+        "financial_coverage": _percent(financial_value) if financial_value is not None else "n/a",
+        "financial_coverage_number": _as_float(financial_value),
+        "candidate_count": row.get("candidate_count", "unknown"),
+        "data_quality_blocked": row.get("data_quality_blocked", "0"),
+        "affected_candidate_count": row.get("affected_candidate_count", "0"),
+        "share_override_review": row.get("share_override_review", "0"),
+        "path": str(path),
+    }
+
+
+def _health_risks(health):
+    risks = []
+    for item in health:
+        name = item["name"]
+        if item["status"] != "ready":
+            risks.append(f"数据健康缺失：{name}")
+            continue
+        refresh_status = item.get("refresh_status", "unknown")
+        if refresh_status not in {"online", "n/a", "unknown"}:
+            risks.append(f"数据健康需关注：{name} 刷新状态 {refresh_status}")
+        quote_coverage = item.get("quote_coverage_number")
+        if quote_coverage is not None and quote_coverage < 95:
+            risks.append(f"数据健康需关注：{name} 行情覆盖 {quote_coverage:.2f}%")
+        financial_coverage = item.get("financial_coverage_number")
+        if financial_coverage is not None and financial_coverage < 95:
+            risks.append(f"数据健康需关注：{name} 财务覆盖 {financial_coverage:.2f}%")
+        blocked = _as_int(item.get("data_quality_blocked"))
+        if blocked and blocked > 0:
+            risks.append(f"数据健康需关注：{name} 数据质量阻断 {blocked}")
+        affected = _as_int(item.get("affected_candidate_count"))
+        if affected and affected > 0:
+            risks.append(f"数据健康需关注：{name} 受影响候选 {affected}")
+        review = _as_int(item.get("share_override_review"))
+        if review and review > 0:
+            risks.append(f"数据健康需关注：{name} 人工覆盖需复核 {review}")
+    return risks
+
+
+def _risks(markets, backtest, health):
     risks = []
     missing = [market["name"] for market in markets if market["status"] != "ready"]
     if missing:
         risks.append("缺失摘要：" + "、".join(missing))
-    sample_markets = [market["name"] for market in markets if market["audit_status"] == "sample_accumulating"]
+    sample_markets = [
+        market["name"] for market in markets if market["audit_status"] == "sample_accumulating"
+    ]
     if sample_markets:
         risks.append("模型审计仍在样本积累：" + "、".join(sample_markets))
+    risks.extend(_health_risks(health))
     if backtest["status"] != "ready":
         risks.append("缺失严格时点回测摘要")
     failed_weeks = _as_int(backtest.get("weeks_failed"))
@@ -136,6 +241,8 @@ def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
         recommendations.append("先补齐缺失的周筛或回测摘要，再做模型参数判断。")
+    if any(risk.startswith("数据健康") for risk in risks):
+        recommendations.append("数据健康异常先人工复核，不自动修改正式模型参数。")
     if _as_int(backtest.get("weak_rows")):
         recommendations.append("继续补充历史成分 verified 证据，降低严格时点回测的数据质量风险。")
     if any("样本积累" in risk for risk in risks):
@@ -145,8 +252,8 @@ def _recommendations(risks, backtest):
     return recommendations
 
 
-def _render(as_of_date, markets, backtest):
-    risks = _risks(markets, backtest)
+def _render(as_of_date, markets, backtest, health):
+    risks = _risks(markets, backtest, health)
     recommendations = _recommendations(risks, backtest)
     lines = [
         f"# 每周自我分析摘要（{as_of_date}）",
@@ -162,6 +269,20 @@ def _render(as_of_date, markets, backtest):
             f"{market['candidate_tickers']} | {market['audit_status']} | {market['summary_path']} |"
         )
         lines.append(f"- {market['name']} 候选数：{market['candidate_count']}")
+    lines.extend(
+        [
+            "",
+            "## 数据健康",
+            "",
+            "| 模块 | 状态 | 刷新状态 | 行情覆盖 | 财务覆盖 | 候选数 |",
+            "|---|---|---|---:|---:|---:|",
+        ]
+    )
+    for item in health:
+        lines.append(
+            f"| {item['name']} | {item['status']} | {item['refresh_status']} | "
+            f"{item['quote_coverage']} | {item['financial_coverage']} | {item['candidate_count']} |"
+        )
     lines.extend(
         [
             "",
@@ -192,10 +313,11 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     if not output.is_absolute():
         output = project_root / output
     markets = [_market_snapshot(project_root, config) for config in MARKETS]
+    health = [_health_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(_render(as_of_date, markets, backtest), encoding="utf-8-sig")
-    return {"output": str(output), "markets": markets, "backtest": backtest}
+    output.write_text(_render(as_of_date, markets, backtest, health), encoding="utf-8-sig")
+    return {"output": str(output), "markets": markets, "backtest": backtest, "health": health}
 
 
 def main():
