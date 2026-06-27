@@ -251,15 +251,21 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("show_automation_check.ps1", doc)
         self.assertIn("audit_codex_automations.ps1", doc)
         self.assertIn("run_weekly_ops_check.ps1", doc)
+        self.assertIn("show_weekly_ops_history.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
         self.assertIn("outputs/automation/latest_manual_review_queue.csv", doc)
         self.assertIn("outputs/automation/manual_review_queue_history.csv", doc)
         self.assertIn("outputs/automation/manual_review_repeats.csv", doc)
         self.assertIn("outputs/automation/latest_self_analysis_manifest.json", doc)
         self.assertIn("outputs/automation/latest_automation_check.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_ops_check.json", doc)
+        self.assertIn("outputs/automation/weekly_ops_check_history.jsonl", doc)
+        self.assertIn("outputs/automation/latest_weekly_ops_history_summary.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_ops_history_report.md", doc)
         self.assertIn("automation_check_report.py", doc)
         self.assertIn("codex_automation_audit.py", doc)
         self.assertIn("weekly_ops_check.py", doc)
+        self.assertIn("weekly_ops_history_report.py", doc)
         self.assertIn("manifest_schema", doc)
         self.assertIn("manifest_version", doc)
         self.assertIn("review_status", doc)
@@ -349,6 +355,20 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("--history", script)
         self.assertIn("MaxAgeDays", script)
         self.assertIn("--max-age-days", script)
+
+    def test_weekly_ops_history_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "show_weekly_ops_history.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("weekly_ops_history_report.py", script)
+        self.assertIn("weekly_ops_check_history.jsonl", script)
+        self.assertIn("latest_weekly_ops_history_summary.json", script)
+        self.assertIn("latest_weekly_ops_history_report.md", script)
+        self.assertIn("--history", script)
+        self.assertIn("--output", script)
+        self.assertIn("--report", script)
+        self.assertIn("--window", script)
 
 
 if __name__ == "__main__":
