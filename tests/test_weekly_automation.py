@@ -249,6 +249,7 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("run_self_analysis.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
+        self.assertIn("outputs/automation/latest_manual_review_queue.csv", doc)
         self.assertIn("自我分析摘要", doc)
         self.assertIn("latest_investment_summary.md", doc)
         self.assertIn("data_health_history.csv", doc)
@@ -268,6 +269,7 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("automation_self_analysis.py", script)
         self.assertIn("latest_self_analysis.md", script)
+        self.assertIn("latest_manual_review_queue.csv", script)
         self.assertIn("data_health_history", script)
         self.assertIn("latest_investment_summary", script)
         self.assertIn("quote_gaps", script)

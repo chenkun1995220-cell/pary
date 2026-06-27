@@ -520,6 +520,25 @@ def _manual_review_queue(health, candidate_reviews, limit=12):
     return queue
 
 
+def _write_manual_review_queue(path, queue):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["market", "review_type", "ticker", "company", "review_detail"]
+    with output.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        for item in queue:
+            writer.writerow(
+                {
+                    "market": item.get("name", ""),
+                    "review_type": item.get("type", ""),
+                    "ticker": item.get("ticker", ""),
+                    "company": item.get("company", ""),
+                    "review_detail": item.get("detail", ""),
+                }
+            )
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -660,14 +679,19 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     health = [_health_snapshot(market) for market in markets]
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
+    manual_review_queue = _manual_review_queue(health, candidate_reviews)
+    manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(_render(as_of_date, markets, backtest, health, candidate_reviews), encoding="utf-8-sig")
+    _write_manual_review_queue(manual_review_queue_output, manual_review_queue)
     return {
         "output": str(output),
+        "manual_review_queue_output": str(manual_review_queue_output),
         "markets": markets,
         "backtest": backtest,
         "health": health,
         "candidate_reviews": candidate_reviews,
+        "manual_review_queue": manual_review_queue,
     }
 
 

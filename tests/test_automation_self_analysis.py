@@ -735,6 +735,10 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             result = run_self_analysis(root, as_of_date="2026-06-27")
             report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            with Path(result["manual_review_queue_output"]).open(
+                "r", encoding="utf-8-sig", newline=""
+            ) as handle:
+                queue_rows = list(csv.DictReader(handle))
 
             self.assertEqual(result["health"][2]["valuation_review_item_count"], "2")
             self.assertEqual(
@@ -749,6 +753,11 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("优先人工复核估值复核清单", report)
             self.assertIn("## 人工复核队列", report)
             self.assertIn("| 港股周筛 | 估值口径 | AAA | Alpha | loss_making_or_negative_pe；pe=-3.5 |", report)
+            self.assertTrue(Path(result["manual_review_queue_output"]).exists())
+            self.assertEqual(queue_rows[0]["market"], "港股周筛")
+            self.assertEqual(queue_rows[0]["review_type"], "估值口径")
+            self.assertEqual(queue_rows[0]["ticker"], "AAA")
+            self.assertEqual(queue_rows[0]["review_detail"], "loss_making_or_negative_pe；pe=-3.5")
 
 
 if __name__ == "__main__":
