@@ -1,5 +1,6 @@
 import argparse
 import csv
+import json
 from datetime import date
 from pathlib import Path
 
@@ -639,6 +640,15 @@ def _write_manual_review_repeats(path, repeats, as_of_date):
             )
 
 
+def _write_self_analysis_manifest(path, payload):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8-sig",
+    )
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -799,6 +809,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     manual_review_history_output = output.parent / "manual_review_queue_history.csv"
     manual_review_repeats_output = output.parent / "manual_review_repeats.csv"
+    manifest_output = output.parent / "latest_self_analysis_manifest.json"
     manual_review_history_repeats = _manual_review_history_repeats(
         manual_review_history_output, manual_review_queue, as_of_date
     )
@@ -810,11 +821,27 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
     _write_manual_review_repeats(manual_review_repeats_output, manual_review_history_repeats, as_of_date)
     _write_manual_review_history(manual_review_history_output, manual_review_queue, as_of_date)
+    _write_self_analysis_manifest(
+        manifest_output,
+        {
+            "as_of_date": as_of_date,
+            "market_count": len(markets),
+            "manual_review_queue_count": len(manual_review_queue),
+            "manual_review_repeat_count": len(manual_review_history_repeats),
+            "outputs": {
+                "self_analysis": str(output),
+                "manual_review_queue": str(manual_review_queue_output),
+                "manual_review_history": str(manual_review_history_output),
+                "manual_review_repeats": str(manual_review_repeats_output),
+            },
+        },
+    )
     return {
         "output": str(output),
         "manual_review_queue_output": str(manual_review_queue_output),
         "manual_review_history_output": str(manual_review_history_output),
         "manual_review_repeats_output": str(manual_review_repeats_output),
+        "manifest_output": str(manifest_output),
         "markets": markets,
         "backtest": backtest,
         "health": health,
@@ -835,6 +862,7 @@ def main():
     print(f"Manual review queue: {result['manual_review_queue_output']}")
     print(f"Manual review history: {result['manual_review_history_output']}")
     print(f"Manual review repeats: {result['manual_review_repeats_output']}")
+    print(f"Self-analysis manifest: {result['manifest_output']}")
 
 
 if __name__ == "__main__":

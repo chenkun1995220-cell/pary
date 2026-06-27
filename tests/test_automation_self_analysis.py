@@ -1,4 +1,5 @@
 import csv
+import json
 import subprocess
 import sys
 import tempfile
@@ -404,6 +405,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("manual_review_queue_history.csv", output)
             self.assertIn("Manual review repeats:", output)
             self.assertIn("manual_review_repeats.csv", output)
+            self.assertIn("Self-analysis manifest:", output)
+            self.assertIn("latest_self_analysis_manifest.json", output)
             self.assertTrue((root / "outputs" / "automation" / "latest_manual_review_queue.csv").exists())
 
 
@@ -948,9 +951,14 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                 "r", encoding="utf-8-sig", newline=""
             ) as handle:
                 repeat_rows = list(csv.DictReader(handle))
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
 
             self.assertEqual(result["manual_review_history_repeats"][0]["ticker"], "AAA")
             self.assertEqual(result["manual_review_history_repeats"][0]["previous_count"], 1)
+            self.assertEqual(manifest["as_of_date"], "2026-06-27")
+            self.assertEqual(manifest["manual_review_queue_count"], 1)
+            self.assertEqual(manifest["manual_review_repeat_count"], 1)
+            self.assertTrue(manifest["outputs"]["manual_review_repeats"].endswith("manual_review_repeats.csv"))
             self.assertEqual(repeat_rows[0]["as_of_date"], "2026-06-27")
             self.assertEqual(repeat_rows[0]["ticker"], "AAA")
             self.assertEqual(repeat_rows[0]["previous_count"], "1")

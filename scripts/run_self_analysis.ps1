@@ -19,7 +19,7 @@ Write-Host "Weekly self-analysis aggregator"
 Write-Host "ProjectRoot: $ProjectRoot"
 Write-Host "Output: $Output"
 Write-Host "Reads: latest_run_summary.md, latest_backtest_summary.md, model_audit.md, data_health_history.csv, quote_gaps.csv, latest_investment_summary.md"
-Write-Host "Writes: latest_self_analysis.md, latest_manual_review_queue.csv, manual_review_queue_history.csv, manual_review_repeats.csv"
+Write-Host "Writes: latest_self_analysis.md, latest_self_analysis_manifest.json, latest_manual_review_queue.csv, manual_review_queue_history.csv, manual_review_repeats.csv"
 
 if ($DryRun) {
   Write-Host "DryRun: no files were created."
