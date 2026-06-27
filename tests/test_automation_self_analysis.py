@@ -20,6 +20,118 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_prefers_us_universe_summary_over_legacy_automation_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "automation" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# Legacy US Weekly Screening Run Summary",
+                        "- Candidate count: 1",
+                        "- Candidate tickers: OLD",
+                        "- Model audit: outputs/us_universe/model_audit.md",
+                    ]
+                ),
+            )
+            write_text(
+                root / "outputs" / "us_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# US Weekly Screening Run Summary",
+                        "- Candidate count: 3",
+                        "- Candidate tickers: NEW1, NEW2, NEW3",
+                        "- Model audit: outputs/us_universe/model_audit.md",
+                        "- Investment summary: outputs/us_universe/latest_investment_summary.md",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "us_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+
+            result = run_self_analysis(root)
+
+            self.assertEqual(result["markets"][0]["candidate_count"], "3")
+            self.assertIn("outputs\\us_universe\\latest_run_summary.md", result["markets"][0]["summary_path"])
+
+    def test_legacy_us_summary_prefers_new_universe_investment_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "automation" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# Legacy US Weekly Screening Run Summary",
+                        "- Candidate count: 1",
+                        "- Candidate tickers: OLD",
+                        "- Model audit: outputs/us_universe/model_audit.md",
+                        "- Investment summary: outputs/automation/latest_investment_summary.md",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "us_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_text(root / "outputs" / "automation" / "latest_investment_summary.md", "# old\n")
+            write_text(
+                root / "outputs" / "us_universe" / "latest_investment_summary.md",
+                "\n".join(
+                    [
+                        "# 每周低估公司结论",
+                        "## 候选结论质量检查",
+                        "- 字段完整：1/1",
+                    ]
+                ),
+            )
+
+            result = run_self_analysis(root)
+
+            self.assertIn("outputs\\us_universe\\latest_investment_summary.md", result["candidate_reviews"][0]["path"])
+            self.assertEqual(result["candidate_reviews"][0]["field_complete"], "1/1")
+
+    def test_candidate_review_ignores_explicit_no_risk_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "us_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# US Weekly Screening Run Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: SAFE, RISK",
+                        "- Model audit: outputs/us_universe/model_audit.md",
+                        "- Investment summary: outputs/us_universe/latest_investment_summary.md",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "us_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_text(
+                root / "outputs" / "us_universe" / "latest_investment_summary.md",
+                "\n".join(
+                    [
+                        "# 每周低估公司结论",
+                        "## 候选风险说明",
+                        "| 股票 | 公司 | 风险说明 |",
+                        "|---|---|---|",
+                        "| SAFE | Safe Co | 无 |",
+                        "| RISK | Risk Co | 走势偏弱 |",
+                        "## 候选结论质量检查",
+                        "- 字段完整：2/2",
+                    ]
+                ),
+            )
+
+            result = run_self_analysis(root)
+
+            self.assertEqual(len(result["candidate_reviews"][0]["risk_items"]), 1)
+            self.assertEqual(result["candidate_reviews"][0]["risk_items"][0]["ticker"], "RISK")
+
     def test_generates_summary_from_weekly_market_and_backtest_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
