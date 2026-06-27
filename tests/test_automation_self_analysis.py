@@ -573,6 +573,14 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             result = run_self_analysis(root, as_of_date="2026-06-27")
 
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(len(manifest["health"]), 3)
+            self.assertEqual(manifest["health"][1]["refresh_status"], "online")
+            self.assertEqual(manifest["health"][1]["quote_coverage"], "92.67%")
+            self.assertEqual(manifest["health"][2]["refresh_status"], "cache_fallback")
+            self.assertEqual(manifest["health"][2]["quote_coverage"], "84.10%")
+            self.assertEqual(manifest["health"][2]["candidate_count"], "35")
+
             text = Path(result["output"]).read_text(encoding="utf-8-sig")
             self.assertIn("## 数据健康", text)
             self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 0 | 0 | 0 | 7 |", text)

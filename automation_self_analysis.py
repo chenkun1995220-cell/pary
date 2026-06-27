@@ -671,6 +671,30 @@ def _manifest_markets(markets):
     ]
 
 
+def _manifest_health(health):
+    return [
+        {
+            "name": item.get("name", ""),
+            "status": item.get("status", ""),
+            "refresh_status": item.get("refresh_status", ""),
+            "quote_coverage": item.get("quote_coverage", ""),
+            "financial_coverage": item.get("financial_coverage", ""),
+            "quote_gap_count": item.get("quote_gap_count", ""),
+            "quote_gap_refetch_count": item.get("quote_gap_refetch_count", ""),
+            "quote_gap_review_count": item.get("quote_gap_review_count", ""),
+            "quote_gap_review_categories": item.get("quote_gap_review_categories", ""),
+            "valuation_review_item_count": item.get("valuation_review_item_count", ""),
+            "valuation_review_categories": item.get("valuation_review_categories", ""),
+            "candidate_count": item.get("candidate_count", ""),
+            "data_quality_blocked": item.get("data_quality_blocked", ""),
+            "affected_candidate_count": item.get("affected_candidate_count", ""),
+            "share_override_review": item.get("share_override_review", ""),
+            "path": item.get("path", ""),
+        }
+        for item in health
+    ]
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -852,6 +876,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "as_of_date": as_of_date,
             "market_count": len(markets),
             "markets": _manifest_markets(markets),
+            "health": _manifest_health(health),
             "manual_review_queue_count": len(manual_review_queue),
             "manual_review_repeat_count": len(manual_review_history_repeats),
             "review_status": review_status,
