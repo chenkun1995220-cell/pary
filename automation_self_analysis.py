@@ -649,6 +649,14 @@ def _write_self_analysis_manifest(path, payload):
     )
 
 
+def _manual_review_status(queue_count, repeat_count):
+    if repeat_count > 0:
+        return "recurring_manual_review", "review_recurring_items"
+    if queue_count > 0:
+        return "manual_review_needed", "review_manual_queue"
+    return "clear", "monitor_next_run"
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -821,6 +829,9 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
     _write_manual_review_repeats(manual_review_repeats_output, manual_review_history_repeats, as_of_date)
     _write_manual_review_history(manual_review_history_output, manual_review_queue, as_of_date)
+    review_status, recommended_next_action = _manual_review_status(
+        len(manual_review_queue), len(manual_review_history_repeats)
+    )
     _write_self_analysis_manifest(
         manifest_output,
         {
@@ -828,6 +839,8 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "market_count": len(markets),
             "manual_review_queue_count": len(manual_review_queue),
             "manual_review_repeat_count": len(manual_review_history_repeats),
+            "review_status": review_status,
+            "recommended_next_action": recommended_next_action,
             "outputs": {
                 "self_analysis": str(output),
                 "manual_review_queue": str(manual_review_queue_output),

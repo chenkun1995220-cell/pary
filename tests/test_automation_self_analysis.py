@@ -956,6 +956,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(result["manual_review_history_repeats"][0]["ticker"], "AAA")
             self.assertEqual(result["manual_review_history_repeats"][0]["previous_count"], 1)
             self.assertEqual(manifest["as_of_date"], "2026-06-27")
+            self.assertEqual(manifest["review_status"], "recurring_manual_review")
+            self.assertEqual(manifest["recommended_next_action"], "review_recurring_items")
             self.assertEqual(manifest["manual_review_queue_count"], 1)
             self.assertEqual(manifest["manual_review_repeat_count"], 1)
             self.assertTrue(manifest["outputs"]["manual_review_repeats"].endswith("manual_review_repeats.csv"))

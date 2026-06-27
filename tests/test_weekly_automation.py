@@ -253,6 +253,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/manual_review_queue_history.csv", doc)
         self.assertIn("outputs/automation/manual_review_repeats.csv", doc)
         self.assertIn("outputs/automation/latest_self_analysis_manifest.json", doc)
+        self.assertIn("review_status", doc)
+        self.assertIn("recommended_next_action", doc)
         self.assertIn("as_of_date", doc)
         self.assertIn("历史重复项", doc)
         self.assertIn("自我分析摘要", doc)
