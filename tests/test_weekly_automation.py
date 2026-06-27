@@ -256,6 +256,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("估值复核分类", doc)
         self.assertIn("valuation_review_items.csv", doc)
         self.assertIn("估值复核清单", doc)
+        self.assertIn("估值复核样例", doc)
         self.assertIn("候选风险说明", doc)
         self.assertIn("候选结论质量检查", doc)
 
