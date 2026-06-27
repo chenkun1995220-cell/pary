@@ -98,6 +98,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "CN regional screening failed with exit code $LASTEXITCODE." }
 
   $candidatesPath = Join-Path $OutputRoot "candidate_pool.csv"
+  $valuationReviewItemsPath = Join-Path $OutputRoot "valuation_review_items.csv"
   $historyPath = Join-Path $OutputRoot "price_history.csv"
   $historyCache = Join-Path $CacheDir "candidate_price_history"
   & $Python -B candidate_price_history.py `
@@ -184,6 +185,7 @@ try {
     "- Candidate tickers: $candidateTickers",
     "- Company file: $Companies",
     "- Candidate file: $candidatesPath",
+    "- Valuation review items: $valuationReviewItemsPath",
     "- Valuation targets: $(Join-Path $OutputRoot 'valuation_targets.csv')",
     "- Valuation report: $(Join-Path $OutputRoot 'valuation_report.md')",
     "- Tracking snapshot: $(Join-Path $OutputRoot 'tracking_snapshot.csv')",
