@@ -147,6 +147,9 @@ class InvestmentSummaryTests(unittest.TestCase):
             self.assertIn("## 数据风险处置建议", report)
             self.assertIn("percentage_unit_suspect：复核源字段；可能影响盈利质量和估值倍数；核对 gross_margin 原始口径，确认后再参与估值", report)
             self.assertIn("missing_required_field：补齐必填字段；阻断评分；补齐必填字段后重新筛选", report)
+            self.assertIn("## 候选公司数据质量影响", report)
+            self.assertIn("- 受影响候选：1/1", report)
+            self.assertIn("| AAA | percentage_unit_suspect | 复核源字段 | 可能影响盈利质量和估值倍数 |", report)
 
     def test_generates_latest_investment_summary_with_lifecycle_sections(self):
         with tempfile.TemporaryDirectory() as tmp:
