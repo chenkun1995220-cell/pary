@@ -248,6 +248,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
         self.assertIn("自我分析摘要", doc)
         self.assertIn("data_health_history.csv", doc)
+        self.assertIn("候选风险说明", doc)
         self.assertIn("候选结论质量检查", doc)
 
     def test_self_analysis_script_static_contract(self):
