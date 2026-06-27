@@ -145,6 +145,7 @@ try {
     "- Forecast evaluations: $(Join-Path $OutputRoot 'forecast_evaluations.csv')",
     "- Performance report: $(Join-Path $OutputRoot 'performance_report.md')",
     "- Model audit: $(Join-Path $OutputRoot 'model_audit.md')",
+    "- Share override audit: $(Join-Path $OutputRoot 'share_override_audit.md')",
     "- Shadow proposals: $(Join-Path $OutputRoot 'shadow_model_proposals.csv')",
     "- Investment summary: $investmentSummaryPath",
     "- Research directory: $(Join-Path $OutputRoot 'research')",

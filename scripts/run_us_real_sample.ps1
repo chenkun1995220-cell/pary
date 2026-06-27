@@ -44,6 +44,9 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $QuoteGapsCsv = Join-Path $OutputRoot "quote_gaps.csv"
 $QuoteGapsReport = Join-Path $OutputRoot "quote_gaps.md"
+$ShareOverrides = Join-Path $ProjectRoot "data\manual\us_share_overrides.csv"
+$ShareOverrideAuditCsv = Join-Path $OutputRoot "share_override_audit.csv"
+$ShareOverrideAuditReport = Join-Path $OutputRoot "share_override_audit.md"
 
 & $Python -B real_sample_pack.py `
   --companies $Companies `
@@ -54,6 +57,12 @@ if ($LASTEXITCODE -ne 0) { throw "Real sample pack validation failed with exit c
   --quotes $Quotes `
   --output-csv $QuoteGapsCsv `
   --output-report $QuoteGapsReport
+
+& $Python -B share_override_audit.py `
+  --overrides $ShareOverrides `
+  --output-csv $ShareOverrideAuditCsv `
+  --output-report $ShareOverrideAuditReport `
+  --run-date $ReportDate
 
 $QuoteGapRows = Import-Csv -LiteralPath $QuoteGapsCsv
 $UsableQuoteStatuses = @("ready", "manual_override_applied")

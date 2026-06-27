@@ -51,6 +51,7 @@ class RealSampleScriptTests(unittest.TestCase):
         self.assertIn("MinimumQuoteCoverage", script)
         self.assertIn("QuoteCoverage", script)
         self.assertIn("manual_override_applied", script)
+        self.assertIn("share_override_audit.py", script)
     def test_fixture_mode_writes_outputs_to_requested_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
