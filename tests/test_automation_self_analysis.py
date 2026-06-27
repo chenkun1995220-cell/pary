@@ -882,6 +882,72 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(history_rows[1]["rank"], "1")
             self.assertEqual(history_rows[2]["rank"], "2")
 
+    def test_self_analysis_flags_manual_review_items_seen_in_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 1",
+                        "- Candidate tickers: AAA",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "100.00",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "1",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "valuation_review_items.csv",
+                ["ticker", "company_name", "valuation_review_category", "valuation_review_detail"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "valuation_review_category": "loss_making_or_negative_pe",
+                        "valuation_review_detail": "pe=-3.5",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "automation" / "manual_review_queue_history.csv",
+                ["as_of_date", "rank", "market", "review_type", "ticker", "company", "review_detail"],
+                [
+                    {
+                        "as_of_date": "2026-06-20",
+                        "rank": "1",
+                        "market": "HK",
+                        "review_type": "valuation_review",
+                        "ticker": "AAA",
+                        "company": "Alpha",
+                        "review_detail": "loss_making_or_negative_pe锛沺e=-4.0",
+                    }
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+
+            self.assertEqual(result["manual_review_history_repeats"][0]["ticker"], "AAA")
+            self.assertEqual(result["manual_review_history_repeats"][0]["previous_count"], 1)
+            self.assertIn("AAA", report)
+            self.assertIn("2026-06-20", report)
+
 
 if __name__ == "__main__":
     unittest.main()

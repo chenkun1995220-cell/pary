@@ -578,6 +578,39 @@ def _write_manual_review_history(path, queue, as_of_date):
     _write_manual_review_rows(path, existing_rows + current_rows)
 
 
+def _manual_review_history_repeats(path, queue, as_of_date, limit=10):
+    history_by_ticker = {}
+    for row in _read_csv_rows(path):
+        if row.get("as_of_date") == as_of_date:
+            continue
+        ticker = row.get("ticker", "")
+        if not ticker:
+            continue
+        entry = history_by_ticker.setdefault(ticker, {"count": 0, "dates": set()})
+        entry["count"] += 1
+        if row.get("as_of_date"):
+            entry["dates"].add(row["as_of_date"])
+
+    repeats = []
+    for item in queue:
+        ticker = item.get("ticker", "")
+        history = history_by_ticker.get(ticker)
+        if not history:
+            continue
+        repeats.append(
+            {
+                "ticker": ticker,
+                "company": item.get("company", ""),
+                "review_type": item.get("type", ""),
+                "previous_count": history["count"],
+                "previous_dates": sorted(history["dates"]),
+            }
+        )
+        if len(repeats) >= limit:
+            break
+    return repeats
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -597,10 +630,11 @@ def _recommendations(risks, backtest):
     return recommendations
 
 
-def _render(as_of_date, markets, backtest, health, candidate_reviews):
+def _render(as_of_date, markets, backtest, health, candidate_reviews, manual_review_history_repeats=None):
     risks = _risks(markets, backtest, health) + _candidate_review_risks(candidate_reviews)
     recommendations = _recommendations(risks, backtest)
     manual_queue = _manual_review_queue(health, candidate_reviews)
+    manual_review_history_repeats = manual_review_history_repeats or []
     lines = [
         f"# 每周自我分析摘要（{as_of_date}）",
         "",
@@ -704,6 +738,21 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
     lines.extend(f"- {risk}" for risk in risks)
     lines.extend(["", "## 下周优化建议", ""])
     lines.extend(f"- {item}" for item in recommendations)
+    if manual_review_history_repeats:
+        lines.extend(
+            [
+                "",
+                "## 人工复核历史重复项",
+                "",
+                "| 股票 | 公司 | 本周类型 | 历史出现次数 | 历史日期 |",
+                "|---|---|---|---:|---|",
+            ]
+        )
+        for item in manual_review_history_repeats:
+            lines.append(
+                f"| {item['ticker']} | {item['company']} | {item['review_type']} | "
+                f"{item['previous_count']} | {', '.join(item['previous_dates'])} |"
+            )
     lines.append("")
     return "\n".join(lines)
 
@@ -721,8 +770,14 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     manual_review_queue = _manual_review_queue(health, candidate_reviews)
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     manual_review_history_output = output.parent / "manual_review_queue_history.csv"
+    manual_review_history_repeats = _manual_review_history_repeats(
+        manual_review_history_output, manual_review_queue, as_of_date
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(_render(as_of_date, markets, backtest, health, candidate_reviews), encoding="utf-8-sig")
+    output.write_text(
+        _render(as_of_date, markets, backtest, health, candidate_reviews, manual_review_history_repeats),
+        encoding="utf-8-sig",
+    )
     _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
     _write_manual_review_history(manual_review_history_output, manual_review_queue, as_of_date)
     return {
@@ -734,6 +789,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "health": health,
         "candidate_reviews": candidate_reviews,
         "manual_review_queue": manual_review_queue,
+        "manual_review_history_repeats": manual_review_history_repeats,
     }
 
 
