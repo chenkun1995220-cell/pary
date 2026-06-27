@@ -760,6 +760,32 @@ def _manifest_candidate_review_status(candidate_reviews):
     }
 
 
+def _manifest_backtest_status(backtest):
+    failed_weeks = _as_int(backtest.get("weeks_failed"))
+    weak_rows = _as_int(backtest.get("weak_rows"))
+    if backtest.get("status") != "ready":
+        status = "missing"
+        action = "run_point_in_time_backtest"
+    elif failed_weeks and failed_weeks > 0:
+        status = "failed_weeks"
+        action = "review_backtest_failures"
+    elif weak_rows and weak_rows > 0:
+        status = "evidence_review_needed"
+        action = "review_backtest_evidence"
+    else:
+        status = "clear"
+        action = "monitor_next_run"
+    return {
+        "backtest_status": status,
+        "backtest_recommended_action": action,
+        "backtest_weeks_completed": backtest.get("weeks_completed", ""),
+        "backtest_weeks_failed": backtest.get("weeks_failed", ""),
+        "backtest_membership_verified": backtest.get("verified", ""),
+        "backtest_weak_rows": backtest.get("weak_rows", ""),
+        "backtest_summary_path": backtest.get("summary_path", ""),
+    }
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -942,6 +968,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "market_count": len(markets),
             "markets": _manifest_markets(markets),
             **_manifest_model_audit_status(markets),
+            **_manifest_backtest_status(backtest),
             "health": _manifest_health(health),
             **_manifest_data_health_status(health),
             **_manifest_candidate_review_status(candidate_reviews),
