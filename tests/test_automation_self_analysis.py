@@ -1,9 +1,15 @@
 import csv
+import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from automation_self_analysis import run_self_analysis
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def write_text(path, text):
@@ -353,6 +359,42 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             output = Path(result["output"])
             text = output.read_text(encoding="utf-8-sig")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(manifest["manifest_schema"], "self_analysis_manifest")
+            self.assertEqual(manifest["manifest_version"], 1)
+            self.assertEqual(len(manifest["markets"]), 3)
+            self.assertEqual(manifest["markets"][0]["status"], "ready")
+            self.assertEqual(manifest["markets"][0]["candidate_count"], "2")
+            self.assertEqual(manifest["markets"][1]["candidate_count"], "1")
+            self.assertEqual(manifest["markets"][2]["candidate_count"], "0")
+            self.assertIn("summary_path", manifest["markets"][0])
+            self.assertEqual(manifest["model_audit_status"], "sample_accumulating")
+            self.assertEqual(manifest["model_audit_recommended_action"], "continue_sample_accumulation")
+            self.assertEqual(manifest["model_audit_sample_accumulating_count"], 2)
+            self.assertEqual(manifest["model_audit_shadow_ready_count"], 1)
+            self.assertEqual(manifest["model_audit_statuses"]["A股周筛"], "shadow_analysis_ready")
+            self.assertEqual(manifest["backtest_status"], "evidence_review_needed")
+            self.assertEqual(manifest["backtest_recommended_action"], "review_backtest_evidence")
+            self.assertEqual(manifest["backtest_weeks_completed"], "8")
+            self.assertEqual(manifest["backtest_weeks_failed"], "0")
+            self.assertEqual(manifest["backtest_weak_rows"], "5")
+            self.assertEqual(manifest["backtest_membership_verified"], "35/40 (87.5%)")
+            self.assertEqual(manifest["automation_status"], "manual_review_needed")
+            self.assertEqual(manifest["automation_recommended_action"], "review_data_health")
+            self.assertIn("review_backtest_evidence", manifest["automation_priority_actions"])
+            self.assertIn("continue_sample_accumulation", manifest["automation_priority_actions"])
+            check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(check["check_schema"], "weekly_automation_check")
+            self.assertEqual(check["check_version"], 1)
+            self.assertEqual(check["as_of_date"], "2026-06-25")
+            self.assertEqual(check["status"], "manual_review_needed")
+            self.assertEqual(check["recommended_action"], "review_data_health")
+            self.assertEqual(check["manifest_validation_status"], "valid")
+            self.assertEqual(check["markets_ready_count"], 3)
+            self.assertEqual(check["market_count"], 3)
+            self.assertEqual(check["candidate_count_total"], 3)
+            self.assertEqual(check["manual_review_queue_count"], manifest["manual_review_queue_count"])
+            self.assertTrue(check["outputs"]["manifest"].endswith("latest_self_analysis_manifest.json"))
             self.assertTrue(output.exists())
             self.assertIn("每周自我分析摘要", text)
             self.assertIn("美股周筛", text)
@@ -368,6 +410,134 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             self.assertIn("缺失摘要", text)
             self.assertIn("先补齐缺失的周筛或回测摘要", text)
+
+    def test_cli_prints_self_analysis_and_manual_review_queue_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(PROJECT_ROOT / "automation_self_analysis.py"),
+                    "--project-root",
+                    str(root),
+                    "--as-of-date",
+                    "2026-06-28",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            output = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, output)
+            self.assertIn("Self-analysis summary:", output)
+            self.assertIn("Manual review queue:", output)
+            self.assertIn("latest_manual_review_queue.csv", output)
+            self.assertIn("Manual review history:", output)
+            self.assertIn("manual_review_queue_history.csv", output)
+            self.assertIn("Manual review repeats:", output)
+            self.assertIn("manual_review_repeats.csv", output)
+            self.assertIn("Self-analysis manifest:", output)
+            self.assertIn("latest_self_analysis_manifest.json", output)
+            self.assertIn("Automation check:", output)
+            self.assertIn("latest_automation_check.json", output)
+            self.assertTrue((root / "outputs" / "automation" / "latest_automation_check.json").exists())
+            self.assertTrue((root / "outputs" / "automation" / "latest_manual_review_queue.csv").exists())
+
+    def test_validates_self_analysis_manifest_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            from automation_self_analysis import validate_self_analysis_manifest
+
+            validation = validate_self_analysis_manifest(result["manifest_output"])
+
+            self.assertEqual(validation["status"], "valid")
+            self.assertEqual(validation["schema"], "self_analysis_manifest")
+            self.assertEqual(validation["version"], 1)
+            self.assertEqual(validation["missing_fields"], [])
+
+    def test_manifest_validator_reports_missing_required_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(
+                json.dumps({"manifest_schema": "self_analysis_manifest", "manifest_version": 1}),
+                encoding="utf-8-sig",
+            )
+
+            from automation_self_analysis import validate_self_analysis_manifest
+
+            validation = validate_self_analysis_manifest(path)
+
+            self.assertEqual(validation["status"], "invalid")
+            self.assertIn("automation_status", validation["missing_fields"])
+
+    def test_cli_can_validate_self_analysis_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "automation_self_analysis.py"),
+                    "--validate-manifest",
+                    result["manifest_output"],
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(completed.returncode, 0)
+            self.assertIn("Self-analysis manifest valid", completed.stdout)
+
+    def test_manifest_completion_validator_reports_not_ready_markets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            from automation_self_analysis import validate_self_analysis_manifest
+
+            validation = validate_self_analysis_manifest(
+                result["manifest_output"],
+                require_markets_ready=True,
+            )
+
+            self.assertEqual(validation["status"], "invalid")
+            self.assertEqual(len(validation["not_ready_markets"]), 1)
+            self.assertIn("market_not_ready", "; ".join(validation["errors"]))
+
+    def test_cli_can_require_ready_market_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "automation_self_analysis.py"),
+                    "--validate-manifest",
+                    result["manifest_output"],
+                    "--require-market-ready",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(completed.returncode, 0)
+            self.assertIn("markets_ready=3", completed.stdout)
 
 
     def test_includes_data_health_history_and_flags_attention_items(self):
@@ -526,6 +696,18 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             result = run_self_analysis(root, as_of_date="2026-06-27")
 
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(manifest["data_health_status"], "manual_review_needed")
+            self.assertEqual(manifest["data_health_recommended_action"], "review_data_health")
+            self.assertEqual(manifest["data_health_risk_count"], 3)
+            self.assertEqual(len(manifest["data_health_risks"]), 3)
+            self.assertEqual(len(manifest["health"]), 3)
+            self.assertEqual(manifest["health"][1]["refresh_status"], "online")
+            self.assertEqual(manifest["health"][1]["quote_coverage"], "92.67%")
+            self.assertEqual(manifest["health"][2]["refresh_status"], "cache_fallback")
+            self.assertEqual(manifest["health"][2]["quote_coverage"], "84.10%")
+            self.assertEqual(manifest["health"][2]["candidate_count"], "35")
+
             text = Path(result["output"]).read_text(encoding="utf-8-sig")
             self.assertIn("## 数据健康", text)
             self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 0 | 0 | 0 | 7 |", text)
@@ -614,12 +796,326 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             result = run_self_analysis(root, as_of_date="2026-06-27")
 
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            self.assertEqual(manifest["candidate_review_status"], "manual_review_needed")
+            self.assertEqual(manifest["candidate_review_recommended_action"], "review_candidate_findings")
+            self.assertEqual(manifest["candidate_review_quality_gap_count"], 1)
+            self.assertEqual(manifest["candidate_review_risk_item_count"], 1)
+            self.assertEqual(len(manifest["candidate_review_risks"]), 4)
+
             text = Path(result["output"]).read_text(encoding="utf-8-sig")
             self.assertIn("## 候选复核重点", text)
             self.assertIn("| 美股周筛 | ready | 1/2 | 1 |", text)
             self.assertIn("美股周筛 候选需复核：BBB Beta 数据不足：缺少跟踪状态", text)
             self.assertIn("美股周筛 风险需复核：BBB Beta 当前无安全边际；预期收益为负", text)
             self.assertIn("优先复核候选风险和结论缺口，不自动调整正式模型参数", text)
+
+
+    def test_data_health_summarizes_quote_gap_review_categories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: AAA, BBB",
+                        "- Model audit: outputs/hk_universe/model_audit.md",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                        "- Quote gaps: outputs/hk_universe/quote_gaps.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "hk_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "84.10",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "2",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "quote_gaps.csv",
+                ["ticker", "issue_type", "remediation_type", "review_category"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "issue_type": "non_positive_metric",
+                        "remediation_type": "manual_financial_review",
+                        "review_category": "loss_making_or_negative_pe;non_positive_book_value_or_pb",
+                    },
+                    {
+                        "ticker": "BBB",
+                        "issue_type": "non_positive_metric",
+                        "remediation_type": "manual_financial_review",
+                        "review_category": "special_industry_valuation_review",
+                    },
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+
+            self.assertEqual(
+                result["health"][2]["quote_gap_review_categories"],
+                "loss_making_or_negative_pe=1;non_positive_book_value_or_pb=1;special_industry_valuation_review=1",
+            )
+            self.assertIn("loss_making_or_negative_pe=1", report)
+            self.assertIn("special_industry_valuation_review=1", report)
+
+    def test_data_health_summarizes_valuation_review_items_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: AAA, BBB",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "100.00",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "2",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "valuation_review_items.csv",
+                ["ticker", "company_name", "valuation_review_category", "valuation_review_detail"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "valuation_review_category": "loss_making_or_negative_pe",
+                        "valuation_review_detail": "pe=-3.5",
+                    },
+                    {
+                        "ticker": "BBB",
+                        "company_name": "Beta",
+                        "valuation_review_category": "loss_making_or_negative_pe;non_positive_book_value_or_pb",
+                        "valuation_review_detail": "pe=-1;pb=0",
+                    },
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            with Path(result["manual_review_queue_output"]).open(
+                "r", encoding="utf-8-sig", newline=""
+            ) as handle:
+                queue_rows = list(csv.DictReader(handle))
+            self.assertEqual(queue_rows[0]["as_of_date"], "2026-06-27")
+
+            self.assertEqual(result["health"][2]["valuation_review_item_count"], "2")
+            self.assertEqual(
+                result["health"][2]["valuation_review_categories"],
+                "loss_making_or_negative_pe=2;non_positive_book_value_or_pb=1",
+            )
+            self.assertEqual(result["health"][2]["valuation_review_samples"][0]["ticker"], "AAA")
+            self.assertIn("估值复核清单：2", report)
+            self.assertIn("non_positive_book_value_or_pb=1", report)
+            self.assertIn("AAA Alpha loss_making_or_negative_pe pe=-3.5", report)
+            self.assertIn("估值复核待确认：港股周筛 2", report)
+            self.assertIn("优先人工复核估值复核清单", report)
+            self.assertIn("## 人工复核队列", report)
+            self.assertIn("| 港股周筛 | 估值口径 | AAA | Alpha | loss_making_or_negative_pe；pe=-3.5 |", report)
+            self.assertTrue(Path(result["manual_review_queue_output"]).exists())
+            self.assertEqual(queue_rows[0]["rank"], "1")
+            self.assertEqual(queue_rows[1]["rank"], "2")
+            self.assertEqual(queue_rows[0]["market"], "港股周筛")
+            self.assertEqual(queue_rows[0]["review_type"], "估值口径")
+            self.assertEqual(queue_rows[0]["ticker"], "AAA")
+            self.assertEqual(queue_rows[0]["review_detail"], "loss_making_or_negative_pe；pe=-3.5")
+
+
+    def test_manual_review_queue_history_replaces_current_run_and_keeps_prior_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: AAA, BBB",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "100.00",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "2",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "valuation_review_items.csv",
+                ["ticker", "company_name", "valuation_review_category", "valuation_review_detail"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "valuation_review_category": "loss_making_or_negative_pe",
+                        "valuation_review_detail": "pe=-3.5",
+                    },
+                    {
+                        "ticker": "BBB",
+                        "company_name": "Beta",
+                        "valuation_review_category": "non_positive_book_value_or_pb",
+                        "valuation_review_detail": "pb=0",
+                    },
+                ],
+            )
+            write_csv(
+                root / "outputs" / "automation" / "manual_review_queue_history.csv",
+                ["as_of_date", "rank", "market", "review_type", "ticker", "company", "review_detail"],
+                [
+                    {
+                        "as_of_date": "2026-06-20",
+                        "rank": "1",
+                        "market": "US",
+                        "review_type": "risk",
+                        "ticker": "OLD",
+                        "company": "Old Co",
+                        "review_detail": "keep older week",
+                    },
+                    {
+                        "as_of_date": "2026-06-27",
+                        "rank": "1",
+                        "market": "HK",
+                        "review_type": "stale",
+                        "ticker": "STALE",
+                        "company": "Stale Co",
+                        "review_detail": "replace same date",
+                    },
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            with Path(result["manual_review_history_output"]).open(
+                "r", encoding="utf-8-sig", newline=""
+            ) as handle:
+                history_rows = list(csv.DictReader(handle))
+
+            self.assertEqual([row["as_of_date"] for row in history_rows], ["2026-06-20", "2026-06-27", "2026-06-27"])
+            self.assertEqual([row["ticker"] for row in history_rows], ["OLD", "AAA", "BBB"])
+            self.assertEqual(history_rows[1]["rank"], "1")
+            self.assertEqual(history_rows[2]["rank"], "2")
+
+    def test_self_analysis_flags_manual_review_items_seen_in_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 1",
+                        "- Candidate tickers: AAA",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "100.00",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "1",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "valuation_review_items.csv",
+                ["ticker", "company_name", "valuation_review_category", "valuation_review_detail"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "valuation_review_category": "loss_making_or_negative_pe",
+                        "valuation_review_detail": "pe=-3.5",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "automation" / "manual_review_queue_history.csv",
+                ["as_of_date", "rank", "market", "review_type", "ticker", "company", "review_detail"],
+                [
+                    {
+                        "as_of_date": "2026-06-20",
+                        "rank": "1",
+                        "market": "HK",
+                        "review_type": "valuation_review",
+                        "ticker": "AAA",
+                        "company": "Alpha",
+                        "review_detail": "loss_making_or_negative_pe锛沺e=-4.0",
+                    }
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            with Path(result["manual_review_repeats_output"]).open(
+                "r", encoding="utf-8-sig", newline=""
+            ) as handle:
+                repeat_rows = list(csv.DictReader(handle))
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(result["manual_review_history_repeats"][0]["ticker"], "AAA")
+            self.assertEqual(result["manual_review_history_repeats"][0]["previous_count"], 1)
+            self.assertEqual(manifest["as_of_date"], "2026-06-27")
+            self.assertEqual(manifest["review_status"], "recurring_manual_review")
+            self.assertEqual(manifest["recommended_next_action"], "review_recurring_items")
+            self.assertEqual(manifest["manual_review_queue_count"], 1)
+            self.assertEqual(manifest["manual_review_repeat_count"], 1)
+            self.assertTrue(manifest["outputs"]["manual_review_repeats"].endswith("manual_review_repeats.csv"))
+            self.assertEqual(repeat_rows[0]["as_of_date"], "2026-06-27")
+            self.assertEqual(repeat_rows[0]["ticker"], "AAA")
+            self.assertEqual(repeat_rows[0]["previous_count"], "1")
+            self.assertEqual(repeat_rows[0]["previous_dates"], "2026-06-20")
+            self.assertIn("AAA", report)
+            self.assertIn("2026-06-20", report)
 
 
 if __name__ == "__main__":

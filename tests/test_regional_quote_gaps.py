@@ -170,9 +170,76 @@ class RegionalQuoteGapsTests(unittest.TestCase):
             self.assertEqual(rows[0]["issue_type"], "non_positive_metric")
             self.assertEqual(rows[0]["missing_fields"], "pe;pb")
             self.assertEqual(rows[0]["remediation_type"], "manual_financial_review")
+            self.assertEqual(rows[0]["review_category"], "loss_making_or_negative_pe;non_positive_book_value_or_pb")
+            self.assertIn("pe=-1.51", rows[0]["review_detail"])
+            self.assertIn("pb=0", rows[0]["review_detail"])
             self.assertIn("PE/PB 非正", rows[0]["reason"])
             self.assertNotIn("重新运行 regional_market_snapshot.py", rows[0]["recommended_action"])
             self.assertIn("- 非正估值指标：1", text)
+
+
+    def test_flags_special_industry_non_positive_metrics_for_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            companies = root / "companies.csv"
+            snapshot = root / "market_snapshot.csv"
+            output = root / "quote_gaps.csv"
+            report = root / "quote_gaps.md"
+
+            write_csv(
+                companies,
+                ["market", "ticker", "company_name", "currency"],
+                [
+                    {
+                        "market": "HK",
+                        "ticker": "00823.HK",
+                        "company_name": "Link REIT",
+                        "currency": "HKD",
+                    }
+                ],
+            )
+            write_csv(
+                snapshot,
+                [
+                    "ticker",
+                    "company_name",
+                    "industry",
+                    "price",
+                    "market_cap",
+                    "pe",
+                    "pb",
+                    "data_quality_status",
+                ],
+                [
+                    {
+                        "ticker": "00823.HK",
+                        "company_name": "Link REIT",
+                        "industry": "REITs",
+                        "price": "36.4",
+                        "market_cap": "95500000000",
+                        "pe": "-12.1",
+                        "pb": "0",
+                        "data_quality_status": "partial",
+                    }
+                ],
+            )
+
+            run_regional_quote_gaps(
+                companies_path=companies,
+                snapshot_path=snapshot,
+                output_path=output,
+                report_path=report,
+                market="HK",
+                cache_dir=root / "cache",
+            )
+
+            with output.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            text = report.read_text(encoding="utf-8-sig")
+
+            self.assertIn("special_industry_valuation_review", rows[0]["review_category"])
+            self.assertIn("industry=REITs", rows[0]["review_detail"])
+            self.assertIn("special_industry_valuation_review", text)
 
 
 if __name__ == "__main__":

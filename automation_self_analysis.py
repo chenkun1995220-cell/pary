@@ -1,5 +1,6 @@
 import argparse
 import csv
+import json
 from datetime import date
 from pathlib import Path
 
@@ -13,6 +14,7 @@ MARKETS = [
         "default_health": Path("outputs/us_universe/data_health_history.csv"),
         "default_investment": Path("outputs/us_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/us_universe/quote_gaps.csv"),
+        "default_valuation_review": Path("outputs/us_universe/valuation_review_items.csv"),
     },
     {
         "name": "A股周筛",
@@ -21,6 +23,7 @@ MARKETS = [
         "default_health": Path("outputs/cn_universe/data_health_history.csv"),
         "default_investment": Path("outputs/cn_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/cn_universe/quote_gaps.csv"),
+        "default_valuation_review": Path("outputs/cn_universe/valuation_review_items.csv"),
     },
     {
         "name": "港股周筛",
@@ -29,6 +32,7 @@ MARKETS = [
         "default_health": Path("outputs/hk_universe/data_health_history.csv"),
         "default_investment": Path("outputs/hk_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/hk_universe/quote_gaps.csv"),
+        "default_valuation_review": Path("outputs/hk_universe/valuation_review_items.csv"),
     },
 ]
 
@@ -99,6 +103,7 @@ def _market_snapshot(project_root, config):
             "health_path": str(Path(project_root) / config["default_health"]),
             "investment_path": str(Path(project_root) / config["default_investment"]),
             "quote_gaps_path": str(Path(project_root) / config["default_quote_gaps"]),
+            "valuation_review_path": str(Path(project_root) / config["default_valuation_review"]),
         }
     fields = _summary_fields(text)
     audit_path = _resolve_path(project_root, fields.get("Model audit")) or (
@@ -109,6 +114,9 @@ def _market_snapshot(project_root, config):
     )
     quote_gaps_path = _resolve_path(project_root, fields.get("Quote gaps")) or (
         Path(project_root) / config["default_quote_gaps"]
+    )
+    valuation_review_path = _resolve_path(project_root, fields.get("Valuation review items")) or (
+        Path(project_root) / config["default_valuation_review"]
     )
     default_investment_path = Path(project_root) / config["default_investment"]
     investment_path = _resolve_path(project_root, fields.get("Investment summary")) or (
@@ -126,6 +134,7 @@ def _market_snapshot(project_root, config):
         "health_path": str(health_path),
         "investment_path": str(investment_path),
         "quote_gaps_path": str(quote_gaps_path),
+        "valuation_review_path": str(valuation_review_path),
     }
 
 
@@ -180,7 +189,7 @@ def _latest_health_row(path):
 
 def _quote_gap_summary(path):
     rows = _read_csv_rows(path)
-    summary = {"total": 0, "refetch": 0, "review": 0}
+    summary = {"total": 0, "refetch": 0, "review": 0, "review_categories": {}}
     ready_statuses = {"", "ready", "current", "manual_override_applied"}
     for row in rows:
         if "status" in row:
@@ -192,13 +201,49 @@ def _quote_gap_summary(path):
             summary["refetch"] += 1
         elif remediation == "manual_financial_review":
             summary["review"] += 1
+            for category in row.get("review_category", "").split(";"):
+                category = category.strip()
+                if category:
+                    summary["review_categories"][category] = summary["review_categories"].get(category, 0) + 1
         else:
             issue_type = row.get("issue_type", "").strip().lower()
             if issue_type in {"missing_quote", "partial_quote"}:
                 summary["refetch"] += 1
             elif issue_type == "non_positive_metric":
                 summary["review"] += 1
+                for category in row.get("review_category", "").split(";"):
+                    category = category.strip()
+                    if category:
+                        summary["review_categories"][category] = summary["review_categories"].get(category, 0) + 1
     return summary
+
+
+def _valuation_review_summary(path):
+    rows = _read_csv_rows(path)
+    summary = {"total": 0, "categories": {}, "samples": []}
+    for row in rows:
+        summary["total"] += 1
+        category_text = row.get("valuation_review_category") or row.get("review_category") or ""
+        for category in category_text.split(";"):
+            category = category.strip()
+            if category:
+                summary["categories"][category] = summary["categories"].get(category, 0) + 1
+        if len(summary["samples"]) < 5:
+            summary["samples"].append(
+                {
+                    "ticker": row.get("ticker", ""),
+                    "company": row.get("company_name") or row.get("company", ""),
+                    "category": category_text,
+                    "detail": row.get("valuation_review_detail") or row.get("review_detail") or "",
+                }
+            )
+    return summary
+
+
+def _format_count_map(counts):
+    if not counts:
+        return "none"
+    return ";".join(f"{key}={counts[key]}" for key in sorted(counts))
 
 
 def _section_lines(text, heading):
@@ -302,6 +347,7 @@ def _health_snapshot(market):
     path = Path(market["health_path"])
     row = _latest_health_row(path)
     quote_gap_summary = _quote_gap_summary(market["quote_gaps_path"])
+    valuation_review_summary = _valuation_review_summary(market["valuation_review_path"])
     if row is None:
         return {
             "name": market["name"],
@@ -316,6 +362,10 @@ def _health_snapshot(market):
             "quote_gap_count": str(quote_gap_summary["total"]),
             "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
             "quote_gap_review_count": str(quote_gap_summary["review"]),
+            "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
+            "valuation_review_item_count": str(valuation_review_summary["total"]),
+            "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
+            "valuation_review_samples": valuation_review_summary["samples"],
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
@@ -331,6 +381,10 @@ def _health_snapshot(market):
         "quote_gap_count": str(quote_gap_summary["total"]),
         "quote_gap_refetch_count": str(quote_gap_summary["refetch"]),
         "quote_gap_review_count": str(quote_gap_summary["review"]),
+        "quote_gap_review_categories": _format_count_map(quote_gap_summary["review_categories"]),
+        "valuation_review_item_count": str(valuation_review_summary["total"]),
+        "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
+        "valuation_review_samples": valuation_review_summary["samples"],
         "data_quality_blocked": row.get("data_quality_blocked", "0"),
         "affected_candidate_count": row.get("affected_candidate_count", "0"),
         "share_override_review": row.get("share_override_review", "0"),
@@ -369,6 +423,9 @@ def _health_risks(health):
         review_gaps = _as_int(item.get("quote_gap_review_count"))
         if review_gaps and review_gaps > 0:
             risks.append(f"数据健康需关注：{name} 估值口径复核 {review_gaps}")
+        valuation_reviews = _as_int(item.get("valuation_review_item_count"))
+        if valuation_reviews and valuation_reviews > 0:
+            risks.append(f"估值复核待确认：{name} {valuation_reviews}")
         review = _as_int(item.get("share_override_review"))
         if review and review > 0:
             risks.append(f"数据健康需关注：{name} 人工覆盖需复核 {review}")
@@ -414,6 +471,404 @@ def _candidate_review_risks(candidate_reviews):
     return risks
 
 
+def _manual_review_queue(health, candidate_reviews, limit=12):
+    queue = []
+
+    def add_item(name, review_type, ticker, company, detail):
+        queue.append(
+            {
+                "rank": len(queue) + 1,
+                "name": name,
+                "type": review_type,
+                "ticker": ticker,
+                "company": company,
+                "detail": detail,
+            }
+        )
+
+    for item in health:
+        for sample in item.get("valuation_review_samples", []):
+            detail = "；".join(
+                part
+                for part in [sample.get("category", ""), sample.get("detail", "")]
+                if part
+            )
+            add_item(
+                item["name"],
+                "估值口径",
+                sample.get("ticker", ""),
+                sample.get("company", ""),
+                detail,
+            )
+            if len(queue) >= limit:
+                return queue
+    for review in candidate_reviews:
+        if review["status"] != "ready":
+            continue
+        for gap in review["quality_gaps"]:
+            add_item(
+                review["name"],
+                "结论缺口",
+                gap["ticker"],
+                gap["company"],
+                f"{gap['category']}；{gap['details']}",
+            )
+            if len(queue) >= limit:
+                return queue
+        for item in review["risk_items"]:
+            add_item(
+                review["name"],
+                "风险提示",
+                item["ticker"],
+                item["company"],
+                item["risk"],
+            )
+            if len(queue) >= limit:
+                return queue
+    return queue
+
+
+MANUAL_REVIEW_QUEUE_FIELDNAMES = [
+    "as_of_date",
+    "rank",
+    "market",
+    "review_type",
+    "ticker",
+    "company",
+    "review_detail",
+]
+
+MANUAL_REVIEW_REPEAT_FIELDNAMES = [
+    "as_of_date",
+    "ticker",
+    "company",
+    "review_type",
+    "previous_count",
+    "previous_dates",
+]
+
+
+def _manual_review_queue_rows(queue, as_of_date):
+    rows = []
+    for item in queue:
+        rows.append(
+            {
+                "as_of_date": as_of_date,
+                "rank": item.get("rank", ""),
+                "market": item.get("name", ""),
+                "review_type": item.get("type", ""),
+                "ticker": item.get("ticker", ""),
+                "company": item.get("company", ""),
+                "review_detail": item.get("detail", ""),
+            }
+        )
+    return rows
+
+
+def _write_manual_review_rows(path, rows):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=MANUAL_REVIEW_QUEUE_FIELDNAMES)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in MANUAL_REVIEW_QUEUE_FIELDNAMES})
+
+
+def _write_manual_review_queue(path, queue, as_of_date):
+    _write_manual_review_rows(path, _manual_review_queue_rows(queue, as_of_date))
+
+
+def _write_manual_review_history(path, queue, as_of_date):
+    current_rows = _manual_review_queue_rows(queue, as_of_date)
+    existing_rows = [
+        row for row in _read_csv_rows(path)
+        if row.get("as_of_date") != as_of_date
+    ]
+    _write_manual_review_rows(path, existing_rows + current_rows)
+
+
+def _manual_review_history_repeats(path, queue, as_of_date, limit=10):
+    history_by_ticker = {}
+    for row in _read_csv_rows(path):
+        if row.get("as_of_date") == as_of_date:
+            continue
+        ticker = row.get("ticker", "")
+        if not ticker:
+            continue
+        entry = history_by_ticker.setdefault(ticker, {"count": 0, "dates": set()})
+        entry["count"] += 1
+        if row.get("as_of_date"):
+            entry["dates"].add(row["as_of_date"])
+
+    repeats = []
+    for item in queue:
+        ticker = item.get("ticker", "")
+        history = history_by_ticker.get(ticker)
+        if not history:
+            continue
+        repeats.append(
+            {
+                "ticker": ticker,
+                "company": item.get("company", ""),
+                "review_type": item.get("type", ""),
+                "previous_count": history["count"],
+                "previous_dates": sorted(history["dates"]),
+            }
+        )
+        if len(repeats) >= limit:
+            break
+    return repeats
+
+
+def _write_manual_review_repeats(path, repeats, as_of_date):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=MANUAL_REVIEW_REPEAT_FIELDNAMES)
+        writer.writeheader()
+        for item in repeats:
+            writer.writerow(
+                {
+                    "as_of_date": as_of_date,
+                    "ticker": item.get("ticker", ""),
+                    "company": item.get("company", ""),
+                    "review_type": item.get("review_type", ""),
+                    "previous_count": item.get("previous_count", ""),
+                    "previous_dates": ";".join(item.get("previous_dates", [])),
+                }
+            )
+
+
+def _write_self_analysis_manifest(path, payload):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8-sig",
+    )
+
+
+def _candidate_count_total(markets):
+    total = 0
+    for market in markets:
+        count = _as_int(market.get("candidate_count"))
+        if count is not None:
+            total += count
+    return total
+
+
+def _automation_check_payload(manifest, manifest_validation):
+    return {
+        "check_schema": "weekly_automation_check",
+        "check_version": 1,
+        "as_of_date": manifest.get("as_of_date", ""),
+        "status": manifest.get("automation_status", "unknown"),
+        "recommended_action": manifest.get("automation_recommended_action", "unknown"),
+        "priority_actions": manifest.get("automation_priority_actions", []),
+        "manifest_validation_status": manifest_validation.get("status", "invalid"),
+        "manifest_validation_errors": manifest_validation.get("errors", []),
+        "market_count": manifest.get("market_count", 0),
+        "markets_ready_count": manifest_validation.get("markets_ready_count", 0),
+        "not_ready_markets": manifest_validation.get("not_ready_markets", []),
+        "candidate_count_total": _candidate_count_total(manifest.get("markets", [])),
+        "market_candidate_counts": [
+            {
+                "name": market.get("name", ""),
+                "status": market.get("status", ""),
+                "candidate_count": market.get("candidate_count", ""),
+            }
+            for market in manifest.get("markets", [])
+        ],
+        "manual_review_queue_count": manifest.get("manual_review_queue_count", 0),
+        "manual_review_repeat_count": manifest.get("manual_review_repeat_count", 0),
+        "data_health_status": manifest.get("data_health_status", "unknown"),
+        "candidate_review_status": manifest.get("candidate_review_status", "unknown"),
+        "model_audit_status": manifest.get("model_audit_status", "unknown"),
+        "backtest_status": manifest.get("backtest_status", "unknown"),
+        "outputs": manifest.get("outputs", {}),
+    }
+
+
+def _manual_review_status(queue_count, repeat_count):
+    if repeat_count > 0:
+        return "recurring_manual_review", "review_recurring_items"
+    if queue_count > 0:
+        return "manual_review_needed", "review_manual_queue"
+    return "clear", "monitor_next_run"
+
+
+def _manifest_markets(markets):
+    return [
+        {
+            "name": market.get("name", ""),
+            "status": market.get("status", ""),
+            "candidate_count": market.get("candidate_count", ""),
+            "candidate_tickers": market.get("candidate_tickers", ""),
+            "audit_status": market.get("audit_status", ""),
+            "summary_path": market.get("summary_path", ""),
+        }
+        for market in markets
+    ]
+
+
+def _manifest_health(health):
+    return [
+        {
+            "name": item.get("name", ""),
+            "status": item.get("status", ""),
+            "refresh_status": item.get("refresh_status", ""),
+            "quote_coverage": item.get("quote_coverage", ""),
+            "financial_coverage": item.get("financial_coverage", ""),
+            "quote_gap_count": item.get("quote_gap_count", ""),
+            "quote_gap_refetch_count": item.get("quote_gap_refetch_count", ""),
+            "quote_gap_review_count": item.get("quote_gap_review_count", ""),
+            "quote_gap_review_categories": item.get("quote_gap_review_categories", ""),
+            "valuation_review_item_count": item.get("valuation_review_item_count", ""),
+            "valuation_review_categories": item.get("valuation_review_categories", ""),
+            "candidate_count": item.get("candidate_count", ""),
+            "data_quality_blocked": item.get("data_quality_blocked", ""),
+            "affected_candidate_count": item.get("affected_candidate_count", ""),
+            "share_override_review": item.get("share_override_review", ""),
+            "path": item.get("path", ""),
+        }
+        for item in health
+    ]
+
+
+def _manifest_model_audit_status(markets):
+    statuses = {market.get("name", ""): market.get("audit_status", "unknown") for market in markets}
+    sample_count = sum(1 for status in statuses.values() if status == "sample_accumulating")
+    shadow_ready_count = sum(1 for status in statuses.values() if status == "shadow_analysis_ready")
+    unknown_count = sum(1 for status in statuses.values() if status == "unknown")
+    if sample_count:
+        status = "sample_accumulating"
+        action = "continue_sample_accumulation"
+    elif shadow_ready_count:
+        status = "shadow_analysis_ready"
+        action = "review_shadow_analysis"
+    elif unknown_count:
+        status = "unknown"
+        action = "review_model_audit_inputs"
+    else:
+        status = "clear"
+        action = "monitor_next_run"
+    return {
+        "model_audit_status": status,
+        "model_audit_recommended_action": action,
+        "model_audit_sample_accumulating_count": sample_count,
+        "model_audit_shadow_ready_count": shadow_ready_count,
+        "model_audit_unknown_count": unknown_count,
+        "model_audit_statuses": statuses,
+    }
+
+
+def _manifest_data_health_status(health):
+    risks = _health_risks(health)
+    if risks:
+        return {
+            "data_health_status": "manual_review_needed",
+            "data_health_recommended_action": "review_data_health",
+            "data_health_risk_count": len(risks),
+            "data_health_risks": risks,
+        }
+    return {
+        "data_health_status": "clear",
+        "data_health_recommended_action": "monitor_next_run",
+        "data_health_risk_count": 0,
+        "data_health_risks": [],
+    }
+
+
+def _manifest_candidate_review_status(candidate_reviews):
+    risks = _candidate_review_risks(candidate_reviews)
+    quality_gap_count = sum(_as_int(item.get("quality_gap_count")) or 0 for item in candidate_reviews)
+    risk_item_count = sum(len(item.get("risk_items", [])) for item in candidate_reviews)
+    if risks:
+        return {
+            "candidate_review_status": "manual_review_needed",
+            "candidate_review_recommended_action": "review_candidate_findings",
+            "candidate_review_quality_gap_count": quality_gap_count,
+            "candidate_review_risk_item_count": risk_item_count,
+            "candidate_review_risks": risks,
+        }
+    return {
+        "candidate_review_status": "clear",
+        "candidate_review_recommended_action": "monitor_next_run",
+        "candidate_review_quality_gap_count": quality_gap_count,
+        "candidate_review_risk_item_count": risk_item_count,
+        "candidate_review_risks": [],
+    }
+
+
+def _manifest_backtest_status(backtest):
+    failed_weeks = _as_int(backtest.get("weeks_failed"))
+    weak_rows = _as_int(backtest.get("weak_rows"))
+    if backtest.get("status") != "ready":
+        status = "missing"
+        action = "run_point_in_time_backtest"
+    elif failed_weeks and failed_weeks > 0:
+        status = "failed_weeks"
+        action = "review_backtest_failures"
+    elif weak_rows and weak_rows > 0:
+        status = "evidence_review_needed"
+        action = "review_backtest_evidence"
+    else:
+        status = "clear"
+        action = "monitor_next_run"
+    return {
+        "backtest_status": status,
+        "backtest_recommended_action": action,
+        "backtest_weeks_completed": backtest.get("weeks_completed", ""),
+        "backtest_weeks_failed": backtest.get("weeks_failed", ""),
+        "backtest_membership_verified": backtest.get("verified", ""),
+        "backtest_weak_rows": backtest.get("weak_rows", ""),
+        "backtest_summary_path": backtest.get("summary_path", ""),
+    }
+
+
+def _manifest_automation_decision(
+    model_audit_status,
+    backtest_status,
+    data_health_status,
+    candidate_review_status,
+    review_status,
+    recommended_next_action,
+):
+    action_candidates = [
+        (review_status, recommended_next_action),
+        (data_health_status["data_health_status"], data_health_status["data_health_recommended_action"]),
+        (backtest_status["backtest_status"], backtest_status["backtest_recommended_action"]),
+        (
+            candidate_review_status["candidate_review_status"],
+            candidate_review_status["candidate_review_recommended_action"],
+        ),
+        (model_audit_status["model_audit_status"], model_audit_status["model_audit_recommended_action"]),
+    ]
+    priority_actions = []
+    for status, action in action_candidates:
+        if status == "clear" or action == "monitor_next_run" or action in priority_actions:
+            continue
+        priority_actions.append(action)
+    if not priority_actions:
+        return {
+            "automation_status": "clear",
+            "automation_recommended_action": "monitor_next_run",
+            "automation_priority_actions": [],
+        }
+    if review_status == "recurring_manual_review":
+        status = "recurring_manual_review"
+    elif any(action != "continue_sample_accumulation" for action in priority_actions):
+        status = "manual_review_needed"
+    else:
+        status = "sample_accumulating"
+    return {
+        "automation_status": status,
+        "automation_recommended_action": priority_actions[0],
+        "automation_priority_actions": priority_actions,
+    }
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -422,6 +877,8 @@ def _recommendations(risks, backtest):
         recommendations.append("数据健康异常先人工复核，不自动修改正式模型参数。")
     if any("候选需复核" in risk or "风险需复核" in risk for risk in risks):
         recommendations.append("优先复核候选风险和结论缺口，不自动调整正式模型参数。")
+    if any(risk.startswith("估值复核待确认") for risk in risks):
+        recommendations.append("优先人工复核估值复核清单，确认亏损、非正净资产或特殊行业估值口径后再解读候选缺口。")
     if _as_int(backtest.get("weak_rows")):
         recommendations.append("继续补充历史成分 verified 证据，降低严格时点回测的数据质量风险。")
     if any("样本积累" in risk for risk in risks):
@@ -431,9 +888,11 @@ def _recommendations(risks, backtest):
     return recommendations
 
 
-def _render(as_of_date, markets, backtest, health, candidate_reviews):
+def _render(as_of_date, markets, backtest, health, candidate_reviews, manual_review_history_repeats=None):
     risks = _risks(markets, backtest, health) + _candidate_review_risks(candidate_reviews)
     recommendations = _recommendations(risks, backtest)
+    manual_queue = _manual_review_queue(health, candidate_reviews)
+    manual_review_history_repeats = manual_review_history_repeats or []
     lines = [
         f"# 每周自我分析摘要（{as_of_date}）",
         "",
@@ -464,6 +923,30 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
             f"{item['quote_gap_count']} | {item['quote_gap_refetch_count']} | "
             f"{item['quote_gap_review_count']} | {item['candidate_count']} |"
         )
+    for item in health:
+        categories = item.get("quote_gap_review_categories", "none")
+        if categories != "none":
+            lines.append(f"- {item['name']} 估值复核分类：{categories}")
+        review_count = _as_int(item.get("valuation_review_item_count"))
+        review_categories = item.get("valuation_review_categories", "none")
+        if review_count and review_count > 0:
+            lines.append(f"- {item['name']} 估值复核清单：{review_count}；{review_categories}")
+            samples = []
+            for sample in item.get("valuation_review_samples", []):
+                samples.append(
+                    " ".join(
+                        part
+                        for part in [
+                            sample.get("ticker", ""),
+                            sample.get("company", ""),
+                            sample.get("category", ""),
+                            sample.get("detail", ""),
+                        ]
+                        if part
+                    )
+                )
+            if samples:
+                lines.append(f"- {item['name']} 估值复核样例：" + "; ".join(samples))
     lines.extend(
         [
             "",
@@ -478,6 +961,22 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
             f"| {item['name']} | {item['status']} | {item['field_complete']} | "
             f"{item['quality_gap_count']} | {len(item['risk_items'])} |"
         )
+    lines.extend(
+        [
+            "",
+            "## 人工复核队列",
+            "",
+            "| 模块 | 类型 | 股票 | 公司 | 复核要点 |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    if manual_queue:
+        for item in manual_queue:
+            lines.append(
+                f"| {item['name']} | {item['type']} | {item['ticker']} | {item['company']} | {item['detail']} |"
+            )
+    else:
+        lines.append("| - | - | - | - | 本周未发现需优先人工复核的队列项 |")
     lines.extend(
         [
             "",
@@ -497,6 +996,21 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews):
     lines.extend(f"- {risk}" for risk in risks)
     lines.extend(["", "## 下周优化建议", ""])
     lines.extend(f"- {item}" for item in recommendations)
+    if manual_review_history_repeats:
+        lines.extend(
+            [
+                "",
+                "## 人工复核历史重复项",
+                "",
+                "| 股票 | 公司 | 本周类型 | 历史出现次数 | 历史日期 |",
+                "|---|---|---|---:|---|",
+            ]
+        )
+        for item in manual_review_history_repeats:
+            lines.append(
+                f"| {item['ticker']} | {item['company']} | {item['review_type']} | "
+                f"{item['previous_count']} | {', '.join(item['previous_dates'])} |"
+            )
     lines.append("")
     return "\n".join(lines)
 
@@ -511,14 +1025,183 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     health = [_health_snapshot(market) for market in markets]
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
+    manual_review_queue = _manual_review_queue(health, candidate_reviews)
+    manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
+    manual_review_history_output = output.parent / "manual_review_queue_history.csv"
+    manual_review_repeats_output = output.parent / "manual_review_repeats.csv"
+    manifest_output = output.parent / "latest_self_analysis_manifest.json"
+    automation_check_output = output.parent / "latest_automation_check.json"
+    manual_review_history_repeats = _manual_review_history_repeats(
+        manual_review_history_output, manual_review_queue, as_of_date
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(_render(as_of_date, markets, backtest, health, candidate_reviews), encoding="utf-8-sig")
+    output.write_text(
+        _render(as_of_date, markets, backtest, health, candidate_reviews, manual_review_history_repeats),
+        encoding="utf-8-sig",
+    )
+    _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
+    _write_manual_review_repeats(manual_review_repeats_output, manual_review_history_repeats, as_of_date)
+    _write_manual_review_history(manual_review_history_output, manual_review_queue, as_of_date)
+    review_status, recommended_next_action = _manual_review_status(
+        len(manual_review_queue), len(manual_review_history_repeats)
+    )
+    model_audit_status = _manifest_model_audit_status(markets)
+    backtest_status = _manifest_backtest_status(backtest)
+    data_health_status = _manifest_data_health_status(health)
+    candidate_review_status = _manifest_candidate_review_status(candidate_reviews)
+    manifest = {
+        "manifest_schema": "self_analysis_manifest",
+        "manifest_version": 1,
+        "as_of_date": as_of_date,
+        "market_count": len(markets),
+        "markets": _manifest_markets(markets),
+        **model_audit_status,
+        **backtest_status,
+        "health": _manifest_health(health),
+        **data_health_status,
+        **candidate_review_status,
+        "manual_review_queue_count": len(manual_review_queue),
+        "manual_review_repeat_count": len(manual_review_history_repeats),
+        "review_status": review_status,
+        "recommended_next_action": recommended_next_action,
+        **_manifest_automation_decision(
+            model_audit_status,
+            backtest_status,
+            data_health_status,
+            candidate_review_status,
+            review_status,
+            recommended_next_action,
+        ),
+        "outputs": {
+            "self_analysis": str(output),
+            "manifest": str(manifest_output),
+            "automation_check": str(automation_check_output),
+            "manual_review_queue": str(manual_review_queue_output),
+            "manual_review_history": str(manual_review_history_output),
+            "manual_review_repeats": str(manual_review_repeats_output),
+        },
+    }
+    _write_self_analysis_manifest(manifest_output, manifest)
+    manifest_validation = validate_self_analysis_manifest(manifest_output, require_markets_ready=True)
+    _write_self_analysis_manifest(
+        automation_check_output,
+        _automation_check_payload(manifest, manifest_validation),
+    )
     return {
         "output": str(output),
+        "manual_review_queue_output": str(manual_review_queue_output),
+        "manual_review_history_output": str(manual_review_history_output),
+        "manual_review_repeats_output": str(manual_review_repeats_output),
+        "manifest_output": str(manifest_output),
+        "automation_check_output": str(automation_check_output),
         "markets": markets,
         "backtest": backtest,
         "health": health,
         "candidate_reviews": candidate_reviews,
+        "manual_review_queue": manual_review_queue,
+        "manual_review_history_repeats": manual_review_history_repeats,
+    }
+
+
+REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
+    "manifest_schema",
+    "manifest_version",
+    "as_of_date",
+    "automation_status",
+    "automation_recommended_action",
+    "automation_priority_actions",
+    "markets",
+    "model_audit_status",
+    "model_audit_recommended_action",
+    "backtest_status",
+    "backtest_recommended_action",
+    "health",
+    "data_health_status",
+    "data_health_recommended_action",
+    "candidate_review_status",
+    "candidate_review_recommended_action",
+    "manual_review_queue_count",
+    "manual_review_repeat_count",
+    "review_status",
+    "recommended_next_action",
+    "outputs",
+]
+
+
+def validate_self_analysis_manifest(path, require_markets_ready=False):
+    manifest_path = Path(path)
+    if not manifest_path.exists():
+        return {
+            "status": "invalid",
+            "schema": "",
+            "version": "",
+            "missing_fields": REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS[:],
+            "market_statuses": [],
+            "not_ready_markets": [],
+            "markets_ready_count": 0,
+            "errors": [f"missing_manifest: {manifest_path}"],
+        }
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        return {
+            "status": "invalid",
+            "schema": "",
+            "version": "",
+            "missing_fields": REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS[:],
+            "market_statuses": [],
+            "not_ready_markets": [],
+            "markets_ready_count": 0,
+            "errors": [f"invalid_json: {exc}"],
+        }
+    missing = [field for field in REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS if field not in data]
+    errors = []
+    market_statuses = []
+    not_ready_markets = []
+    markets_ready_count = 0
+    schema = data.get("manifest_schema", "")
+    version = data.get("manifest_version", "")
+    if schema != "self_analysis_manifest":
+        errors.append(f"unexpected_schema: {schema}")
+    if version != 1:
+        errors.append(f"unexpected_version: {version}")
+    if missing:
+        errors.append("missing_fields: " + ", ".join(missing))
+    if require_markets_ready:
+        markets = data.get("markets", [])
+        if not isinstance(markets, list):
+            errors.append("markets_not_list")
+            markets = []
+        expected_market_count = len(MARKETS)
+        if len(markets) != expected_market_count:
+            errors.append(f"market_count: expected {expected_market_count} got {len(markets)}")
+        for index, market in enumerate(markets):
+            if isinstance(market, dict):
+                name = market.get("name") or f"market_{index + 1}"
+                status = market.get("status") or "missing"
+            else:
+                name = f"market_{index + 1}"
+                status = "invalid"
+            status_row = {"name": name, "status": status}
+            market_statuses.append(status_row)
+            if status == "ready":
+                markets_ready_count += 1
+            else:
+                not_ready_markets.append(status_row)
+        if not_ready_markets:
+            errors.append(
+                "market_not_ready: "
+                + ", ".join(f"{market['name']}={market['status']}" for market in not_ready_markets)
+            )
+    return {
+        "status": "invalid" if errors else "valid",
+        "schema": schema,
+        "version": version,
+        "missing_fields": missing,
+        "market_statuses": market_statuses,
+        "not_ready_markets": not_ready_markets,
+        "markets_ready_count": markets_ready_count,
+        "errors": errors,
     }
 
 
@@ -527,9 +1210,29 @@ def main():
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--output")
     parser.add_argument("--as-of-date")
+    parser.add_argument("--validate-manifest")
+    parser.add_argument("--require-market-ready", action="store_true")
     args = parser.parse_args()
+    if args.validate_manifest:
+        validation = validate_self_analysis_manifest(
+            args.validate_manifest,
+            require_markets_ready=args.require_market_ready,
+        )
+        if validation["status"] == "valid":
+            message = f"Self-analysis manifest valid: schema={validation['schema']} version={validation['version']}"
+            if args.require_market_ready:
+                message += f" markets_ready={validation['markets_ready_count']}"
+            print(message)
+            return
+        print("Self-analysis manifest invalid: " + "; ".join(validation["errors"]))
+        raise SystemExit(1)
     result = run_self_analysis(args.project_root, args.output, args.as_of_date)
     print(f"Self-analysis summary: {result['output']}")
+    print(f"Manual review queue: {result['manual_review_queue_output']}")
+    print(f"Manual review history: {result['manual_review_history_output']}")
+    print(f"Manual review repeats: {result['manual_review_repeats_output']}")
+    print(f"Self-analysis manifest: {result['manifest_output']}")
+    print(f"Automation check: {result['automation_check_output']}")
 
 
 if __name__ == "__main__":

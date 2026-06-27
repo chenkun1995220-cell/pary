@@ -248,10 +248,55 @@ class WeeklyAutomationTests(unittest.TestCase):
         )
 
         self.assertIn("run_self_analysis.ps1", doc)
+        self.assertIn("show_automation_check.ps1", doc)
+        self.assertIn("audit_codex_automations.ps1", doc)
+        self.assertIn("run_weekly_ops_check.ps1", doc)
+        self.assertIn("show_weekly_ops_history.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
+        self.assertIn("outputs/automation/latest_manual_review_queue.csv", doc)
+        self.assertIn("outputs/automation/manual_review_queue_history.csv", doc)
+        self.assertIn("outputs/automation/manual_review_repeats.csv", doc)
+        self.assertIn("outputs/automation/latest_self_analysis_manifest.json", doc)
+        self.assertIn("outputs/automation/latest_automation_check.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_ops_check.json", doc)
+        self.assertIn("outputs/automation/weekly_ops_check_history.jsonl", doc)
+        self.assertIn("outputs/automation/latest_weekly_ops_history_summary.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_ops_history_report.md", doc)
+        self.assertIn("automation_check_report.py", doc)
+        self.assertIn("codex_automation_audit.py", doc)
+        self.assertIn("weekly_ops_check.py", doc)
+        self.assertIn("weekly_ops_history_report.py", doc)
+        self.assertIn("manifest_schema", doc)
+        self.assertIn("manifest_version", doc)
+        self.assertIn("review_status", doc)
+        self.assertIn("recommended_next_action", doc)
+        self.assertIn("automation_status", doc)
+        self.assertIn("automation_recommended_action", doc)
+        self.assertIn("automation_priority_actions", doc)
+        self.assertIn("manifest 结构校验", doc)
+        self.assertIn("三市场摘要均为 `ready`", doc)
+        self.assertIn("markets", doc)
+        self.assertIn("model_audit_status", doc)
+        self.assertIn("model_audit_recommended_action", doc)
+        self.assertIn("backtest_status", doc)
+        self.assertIn("backtest_recommended_action", doc)
+        self.assertIn("health", doc)
+        self.assertIn("data_health_status", doc)
+        self.assertIn("data_health_recommended_action", doc)
+        self.assertIn("candidate_review_status", doc)
+        self.assertIn("candidate_review_recommended_action", doc)
+        self.assertIn("as_of_date", doc)
+        self.assertIn("历史重复项", doc)
         self.assertIn("自我分析摘要", doc)
         self.assertIn("latest_investment_summary.md", doc)
         self.assertIn("data_health_history.csv", doc)
+        self.assertIn("review_category", doc)
+        self.assertIn("估值复核分类", doc)
+        self.assertIn("valuation_review_items.csv", doc)
+        self.assertIn("估值复核清单", doc)
+        self.assertIn("估值复核样例", doc)
+        self.assertIn("人工复核队列", doc)
+        self.assertIn("优先级序号", doc)
         self.assertIn("候选风险说明", doc)
         self.assertIn("候选结论质量检查", doc)
 
@@ -262,10 +307,68 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("automation_self_analysis.py", script)
         self.assertIn("latest_self_analysis.md", script)
+        self.assertIn("latest_manual_review_queue.csv", script)
+        self.assertIn("manual_review_queue_history.csv", script)
+        self.assertIn("manual_review_repeats.csv", script)
+        self.assertIn("latest_self_analysis_manifest.json", script)
+        self.assertIn("latest_automation_check.json", script)
+        self.assertIn("--validate-manifest", script)
+        self.assertIn("--require-market-ready", script)
+        self.assertIn("manifest validation failed", script)
         self.assertIn("data_health_history", script)
         self.assertIn("latest_investment_summary", script)
         self.assertIn("quote_gaps", script)
         self.assertIn("DryRun", script)
+
+    def test_automation_check_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "show_automation_check.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("automation_check_report.py", script)
+        self.assertIn("latest_automation_check.json", script)
+        self.assertIn("--check", script)
+
+    def test_codex_automation_audit_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "audit_codex_automations.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("codex_automation_audit.py", script)
+        self.assertIn("C:\\Users\\pechen\\.codex\\automations", script)
+        self.assertIn("--automation-root", script)
+
+    def test_weekly_ops_check_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "run_weekly_ops_check.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("weekly_ops_check.py", script)
+        self.assertIn("latest_automation_check.json", script)
+        self.assertIn("latest_weekly_ops_check.json", script)
+        self.assertIn("weekly_ops_check_history.jsonl", script)
+        self.assertIn("C:\\Users\\pechen\\.codex\\automations", script)
+        self.assertIn("--project-root", script)
+        self.assertIn("--automation-root", script)
+        self.assertIn("--check", script)
+        self.assertIn("--output", script)
+        self.assertIn("--history", script)
+        self.assertIn("MaxAgeDays", script)
+        self.assertIn("--max-age-days", script)
+
+    def test_weekly_ops_history_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "show_weekly_ops_history.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("weekly_ops_history_report.py", script)
+        self.assertIn("weekly_ops_check_history.jsonl", script)
+        self.assertIn("latest_weekly_ops_history_summary.json", script)
+        self.assertIn("latest_weekly_ops_history_report.md", script)
+        self.assertIn("--history", script)
+        self.assertIn("--output", script)
+        self.assertIn("--report", script)
+        self.assertIn("--window", script)
 
 
 if __name__ == "__main__":
