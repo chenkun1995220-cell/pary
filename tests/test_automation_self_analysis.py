@@ -400,6 +400,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("Self-analysis summary:", output)
             self.assertIn("Manual review queue:", output)
             self.assertIn("latest_manual_review_queue.csv", output)
+            self.assertIn("Manual review history:", output)
+            self.assertIn("manual_review_queue_history.csv", output)
             self.assertTrue((root / "outputs" / "automation" / "latest_manual_review_queue.csv").exists())
 
 
@@ -794,6 +796,91 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(queue_rows[0]["review_type"], "估值口径")
             self.assertEqual(queue_rows[0]["ticker"], "AAA")
             self.assertEqual(queue_rows[0]["review_detail"], "loss_making_or_negative_pe；pe=-3.5")
+
+
+    def test_manual_review_queue_history_replaces_current_run_and_keeps_prior_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 2",
+                        "- Candidate tickers: AAA, BBB",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "100.00",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "2",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "valuation_review_items.csv",
+                ["ticker", "company_name", "valuation_review_category", "valuation_review_detail"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "valuation_review_category": "loss_making_or_negative_pe",
+                        "valuation_review_detail": "pe=-3.5",
+                    },
+                    {
+                        "ticker": "BBB",
+                        "company_name": "Beta",
+                        "valuation_review_category": "non_positive_book_value_or_pb",
+                        "valuation_review_detail": "pb=0",
+                    },
+                ],
+            )
+            write_csv(
+                root / "outputs" / "automation" / "manual_review_queue_history.csv",
+                ["as_of_date", "rank", "market", "review_type", "ticker", "company", "review_detail"],
+                [
+                    {
+                        "as_of_date": "2026-06-20",
+                        "rank": "1",
+                        "market": "US",
+                        "review_type": "risk",
+                        "ticker": "OLD",
+                        "company": "Old Co",
+                        "review_detail": "keep older week",
+                    },
+                    {
+                        "as_of_date": "2026-06-27",
+                        "rank": "1",
+                        "market": "HK",
+                        "review_type": "stale",
+                        "ticker": "STALE",
+                        "company": "Stale Co",
+                        "review_detail": "replace same date",
+                    },
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            with Path(result["manual_review_history_output"]).open(
+                "r", encoding="utf-8-sig", newline=""
+            ) as handle:
+                history_rows = list(csv.DictReader(handle))
+
+            self.assertEqual([row["as_of_date"] for row in history_rows], ["2026-06-20", "2026-06-27", "2026-06-27"])
+            self.assertEqual([row["ticker"] for row in history_rows], ["OLD", "AAA", "BBB"])
+            self.assertEqual(history_rows[1]["rank"], "1")
+            self.assertEqual(history_rows[2]["rank"], "2")
 
 
 if __name__ == "__main__":

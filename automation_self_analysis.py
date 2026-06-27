@@ -527,25 +527,55 @@ def _manual_review_queue(health, candidate_reviews, limit=12):
     return queue
 
 
-def _write_manual_review_queue(path, queue, as_of_date):
+MANUAL_REVIEW_QUEUE_FIELDNAMES = [
+    "as_of_date",
+    "rank",
+    "market",
+    "review_type",
+    "ticker",
+    "company",
+    "review_detail",
+]
+
+
+def _manual_review_queue_rows(queue, as_of_date):
+    rows = []
+    for item in queue:
+        rows.append(
+            {
+                "as_of_date": as_of_date,
+                "rank": item.get("rank", ""),
+                "market": item.get("name", ""),
+                "review_type": item.get("type", ""),
+                "ticker": item.get("ticker", ""),
+                "company": item.get("company", ""),
+                "review_detail": item.get("detail", ""),
+            }
+        )
+    return rows
+
+
+def _write_manual_review_rows(path, rows):
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["as_of_date", "rank", "market", "review_type", "ticker", "company", "review_detail"]
     with output.open("w", encoding="utf-8-sig", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer = csv.DictWriter(stream, fieldnames=MANUAL_REVIEW_QUEUE_FIELDNAMES)
         writer.writeheader()
-        for item in queue:
-            writer.writerow(
-                {
-                    "as_of_date": as_of_date,
-                    "rank": item.get("rank", ""),
-                    "market": item.get("name", ""),
-                    "review_type": item.get("type", ""),
-                    "ticker": item.get("ticker", ""),
-                    "company": item.get("company", ""),
-                    "review_detail": item.get("detail", ""),
-                }
-            )
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in MANUAL_REVIEW_QUEUE_FIELDNAMES})
+
+
+def _write_manual_review_queue(path, queue, as_of_date):
+    _write_manual_review_rows(path, _manual_review_queue_rows(queue, as_of_date))
+
+
+def _write_manual_review_history(path, queue, as_of_date):
+    current_rows = _manual_review_queue_rows(queue, as_of_date)
+    existing_rows = [
+        row for row in _read_csv_rows(path)
+        if row.get("as_of_date") != as_of_date
+    ]
+    _write_manual_review_rows(path, existing_rows + current_rows)
 
 
 def _recommendations(risks, backtest):
@@ -690,12 +720,15 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     backtest = _backtest_snapshot(project_root)
     manual_review_queue = _manual_review_queue(health, candidate_reviews)
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
+    manual_review_history_output = output.parent / "manual_review_queue_history.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(_render(as_of_date, markets, backtest, health, candidate_reviews), encoding="utf-8-sig")
     _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
+    _write_manual_review_history(manual_review_history_output, manual_review_queue, as_of_date)
     return {
         "output": str(output),
         "manual_review_queue_output": str(manual_review_queue_output),
+        "manual_review_history_output": str(manual_review_history_output),
         "markets": markets,
         "backtest": backtest,
         "health": health,
@@ -713,6 +746,7 @@ def main():
     result = run_self_analysis(args.project_root, args.output, args.as_of_date)
     print(f"Self-analysis summary: {result['output']}")
     print(f"Manual review queue: {result['manual_review_queue_output']}")
+    print(f"Manual review history: {result['manual_review_history_output']}")
 
 
 if __name__ == "__main__":
