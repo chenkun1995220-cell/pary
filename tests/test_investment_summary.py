@@ -85,7 +85,9 @@ class InvestmentSummaryTests(unittest.TestCase):
                 ["severity", "issue_code", "ticker"],
                 [
                     {"severity": "警告", "issue_code": "percentage_unit_suspect", "ticker": "AAA"},
+                    {"severity": "警告", "issue_code": "percentage_unit_suspect", "ticker": "BBB"},
                     {"severity": "阻断", "issue_code": "missing_required_field", "ticker": "BAD"},
+                    {"severity": "提示", "issue_code": "industry_sample_too_small", "ticker": "CCC"},
                 ],
             )
             write_csv(
@@ -110,7 +112,10 @@ class InvestmentSummaryTests(unittest.TestCase):
             self.assertIn("## 数据健康", report)
             self.assertIn("行情覆盖：2/2 (100.00%)", report)
             self.assertIn("人工覆盖：1 项，需复核 0 项", report)
-            self.assertIn("数据质量问题：2 项（阻断 1，警告 1）", report)
+            self.assertIn("数据质量问题：4 项（阻断 1，警告 2）", report)
+            self.assertIn("阻断：missing_required_field 1 项，影响 1 只（BAD）", report)
+            self.assertIn("需复核：percentage_unit_suspect 2 项，影响 2 只（AAA、BBB）", report)
+            self.assertIn("可接受：industry_sample_too_small 1 项，影响 1 只（CCC）", report)
 
     def test_generates_latest_investment_summary_with_lifecycle_sections(self):
         with tempfile.TemporaryDirectory() as tmp:

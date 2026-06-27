@@ -50,6 +50,48 @@ def compact_list(values, limit=20):
     return "、".join(head) + suffix
 
 
+def summarize_data_quality_groups(data_quality_rows, issue_limit=3, ticker_limit=5):
+    severity_groups = {
+        "阻断": {"阻断", "严重", "错误", "error", "blocked", "blocker"},
+        "需复核": {"警告", "warning", "warn"},
+        "可接受": {"提示", "info", "notice"},
+    }
+    severity_order = ["阻断", "需复核", "可接受"]
+    grouped = {}
+
+    for row in data_quality_rows:
+        code = row.get("issue_code", "").strip() or "unknown_issue"
+        severity_text = row.get("severity", "").strip().lower()
+        group = "可接受"
+        for candidate_group, labels in severity_groups.items():
+            if severity_text in {label.lower() for label in labels}:
+                group = candidate_group
+                break
+        key = (group, code)
+        if key not in grouped:
+            grouped[key] = {"count": 0, "tickers": set()}
+        grouped[key]["count"] += 1
+        ticker = row.get("ticker", "").strip().upper()
+        if ticker:
+            grouped[key]["tickers"].add(ticker)
+
+    lines = []
+    for severity in severity_order:
+        issues = [
+            (code, data)
+            for (group, code), data in grouped.items()
+            if group == severity
+        ]
+        issues.sort(key=lambda item: (-item[1]["count"], item[0]))
+        for code, data in issues[:issue_limit]:
+            tickers = sorted(data["tickers"])
+            ticker_text = compact_list(tickers, limit=ticker_limit)
+            lines.append(
+                f"- {severity}：{code} {data['count']} 项，影响 {len(tickers)} 只（{ticker_text}）"
+            )
+    return lines
+
+
 def read_model_audit_status(path):
     audit_path = Path(path)
     if not audit_path.exists():
@@ -96,6 +138,7 @@ def build_data_health_summary(quote_gap_rows, data_quality_rows, share_override_
         lines.append(
             f"- 数据质量问题：{quality_total} 项（阻断 {quality_blocked}，警告 {quality_warnings}）"
         )
+        lines.extend(summarize_data_quality_groups(data_quality_rows))
     return lines
 
 
