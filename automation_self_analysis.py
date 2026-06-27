@@ -786,6 +786,48 @@ def _manifest_backtest_status(backtest):
     }
 
 
+def _manifest_automation_decision(
+    model_audit_status,
+    backtest_status,
+    data_health_status,
+    candidate_review_status,
+    review_status,
+    recommended_next_action,
+):
+    action_candidates = [
+        (review_status, recommended_next_action),
+        (data_health_status["data_health_status"], data_health_status["data_health_recommended_action"]),
+        (backtest_status["backtest_status"], backtest_status["backtest_recommended_action"]),
+        (
+            candidate_review_status["candidate_review_status"],
+            candidate_review_status["candidate_review_recommended_action"],
+        ),
+        (model_audit_status["model_audit_status"], model_audit_status["model_audit_recommended_action"]),
+    ]
+    priority_actions = []
+    for status, action in action_candidates:
+        if status == "clear" or action == "monitor_next_run" or action in priority_actions:
+            continue
+        priority_actions.append(action)
+    if not priority_actions:
+        return {
+            "automation_status": "clear",
+            "automation_recommended_action": "monitor_next_run",
+            "automation_priority_actions": [],
+        }
+    if review_status == "recurring_manual_review":
+        status = "recurring_manual_review"
+    elif any(action != "continue_sample_accumulation" for action in priority_actions):
+        status = "manual_review_needed"
+    else:
+        status = "sample_accumulating"
+    return {
+        "automation_status": status,
+        "automation_recommended_action": priority_actions[0],
+        "automation_priority_actions": priority_actions,
+    }
+
+
 def _recommendations(risks, backtest):
     recommendations = []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
@@ -961,21 +1003,33 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     review_status, recommended_next_action = _manual_review_status(
         len(manual_review_queue), len(manual_review_history_repeats)
     )
+    model_audit_status = _manifest_model_audit_status(markets)
+    backtest_status = _manifest_backtest_status(backtest)
+    data_health_status = _manifest_data_health_status(health)
+    candidate_review_status = _manifest_candidate_review_status(candidate_reviews)
     _write_self_analysis_manifest(
         manifest_output,
         {
             "as_of_date": as_of_date,
             "market_count": len(markets),
             "markets": _manifest_markets(markets),
-            **_manifest_model_audit_status(markets),
-            **_manifest_backtest_status(backtest),
+            **model_audit_status,
+            **backtest_status,
             "health": _manifest_health(health),
-            **_manifest_data_health_status(health),
-            **_manifest_candidate_review_status(candidate_reviews),
+            **data_health_status,
+            **candidate_review_status,
             "manual_review_queue_count": len(manual_review_queue),
             "manual_review_repeat_count": len(manual_review_history_repeats),
             "review_status": review_status,
             "recommended_next_action": recommended_next_action,
+            **_manifest_automation_decision(
+                model_audit_status,
+                backtest_status,
+                data_health_status,
+                candidate_review_status,
+                review_status,
+                recommended_next_action,
+            ),
             "outputs": {
                 "self_analysis": str(output),
                 "manual_review_queue": str(manual_review_queue_output),
