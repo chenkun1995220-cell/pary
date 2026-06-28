@@ -324,6 +324,8 @@ def render_manual_review_queue_section(payload):
         [
             f"- 队列数量：{queue.get('count', 0)}",
             f"- 来源：{queue.get('path', '')}",
+            f"- 按市场：{format_queue_counts(queue.get('by_market', []), 'market')}",
+            f"- 按类型：{format_queue_counts(queue.get('by_review_type', []), 'review_type')}",
             "",
             "| 序号 | 市场 | 类型 | 股票 | 公司 | 复核要点 |",
             "|---:|---|---|---|---|---|",
@@ -427,8 +429,26 @@ def read_manual_review_queue(project_root, item_limit=10):
     return {
         "path": relative_path(project_root, path),
         "count": len(rows),
+        "by_market": count_queue_rows(rows, "market", "market"),
+        "by_review_type": count_queue_rows(rows, "review_type", "review_type"),
         "items": items,
     }
+
+
+def count_queue_rows(rows, source_key, output_key):
+    counts = {}
+    for row in rows:
+        value = pick(row, source_key)
+        if not value:
+            continue
+        counts[value] = counts.get(value, 0) + 1
+    return [{output_key: key, "count": count} for key, count in counts.items()]
+
+
+def format_queue_counts(items, label_key):
+    if not items:
+        return "无"
+    return "；".join(f"{item.get(label_key, '')} {item.get('count', 0)}" for item in items)
 
 
 def index_by_ticker(rows):

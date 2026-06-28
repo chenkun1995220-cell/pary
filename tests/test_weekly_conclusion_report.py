@@ -223,9 +223,19 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             markdown = render_markdown(payload)
 
             self.assertEqual(payload["manual_review_queue"]["count"], 2)
+            self.assertEqual(
+                payload["manual_review_queue"]["by_market"],
+                [{"market": "A股周筛", "count": 1}, {"market": "港股周筛", "count": 1}],
+            )
+            self.assertEqual(
+                payload["manual_review_queue"]["by_review_type"],
+                [{"review_type": "估值口径", "count": 1}, {"review_type": "风险提示", "count": 1}],
+            )
             self.assertEqual(payload["manual_review_queue"]["items"][0]["ticker"], "300122.SZ")
             self.assertEqual(payload["manual_review_queue"]["items"][0]["review_detail"], "loss_making_or_negative_pe；pe=-17.54")
             self.assertIn("## 人工复核队列", markdown)
+            self.assertIn("- 按市场：A股周筛 1；港股周筛 1", markdown)
+            self.assertIn("- 按类型：估值口径 1；风险提示 1", markdown)
             self.assertIn("| 1 | A股周筛 | 估值口径 | 300122.SZ | 智飞生物 | loss_making_or_negative_pe；pe=-17.54 |", markdown)
 
     def test_extracts_risk_reason_from_investment_summary_table(self):
