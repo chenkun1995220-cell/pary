@@ -24,6 +24,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     attention_reasons = []
     freshness_status = "unknown"
     conclusion_age_days = None
+    conclusion_health = {}
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -43,6 +44,11 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
             attention_reasons.append("unexpected_conclusion_schema")
         if int(conclusion.get("conclusion_version", 0) or 0) != 1:
             attention_reasons.append("unexpected_conclusion_version")
+        conclusion_health = _conclusion_health(conclusion)
+        if conclusion_health["status"] == "needs_fix":
+            attention_reasons.append("conclusion_health_needs_fix")
+        elif conclusion_health["status"] not in {"healthy", "needs_review"}:
+            attention_reasons.append("invalid_conclusion_health")
 
     for key, raw_path in _required_outputs(conclusion, conclusion_path).items():
         path = _resolve_path(project_root, raw_path)
@@ -69,6 +75,9 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "conclusion_age_days": conclusion_age_days,
         "max_age_days": max_age_days,
         "conclusion_status": conclusion.get("status", "unknown"),
+        "conclusion_health_status": conclusion_health.get("status", "unknown"),
+        "conclusion_health_score": conclusion_health.get("score", 0),
+        "conclusion_health_reasons": conclusion_health.get("reasons", []),
         "candidate_count_total": int(conclusion.get("candidate_count_total", 0) or 0),
         "manual_review_queue_count": int(conclusion.get("manual_review_queue", {}).get("count", 0) or 0),
         "manual_review_pending_count": int(conclusion.get("manual_review_decisions", {}).get("pending_count", 0) or 0),
@@ -86,6 +95,7 @@ def render_delivery_check(result):
         f"- 日期：{result.get('as_of_date', 'unknown')}",
         f"- 总体状态：{result.get('status', 'unknown')}",
         f"- 周结论状态：{result.get('conclusion_status', 'unknown')}",
+        f"- 周结论健康：{result.get('conclusion_health_status', 'unknown')} / {result.get('conclusion_health_score', 0)}",
         f"- 周结论新鲜度：{result.get('freshness_status', 'unknown')}",
         f"- 候选总数：{result.get('candidate_count_total', 0)}",
         f"- 人工复核队列：{result.get('manual_review_queue_count', 0)}",
@@ -149,6 +159,26 @@ def _read_json(path):
         return json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError):
         return None
+
+
+def _conclusion_health(conclusion):
+    health = conclusion.get("health", {})
+    if not isinstance(health, dict):
+        return {"status": "invalid", "score": 0, "reasons": ["health_not_object"]}
+    status = str(health.get("status", "unknown") or "unknown")
+    try:
+        score = int(health.get("score", 0) or 0)
+    except (TypeError, ValueError):
+        score = 0
+        status = "invalid"
+    reasons = health.get("reasons", [])
+    if not isinstance(reasons, list):
+        reasons = [str(reasons)]
+    return {
+        "status": status,
+        "score": max(0, min(100, score)),
+        "reasons": [str(reason) for reason in reasons],
+    }
 
 
 def _resolve_path(project_root, raw_path):

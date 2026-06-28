@@ -37,6 +37,11 @@ def write_ready_delivery_files(root, as_of_date="2026-06-28"):
             "conclusion_version": 1,
             "as_of_date": as_of_date,
             "status": "ready",
+            "health": {
+                "status": "needs_review",
+                "score": 75,
+                "reasons": ["automation_check:manual_review_needed", "manual_review_pending:12"],
+            },
             "candidate_count_total": 64,
             "manual_review_queue": {"count": 12},
             "manual_review_decisions": {"pending_count": 12},
@@ -69,12 +74,43 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertEqual(result["status"], "ready")
             self.assertEqual(result["freshness_status"], "fresh")
             self.assertEqual(result["candidate_count_total"], 64)
+            self.assertEqual(result["conclusion_health_status"], "needs_review")
+            self.assertEqual(result["conclusion_health_score"], 75)
+            self.assertEqual(
+                result["conclusion_health_reasons"],
+                ["automation_check:manual_review_needed", "manual_review_pending:12"],
+            )
             self.assertEqual(result["manual_review_queue_count"], 12)
             self.assertEqual(result["manual_review_pending_count"], 12)
             self.assertEqual(result["missing_outputs"], [])
             self.assertIn("# 每周最终交付验收", report)
             self.assertIn("- 总体状态：ready", report)
+            self.assertIn("needs_review / 75", report)
             self.assertIn("- 候选总数：64", report)
+
+    def test_delivery_check_needs_attention_when_conclusion_health_needs_fix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["health"] = {
+                "status": "needs_fix",
+                "score": 40,
+                "reasons": ["missing_inputs:2"],
+            }
+            write_json(conclusion_path, conclusion)
+
+            from weekly_delivery_check import render_delivery_check, run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+            report = render_delivery_check(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["conclusion_health_status"], "needs_fix")
+            self.assertEqual(result["conclusion_health_score"], 40)
+            self.assertIn("conclusion_health_needs_fix", result["attention_reasons"])
+            self.assertIn("needs_fix / 40", report)
 
     def test_delivery_check_needs_attention_when_required_final_output_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:

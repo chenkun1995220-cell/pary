@@ -323,6 +323,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/latest_weekly_delivery_history_report.md", doc)
         self.assertIn("最终交付历史状态", doc)
         self.assertIn("overall_health", doc)
+        self.assertIn("conclusion_health_needs_fix", doc)
         self.assertIn("不重新抓取行情", doc)
         self.assertIn("不构成投资建议", doc)
 
