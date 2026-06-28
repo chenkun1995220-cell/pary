@@ -501,6 +501,82 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("弱证据周数：8", text)
             self.assertIn("继续补充历史成分 verified 证据", text)
 
+    def test_self_analysis_summarizes_forecast_performance_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for universe, title in (
+                ("us_universe", "US Weekly Screening Run Summary"),
+                ("cn_universe", "CN Weekly Data Summary"),
+                ("hk_universe", "HK Weekly Data Summary"),
+            ):
+                write_text(root / "outputs" / universe / "latest_run_summary.md", f"# {title}\n")
+                write_text(root / "outputs" / universe / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            fields = [
+                "market",
+                "ticker",
+                "generated_date",
+                "checkpoint_weeks",
+                "prediction_horizon",
+                "evaluation_status",
+                "direction_hit",
+                "actual_return",
+                "excess_return",
+            ]
+            write_csv(
+                root / "outputs" / "us_universe" / "forecast_evaluations.csv",
+                fields,
+                [
+                    {
+                        "market": "US",
+                        "ticker": "AAA",
+                        "generated_date": "2026-06-21",
+                        "checkpoint_weeks": "1",
+                        "prediction_horizon": "1w",
+                        "evaluation_status": "evaluated",
+                        "direction_hit": "True",
+                        "actual_return": "0.08",
+                        "excess_return": "0.03",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "cn_universe" / "forecast_evaluations.csv",
+                fields,
+                [
+                    {
+                        "market": "CN",
+                        "ticker": "BBB",
+                        "generated_date": "2026-06-21",
+                        "checkpoint_weeks": "1",
+                        "prediction_horizon": "1w",
+                        "evaluation_status": "prediction_unavailable",
+                        "direction_hit": "",
+                        "actual_return": "-0.02",
+                        "excess_return": "-0.01",
+                    }
+                ],
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-28")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(manifest["forecast_performance_status"], "partial_sample_accumulating")
+            self.assertEqual(manifest["forecast_performance_recommended_action"], "continue_sample_accumulation")
+            self.assertEqual(manifest["forecast_performance"]["total_evaluations"], 2)
+            self.assertEqual(manifest["forecast_performance"]["mature_evaluations"], 1)
+            self.assertEqual(manifest["forecast_performance"]["one_week_mature"], 1)
+            self.assertEqual(manifest["forecast_performance"]["prediction_unavailable"], 1)
+            self.assertEqual(manifest["forecast_performance"]["missing_market_count"], 1)
+            self.assertAlmostEqual(manifest["forecast_performance"]["direction_hit_rate"], 1.0)
+            self.assertEqual(check["forecast_performance_status"], "partial_sample_accumulating")
+            self.assertIn("## 预测表现", report)
+            self.assertIn("partial_sample_accumulating", report)
+            self.assertIn("1w", report)
+            self.assertIn("prediction_unavailable", report)
+
     def test_missing_inputs_are_reported_without_failing(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = run_self_analysis(Path(tmp), as_of_date="2026-06-25")

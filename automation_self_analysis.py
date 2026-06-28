@@ -18,6 +18,7 @@ MARKETS = [
         "default_investment": Path("outputs/us_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/us_universe/quote_gaps.csv"),
         "default_valuation_review": Path("outputs/us_universe/valuation_review_items.csv"),
+        "default_forecast_evaluations": Path("outputs/us_universe/forecast_evaluations.csv"),
     },
     {
         "name": "A股周筛",
@@ -27,6 +28,7 @@ MARKETS = [
         "default_investment": Path("outputs/cn_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/cn_universe/quote_gaps.csv"),
         "default_valuation_review": Path("outputs/cn_universe/valuation_review_items.csv"),
+        "default_forecast_evaluations": Path("outputs/cn_universe/forecast_evaluations.csv"),
     },
     {
         "name": "港股周筛",
@@ -36,6 +38,7 @@ MARKETS = [
         "default_investment": Path("outputs/hk_universe/latest_investment_summary.md"),
         "default_quote_gaps": Path("outputs/hk_universe/quote_gaps.csv"),
         "default_valuation_review": Path("outputs/hk_universe/valuation_review_items.csv"),
+        "default_forecast_evaluations": Path("outputs/hk_universe/forecast_evaluations.csv"),
     },
 ]
 
@@ -437,6 +440,89 @@ def _investment_review_snapshot(market):
     }
 
 
+def _average(values):
+    cleaned = [value for value in values if value is not None]
+    return sum(cleaned) / len(cleaned) if cleaned else None
+
+
+def _forecast_market_snapshot(project_root, config):
+    path = Path(project_root) / config["default_forecast_evaluations"]
+    if not path.exists():
+        return {
+            "name": config["name"],
+            "status": "missing",
+            "total_evaluations": 0,
+            "mature_evaluations": 0,
+            "one_week_mature": 0,
+            "one_month_mature": 0,
+            "prediction_unavailable": 0,
+            "direction_hits": 0,
+            "direction_hit_rate": None,
+            "average_return": None,
+            "average_excess_return": None,
+            "path": str(path),
+        }
+    rows = _read_csv_rows(path)
+    mature = [row for row in rows if row.get("evaluation_status") == "evaluated"]
+    hits = [row for row in mature if str(row.get("direction_hit", "")).lower() == "true"]
+    return {
+        "name": config["name"],
+        "status": "ready",
+        "total_evaluations": len(rows),
+        "mature_evaluations": len(mature),
+        "one_week_mature": sum(1 for row in mature if row.get("prediction_horizon") == "1w"),
+        "one_month_mature": sum(1 for row in mature if row.get("prediction_horizon") == "1m"),
+        "prediction_unavailable": sum(1 for row in rows if row.get("evaluation_status") == "prediction_unavailable"),
+        "direction_hits": len(hits),
+        "direction_hit_rate": len(hits) / len(mature) if mature else None,
+        "average_return": _average(_as_float(row.get("actual_return")) for row in mature),
+        "average_excess_return": _average(_as_float(row.get("excess_return")) for row in mature),
+        "path": str(path),
+    }
+
+
+def _forecast_performance_snapshot(project_root):
+    markets = [_forecast_market_snapshot(project_root, config) for config in MARKETS]
+    total = sum(item["total_evaluations"] for item in markets)
+    mature = sum(item["mature_evaluations"] for item in markets)
+    hits = sum(item["direction_hits"] for item in markets)
+    one_week = sum(item["one_week_mature"] for item in markets)
+    one_month = sum(item["one_month_mature"] for item in markets)
+    prediction_unavailable = sum(item["prediction_unavailable"] for item in markets)
+    missing_market_count = sum(1 for item in markets if item["status"] == "missing")
+    if missing_market_count and total == 0:
+        status = "missing"
+        action = "collect_forecast_evaluations"
+    elif missing_market_count:
+        status = "partial_sample_accumulating" if mature < 30 else "partial_ready"
+        action = "continue_sample_accumulation" if mature < 30 else "review_forecast_performance"
+    elif mature < 30:
+        status = "sample_accumulating"
+        action = "continue_sample_accumulation"
+    else:
+        status = "ready"
+        action = "review_forecast_performance"
+    return {
+        "forecast_performance_schema": "forecast_performance_summary",
+        "forecast_performance_version": 1,
+        "status": status,
+        "recommended_action": action,
+        "total_evaluations": total,
+        "mature_evaluations": mature,
+        "one_week_mature": one_week,
+        "one_month_mature": one_month,
+        "prediction_unavailable": prediction_unavailable,
+        "missing_market_count": missing_market_count,
+        "direction_hits": hits,
+        "direction_hit_rate": hits / mature if mature else None,
+        "markets": markets,
+    }
+
+
+def _format_rate(value):
+    return "unknown" if value is None else f"{value:.2%}"
+
+
 def _health_snapshot(market):
     path = Path(market["health_path"])
     row = _latest_health_row(path)
@@ -820,6 +906,7 @@ def _automation_check_payload(manifest, manifest_validation):
         "weekly_ops_history_status": manifest.get("weekly_ops_history_status", "unknown"),
         "weekly_delivery_history_status": manifest.get("weekly_delivery_history_status", "unknown"),
         "model_audit_status": manifest.get("model_audit_status", "unknown"),
+        "forecast_performance_status": manifest.get("forecast_performance_status", "unknown"),
         "backtest_status": manifest.get("backtest_status", "unknown"),
         "outputs": manifest.get("outputs", {}),
     }
@@ -1101,6 +1188,7 @@ def _render(
     backtest,
     health,
     candidate_reviews,
+    forecast_performance=None,
     manual_review_history_repeats=None,
     manual_review_queue=None,
     weekly_ops_history=None,
@@ -1112,6 +1200,18 @@ def _render(
     manual_review_history_repeats = manual_review_history_repeats or []
     weekly_ops_history = weekly_ops_history or {}
     weekly_delivery_history = weekly_delivery_history or {}
+    forecast_performance = forecast_performance or {
+        "status": "unknown",
+        "recommended_action": "collect_forecast_evaluations",
+        "total_evaluations": 0,
+        "mature_evaluations": 0,
+        "one_week_mature": 0,
+        "one_month_mature": 0,
+        "prediction_unavailable": 0,
+        "missing_market_count": 0,
+        "direction_hit_rate": None,
+        "markets": [],
+    }
     lines = [
         f"# 每周自我分析摘要（{as_of_date}）",
         "",
@@ -1179,6 +1279,32 @@ def _render(
         lines.append(
             f"| {item['name']} | {item['status']} | {item['field_complete']} | "
             f"{item['quality_gap_count']} | {len(item['risk_items'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## 预测表现",
+            "",
+            f"- status: {forecast_performance.get('status', 'unknown')}",
+            f"- recommended_action: {forecast_performance.get('recommended_action', 'unknown')}",
+            f"- total_evaluations: {forecast_performance.get('total_evaluations', 0)}",
+            f"- mature_evaluations: {forecast_performance.get('mature_evaluations', 0)}",
+            f"- one_week_mature: {forecast_performance.get('one_week_mature', 0)}",
+            f"- one_month_mature: {forecast_performance.get('one_month_mature', 0)}",
+            f"- prediction_unavailable: {forecast_performance.get('prediction_unavailable', 0)}",
+            f"- missing_market_count: {forecast_performance.get('missing_market_count', 0)}",
+            f"- direction_hit_rate: {_format_rate(forecast_performance.get('direction_hit_rate'))}",
+            "",
+            "| 模块 | 状态 | 总评估 | 成熟评估 | 1w | 1m | prediction_unavailable | 方向命中率 |",
+            "|---|---|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for item in forecast_performance.get("markets", []):
+        lines.append(
+            f"| {item.get('name', '')} | {item.get('status', '')} | "
+            f"{item.get('total_evaluations', 0)} | {item.get('mature_evaluations', 0)} | "
+            f"{item.get('one_week_mature', 0)} | {item.get('one_month_mature', 0)} | "
+            f"{item.get('prediction_unavailable', 0)} | {_format_rate(item.get('direction_hit_rate'))} |"
         )
     recurring_reasons = weekly_ops_history.get("recurring_attention_reasons", [])
     recurring_text = (
@@ -1298,6 +1424,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     health = [_health_snapshot(market) for market in markets]
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
+    forecast_performance = _forecast_performance_snapshot(project_root)
     weekly_ops_history = _weekly_ops_history_snapshot(project_root)
     weekly_delivery_history = _weekly_delivery_history_snapshot(project_root)
     manual_review_queue = _manual_review_queue(health, candidate_reviews)
@@ -1324,6 +1451,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             backtest,
             health,
             candidate_reviews,
+            forecast_performance,
             manual_review_history_repeats,
             manual_review_queue,
             weekly_ops_history,
@@ -1351,6 +1479,9 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "markets": _manifest_markets(markets),
         **model_audit_status,
         **backtest_status,
+        "forecast_performance": forecast_performance,
+        "forecast_performance_status": forecast_performance.get("status", "unknown"),
+        "forecast_performance_recommended_action": forecast_performance.get("recommended_action", "unknown"),
         "health": _manifest_health(health),
         **data_health_status,
         **candidate_review_status,
@@ -1396,6 +1527,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "automation_check_output": str(automation_check_output),
         "markets": markets,
         "backtest": backtest,
+        "forecast_performance": forecast_performance,
         "health": health,
         "candidate_reviews": candidate_reviews,
         "weekly_ops_history": weekly_ops_history,
@@ -1417,6 +1549,9 @@ REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
     "model_audit_recommended_action",
     "backtest_status",
     "backtest_recommended_action",
+    "forecast_performance",
+    "forecast_performance_status",
+    "forecast_performance_recommended_action",
     "health",
     "data_health_status",
     "data_health_recommended_action",
