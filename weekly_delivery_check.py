@@ -19,6 +19,20 @@ REQUIRED_CONCLUSION_SIGNALS = (
     "automation.data_quality_history",
     "automation.forecast_performance",
 )
+CONCLUSION_SIGNAL_FIXES = {
+    "automation.data_quality": (
+        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+        "contains data_quality_summary before show_weekly_conclusion.ps1"
+    ),
+    "automation.data_quality_history": (
+        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+        "contains data_quality_history before show_weekly_conclusion.ps1"
+    ),
+    "automation.forecast_performance": (
+        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+        "contains forecast_performance before show_weekly_conclusion.ps1"
+    ),
+}
 
 
 def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_days=8):
@@ -38,6 +52,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_count = 0
     conclusion_signal_status = "unknown"
     missing_conclusion_signals = []
+    missing_conclusion_signal_fixes = {}
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -63,6 +78,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         elif conclusion_health["status"] not in {"healthy", "needs_review"}:
             attention_reasons.append("invalid_conclusion_health")
         conclusion_signal_status, missing_conclusion_signals = _check_conclusion_signals(conclusion)
+        missing_conclusion_signal_fixes = _conclusion_signal_fixes(missing_conclusion_signals)
         if missing_conclusion_signals:
             attention_reasons.append("missing_conclusion_signals")
 
@@ -118,6 +134,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "manual_review_merge_summary_exists": bool(merge_summary.get("exists")),
         "conclusion_signal_status": conclusion_signal_status,
         "missing_conclusion_signals": missing_conclusion_signals,
+        "missing_conclusion_signal_fixes": missing_conclusion_signal_fixes,
         "action_items_status": action_items_status,
         "action_items_freshness_status": action_items_freshness_status,
         "action_items_age_days": action_items_age_days,
@@ -153,6 +170,10 @@ def render_delivery_check(result):
         lines.extend(["", "## 缺失周结论信号"])
         for signal in result["missing_conclusion_signals"]:
             lines.append(f"- {signal}")
+    if result.get("missing_conclusion_signal_fixes"):
+        lines.extend(["", "## 周结论信号修复指向"])
+        for signal, fix in result["missing_conclusion_signal_fixes"].items():
+            lines.append(f"- {signal}: {fix}")
     if result.get("missing_output_paths"):
         lines.extend(["", "## 缺失路径"])
         for key, path in result["missing_output_paths"].items():
@@ -299,6 +320,13 @@ def _check_conclusion_signals(conclusion):
         if _nested_value(conclusion, signal) in (None, ""):
             missing.append(signal)
     return ("ready" if not missing else "missing"), missing
+
+
+def _conclusion_signal_fixes(missing_signals):
+    return {
+        signal: CONCLUSION_SIGNAL_FIXES.get(signal, "rerun_self_analysis_and_weekly_conclusion")
+        for signal in missing_signals
+    }
 
 
 def _nested_value(payload, dotted_key):

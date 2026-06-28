@@ -162,9 +162,24 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
                 result["missing_conclusion_signals"],
                 ["automation.data_quality_history", "automation.forecast_performance"],
             )
+            self.assertEqual(
+                result["missing_conclusion_signal_fixes"],
+                {
+                    "automation.data_quality_history": (
+                        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                        "contains data_quality_history before show_weekly_conclusion.ps1"
+                    ),
+                    "automation.forecast_performance": (
+                        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                        "contains forecast_performance before show_weekly_conclusion.ps1"
+                    ),
+                },
+            )
             self.assertIn("missing_conclusion_signals", result["attention_reasons"])
             self.assertIn("automation.data_quality_history", report)
             self.assertIn("automation.forecast_performance", report)
+            self.assertIn("latest_self_analysis_manifest.json", report)
+            self.assertIn("show_weekly_conclusion.ps1", report)
 
     def test_delivery_check_needs_attention_when_conclusion_health_needs_fix(self):
         with tempfile.TemporaryDirectory() as tmp:
