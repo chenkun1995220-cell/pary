@@ -153,6 +153,9 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("BacktestSummary", script)
         self.assertIn("Membership evidence verified", script)
         self.assertIn("Weak evidence rows", script)
+        self.assertIn("Evidence status", script)
+        self.assertIn("Weak evidence weeks", script)
+        self.assertIn("Evidence next action", script)
 
     def test_point_in_time_backtest_dry_run_prints_ordered_pipeline_without_writing_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -238,6 +241,9 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/latest_backtest_summary.md", doc)
         self.assertIn("data_leakage_audit.md", doc)
         self.assertIn("us_sp500_membership_evidence.csv", doc)
+        self.assertIn("Evidence status", doc)
+        self.assertIn("Weak evidence weeks", doc)
+        self.assertIn("Evidence next action", doc)
         self.assertIn("effective_date, added_ticker, removed_ticker", doc)
         self.assertIn("S&P Global", doc)
         self.assertIn("不得自动升级正式模型", doc)

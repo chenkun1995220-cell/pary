@@ -151,6 +151,9 @@ def _backtest_snapshot(project_root):
             "weeks_failed": "unknown",
             "verified": "unknown",
             "weak_rows": "unknown",
+            "evidence_status": "unknown",
+            "weak_evidence_weeks": "unknown",
+            "evidence_next_action": "unknown",
             "summary_path": str(path),
         }
     fields = _summary_fields(text)
@@ -160,6 +163,9 @@ def _backtest_snapshot(project_root):
         "weeks_failed": fields.get("Weeks failed", "unknown"),
         "verified": fields.get("Membership evidence verified", "unknown"),
         "weak_rows": fields.get("Weak evidence rows", "unknown"),
+        "evidence_status": fields.get("Evidence status", "unknown"),
+        "weak_evidence_weeks": fields.get("Weak evidence weeks", "unknown"),
+        "evidence_next_action": fields.get("Evidence next action", "unknown"),
         "summary_path": str(path),
     }
 
@@ -912,6 +918,9 @@ def _manifest_backtest_status(backtest):
         "backtest_weeks_failed": backtest.get("weeks_failed", ""),
         "backtest_membership_verified": backtest.get("verified", ""),
         "backtest_weak_rows": backtest.get("weak_rows", ""),
+        "backtest_evidence_status": backtest.get("evidence_status", ""),
+        "backtest_weak_evidence_weeks": backtest.get("weak_evidence_weeks", ""),
+        "backtest_evidence_next_action": backtest.get("evidence_next_action", ""),
         "backtest_summary_path": backtest.get("summary_path", ""),
     }
 
@@ -1204,6 +1213,9 @@ def _render(
             f"- 失败周数：{backtest['weeks_failed']}",
             f"- 成员证据 verified：{backtest['verified']}",
             f"- 弱证据行：{backtest['weak_rows']}",
+            f"- 证据状态：{backtest.get('evidence_status', 'unknown')}",
+            f"- 弱证据周数：{backtest.get('weak_evidence_weeks', 'unknown')}",
+            f"- 证据下一步：{backtest.get('evidence_next_action', 'unknown')}",
             f"- 摘要：{backtest['summary_path']}",
             "",
             "## 风险与缺口",

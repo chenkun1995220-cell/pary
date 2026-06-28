@@ -418,6 +418,9 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                         "- Weeks failed: 0",
                         "- Membership evidence verified: 35/40 (87.5%)",
                         "- Weak evidence rows: 5",
+                        "- Evidence status: evidence_review_needed",
+                        "- Weak evidence weeks: 8",
+                        "- Evidence next action: supplement_verified_membership_evidence",
                     ]
                 ),
             )
@@ -446,6 +449,12 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(manifest["backtest_weeks_failed"], "0")
             self.assertEqual(manifest["backtest_weak_rows"], "5")
             self.assertEqual(manifest["backtest_membership_verified"], "35/40 (87.5%)")
+            self.assertEqual(manifest["backtest_evidence_status"], "evidence_review_needed")
+            self.assertEqual(manifest["backtest_weak_evidence_weeks"], "8")
+            self.assertEqual(
+                manifest["backtest_evidence_next_action"],
+                "supplement_verified_membership_evidence",
+            )
             self.assertEqual(manifest["automation_status"], "manual_review_needed")
             self.assertEqual(manifest["automation_recommended_action"], "review_data_health")
             self.assertIn("review_backtest_evidence", manifest["automation_priority_actions"])
@@ -468,6 +477,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("候选数：2", text)
             self.assertIn("成员证据 verified：35/40 (87.5%)", text)
             self.assertIn("弱证据行：5", text)
+            self.assertIn("证据状态：evidence_review_needed", text)
+            self.assertIn("弱证据周数：8", text)
             self.assertIn("继续补充历史成分 verified 证据", text)
 
     def test_missing_inputs_are_reported_without_failing(self):

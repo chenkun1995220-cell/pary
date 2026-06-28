@@ -234,6 +234,26 @@ try {
     }
   }
   $weakValue = if ($weakLine) { $weakLine -replace "^[^0-9]*", "" } else { "unknown" }
+  $weakWeeksLine = ($reportLines | Where-Object { $_ -match "存在弱证据的回放周|Weak evidence weeks" } | Select-Object -First 1)
+  $weakWeeksValue = if ($weakWeeksLine) { $weakWeeksLine -replace "^[^0-9]*", "" } else { "unknown" }
+  $weakCount = $null
+  if ($weakValue -match "^(\d+)") {
+    $weakCount = [int]$Matches[1]
+  }
+  $evidenceStatus = if (($null -ne $weakCount) -and ($weakCount -gt 0)) {
+    "evidence_review_needed"
+  } elseif ($weakValue -eq "unknown") {
+    "unknown"
+  } else {
+    "clear"
+  }
+  $evidenceNextAction = if ($evidenceStatus -eq "evidence_review_needed") {
+    "supplement_verified_membership_evidence"
+  } elseif ($evidenceStatus -eq "unknown") {
+    "review_backtest_report"
+  } else {
+    "monitor_next_run"
+  }
   $summary = @(
     "# US Point-in-Time Backtest Summary",
     "",
@@ -243,6 +263,9 @@ try {
     "- Weeks failed: $($checkpointData.failure_count)",
     "- Membership evidence verified: $verifiedValue",
     "- Weak evidence rows: $weakValue",
+    "- Evidence status: $evidenceStatus",
+    "- Weak evidence weeks: $weakWeeksValue",
+    "- Evidence next action: $evidenceNextAction",
     "- Backtest report: $BacktestReport",
     "- Data leakage audit: $LeakageAudit",
     "- Model comparison: $ModelComparison",
