@@ -62,6 +62,11 @@ ACTION_DETAILS = {
     },
 }
 
+REVIEW_TYPE_ACTIONS = {
+    "估值口径": "用盈利质量、现金流、营收增速或净资产等替代口径复核，不把负 PE 直接视为低估。",
+    "风险提示": "复核趋势、估值置信度和风险说明，确认是否需要降低候选优先级或补充人工备注。",
+}
+
 
 def build_weekly_conclusion(project_root, today=None, max_age_days=8):
     project_root = Path(project_root)
@@ -327,6 +332,23 @@ def render_manual_review_queue_section(payload):
             f"- 按市场：{format_queue_counts(queue.get('by_market', []), 'market')}",
             f"- 按类型：{format_queue_counts(queue.get('by_review_type', []), 'review_type')}",
             "",
+            "### 人工复核建议",
+            "",
+            "| 类型 | 数量 | 建议处置 |",
+            "|---|---:|---|",
+        ]
+    )
+    for guidance in queue.get("action_guidance", []):
+        lines.append(
+            "| {review_type} | {count} | {recommended_action} |".format(
+                review_type=escape_cell(guidance.get("review_type")),
+                count=escape_cell(guidance.get("count")),
+                recommended_action=escape_cell(guidance.get("recommended_action")),
+            )
+        )
+    lines.extend(
+        [
+            "",
             "| 序号 | 市场 | 类型 | 股票 | 公司 | 复核要点 |",
             "|---:|---|---|---|---|---|",
         ]
@@ -414,6 +436,7 @@ def read_csv_rows(path):
 def read_manual_review_queue(project_root, item_limit=10):
     path = project_root / MANUAL_REVIEW_QUEUE_PATH
     rows = read_csv_rows(path)
+    by_review_type = count_queue_rows(rows, "review_type", "review_type")
     items = []
     for row in rows[:item_limit]:
         items.append(
@@ -430,9 +453,27 @@ def read_manual_review_queue(project_root, item_limit=10):
         "path": relative_path(project_root, path),
         "count": len(rows),
         "by_market": count_queue_rows(rows, "market", "market"),
-        "by_review_type": count_queue_rows(rows, "review_type", "review_type"),
+        "by_review_type": by_review_type,
+        "action_guidance": build_queue_action_guidance(by_review_type),
         "items": items,
     }
+
+
+def build_queue_action_guidance(by_review_type):
+    guidance = []
+    for item in by_review_type:
+        review_type = item.get("review_type", "")
+        guidance.append(
+            {
+                "review_type": review_type,
+                "count": item.get("count", 0),
+                "recommended_action": REVIEW_TYPE_ACTIONS.get(
+                    review_type,
+                    "保留原始复核类型并补充人工判断，确认是否影响候选评分、风险说明或后续跟踪状态。",
+                ),
+            }
+        )
+    return guidance
 
 
 def count_queue_rows(rows, source_key, output_key):

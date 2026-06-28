@@ -231,11 +231,29 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 payload["manual_review_queue"]["by_review_type"],
                 [{"review_type": "估值口径", "count": 1}, {"review_type": "风险提示", "count": 1}],
             )
+            self.assertEqual(
+                payload["manual_review_queue"]["action_guidance"],
+                [
+                    {
+                        "review_type": "估值口径",
+                        "count": 1,
+                        "recommended_action": "用盈利质量、现金流、营收增速或净资产等替代口径复核，不把负 PE 直接视为低估。",
+                    },
+                    {
+                        "review_type": "风险提示",
+                        "count": 1,
+                        "recommended_action": "复核趋势、估值置信度和风险说明，确认是否需要降低候选优先级或补充人工备注。",
+                    },
+                ],
+            )
             self.assertEqual(payload["manual_review_queue"]["items"][0]["ticker"], "300122.SZ")
             self.assertEqual(payload["manual_review_queue"]["items"][0]["review_detail"], "loss_making_or_negative_pe；pe=-17.54")
             self.assertIn("## 人工复核队列", markdown)
             self.assertIn("- 按市场：A股周筛 1；港股周筛 1", markdown)
             self.assertIn("- 按类型：估值口径 1；风险提示 1", markdown)
+            self.assertIn("### 人工复核建议", markdown)
+            self.assertIn("| 估值口径 | 1 | 用盈利质量、现金流、营收增速或净资产等替代口径复核，不把负 PE 直接视为低估。 |", markdown)
+            self.assertIn("| 风险提示 | 1 | 复核趋势、估值置信度和风险说明，确认是否需要降低候选优先级或补充人工备注。 |", markdown)
             self.assertIn("| 1 | A股周筛 | 估值口径 | 300122.SZ | 智飞生物 | loss_making_or_negative_pe；pe=-17.54 |", markdown)
 
     def test_extracts_risk_reason_from_investment_summary_table(self):
