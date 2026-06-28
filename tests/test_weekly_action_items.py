@@ -41,8 +41,28 @@ def write_manifest(path):
                 "automation.data_quality_history",
                 "automation.forecast_performance",
             ],
+            "latest_missing_conclusion_signal_fixes": {
+                "automation.data_quality_history": (
+                    "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                    "contains data_quality_history before show_weekly_conclusion.ps1"
+                ),
+                "automation.forecast_performance": (
+                    "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                    "contains forecast_performance before show_weekly_conclusion.ps1"
+                ),
+            },
             "recurring_missing_conclusion_signals": [
                 {"signal": "automation.forecast_performance", "count": 2}
+            ],
+            "recurring_missing_conclusion_signal_fixes": [
+                {
+                    "signal": "automation.forecast_performance",
+                    "fix": (
+                        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                        "contains forecast_performance before show_weekly_conclusion.ps1"
+                    ),
+                    "count": 2,
+                }
             ],
         },
         "data_quality_status": "needs_review",
@@ -124,8 +144,11 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             self.assertIn("automation_check:manual_review_needed", delivery["source"])
             self.assertIn("automation.forecast_performance", delivery["source"])
+            self.assertIn("latest_self_analysis_manifest.json", delivery["source"])
             self.assertIn("automation.data_quality_history", delivery["recommended_check"])
             self.assertIn("automation.forecast_performance", delivery["recommended_check"])
+            self.assertIn("latest_self_analysis_manifest.json", delivery["recommended_check"])
+            self.assertIn("show_weekly_conclusion.ps1", delivery["recommended_check"])
             self.assertIn("needs_review", delivery["recommended_check"])
 
             data_quality = next(
@@ -171,6 +194,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("# 每周人工处理清单", report)
             self.assertIn("review_manual_review_backlog", report)
             self.assertIn("automation.forecast_performance", report)
+            self.assertIn("show_weekly_conclusion.ps1", report)
             self.assertIn("review_data_quality_score", report)
             self.assertIn("review_forecast_performance", report)
             self.assertIn("人工复核积压", report)

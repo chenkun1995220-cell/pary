@@ -59,6 +59,26 @@ def _missing_conclusion_signal_text(history):
     return "; ".join(parts)
 
 
+def _missing_conclusion_signal_fix_text(history):
+    latest_fixes = history.get("latest_missing_conclusion_signal_fixes", {}) or {}
+    if not isinstance(latest_fixes, dict):
+        latest_fixes = {}
+    recurring_fixes = [
+        f"{item.get('signal', 'unknown')}: {item.get('fix', '')} ({item.get('count', 0)})"
+        for item in history.get("recurring_missing_conclusion_signal_fixes", []) or []
+        if isinstance(item, dict) and item.get("signal") and item.get("fix")
+    ]
+    parts = []
+    if latest_fixes:
+        parts.append(
+            "latest_signal_fixes="
+            + ", ".join(f"{signal}: {fix}" for signal, fix in latest_fixes.items())
+        )
+    if recurring_fixes:
+        parts.append("recurring_signal_fixes=" + ", ".join(recurring_fixes))
+    return "; ".join(parts)
+
+
 def _int_value(value, default=0):
     try:
         return int(value or default)
@@ -117,11 +137,15 @@ def _action_template(action_code, manifest):
     manual_review_count = _manual_review_count(manifest, history)
     health_text = _health_reason_text(history)
     missing_signal_text = _missing_conclusion_signal_text(history)
+    missing_signal_fix_text = _missing_conclusion_signal_fix_text(history)
     delivery_health_source = "; ".join(
-        part for part in [health_text, missing_signal_text] if part
+        part for part in [health_text, missing_signal_text, missing_signal_fix_text] if part
     )
     delivery_signal_check = (
         f"；关键结论信号：{missing_signal_text}" if missing_signal_text else ""
+    )
+    delivery_signal_fix_check = (
+        f"；修复指向：{missing_signal_fix_text}" if missing_signal_fix_text else ""
     )
     forecast_performance = manifest.get("forecast_performance", {})
     if not isinstance(forecast_performance, dict):
@@ -146,7 +170,8 @@ def _action_template(action_code, manifest):
             "recommended_check": (
                 "检查 weekly_delivery_history 中的健康状态 "
                 f"{history.get('latest_conclusion_health_status', 'unknown')} / "
-                f"{history.get('latest_conclusion_health_score', 0)}{delivery_signal_check}，"
+                f"{history.get('latest_conclusion_health_score', 0)}"
+                f"{delivery_signal_check}{delivery_signal_fix_check}，"
                 "区分人工积压、流程问题和周结论关键字段缺口。"
             ),
         },
