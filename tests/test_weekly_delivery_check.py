@@ -1,0 +1,149 @@
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def write_json(path, payload):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8-sig")
+
+
+def write_text(path, text):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8-sig")
+
+
+def write_ready_delivery_files(root, as_of_date="2026-06-28"):
+    write_text(
+        Path(root) / "outputs" / "automation" / "latest_weekly_conclusion.md",
+        "# 每周低估候选统一结论\n\n## 人工复核合并摘要\n",
+    )
+    write_text(
+        Path(root) / "outputs" / "automation" / "manual_review_decisions_template.csv",
+        "as_of_date,market,review_type,ticker,company,review_detail,decision_status,decision_note,reviewer,decided_at\n",
+    )
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_conclusion.json",
+        {
+            "conclusion_schema": "weekly_conclusion",
+            "conclusion_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "candidate_count_total": 64,
+            "manual_review_queue": {"count": 12},
+            "manual_review_decisions": {"pending_count": 12},
+            "manual_review_merge_summary": {
+                "path": "outputs/automation/latest_manual_review_decision_merge.json",
+                "exists": False,
+            },
+            "outputs": {
+                "markdown": "outputs/automation/latest_weekly_conclusion.md",
+                "json": "outputs/automation/latest_weekly_conclusion.json",
+                "manual_review_decisions_template": "outputs/automation/manual_review_decisions_template.csv",
+            },
+        },
+    )
+
+
+class WeeklyDeliveryCheckTests(unittest.TestCase):
+    def test_delivery_check_is_ready_when_final_outputs_exist_and_are_fresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+
+            from weekly_delivery_check import render_delivery_check, run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+            report = render_delivery_check(result)
+
+            self.assertEqual(result["delivery_check_schema"], "weekly_delivery_check")
+            self.assertEqual(result["delivery_check_version"], 1)
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["freshness_status"], "fresh")
+            self.assertEqual(result["candidate_count_total"], 64)
+            self.assertEqual(result["manual_review_queue_count"], 12)
+            self.assertEqual(result["manual_review_pending_count"], 12)
+            self.assertEqual(result["missing_outputs"], [])
+            self.assertIn("# 每周最终交付验收", report)
+            self.assertIn("- 总体状态：ready", report)
+            self.assertIn("- 候选总数：64", report)
+
+    def test_delivery_check_needs_attention_when_required_final_output_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            (root / "outputs" / "automation" / "manual_review_decisions_template.csv").unlink()
+
+            from weekly_delivery_check import render_delivery_check, run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+            report = render_delivery_check(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertEqual(result["missing_outputs"], ["manual_review_decisions_template"])
+            self.assertIn("manual_review_decisions_template", report)
+
+    def test_delivery_check_needs_attention_when_conclusion_json_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root, as_of_date="2026-06-01")
+
+            from weekly_delivery_check import run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["freshness_status"], "stale")
+            self.assertIn("stale_conclusion_date", result["attention_reasons"])
+
+    def test_cli_writes_delivery_check_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            output = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "weekly_delivery_check.py"),
+                    "--project-root",
+                    str(root),
+                    "--today",
+                    "2026-06-28",
+                    "--output",
+                    str(output),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["delivery_check_schema"], "weekly_delivery_check")
+            self.assertEqual(payload["status"], "ready")
+            self.assertIn("每周最终交付验收", result.stdout)
+
+    def test_powershell_wrapper_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "run_weekly_delivery_check.ps1").read_text(encoding="utf-8-sig")
+
+        self.assertIn("weekly_delivery_check.py", script)
+        self.assertIn("latest_weekly_delivery_check.json", script)
+        self.assertIn("-NoProfile -ExecutionPolicy Bypass", script)
+        self.assertIn("codex-primary-runtime", script)
+
+
+if __name__ == "__main__":
+    unittest.main()

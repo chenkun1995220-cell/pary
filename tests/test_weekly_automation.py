@@ -310,8 +310,10 @@ class WeeklyAutomationTests(unittest.TestCase):
         )
 
         self.assertIn("scripts\\show_weekly_conclusion.ps1", doc)
+        self.assertIn("scripts\\run_weekly_delivery_check.ps1", doc)
         self.assertIn("outputs/automation/latest_weekly_conclusion.md", doc)
         self.assertIn("outputs/automation/latest_weekly_conclusion.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_delivery_check.json", doc)
         self.assertIn("不重新抓取行情", doc)
         self.assertIn("不构成投资建议", doc)
 
