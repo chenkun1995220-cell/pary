@@ -85,6 +85,26 @@ def write_manual_review_decisions(root):
     )
 
 
+def write_manual_review_merge_summary(root):
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_manual_review_decision_merge.json",
+        {
+            "merge_schema": "manual_review_decision_merge",
+            "merge_version": 1,
+            "template": "outputs/automation/manual_review_decisions_template.csv",
+            "decisions": "outputs/automation/manual_review_decisions.csv",
+            "merged": 2,
+            "skipped_pending": 1,
+            "skipped_invalid": 0,
+            "row_count": 2,
+            "by_status": [
+                {"decision_status": "accepted", "count": 1},
+                {"decision_status": "rejected", "count": 1},
+            ],
+        },
+    )
+
+
 def write_market(root, market_dir, ticker, company):
     base = Path(root) / "outputs" / market_dir
     write_text(base / "latest_run_summary.md", "# summary\nCandidate count: 1\n")
@@ -316,6 +336,36 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| accepted | 1 |", markdown)
             self.assertIn("| pending | 1 |", markdown)
             self.assertIn("| 300122.SZ | A股周筛 | 估值口径 | accepted | 现金流和行业周期仍可解释，保留跟踪。 | ck |", markdown)
+
+    def test_includes_manual_review_merge_summary_when_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_manual_review_automation(root)
+            write_manual_review_queue(root)
+            write_manual_review_decisions(root)
+            write_manual_review_merge_summary(root)
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            self.assertTrue(payload["manual_review_merge_summary"]["exists"])
+            self.assertEqual(payload["manual_review_merge_summary"]["path"], "outputs/automation/latest_manual_review_decision_merge.json")
+            self.assertEqual(payload["manual_review_merge_summary"]["merged"], 2)
+            self.assertEqual(payload["manual_review_merge_summary"]["skipped_pending"], 1)
+            self.assertEqual(payload["manual_review_merge_summary"]["skipped_invalid"], 0)
+            self.assertEqual(payload["manual_review_merge_summary"]["row_count"], 2)
+            self.assertEqual(
+                payload["manual_review_merge_summary"]["by_status"],
+                [{"decision_status": "accepted", "count": 1}, {"decision_status": "rejected", "count": 1}],
+            )
+            self.assertIn("latest_manual_review_decision_merge.json", markdown)
+            self.assertIn("- 合并/更新：2", markdown)
+            self.assertIn("- 跳过 pending：1", markdown)
+            self.assertIn("| accepted | 1 |", markdown)
+            self.assertIn("| rejected | 1 |", markdown)
 
     def test_extracts_risk_reason_from_investment_summary_table(self):
         with tempfile.TemporaryDirectory() as tmp:

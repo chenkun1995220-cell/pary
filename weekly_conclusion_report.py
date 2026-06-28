@@ -32,6 +32,7 @@ DEFAULT_JSON_OUTPUT = "outputs/automation/latest_weekly_conclusion.json"
 MANUAL_REVIEW_QUEUE_PATH = "outputs/automation/latest_manual_review_queue.csv"
 MANUAL_REVIEW_DECISIONS_PATH = "outputs/automation/manual_review_decisions.csv"
 MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT = "outputs/automation/manual_review_decisions_template.csv"
+MANUAL_REVIEW_MERGE_SUMMARY_PATH = "outputs/automation/latest_manual_review_decision_merge.json"
 
 ACTION_DETAILS = {
     "review_manual_queue": {
@@ -81,6 +82,7 @@ def build_weekly_conclusion(project_root, today=None, max_age_days=8):
     automation = read_automation_state(project_root, as_of_date, max_age_days, warnings, missing_inputs)
     manual_review_queue = read_manual_review_queue(project_root)
     manual_review_decisions = read_manual_review_decisions(project_root, manual_review_queue)
+    manual_review_merge_summary = read_manual_review_merge_summary(project_root)
     for market_config in MARKETS:
         market_result = read_market(project_root, market_config, missing_inputs, warnings)
         markets.append(market_result["summary"])
@@ -97,6 +99,7 @@ def build_weekly_conclusion(project_root, today=None, max_age_days=8):
         warnings,
         manual_review_queue,
         manual_review_decisions,
+        manual_review_merge_summary,
     )
 
 
@@ -225,6 +228,7 @@ def build_payload(
     warnings,
     manual_review_queue,
     manual_review_decisions,
+    manual_review_merge_summary,
 ):
     recommended_action = choose_recommended_action(status, automation)
     priority_actions = choose_priority_actions(status, automation, recommended_action)
@@ -241,6 +245,7 @@ def build_payload(
         "markets": markets,
         "manual_review_queue": manual_review_queue,
         "manual_review_decisions": manual_review_decisions,
+        "manual_review_merge_summary": manual_review_merge_summary,
         "candidate_count_total": len(candidates),
         "candidates": candidates,
         "missing_inputs": sorted(set(missing_inputs)),
@@ -261,6 +266,7 @@ def render_markdown(payload, per_market_limit=10):
     lines.extend(render_candidate_section(payload, per_market_limit=per_market_limit))
     lines.extend(render_manual_review_queue_section(payload))
     lines.extend(render_manual_review_decisions_section(payload))
+    lines.extend(render_manual_review_merge_summary_section(payload))
     lines.extend(render_risk_section(payload))
     lines.extend(render_output_section(payload))
     lines.extend(render_boundary_section())
@@ -431,6 +437,32 @@ def render_manual_review_decisions_section(payload):
     return lines
 
 
+def render_manual_review_merge_summary_section(payload):
+    summary = payload.get("manual_review_merge_summary", {})
+    lines = ["## 人工复核合并摘要", ""]
+    lines.append(f"- 合并摘要：{summary.get('path', '')}")
+    if not summary.get("exists"):
+        lines.append("- 暂未发现人工复核结果合并摘要。")
+        lines.append("")
+        return lines
+
+    lines.extend(
+        [
+            f"- 合并/更新：{summary.get('merged', 0)}",
+            f"- 跳过 pending：{summary.get('skipped_pending', 0)}",
+            f"- 跳过无效：{summary.get('skipped_invalid', 0)}",
+            f"- 正式结果行数：{summary.get('row_count', 0)}",
+            "",
+            "| 状态 | 数量 |",
+            "|---|---:|",
+        ]
+    )
+    for item in summary.get("by_status", []):
+        lines.append(f"| {escape_cell(item.get('decision_status'))} | {escape_cell(item.get('count'))} |")
+    lines.append("")
+    return lines
+
+
 def render_risk_section(payload):
     lines = ["## 风险与人工复核", ""]
     if payload["missing_inputs"]:
@@ -593,6 +625,32 @@ def read_manual_review_decisions(project_root, manual_review_queue):
     }
 
 
+def read_manual_review_merge_summary(project_root):
+    path = project_root / MANUAL_REVIEW_MERGE_SUMMARY_PATH
+    payload = read_json(path)
+    summary = {
+        "path": relative_path(project_root, path),
+        "exists": payload is not None,
+        "merged": 0,
+        "skipped_pending": 0,
+        "skipped_invalid": 0,
+        "row_count": 0,
+        "by_status": [],
+    }
+    if not payload:
+        return summary
+    summary.update(
+        {
+            "merged": to_int(payload.get("merged")),
+            "skipped_pending": to_int(payload.get("skipped_pending")),
+            "skipped_invalid": to_int(payload.get("skipped_invalid")),
+            "row_count": to_int(payload.get("row_count")),
+            "by_status": normalize_status_counts(payload.get("by_status", [])),
+        }
+    )
+    return summary
+
+
 def decision_key(row):
     market = pick(row, "market", "市场")
     review_type = pick(row, "review_type", "复核类型")
@@ -608,6 +666,27 @@ def count_decision_items(items):
         status = item.get("decision_status") or "pending"
         counts[status] = counts.get(status, 0) + 1
     return [{"decision_status": key, "count": count} for key, count in counts.items()]
+
+
+def normalize_status_counts(items):
+    normalized = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        normalized.append(
+            {
+                "decision_status": pick(item, "decision_status", "status"),
+                "count": to_int(item.get("count")),
+            }
+        )
+    return normalized
+
+
+def to_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def build_queue_action_guidance(by_review_type):
