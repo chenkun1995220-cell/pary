@@ -328,6 +328,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("suggested_decision_status", doc)
         self.assertIn("suggested_decision_note", doc)
         self.assertIn("候选风险说明", doc)
+        self.assertIn("候选解释摘要", doc)
         self.assertIn("候选结论质量检查", doc)
 
     def test_weekly_conclusion_report_documented(self):
