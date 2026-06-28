@@ -465,6 +465,63 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(check["weekly_ops_history_status"], "manual_review_needed")
             self.assertIn("review_recurring_ops_issues", report)
 
+    def test_self_analysis_uses_weekly_delivery_history_as_stability_signal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_text(
+                root / "outputs" / "automation" / "weekly_delivery_check_history.jsonl",
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "history_schema": "weekly_delivery_check_history",
+                                "history_version": 1,
+                                "delivery_check_schema": "weekly_delivery_check",
+                                "as_of_date": "2026-06-20",
+                                "status": "needs_attention",
+                                "freshness_status": "fresh",
+                                "attention_reasons": ["missing_outputs"],
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "history_schema": "weekly_delivery_check_history",
+                                "history_version": 1,
+                                "delivery_check_schema": "weekly_delivery_check",
+                                "as_of_date": "2026-06-27",
+                                "status": "needs_attention",
+                                "freshness_status": "fresh",
+                                "attention_reasons": ["missing_outputs"],
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(manifest["weekly_delivery_history_status"], "manual_review_needed")
+            self.assertEqual(
+                manifest["weekly_delivery_history_recommended_action"],
+                "review_recurring_delivery_issues",
+            )
+            self.assertEqual(manifest["weekly_delivery_history"]["needs_attention_count"], 2)
+            self.assertEqual(
+                manifest["weekly_delivery_history"]["recurring_attention_reasons"],
+                [{"reason": "missing_outputs", "count": 2}],
+            )
+            self.assertIn("review_recurring_delivery_issues", manifest["automation_priority_actions"])
+            self.assertEqual(check["weekly_delivery_history_status"], "manual_review_needed")
+            self.assertIn("review_recurring_delivery_issues", report)
+
     def test_cli_prints_self_analysis_and_manual_review_queue_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
