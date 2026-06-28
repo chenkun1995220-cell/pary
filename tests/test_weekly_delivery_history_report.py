@@ -52,6 +52,8 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                         "action_items_status": "missing",
                         "action_items_freshness_status": "unknown",
                         "action_items_count": 0,
+                        "conclusion_signal_status": "missing",
+                        "missing_conclusion_signals": ["automation.forecast_performance"],
                     },
                     {
                         "history_schema": "weekly_delivery_check_history",
@@ -69,6 +71,11 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                         "action_items_status": "missing",
                         "action_items_freshness_status": "unknown",
                         "action_items_count": 0,
+                        "conclusion_signal_status": "missing",
+                        "missing_conclusion_signals": [
+                            "automation.data_quality_history",
+                            "automation.forecast_performance",
+                        ],
                     },
                 ],
             )
@@ -105,6 +112,17 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
             self.assertEqual(summary["action_items_ready_count"], 0)
             self.assertEqual(summary["action_items_problem_count"], 2)
             self.assertEqual(summary["recurring_action_items_issues"], [{"status": "missing", "count": 2}])
+            self.assertEqual(summary["latest_conclusion_signal_status"], "missing")
+            self.assertEqual(
+                summary["latest_missing_conclusion_signals"],
+                ["automation.data_quality_history", "automation.forecast_performance"],
+            )
+            self.assertEqual(summary["conclusion_signal_ready_count"], 0)
+            self.assertEqual(summary["conclusion_signal_problem_count"], 2)
+            self.assertEqual(
+                summary["recurring_missing_conclusion_signals"],
+                [{"signal": "automation.forecast_performance", "count": 2}],
+            )
             self.assertEqual(summary["recommended_action"], "review_recurring_delivery_issues")
             self.assertIn("# 每周最终交付历史摘要", report)
             self.assertIn("最近记录：3", report)
@@ -114,6 +132,8 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
             self.assertIn("manual_review_pending:6 (2)", report)
             self.assertIn("每周人工处理清单：missing / 0", report)
             self.assertIn("missing (2)", report)
+            self.assertIn("周结论关键信号：missing", report)
+            self.assertIn("automation.forecast_performance (2)", report)
 
     def test_summary_uses_latest_record_per_as_of_date_for_trend_counts(self):
         with tempfile.TemporaryDirectory() as tmp:

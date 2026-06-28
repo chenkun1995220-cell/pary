@@ -399,6 +399,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("action_items_count", doc)
         self.assertIn("conclusion_signal_status", doc)
         self.assertIn("missing_conclusion_signals", doc)
+        self.assertIn("recurring_missing_conclusion_signals", doc)
+        self.assertIn("conclusion_signal_problem_count", doc)
         self.assertIn("latest_weekly_action_items.json", doc)
         self.assertIn("latest_weekly_action_items.md", doc)
         self.assertIn("conclusion_health_needs_fix", doc)

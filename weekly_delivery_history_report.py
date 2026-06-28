@@ -77,16 +77,37 @@ def summarize_weekly_delivery_history(history, window=8):
         for row in recent
         if row.get("action_items_status", "unknown") != "unknown"
     )
+    conclusion_signal_status_counts = Counter(
+        row.get("conclusion_signal_status", "unknown")
+        for row in recent
+        if row.get("conclusion_signal_status", "unknown") != "unknown"
+    )
+    missing_signal_counts = Counter(
+        signal
+        for row in recent
+        for signal in row.get("missing_conclusion_signals", [])
+    )
     action_items_ready_count = action_status_counts.get("ready", 0)
     action_items_problem_count = sum(
         count
         for status, count in action_status_counts.items()
         if status not in {"ready", "unknown"}
     )
+    conclusion_signal_ready_count = conclusion_signal_status_counts.get("ready", 0)
+    conclusion_signal_problem_count = sum(
+        count
+        for status, count in conclusion_signal_status_counts.items()
+        if status not in {"ready", "unknown"}
+    )
     recurring_action_items_issues = [
         {"status": status, "count": count}
         for status, count in sorted(action_status_counts.items())
         if status not in {"ready", "unknown"} and count >= 2
+    ]
+    recurring_missing_conclusion_signals = [
+        {"signal": signal, "count": count}
+        for signal, count in sorted(missing_signal_counts.items())
+        if count >= 2
     ]
     if recurring:
         recommended_action = "review_recurring_delivery_issues"
@@ -112,9 +133,14 @@ def summarize_weekly_delivery_history(history, window=8):
         "latest_action_items_status": latest.get("action_items_status", "unknown"),
         "latest_action_items_freshness_status": latest.get("action_items_freshness_status", "unknown"),
         "latest_action_items_count": int(latest.get("action_items_count", 0) or 0),
+        "latest_conclusion_signal_status": latest.get("conclusion_signal_status", "unknown"),
+        "latest_missing_conclusion_signals": latest.get("missing_conclusion_signals", []),
         "action_items_ready_count": action_items_ready_count,
         "action_items_problem_count": action_items_problem_count,
         "recurring_action_items_issues": recurring_action_items_issues,
+        "conclusion_signal_ready_count": conclusion_signal_ready_count,
+        "conclusion_signal_problem_count": conclusion_signal_problem_count,
+        "recurring_missing_conclusion_signals": recurring_missing_conclusion_signals,
         "ready_count": ready_count,
         "needs_attention_count": needs_attention_count,
         "stale_count": stale_count,
@@ -136,6 +162,18 @@ def _join_action_item_issues(issues):
     return ", ".join(f"{item['status']} ({item['count']})" for item in issues)
 
 
+def _join_missing_signals(signals):
+    if not signals:
+        return "无"
+    return ", ".join(str(signal) for signal in signals)
+
+
+def _join_recurring_missing_signals(signals):
+    if not signals:
+        return "无"
+    return ", ".join(f"{item['signal']} ({item['count']})" for item in signals)
+
+
 def render_weekly_delivery_history_report(summary):
     lines = [
         "# 每周最终交付历史摘要",
@@ -149,7 +187,11 @@ def render_weekly_delivery_history_report(summary):
         f"- 最新周结论健康：{summary.get('latest_conclusion_health_status', 'unknown')} / {summary.get('latest_conclusion_health_score', 0)}",
         f"- 最新候选总数：{summary.get('latest_candidate_count_total', 0)}",
         f"- 最新待处理复核：{summary.get('latest_manual_review_pending_count', 0)}",
+        f"- 周结论关键信号：{summary.get('latest_conclusion_signal_status', 'unknown')}",
+        f"- 最新缺失周结论信号：{_join_missing_signals(summary.get('latest_missing_conclusion_signals', []))}",
         f"- 每周人工处理清单：{summary.get('latest_action_items_status', 'unknown')} / {summary.get('latest_action_items_count', 0)}",
+        f"- 周结论关键信号 ready 次数：{summary.get('conclusion_signal_ready_count', 0)}",
+        f"- 周结论关键信号 problem 次数：{summary.get('conclusion_signal_problem_count', 0)}",
         f"- action_items ready 次数：{summary.get('action_items_ready_count', 0)}",
         f"- action_items problem 次数：{summary.get('action_items_problem_count', 0)}",
         f"- ready 次数：{summary.get('ready_count', 0)}",
@@ -157,6 +199,7 @@ def render_weekly_delivery_history_report(summary):
         f"- stale 次数：{summary.get('stale_count', 0)}",
         f"- 重复问题：{_join_recurring(summary.get('recurring_attention_reasons', []))}",
         f"- 重复健康原因：{_join_recurring(summary.get('recurring_health_reasons', []))}",
+        f"- 重复缺失周结论信号：{_join_recurring_missing_signals(summary.get('recurring_missing_conclusion_signals', []))}",
         f"- 重复 action_items 问题：{_join_action_item_issues(summary.get('recurring_action_items_issues', []))}",
         f"- 建议动作：{summary.get('recommended_action', 'unknown')}",
         "",
