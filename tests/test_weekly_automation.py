@@ -342,6 +342,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("候选风险说明", doc)
         self.assertIn("候选解释摘要", doc)
         self.assertIn("候选结论质量检查", doc)
+        self.assertIn("one_week_expected_direction", doc)
+        self.assertIn("one_month_expected_direction", doc)
 
     def test_weekly_conclusion_report_documented(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
@@ -359,6 +361,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("最终交付历史状态", doc)
         self.assertIn("overall_health", doc)
         self.assertIn("候选行动分层", doc)
+        self.assertIn("1周/1个月走势", doc)
         self.assertIn("不改变候选池排序和正式评分模型", doc)
         self.assertIn("action_items_status", doc)
         self.assertIn("action_items_freshness_status", doc)

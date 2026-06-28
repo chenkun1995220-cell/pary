@@ -14,6 +14,8 @@ TARGET_FIELDS = [
     "target_price", "buy_price", "expected_return", "pe_fair_price",
     "pb_fair_price", "fcf_fair_price", "quality_factor",
     "margin_of_safety", "trend_label", "trend_confidence",
+    "one_week_trend_label", "one_week_trend_confidence", "one_week_expected_direction",
+    "one_month_trend_label", "one_month_trend_confidence", "one_month_expected_direction",
     "valuation_confidence", "valuation_status", "price_action", "reason",
     "price_date", "financial_report_date", "generated_date", "model_version",
 ]
@@ -205,6 +207,46 @@ def _annualized_volatility(values):
     return volatility if math.isfinite(volatility) else 0.0
 
 
+def _short_horizon_trend(values, period, mild_threshold, strong_threshold, high_confidence_observations):
+    if len(values) < period + 1:
+        return {
+            "trend_label": "数据不足",
+            "confidence": "low",
+            "expected_direction": "数据不足",
+            "momentum": None,
+        }
+    momentum = _rate_of_change(values[-1], values[-period - 1])
+    if momentum is None:
+        return {
+            "trend_label": "数据不足",
+            "confidence": "low",
+            "expected_direction": "数据不足",
+            "momentum": None,
+        }
+    if momentum >= strong_threshold:
+        trend_label = "偏强"
+        expected_direction = "上行"
+    elif momentum >= mild_threshold:
+        trend_label = "温和偏强"
+        expected_direction = "震荡偏强"
+    elif momentum <= -strong_threshold:
+        trend_label = "偏弱"
+        expected_direction = "下行"
+    elif momentum <= -mild_threshold:
+        trend_label = "偏弱"
+        expected_direction = "震荡偏弱"
+    else:
+        trend_label = "中性"
+        expected_direction = "震荡"
+    confidence = "high" if len(values) >= high_confidence_observations else "medium"
+    return {
+        "trend_label": trend_label,
+        "confidence": confidence,
+        "expected_direction": expected_direction,
+        "momentum": momentum,
+    }
+
+
 def calculate_trend(closes):
     values = _clean_closes(closes)
     observations = len(values)
@@ -253,6 +295,13 @@ def calculate_trend(closes):
         else:
             trend_label = "中性"
 
+    one_week = _short_horizon_trend(
+        values, period=5, mild_threshold=0.008, strong_threshold=0.03, high_confidence_observations=20
+    )
+    one_month = _short_horizon_trend(
+        values, period=21, mild_threshold=0.015, strong_threshold=0.05, high_confidence_observations=60
+    )
+
     return {
         "observations": observations,
         "latest_close": latest,
@@ -266,6 +315,14 @@ def calculate_trend(closes):
         "position_52w": position_52w,
         "trend_label": trend_label,
         "confidence": confidence,
+        "one_week_trend_label": one_week["trend_label"],
+        "one_week_trend_confidence": one_week["confidence"],
+        "one_week_expected_direction": one_week["expected_direction"],
+        "one_week_momentum": one_week["momentum"],
+        "one_month_trend_label": one_month["trend_label"],
+        "one_month_trend_confidence": one_month["confidence"],
+        "one_month_expected_direction": one_month["expected_direction"],
+        "one_month_momentum": one_month["momentum"],
     }
 
 
@@ -384,6 +441,12 @@ def run_candidate_valuation(
             "margin_of_safety": valuation.get("margin_of_safety"),
             "trend_label": trend.get("trend_label"),
             "trend_confidence": trend.get("confidence"),
+            "one_week_trend_label": trend.get("one_week_trend_label"),
+            "one_week_trend_confidence": trend.get("one_week_trend_confidence"),
+            "one_week_expected_direction": trend.get("one_week_expected_direction"),
+            "one_month_trend_label": trend.get("one_month_trend_label"),
+            "one_month_trend_confidence": trend.get("one_month_trend_confidence"),
+            "one_month_expected_direction": trend.get("one_month_expected_direction"),
             "valuation_confidence": valuation.get("valuation_confidence", "low"),
             "valuation_status": valuation.get("valuation_status", "insufficient_data"),
             "price_action": valuation.get("price_action", ""),
@@ -413,8 +476,8 @@ def run_candidate_valuation(
         f"- 市场：{market}", f"- 候选数量：{len(results)}",
         f"- 模型版本：{MODEL_VERSION}",
         "- 说明：仅供研究筛选，不构成投资建议。", "",
-        "| 股票 | 公司 | 当前价 | 目标价 | 建议买入价 | 预期收益率 | 走势 | 置信度 | 理由 |",
-        "|---|---|---:|---:|---:|---:|---|---|---|",
+        "| 股票 | 公司 | 当前价 | 目标价 | 建议买入价 | 预期收益率 | 12个月走势 | 1周走势 | 1个月走势 | 置信度 | 理由 |",
+        "|---|---|---:|---:|---:|---:|---|---|---|---|---|",
     ]
     for row in results:
         expected = row.get("expected_return")
@@ -422,10 +485,13 @@ def run_candidate_valuation(
         lines.append(
             f"| {row['ticker']} | {row['company_name']} | {row['current_price'] or '-'} | "
             f"{row['target_price'] or '-'} | {row['buy_price'] or '-'} | {expected_text} | "
-            f"{row['trend_label']} | {row['valuation_confidence']} | {row['reason']} |"
+            f"{row['trend_label']} | "
+            f"{row['one_week_expected_direction']} / {row['one_week_trend_label']} | "
+            f"{row['one_month_expected_direction']} / {row['one_month_trend_label']} | "
+            f"{row['valuation_confidence']} | {row['reason']} |"
         )
     if not results:
-        lines.append("| - | 本期无候选 | - | - | - | - | - | - | - |")
+        lines.append("| - | 本期无候选 | - | - | - | - | - | - | - | - | - |")
     _atomic_write_text(output / "valuation_report.md", "\n".join(lines) + "\n")
     return {
         "rows": len(results),

@@ -122,6 +122,12 @@ def write_market(root, market_dir, ticker, company):
                 "expected_return": "24.5%",
                 "trend_label": "uptrend_watch",
                 "trend_confidence": "medium",
+                "one_week_trend_label": "偏强",
+                "one_week_expected_direction": "上行",
+                "one_week_trend_confidence": "high",
+                "one_month_trend_label": "温和偏强",
+                "one_month_expected_direction": "震荡偏强",
+                "one_month_trend_confidence": "medium",
                 "valuation_confidence": "high",
                 "reason": "估值折价且质量分稳定",
             }
@@ -202,8 +208,10 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(payload["candidates"][0]["target_price"], "120.00")
             self.assertEqual(payload["candidates"][0]["buy_price"], "96.00")
             self.assertEqual(payload["candidates"][0]["risk_reason"], "行业景气回落")
+            self.assertEqual(payload["candidates"][0]["one_week_expected_direction"], "上行")
+            self.assertEqual(payload["candidates"][0]["one_month_expected_direction"], "震荡偏强")
             self.assertIn("# 每周低估候选统一结论", markdown)
-            self.assertIn("| US | MSFT | Microsoft | 82.5 | 120.00 | 96.00 |", markdown)
+            self.assertIn("| US | MSFT | Microsoft | 82.5 | 120.00 | 96.00 | 24.5% | uptrend_watch | 上行 / 偏强 | 震荡偏强 / 温和偏强 |", markdown)
             self.assertIn("研究筛选和人工复核用途", markdown)
 
     def test_adds_candidate_action_tiers_to_weekly_conclusion(self):

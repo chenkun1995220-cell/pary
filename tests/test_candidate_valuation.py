@@ -83,6 +83,18 @@ class CandidateTrendTests(unittest.TestCase):
 
         self.assertAlmostEqual(result["momentum_12m"], 0.10)
 
+    def test_calculates_one_week_and_one_month_trend_forecasts(self):
+        closes = [100] * 90 + [100 + index for index in range(30)]
+
+        result = calculate_trend(closes)
+
+        self.assertEqual(result["one_week_trend_label"], "偏强")
+        self.assertEqual(result["one_week_expected_direction"], "上行")
+        self.assertEqual(result["one_week_trend_confidence"], "high")
+        self.assertEqual(result["one_month_trend_label"], "偏强")
+        self.assertEqual(result["one_month_expected_direction"], "上行")
+        self.assertEqual(result["one_month_trend_confidence"], "high")
+
     def test_finite_extremes_do_not_produce_non_finite_outputs(self):
         closes = [1e-308, 1e308] * 60
 
@@ -270,11 +282,19 @@ class CandidateOutputTests(unittest.TestCase):
 
             with (output / "forecast_history.csv").open(encoding="utf-8-sig", newline="") as handle:
                 forecasts = list(csv.DictReader(handle))
+            with (output / "valuation_targets.csv").open(encoding="utf-8-sig", newline="") as handle:
+                target = next(csv.DictReader(handle))
             self.assertEqual(first["rows"], 1)
             self.assertEqual(len(forecasts), 1)
+            self.assertEqual(target["one_week_expected_direction"], "上行")
+            self.assertEqual(target["one_month_expected_direction"], "上行")
+            self.assertEqual(forecasts[0]["one_week_expected_direction"], "上行")
+            self.assertEqual(forecasts[0]["one_month_expected_direction"], "上行")
             self.assertTrue((output / "valuation_targets.csv").exists())
             report = (output / "valuation_report.md").read_text(encoding="utf-8-sig")
             self.assertIn("12个月目标价", report)
+            self.assertIn("1周走势", report)
+            self.assertIn("1个月走势", report)
             self.assertIn("TEST.SZ", report)
 
     def test_next_day_appends_without_overwriting_old_forecast(self):

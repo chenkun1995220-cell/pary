@@ -194,6 +194,12 @@ def read_market(project_root, market_config, missing_inputs, warnings):
                 "expected_return": pick(target, "expected_return", "expected_return_pct", "预期收益率"),
                 "trend_label": pick(target, "trend_label", "trend", "趋势分类"),
                 "trend_confidence": pick(target, "trend_confidence", "趋势置信度"),
+                "one_week_trend_label": pick(target, "one_week_trend_label", "1周走势"),
+                "one_week_trend_confidence": pick(target, "one_week_trend_confidence", "1周置信度"),
+                "one_week_expected_direction": pick(target, "one_week_expected_direction", "1周方向"),
+                "one_month_trend_label": pick(target, "one_month_trend_label", "1个月走势"),
+                "one_month_trend_confidence": pick(target, "one_month_trend_confidence", "1个月置信度"),
+                "one_month_expected_direction": pick(target, "one_month_expected_direction", "1个月方向"),
                 "valuation_confidence": pick(target, "valuation_confidence", "估值置信度"),
                 "reason": pick(target, "reason", "valuation_reason", "候选理由"),
                 "risk_reason": risk_by_ticker.get(ticker) or risk_by_ticker.get("*", ""),
@@ -495,12 +501,20 @@ def render_candidate_action_section(payload):
     return lines
 
 
+def format_short_trend(candidate, prefix):
+    direction = candidate.get(f"{prefix}_expected_direction")
+    label = candidate.get(f"{prefix}_trend_label")
+    if direction and label:
+        return f"{direction} / {label}"
+    return direction or label or "-"
+
+
 def render_candidate_section(payload, per_market_limit=10):
     lines = [
         "## 候选公司摘要",
         "",
-        "| 市场 | 股票 | 公司 | 评分 | 目标价 | 建议买入价 | 预期收益率 | 趋势 | 置信度 | 风险理由 |",
-        "|---|---|---|---:|---:|---:|---:|---|---|---|",
+        "| 市场 | 股票 | 公司 | 评分 | 目标价 | 建议买入价 | 预期收益率 | 12个月趋势 | 1周走势 | 1个月走势 | 置信度 | 风险理由 |",
+        "|---|---|---|---:|---:|---:|---:|---|---|---|---|---|",
     ]
     for market in ("US", "CN", "HK"):
         market_candidates = [candidate for candidate in payload["candidates"] if candidate["market"] == market]
@@ -510,7 +524,7 @@ def render_candidate_section(payload, per_market_limit=10):
             )
             lines.append(
                 "| {market} | {ticker} | {company} | {score} | {target_price} | {buy_price} | "
-                "{expected_return} | {trend_label} | {confidence} | {risk_reason} |".format(
+                "{expected_return} | {trend_label} | {one_week} | {one_month} | {confidence} | {risk_reason} |".format(
                     market=candidate["market"],
                     ticker=escape_cell(candidate.get("ticker")),
                     company=escape_cell(candidate.get("company")),
@@ -519,12 +533,14 @@ def render_candidate_section(payload, per_market_limit=10):
                     buy_price=escape_cell(candidate.get("buy_price")),
                     expected_return=escape_cell(candidate.get("expected_return")),
                     trend_label=escape_cell(candidate.get("trend_label")),
+                    one_week=escape_cell(format_short_trend(candidate, "one_week")),
+                    one_month=escape_cell(format_short_trend(candidate, "one_month")),
                     confidence=escape_cell(confidence),
                     risk_reason=escape_cell(candidate.get("risk_reason")),
                 )
             )
     if not payload["candidates"]:
-        lines.append("| - | - | - | - | - | - | - | - | - | 无可读候选 |")
+        lines.append("| - | - | - | - | - | - | - | - | - | - | - | 无可读候选 |")
     lines.append("")
     return lines
 
