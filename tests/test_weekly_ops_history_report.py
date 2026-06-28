@@ -65,6 +65,7 @@ class WeeklyOpsHistoryReportTests(unittest.TestCase):
 
             self.assertEqual(summary["history_summary_schema"], "weekly_ops_history_summary")
             self.assertEqual(summary["history_summary_version"], 1)
+            self.assertEqual(summary["raw_history_count"], 3)
             self.assertEqual(summary["history_count"], 3)
             self.assertEqual(summary["window_size"], 3)
             self.assertEqual(summary["latest_status"], "needs_attention")
@@ -76,6 +77,57 @@ class WeeklyOpsHistoryReportTests(unittest.TestCase):
             self.assertIn("最近记录：3", report)
             self.assertIn("重复问题：missing_outputs (2)", report)
             self.assertIn("建议动作：review_recurring_ops_issues", report)
+
+            self.assertIn("raw_history_count: 3", report)
+
+    def test_summary_uses_latest_record_per_as_of_date_for_trend_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            history_path = Path(tmp) / "weekly_ops_check_history.jsonl"
+            write_history(
+                history_path,
+                [
+                    {
+                        "history_schema": "weekly_ops_check_history",
+                        "history_version": 1,
+                        "ops_check_schema": "weekly_ops_check",
+                        "as_of_date": "2026-06-21",
+                        "status": "needs_attention",
+                        "freshness_status": "fresh",
+                        "attention_reasons": ["missing_outputs"],
+                    },
+                    {
+                        "history_schema": "weekly_ops_check_history",
+                        "history_version": 1,
+                        "ops_check_schema": "weekly_ops_check",
+                        "as_of_date": "2026-06-28",
+                        "status": "needs_attention",
+                        "freshness_status": "fresh",
+                        "attention_reasons": ["missing_outputs"],
+                    },
+                    {
+                        "history_schema": "weekly_ops_check_history",
+                        "history_version": 1,
+                        "ops_check_schema": "weekly_ops_check",
+                        "as_of_date": "2026-06-28",
+                        "status": "ready",
+                        "freshness_status": "fresh",
+                        "attention_reasons": [],
+                    },
+                ],
+            )
+
+            from weekly_ops_history_report import summarize_weekly_ops_history
+
+            summary = summarize_weekly_ops_history(history_path, window=8)
+
+            self.assertEqual(summary["raw_history_count"], 3)
+            self.assertEqual(summary["history_count"], 2)
+            self.assertEqual(summary["window_size"], 2)
+            self.assertEqual(summary["latest_as_of_date"], "2026-06-28")
+            self.assertEqual(summary["latest_status"], "ready")
+            self.assertEqual(summary["needs_attention_count"], 1)
+            self.assertEqual(summary["recurring_attention_reasons"], [])
+            self.assertEqual(summary["recommended_action"], "continue_monitoring")
 
     def test_cli_writes_json_and_markdown_summary(self):
         with tempfile.TemporaryDirectory() as tmp:

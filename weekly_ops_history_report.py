@@ -28,9 +28,24 @@ def load_weekly_ops_history(history):
     return rows
 
 
+def _latest_record_per_as_of_date(rows):
+    latest_by_date = {}
+    undated_rows = []
+    for row in rows:
+        as_of_date = row.get("as_of_date", "")
+        if as_of_date:
+            latest_by_date[as_of_date] = row
+        else:
+            undated_rows.append(row)
+    deduped = sorted(latest_by_date.values(), key=lambda row: row.get("as_of_date", ""))
+    deduped.extend(undated_rows)
+    return deduped
+
+
 def summarize_weekly_ops_history(history, window=8):
     rows = load_weekly_ops_history(history)
-    recent = rows[-window:] if window > 0 else rows
+    trend_rows = _latest_record_per_as_of_date(rows)
+    recent = trend_rows[-window:] if window > 0 else trend_rows
     reason_counts = Counter(
         reason
         for row in recent
@@ -54,7 +69,8 @@ def summarize_weekly_ops_history(history, window=8):
     return {
         "history_summary_schema": SUMMARY_SCHEMA,
         "history_summary_version": SUMMARY_VERSION,
-        "history_count": len(rows),
+        "raw_history_count": len(rows),
+        "history_count": len(trend_rows),
         "window_size": len(recent),
         "configured_window": window,
         "latest_as_of_date": latest.get("as_of_date", "unknown"),
@@ -78,6 +94,7 @@ def render_weekly_ops_history_report(summary):
     lines = [
         "# 周度运维历史摘要",
         "",
+        f"- raw_history_count: {summary.get('raw_history_count', summary.get('history_count', 0))}",
         f"- 历史总数：{summary.get('history_count', 0)}",
         f"- 最近记录：{summary.get('window_size', 0)}",
         f"- 最新日期：{summary.get('latest_as_of_date', 'unknown')}",
@@ -90,6 +107,7 @@ def render_weekly_ops_history_report(summary):
         f"- 建议动作：{summary.get('recommended_action', 'unknown')}",
         "",
         "## 边界",
+        "- 该摘要按 as_of_date 取最后一条记录统计趋势；同一天手动重跑不会被当成多周重复问题。",
         "- 该摘要只读取周度运维总检查历史，不抓取行情，不重新评分，也不修改模型参数。",
     ]
     return "\n".join(lines) + "\n"

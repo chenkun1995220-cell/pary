@@ -262,6 +262,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/weekly_ops_check_history.jsonl", doc)
         self.assertIn("outputs/automation/latest_weekly_ops_history_summary.json", doc)
         self.assertIn("outputs/automation/latest_weekly_ops_history_report.md", doc)
+        self.assertIn("raw_history_count", doc)
+        self.assertIn("按 `as_of_date` 取最后一条记录", doc)
         self.assertIn("automation_check_report.py", doc)
         self.assertIn("codex_automation_audit.py", doc)
         self.assertIn("weekly_ops_check.py", doc)
