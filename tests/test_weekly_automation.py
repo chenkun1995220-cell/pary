@@ -344,6 +344,10 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("候选结论质量检查", doc)
         self.assertIn("one_week_expected_direction", doc)
         self.assertIn("one_month_expected_direction", doc)
+        self.assertIn("预测后1、4、12、26、52周", doc)
+        self.assertIn("1周成熟评估", doc)
+        self.assertIn("1个月成熟评估", doc)
+        self.assertIn("预测字段缺失未评估", doc)
 
     def test_weekly_conclusion_report_documented(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(

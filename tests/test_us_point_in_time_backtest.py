@@ -266,7 +266,7 @@ class UsPointInTimeBacktestTests(unittest.TestCase):
             backtest_report = (output / "backtest_report.md").read_text(encoding="utf-8-sig")
             leakage_report = (output / "data_leakage_audit.md").read_text(encoding="utf-8-sig")
             self.assertEqual([row["status"] for row in manifest], ["completed", "completed"])
-            self.assertEqual({row["checkpoint_weeks"] for row in evaluations}, {"4", "12", "26", "52"})
+            self.assertEqual({row["checkpoint_weeks"] for row in evaluations}, {"1", "4", "12", "26", "52"})
             self.assertEqual({row["generated_date"] for row in audit_rows}, {"2025-07-25", "2025-08-01"})
             self.assertIn("\u7f8e\u80a1\u4e25\u683c\u65f6\u70b9\u56de\u6d4b\u62a5\u544a", backtest_report)
             self.assertIn("成员证据覆盖", backtest_report)
