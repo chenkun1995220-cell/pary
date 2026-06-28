@@ -30,6 +30,7 @@ AUTOMATION_FILES = {
 DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
 DEFAULT_JSON_OUTPUT = "outputs/automation/latest_weekly_conclusion.json"
 MANUAL_REVIEW_QUEUE_PATH = "outputs/automation/latest_manual_review_queue.csv"
+MANUAL_REVIEW_DECISIONS_PATH = "outputs/automation/manual_review_decisions.csv"
 
 ACTION_DETAILS = {
     "review_manual_queue": {
@@ -78,13 +79,24 @@ def build_weekly_conclusion(project_root, today=None, max_age_days=8):
 
     automation = read_automation_state(project_root, as_of_date, max_age_days, warnings, missing_inputs)
     manual_review_queue = read_manual_review_queue(project_root)
+    manual_review_decisions = read_manual_review_decisions(project_root, manual_review_queue)
     for market_config in MARKETS:
         market_result = read_market(project_root, market_config, missing_inputs, warnings)
         markets.append(market_result["summary"])
         candidates.extend(market_result["candidates"])
 
     status = decide_status(markets, candidates, automation, missing_inputs, warnings)
-    return build_payload(as_of_date, status, automation, markets, candidates, missing_inputs, warnings, manual_review_queue)
+    return build_payload(
+        as_of_date,
+        status,
+        automation,
+        markets,
+        candidates,
+        missing_inputs,
+        warnings,
+        manual_review_queue,
+        manual_review_decisions,
+    )
 
 
 def read_automation_state(project_root, as_of_date, max_age_days, warnings, missing_inputs):
@@ -202,7 +214,17 @@ def decide_status(markets, candidates, automation, missing_inputs, warnings):
     return "ready"
 
 
-def build_payload(as_of_date, status, automation, markets, candidates, missing_inputs, warnings, manual_review_queue):
+def build_payload(
+    as_of_date,
+    status,
+    automation,
+    markets,
+    candidates,
+    missing_inputs,
+    warnings,
+    manual_review_queue,
+    manual_review_decisions,
+):
     recommended_action = choose_recommended_action(status, automation)
     priority_actions = choose_priority_actions(status, automation, recommended_action)
     priority_action_details = describe_priority_actions(priority_actions)
@@ -217,6 +239,7 @@ def build_payload(as_of_date, status, automation, markets, candidates, missing_i
         "automation": automation,
         "markets": markets,
         "manual_review_queue": manual_review_queue,
+        "manual_review_decisions": manual_review_decisions,
         "candidate_count_total": len(candidates),
         "candidates": candidates,
         "missing_inputs": sorted(set(missing_inputs)),
@@ -235,6 +258,7 @@ def render_markdown(payload, per_market_limit=10):
     lines.extend(render_market_section(payload))
     lines.extend(render_candidate_section(payload, per_market_limit=per_market_limit))
     lines.extend(render_manual_review_queue_section(payload))
+    lines.extend(render_manual_review_decisions_section(payload))
     lines.extend(render_risk_section(payload))
     lines.extend(render_output_section(payload))
     lines.extend(render_boundary_section())
@@ -368,6 +392,43 @@ def render_manual_review_queue_section(payload):
     return lines
 
 
+def render_manual_review_decisions_section(payload):
+    decisions = payload.get("manual_review_decisions", {})
+    lines = [
+        "## 人工复核结果",
+        "",
+        f"- 结果文件：{decisions.get('path', '')}",
+        f"- 已记录结果：{decisions.get('decision_count', 0)}",
+        f"- 已匹配本周队列：{decisions.get('matched_count', 0)}",
+        f"- 待处理：{decisions.get('pending_count', 0)}",
+        "",
+        "| 状态 | 数量 |",
+        "|---|---:|",
+    ]
+    for item in decisions.get("by_status", []):
+        lines.append(f"| {escape_cell(item.get('decision_status'))} | {escape_cell(item.get('count'))} |")
+    lines.extend(
+        [
+            "",
+            "| 股票 | 市场 | 类型 | 状态 | 备注 | 复核人 |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for item in decisions.get("items", [])[:10]:
+        lines.append(
+            "| {ticker} | {market} | {review_type} | {decision_status} | {decision_note} | {reviewer} |".format(
+                ticker=escape_cell(item.get("ticker")),
+                market=escape_cell(item.get("market")),
+                review_type=escape_cell(item.get("review_type")),
+                decision_status=escape_cell(item.get("decision_status")),
+                decision_note=escape_cell(item.get("decision_note")),
+                reviewer=escape_cell(item.get("reviewer")),
+            )
+        )
+    lines.append("")
+    return lines
+
+
 def render_risk_section(payload):
     lines = ["## 风险与人工复核", ""]
     if payload["missing_inputs"]:
@@ -437,26 +498,74 @@ def read_manual_review_queue(project_root, item_limit=10):
     path = project_root / MANUAL_REVIEW_QUEUE_PATH
     rows = read_csv_rows(path)
     by_review_type = count_queue_rows(rows, "review_type", "review_type")
-    items = []
-    for row in rows[:item_limit]:
-        items.append(
-            {
-                "rank": pick(row, "rank", "priority", "优先级序号"),
-                "market": pick(row, "market", "市场"),
-                "review_type": pick(row, "review_type", "复核类型"),
-                "ticker": pick(row, "ticker", "股票"),
-                "company": pick(row, "company", "公司"),
-                "review_detail": pick(row, "review_detail", "复核要点"),
-            }
-        )
+    all_items = [normalize_manual_review_row(row) for row in rows]
     return {
         "path": relative_path(project_root, path),
         "count": len(rows),
         "by_market": count_queue_rows(rows, "market", "market"),
         "by_review_type": by_review_type,
         "action_guidance": build_queue_action_guidance(by_review_type),
+        "all_items": all_items,
+        "items": all_items[:item_limit],
+    }
+
+
+def normalize_manual_review_row(row):
+    return {
+        "rank": pick(row, "rank", "priority", "优先级序号"),
+        "market": pick(row, "market", "市场"),
+        "review_type": pick(row, "review_type", "复核类型"),
+        "ticker": pick(row, "ticker", "股票"),
+        "company": pick(row, "company", "公司"),
+        "review_detail": pick(row, "review_detail", "复核要点"),
+    }
+
+
+def read_manual_review_decisions(project_root, manual_review_queue):
+    path = project_root / MANUAL_REVIEW_DECISIONS_PATH
+    rows = read_csv_rows(path)
+    decisions = {decision_key(row): row for row in rows if decision_key(row)}
+    items = []
+    for queue_item in manual_review_queue.get("all_items", []):
+        decision = decisions.get(decision_key(queue_item), {})
+        status = pick(decision, "decision_status", "处理状态") or "pending"
+        items.append(
+            {
+                "market": queue_item.get("market", ""),
+                "review_type": queue_item.get("review_type", ""),
+                "ticker": queue_item.get("ticker", ""),
+                "company": queue_item.get("company", ""),
+                "decision_status": status,
+                "decision_note": pick(decision, "decision_note", "复核备注"),
+                "reviewer": pick(decision, "reviewer", "复核人"),
+                "decided_at": pick(decision, "decided_at", "复核时间"),
+            }
+        )
+    return {
+        "path": relative_path(project_root, path),
+        "decision_count": len(rows),
+        "matched_count": sum(1 for item in items if item["decision_status"] != "pending"),
+        "pending_count": sum(1 for item in items if item["decision_status"] == "pending"),
+        "by_status": count_decision_items(items),
         "items": items,
     }
+
+
+def decision_key(row):
+    market = pick(row, "market", "市场")
+    review_type = pick(row, "review_type", "复核类型")
+    ticker = pick(row, "ticker", "股票")
+    if not (market and review_type and ticker):
+        return None
+    return (market, review_type, ticker)
+
+
+def count_decision_items(items):
+    counts = {}
+    for item in items:
+        status = item.get("decision_status") or "pending"
+        counts[status] = counts.get(status, 0) + 1
+    return [{"decision_status": key, "count": count} for key, count in counts.items()]
 
 
 def build_queue_action_guidance(by_review_type):

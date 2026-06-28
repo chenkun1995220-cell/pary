@@ -55,6 +55,36 @@ def write_manual_review_queue(root):
     )
 
 
+def write_manual_review_decisions(root):
+    write_csv(
+        Path(root) / "outputs" / "automation" / "manual_review_decisions.csv",
+        [
+            {
+                "as_of_date": "2026-06-28",
+                "market": "A股周筛",
+                "review_type": "估值口径",
+                "ticker": "300122.SZ",
+                "company": "智飞生物",
+                "decision_status": "accepted",
+                "decision_note": "现金流和行业周期仍可解释，保留跟踪。",
+                "reviewer": "ck",
+                "decided_at": "2026-06-28",
+            },
+            {
+                "as_of_date": "2026-06-28",
+                "market": "港股周筛",
+                "review_type": "估值口径",
+                "ticker": "00000.HK",
+                "company": "历史样例",
+                "decision_status": "rejected",
+                "decision_note": "不属于本周队列，保留历史记录但不计入本周匹配。",
+                "reviewer": "ck",
+                "decided_at": "2026-06-28",
+            },
+        ],
+    )
+
+
 def write_market(root, market_dir, ticker, company):
     base = Path(root) / "outputs" / market_dir
     write_text(base / "latest_run_summary.md", "# summary\nCandidate count: 1\n")
@@ -255,6 +285,37 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| 估值口径 | 1 | 用盈利质量、现金流、营收增速或净资产等替代口径复核，不把负 PE 直接视为低估。 |", markdown)
             self.assertIn("| 风险提示 | 1 | 复核趋势、估值置信度和风险说明，确认是否需要降低候选优先级或补充人工备注。 |", markdown)
             self.assertIn("| 1 | A股周筛 | 估值口径 | 300122.SZ | 智飞生物 | loss_making_or_negative_pe；pe=-17.54 |", markdown)
+
+    def test_summarizes_manual_review_decisions_against_current_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_manual_review_automation(root)
+            write_manual_review_queue(root)
+            write_manual_review_decisions(root)
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            self.assertEqual(payload["manual_review_decisions"]["decision_count"], 2)
+            self.assertEqual(payload["manual_review_decisions"]["matched_count"], 1)
+            self.assertEqual(payload["manual_review_decisions"]["pending_count"], 1)
+            self.assertEqual(
+                payload["manual_review_decisions"]["by_status"],
+                [{"decision_status": "accepted", "count": 1}, {"decision_status": "pending", "count": 1}],
+            )
+            self.assertEqual(payload["manual_review_decisions"]["items"][0]["decision_status"], "accepted")
+            self.assertEqual(payload["manual_review_decisions"]["items"][0]["decision_note"], "现金流和行业周期仍可解释，保留跟踪。")
+            self.assertEqual(payload["manual_review_decisions"]["items"][1]["decision_status"], "pending")
+            self.assertIn("## 人工复核结果", markdown)
+            self.assertIn("- 结果文件：outputs/automation/manual_review_decisions.csv", markdown)
+            self.assertIn("- 已匹配本周队列：1", markdown)
+            self.assertIn("- 待处理：1", markdown)
+            self.assertIn("| accepted | 1 |", markdown)
+            self.assertIn("| pending | 1 |", markdown)
+            self.assertIn("| 300122.SZ | A股周筛 | 估值口径 | accepted | 现金流和行业周期仍可解释，保留跟踪。 | ck |", markdown)
 
     def test_extracts_risk_reason_from_investment_summary_table(self):
         with tempfile.TemporaryDirectory() as tmp:
