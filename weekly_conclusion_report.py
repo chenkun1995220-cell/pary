@@ -68,6 +68,10 @@ ACTION_DETAILS = {
         "label": "继续积累样本",
         "description": "维持正式模型不变，等待更多成熟跟踪样本后再评估参数优化。",
     },
+    "review_forecast_performance": {
+        "label": "复核预测表现",
+        "description": "检查 forecast_evaluations.csv、performance_report.md 和预测方向阈值，确认成熟样本表现是否需要进入影子参数评估。",
+    },
     "review_delivery_health_issues": {
         "label": "复查最终交付健康提示",
         "description": "检查最终交付健康分、周结论和人工处理清单，区分人工积压和流程修复问题。",
@@ -165,6 +169,9 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
                     "status": payload.get("data_quality_history_status", "unknown"),
                     "path": relative_path(project_root, path),
                 }
+            forecast_state = read_forecast_performance_state(project_root, payload, path)
+            if forecast_state:
+                state["forecast_performance"] = forecast_state
 
     check = state.get("automation_check", {})
     check_date = parse_iso_date(check.get("as_of_date"))
@@ -283,9 +290,9 @@ def summarize_health(status, automation, missing_inputs, warnings, manual_review
         reasons.append(f"warnings:{len(set(warnings))}")
     for key, entry in automation.items():
         entry_status = entry.get("status", "unknown")
-        if entry_status == "manual_review_needed":
+        if entry_status in {"manual_review_needed", "performance_review_needed"}:
             score -= 10
-            reasons.append(f"{key}:manual_review_needed")
+            reasons.append(f"{key}:{entry_status}")
         elif not is_acceptable_status(entry_status):
             score -= 25
             reasons.append(f"{key}:{entry_status}")
@@ -327,6 +334,57 @@ def parse_return(value):
     if "%" in str(value):
         return number / 100
     return number
+
+
+def read_forecast_performance_state(project_root, check_payload, check_path):
+    forecast = check_payload.get("forecast_performance")
+    source_path = check_path
+    if not isinstance(forecast, dict):
+        manifest_path = (check_payload.get("outputs") or {}).get("manifest")
+        if manifest_path:
+            resolved_manifest_path = resolve_optional_path(project_root, manifest_path)
+            manifest = read_json(resolved_manifest_path)
+            if isinstance(manifest, dict):
+                forecast = manifest.get("forecast_performance")
+                source_path = resolved_manifest_path
+    if not isinstance(forecast, dict) and "forecast_performance_status" not in check_payload:
+        return None
+    forecast = forecast if isinstance(forecast, dict) else {}
+    return {
+        "status": check_payload.get("forecast_performance_status") or forecast.get("status") or "unknown",
+        "total_evaluations": forecast.get("total_evaluations", 0),
+        "mature_evaluations": forecast.get("mature_evaluations", 0),
+        "one_week_mature": forecast.get("one_week_mature", 0),
+        "one_month_mature": forecast.get("one_month_mature", 0),
+        "prediction_unavailable": forecast.get("prediction_unavailable", 0),
+        "direction_hit_rate": forecast.get("direction_hit_rate"),
+        "average_excess_return": forecast.get("average_excess_return"),
+        "path": relative_path(project_root, source_path),
+    }
+
+
+def resolve_optional_path(project_root, path):
+    resolved = Path(path)
+    if not resolved.is_absolute():
+        resolved = project_root / resolved
+    return resolved
+
+
+def format_percent(value):
+    if value is None or value == "":
+        return "n/a"
+    try:
+        return f"{float(value) * 100:.1f}%"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def format_forecast_performance_status(entry):
+    return (
+        f"{entry.get('status', 'missing')} / mature {entry.get('mature_evaluations', 0)}"
+        f" / hit {format_percent(entry.get('direction_hit_rate'))}"
+        f" / excess {format_percent(entry.get('average_excess_return'))}"
+    )
 
 
 def classify_candidate_action(candidate):
@@ -466,6 +524,7 @@ def render_automation_section(payload):
         "automation_check",
         "data_quality",
         "data_quality_history",
+        "forecast_performance",
         "weekly_ops_check",
         "weekly_ops_history",
         "weekly_delivery_history",
@@ -474,6 +533,8 @@ def render_automation_section(payload):
         status = entry.get("status", "missing")
         if key == "data_quality" and entry.get("score") is not None:
             status = f"{status} / {entry.get('score')}"
+        if key == "forecast_performance" and entry:
+            status = format_forecast_performance_status(entry)
         lines.append(f"- {key}：{status} ({entry.get('path', '')})")
     lines.append("")
     return lines
@@ -1036,6 +1097,7 @@ def is_acceptable_status(status):
         "collecting",
         "sample_accumulating",
         "partial_sample_accumulating",
+        "performance_review_needed",
         "manual_review_needed",
     }
 

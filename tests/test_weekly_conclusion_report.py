@@ -421,6 +421,57 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| review_data_quality_trend | 复核数据质量历史趋势 |", markdown)
             self.assertIn("| review_data_quality_score | 复核三市场数据质量评分 |", markdown)
 
+    def test_forecast_performance_signal_reaches_weekly_conclusion_health(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_automation_check.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "manual_review_needed",
+                    "recommended_action": "review_forecast_performance",
+                    "priority_actions": [
+                        "review_forecast_performance",
+                        "continue_sample_accumulation",
+                    ],
+                    "forecast_performance_status": "performance_review_needed",
+                    "forecast_performance": {
+                        "total_evaluations": 80,
+                        "mature_evaluations": 32,
+                        "one_week_mature": 18,
+                        "one_month_mature": 14,
+                        "prediction_unavailable": 3,
+                        "direction_hit_rate": 0.41,
+                        "average_excess_return": -0.025,
+                    },
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+            labels = {
+                item["action"]: item["label"]
+                for item in payload["priority_action_details"]
+            }
+
+            self.assertEqual(payload["recommended_action"], "review_forecast_performance")
+            self.assertEqual(
+                payload["automation"]["forecast_performance"]["status"],
+                "performance_review_needed",
+            )
+            self.assertEqual(payload["automation"]["forecast_performance"]["mature_evaluations"], 32)
+            self.assertEqual(payload["automation"]["forecast_performance"]["direction_hit_rate"], 0.41)
+            self.assertIn("forecast_performance:performance_review_needed", payload["health"]["reasons"])
+            self.assertEqual(labels["review_forecast_performance"], "复核预测表现")
+            self.assertEqual(labels["continue_sample_accumulation"], "继续积累样本")
+            self.assertNotIn("未分类动作", markdown)
+            self.assertIn("- forecast_performance：performance_review_needed / mature 32 / hit 41.0% / excess -2.5%", markdown)
+            self.assertIn("| review_forecast_performance | 复核预测表现 |", markdown)
+
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
