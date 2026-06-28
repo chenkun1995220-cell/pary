@@ -327,6 +327,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("估值复核样例", doc)
         self.assertIn("人工复核队列", doc)
         self.assertIn("优先级序号", doc)
+        self.assertIn("accepted` 和 `rejected` 会从下一次自我分析队列中移除", doc)
+        self.assertIn("needs_more_data` 会继续保留在队列中", doc)
         self.assertIn("suggested_decision_status", doc)
         self.assertIn("suggested_decision_note", doc)
         self.assertIn("候选风险说明", doc)

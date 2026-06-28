@@ -39,6 +39,9 @@ MARKETS = [
     },
 ]
 
+MANUAL_REVIEW_DECISIONS_PATH = Path("outputs/automation/manual_review_decisions.csv")
+CLOSED_MANUAL_REVIEW_STATUSES = {"accepted", "rejected"}
+
 
 def _read_text(path):
     path = Path(path)
@@ -672,6 +675,49 @@ def _write_manual_review_queue(path, queue, as_of_date):
     _write_manual_review_rows(path, _manual_review_queue_rows(queue, as_of_date))
 
 
+def _manual_review_decision_key(market, review_type, ticker):
+    market = (market or "").strip()
+    review_type = (review_type or "").strip()
+    ticker = (ticker or "").strip().upper()
+    if not (market and review_type and ticker):
+        return None
+    return (market, review_type, ticker)
+
+
+def _closed_manual_review_decision_keys(path):
+    closed = set()
+    for row in _read_csv_rows(path):
+        status = (row.get("decision_status") or "").strip().lower()
+        if status not in CLOSED_MANUAL_REVIEW_STATUSES:
+            continue
+        key = _manual_review_decision_key(
+            row.get("market"),
+            row.get("review_type"),
+            row.get("ticker"),
+        )
+        if key:
+            closed.add(key)
+    return closed
+
+
+def _filter_closed_manual_review_queue(queue, closed_keys):
+    if not closed_keys:
+        return queue
+    filtered = []
+    for item in queue:
+        key = _manual_review_decision_key(
+            item.get("name"),
+            item.get("type"),
+            item.get("ticker"),
+        )
+        if key in closed_keys:
+            continue
+        next_item = dict(item)
+        next_item["rank"] = len(filtered) + 1
+        filtered.append(next_item)
+    return filtered
+
+
 def _write_manual_review_history(path, queue, as_of_date):
     current_rows = _manual_review_queue_rows(queue, as_of_date)
     existing_rows = [
@@ -1257,6 +1303,13 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     weekly_ops_history = _weekly_ops_history_snapshot(project_root)
     weekly_delivery_history = _weekly_delivery_history_snapshot(project_root)
     manual_review_queue = _manual_review_queue(health, candidate_reviews)
+    closed_manual_review_keys = _closed_manual_review_decision_keys(
+        project_root / MANUAL_REVIEW_DECISIONS_PATH
+    )
+    manual_review_queue = _filter_closed_manual_review_queue(
+        manual_review_queue,
+        closed_manual_review_keys,
+    )
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     manual_review_history_output = output.parent / "manual_review_queue_history.csv"
     manual_review_repeats_output = output.parent / "manual_review_repeats.csv"
