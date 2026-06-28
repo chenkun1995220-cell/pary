@@ -29,6 +29,32 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
+def write_manual_review_queue(root):
+    write_csv(
+        Path(root) / "outputs" / "automation" / "latest_manual_review_queue.csv",
+        [
+            {
+                "as_of_date": "2026-06-28",
+                "rank": "1",
+                "market": "A股周筛",
+                "review_type": "估值口径",
+                "ticker": "300122.SZ",
+                "company": "智飞生物",
+                "review_detail": "loss_making_or_negative_pe；pe=-17.54",
+            },
+            {
+                "as_of_date": "2026-06-28",
+                "rank": "2",
+                "market": "港股周筛",
+                "review_type": "风险提示",
+                "ticker": "01548.HK",
+                "company": "GENSCRIPT BIO",
+                "review_detail": "估值置信度低；走势偏弱",
+            },
+        ],
+    )
+
+
 def write_market(root, market_dir, ticker, company):
     base = Path(root) / "outputs" / market_dir
     write_text(base / "latest_run_summary.md", "# summary\nCandidate count: 1\n")
@@ -176,6 +202,24 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 ["review_manual_queue", "review_candidate_findings"],
             )
             self.assertIn("- 优先动作：review_manual_queue", markdown)
+
+    def test_includes_manual_review_queue_items_when_action_requests_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_manual_review_automation(root)
+            write_manual_review_queue(root)
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            self.assertEqual(payload["manual_review_queue"]["count"], 2)
+            self.assertEqual(payload["manual_review_queue"]["items"][0]["ticker"], "300122.SZ")
+            self.assertEqual(payload["manual_review_queue"]["items"][0]["review_detail"], "loss_making_or_negative_pe；pe=-17.54")
+            self.assertIn("## 人工复核队列", markdown)
+            self.assertIn("| 1 | A股周筛 | 估值口径 | 300122.SZ | 智飞生物 | loss_making_or_negative_pe；pe=-17.54 |", markdown)
 
     def test_extracts_risk_reason_from_investment_summary_table(self):
         with tempfile.TemporaryDirectory() as tmp:
