@@ -931,9 +931,28 @@ def _manifest_weekly_ops_history_status(weekly_ops_history):
     }
 
 
+def _weekly_delivery_health_priority_actions(weekly_delivery_history):
+    reasons = []
+    for item in weekly_delivery_history.get("recurring_health_reasons", []):
+        reason = item.get("reason", "")
+        if reason:
+            reasons.append(reason)
+    reasons.extend(weekly_delivery_history.get("latest_conclusion_health_reasons", []))
+    priority_actions = []
+    if any(str(reason).startswith("manual_review_pending:") for reason in reasons):
+        priority_actions.append("review_manual_review_backlog")
+    if any(not str(reason).startswith("manual_review_pending:") for reason in reasons):
+        priority_actions.append("review_delivery_health_issues")
+    return priority_actions
+
+
 def _manifest_weekly_delivery_history_status(weekly_delivery_history):
     action = weekly_delivery_history.get("recommended_action", "collect_weekly_delivery_history")
-    if action == "continue_monitoring":
+    health_actions = _weekly_delivery_health_priority_actions(weekly_delivery_history)
+    if action == "continue_monitoring" and health_actions:
+        status = "manual_review_needed"
+        recommended_action = health_actions[0]
+    elif action == "continue_monitoring":
         status = "clear"
         recommended_action = "monitor_next_run"
     elif action == "collect_weekly_delivery_history":
@@ -945,6 +964,7 @@ def _manifest_weekly_delivery_history_status(weekly_delivery_history):
     return {
         "weekly_delivery_history_status": status,
         "weekly_delivery_history_recommended_action": recommended_action,
+        "weekly_delivery_history_priority_actions": health_actions,
     }
 
 
@@ -976,6 +996,8 @@ def _manifest_automation_decision(
         ),
         (model_audit_status["model_audit_status"], model_audit_status["model_audit_recommended_action"]),
     ]
+    for action in weekly_delivery_history_status.get("weekly_delivery_history_priority_actions", []):
+        action_candidates.append(("manual_review_needed", action))
     priority_actions = []
     for status, action in action_candidates:
         if status in {"clear", "missing"} or action == "monitor_next_run" or action in priority_actions:
@@ -1129,6 +1151,14 @@ def _render(
         if delivery_recurring_reasons
         else "none"
     )
+    delivery_health_reasons = weekly_delivery_history.get("recurring_health_reasons", [])
+    delivery_health_text = (
+        ", ".join(f"{item.get('reason', '')} ({item.get('count', 0)})" for item in delivery_health_reasons)
+        if delivery_health_reasons
+        else "none"
+    )
+    delivery_health_actions = _weekly_delivery_health_priority_actions(weekly_delivery_history)
+    delivery_health_action_text = ", ".join(delivery_health_actions) if delivery_health_actions else "none"
     lines.extend(
         [
             "",
@@ -1139,6 +1169,9 @@ def _render(
             f"- latest_freshness_status: {weekly_delivery_history.get('latest_freshness_status', 'unknown')}",
             f"- needs_attention_count: {weekly_delivery_history.get('needs_attention_count', 0)}",
             f"- recurring_attention_reasons: {delivery_recurring_text}",
+            f"- latest_conclusion_health: {weekly_delivery_history.get('latest_conclusion_health_status', 'unknown')} / {weekly_delivery_history.get('latest_conclusion_health_score', 0)}",
+            f"- recurring_health_reasons: {delivery_health_text}",
+            f"- health_priority_actions: {delivery_health_action_text}",
             f"- recommended_action: {weekly_delivery_history.get('recommended_action', 'unknown')}",
             f"- history_path: {weekly_delivery_history.get('path', '')}",
         ]
