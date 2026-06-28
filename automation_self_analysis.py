@@ -740,6 +740,14 @@ MANUAL_REVIEW_REPEAT_FIELDNAMES = [
     "previous_dates",
 ]
 
+DATA_QUALITY_HISTORY_FIELDNAMES = [
+    "as_of_date",
+    "market",
+    "quality_score",
+    "quality_status",
+    "reasons",
+]
+
 
 def _manual_review_queue_rows(queue, as_of_date):
     rows = []
@@ -876,6 +884,112 @@ def _write_manual_review_repeats(path, repeats, as_of_date):
             )
 
 
+def _data_quality_history_rows(data_quality_summary, as_of_date):
+    rows = []
+    for item in data_quality_summary.get("markets", []) or []:
+        rows.append(
+            {
+                "as_of_date": as_of_date,
+                "market": item.get("name", ""),
+                "quality_score": item.get("quality_score", 0),
+                "quality_status": item.get("quality_status", "unknown"),
+                "reasons": ";".join(item.get("reasons", []) or []),
+            }
+        )
+    return rows
+
+
+def _write_data_quality_history(path, data_quality_summary, as_of_date):
+    current_rows = _data_quality_history_rows(data_quality_summary, as_of_date)
+    existing_rows = [
+        row for row in _read_csv_rows(path)
+        if row.get("as_of_date") != as_of_date
+    ]
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=DATA_QUALITY_HISTORY_FIELDNAMES)
+        writer.writeheader()
+        for row in existing_rows + current_rows:
+            writer.writerow({field: row.get(field, "") for field in DATA_QUALITY_HISTORY_FIELDNAMES})
+
+
+def _data_quality_history_summary(path, data_quality_summary, as_of_date, window=4):
+    rows = [
+        row for row in _read_csv_rows(path)
+        if row.get("as_of_date") != as_of_date
+    ] + _data_quality_history_rows(data_quality_summary, as_of_date)
+    if not rows:
+        return {
+            "history_schema": "data_quality_history_summary",
+            "history_version": 1,
+            "status": "missing",
+            "recommended_action": "collect_data_quality_history",
+            "history_count": 0,
+            "window_size": 0,
+            "repeated_needs_review_markets": [],
+            "score_decline_markets": [],
+            "markets": [],
+            "path": str(path),
+        }
+    by_market = {}
+    for row in rows:
+        market = row.get("market", "")
+        if not market:
+            continue
+        by_market.setdefault(market, []).append(row)
+    market_summaries = []
+    repeated = []
+    declining = []
+    for market, market_rows in sorted(by_market.items()):
+        market_rows = sorted(market_rows, key=lambda row: row.get("as_of_date", ""))[-window:]
+        current = market_rows[-1]
+        previous = market_rows[-2] if len(market_rows) >= 2 else None
+        current_score = _as_float(current.get("quality_score")) or 0
+        previous_score = _as_float(previous.get("quality_score")) if previous else None
+        delta = None if previous_score is None else round(current_score - previous_score, 2)
+        needs_review_count = sum(
+            1 for row in market_rows
+            if row.get("quality_status") == "needs_review"
+        )
+        if needs_review_count >= 2:
+            repeated.append(market)
+        if delta is not None and delta <= -10:
+            declining.append(market)
+        market_summaries.append(
+            {
+                "market": market,
+                "latest_score": current_score,
+                "latest_status": current.get("quality_status", "unknown"),
+                "previous_score": previous_score,
+                "score_delta": delta,
+                "needs_review_count": needs_review_count,
+                "window_count": len(market_rows),
+            }
+        )
+    if repeated or declining:
+        status = "manual_review_needed"
+        action = "review_data_quality_trend"
+    elif len({row.get("as_of_date", "") for row in rows}) < 2:
+        status = "collecting"
+        action = "collect_data_quality_history"
+    else:
+        status = "clear"
+        action = "monitor_next_run"
+    return {
+        "history_schema": "data_quality_history_summary",
+        "history_version": 1,
+        "status": status,
+        "recommended_action": action,
+        "history_count": len(rows),
+        "window_size": window,
+        "repeated_needs_review_markets": repeated,
+        "score_decline_markets": declining,
+        "markets": market_summaries,
+        "path": str(path),
+    }
+
+
 def _write_self_analysis_manifest(path, payload):
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -921,6 +1035,7 @@ def _automation_check_payload(manifest, manifest_validation):
         "data_health_status": manifest.get("data_health_status", "unknown"),
         "data_quality_status": manifest.get("data_quality_status", "unknown"),
         "data_quality_score": manifest.get("data_quality_score", 0),
+        "data_quality_history_status": manifest.get("data_quality_history_status", "unknown"),
         "candidate_review_status": manifest.get("candidate_review_status", "unknown"),
         "weekly_ops_history_status": manifest.get("weekly_ops_history_status", "unknown"),
         "weekly_delivery_history_status": manifest.get("weekly_delivery_history_status", "unknown"),
@@ -1250,6 +1365,7 @@ def _manifest_automation_decision(
     forecast_performance,
     data_health_status,
     data_quality_summary,
+    data_quality_history,
     candidate_review_status,
     weekly_ops_history_status,
     weekly_delivery_history_status,
@@ -1266,6 +1382,13 @@ def _manifest_automation_decision(
             (
                 data_quality_status,
                 data_quality_summary.get("recommended_action", "review_data_quality_score"),
+            )
+        )
+    if data_quality_history.get("status") == "manual_review_needed":
+        action_candidates.append(
+            (
+                data_quality_history.get("status", "unknown"),
+                data_quality_history.get("recommended_action", "review_data_quality_trend"),
             )
         )
     action_candidates.extend(
@@ -1343,6 +1466,7 @@ def _render(
     candidate_reviews,
     forecast_performance=None,
     data_quality_summary=None,
+    data_quality_history=None,
     manual_review_history_repeats=None,
     manual_review_queue=None,
     weekly_ops_history=None,
@@ -1355,6 +1479,7 @@ def _render(
     weekly_ops_history = weekly_ops_history or {}
     weekly_delivery_history = weekly_delivery_history or {}
     data_quality_summary = data_quality_summary or _data_quality_summary(health)
+    data_quality_history = data_quality_history or {}
     forecast_performance = forecast_performance or {
         "status": "unknown",
         "recommended_action": "collect_forecast_evaluations",
@@ -1439,6 +1564,31 @@ def _render(
         lines.append(
             f"| {item.get('name', '')} | {item.get('quality_score', 0)} | "
             f"{item.get('quality_status', '')} | {reasons} |"
+        )
+    repeated_text = "、".join(data_quality_history.get("repeated_needs_review_markets", [])) or "none"
+    declining_text = "、".join(data_quality_history.get("score_decline_markets", [])) or "none"
+    lines.extend(
+        [
+            "",
+            "## 数据质量历史",
+            "",
+            f"- status: {data_quality_history.get('status', 'unknown')}",
+            f"- recommended_action: {data_quality_history.get('recommended_action', 'unknown')}",
+            f"- repeated_needs_review_markets: {repeated_text}",
+            f"- score_decline_markets: {declining_text}",
+            f"- history_path: {data_quality_history.get('path', '')}",
+            "",
+            "| 模块 | 最新评分 | 最新状态 | 上次评分 | 变化 | needs_review次数 |",
+            "|---|---:|---|---:|---:|---:|",
+        ]
+    )
+    for item in data_quality_history.get("markets", []):
+        previous = item.get("previous_score")
+        delta = item.get("score_delta")
+        lines.append(
+            f"| {item.get('market', '')} | {item.get('latest_score', 0)} | "
+            f"{item.get('latest_status', '')} | {previous if previous is not None else 'n/a'} | "
+            f"{delta if delta is not None else 'n/a'} | {item.get('needs_review_count', 0)} |"
         )
     lines.extend(
         [
@@ -1613,8 +1763,14 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     manual_review_history_output = output.parent / "manual_review_queue_history.csv"
     manual_review_repeats_output = output.parent / "manual_review_repeats.csv"
+    data_quality_history_output = output.parent / "data_quality_score_history.csv"
     manifest_output = output.parent / "latest_self_analysis_manifest.json"
     automation_check_output = output.parent / "latest_automation_check.json"
+    data_quality_history = _data_quality_history_summary(
+        data_quality_history_output,
+        data_quality_summary,
+        as_of_date,
+    )
     manual_review_history_repeats = _manual_review_history_repeats(
         manual_review_history_output, manual_review_queue, as_of_date
     )
@@ -1628,6 +1784,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             candidate_reviews,
             forecast_performance,
             data_quality_summary,
+            data_quality_history,
             manual_review_history_repeats,
             manual_review_queue,
             weekly_ops_history,
@@ -1638,6 +1795,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
     _write_manual_review_repeats(manual_review_repeats_output, manual_review_history_repeats, as_of_date)
     _write_manual_review_history(manual_review_history_output, manual_review_queue, as_of_date)
+    _write_data_quality_history(data_quality_history_output, data_quality_summary, as_of_date)
     review_status, recommended_next_action = _manual_review_status(
         len(manual_review_queue), len(manual_review_history_repeats)
     )
@@ -1664,6 +1822,9 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "data_quality_status": data_quality_summary.get("status", "unknown"),
         "data_quality_score": data_quality_summary.get("average_score", 0),
         "data_quality_recommended_action": data_quality_summary.get("recommended_action", "unknown"),
+        "data_quality_history": data_quality_history,
+        "data_quality_history_status": data_quality_history.get("status", "unknown"),
+        "data_quality_history_recommended_action": data_quality_history.get("recommended_action", "unknown"),
         **candidate_review_status,
         "weekly_ops_history": weekly_ops_history,
         **weekly_ops_history_status,
@@ -1679,6 +1840,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             forecast_performance,
             data_health_status,
             data_quality_summary,
+            data_quality_history,
             candidate_review_status,
             weekly_ops_history_status,
             weekly_delivery_history_status,
@@ -1692,6 +1854,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "manual_review_queue": str(manual_review_queue_output),
             "manual_review_history": str(manual_review_history_output),
             "manual_review_repeats": str(manual_review_repeats_output),
+            "data_quality_history": str(data_quality_history_output),
         },
     }
     _write_self_analysis_manifest(manifest_output, manifest)
@@ -1705,12 +1868,14 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "manual_review_queue_output": str(manual_review_queue_output),
         "manual_review_history_output": str(manual_review_history_output),
         "manual_review_repeats_output": str(manual_review_repeats_output),
+        "data_quality_history_output": str(data_quality_history_output),
         "manifest_output": str(manifest_output),
         "automation_check_output": str(automation_check_output),
         "markets": markets,
         "backtest": backtest,
         "forecast_performance": forecast_performance,
         "data_quality_summary": data_quality_summary,
+        "data_quality_history": data_quality_history,
         "health": health,
         "candidate_reviews": candidate_reviews,
         "weekly_ops_history": weekly_ops_history,
@@ -1742,6 +1907,9 @@ REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
     "data_quality_status",
     "data_quality_score",
     "data_quality_recommended_action",
+    "data_quality_history",
+    "data_quality_history_status",
+    "data_quality_history_recommended_action",
     "candidate_review_status",
     "candidate_review_recommended_action",
     "weekly_ops_history",

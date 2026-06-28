@@ -267,6 +267,33 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                     }
                 ],
             )
+            write_csv(
+                root / "outputs" / "automation" / "data_quality_score_history.csv",
+                ["as_of_date", "market", "quality_score", "quality_status", "reasons"],
+                [
+                    {
+                        "as_of_date": "2026-06-21",
+                        "market": "港股周筛",
+                        "quality_score": "62",
+                        "quality_status": "needs_review",
+                        "reasons": "quote_coverage:86.00%",
+                    },
+                    {
+                        "as_of_date": "2026-06-21",
+                        "market": "美股周筛",
+                        "quality_score": "100",
+                        "quality_status": "ready",
+                        "reasons": "clear",
+                    },
+                    {
+                        "as_of_date": "2026-06-28",
+                        "market": "港股周筛",
+                        "quality_score": "99",
+                        "quality_status": "ready",
+                        "reasons": "stale_same_day_row_should_be_replaced",
+                    },
+                ],
+            )
             write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
 
             result = run_self_analysis(root, as_of_date="2026-06-28")
@@ -288,6 +315,20 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(manifest["data_quality_status"], "needs_review")
             self.assertEqual(manifest["data_quality_score"], quality["average_score"])
             self.assertIn("review_data_quality_score", manifest["automation_priority_actions"])
+            self.assertIn("data_quality_history", manifest)
+            self.assertEqual(manifest["data_quality_history"]["status"], "manual_review_needed")
+            self.assertIn("港股周筛", manifest["data_quality_history"]["repeated_needs_review_markets"])
+            self.assertIn("review_data_quality_trend", manifest["automation_priority_actions"])
+            self.assertIn("## 数据质量历史", report)
+            with Path(result["data_quality_history_output"]).open(
+                encoding="utf-8-sig",
+                newline="",
+            ) as handle:
+                history_rows = list(csv.DictReader(handle))
+            self.assertEqual(
+                [row["market"] for row in history_rows if row["as_of_date"] == "2026-06-28"],
+                ["美股周筛", "A股周筛", "港股周筛"],
+            )
             self.assertEqual(automation_check["data_quality_status"], "needs_review")
             self.assertEqual(automation_check["data_quality_score"], quality["average_score"])
 

@@ -84,6 +84,15 @@ def _data_quality_text(manifest):
     )
 
 
+def _data_quality_trend_text(manifest):
+    history = manifest.get("data_quality_history", {})
+    if not isinstance(history, dict):
+        history = {}
+    repeated = "、".join(history.get("repeated_needs_review_markets", []) or []) or "none"
+    declining = "、".join(history.get("score_decline_markets", []) or []) or "none"
+    return f"连续低分市场：{repeated}；分数下滑市场：{declining}"
+
+
 def _action_template(action_code, manifest):
     history = _delivery_history(manifest)
     manual_review_count = _manual_review_count(manifest, history)
@@ -131,6 +140,16 @@ def _action_template(action_code, manifest):
                 "检查 latest_self_analysis.md 的“数据质量评分”段落，并核对三市场 "
                 f"data_health_history.csv、quote_gaps.csv 和 valuation_review_items.csv；{_data_quality_text(manifest)}。"
                 "该动作只用于人工复核数据底座，不自动修改正式模型参数。"
+            ),
+        },
+        "review_data_quality_trend": {
+            "title": "复核数据质量历史趋势",
+            "category": "data_quality",
+            "source": f"data_quality_history_status:{manifest.get('data_quality_history_status', manifest.get('data_quality_history', {}).get('status', 'unknown'))}",
+            "recommended_check": (
+                "检查 data_quality_score_history.csv 和 latest_self_analysis.md 的“数据质量历史”段落；"
+                f"{_data_quality_trend_text(manifest)}。"
+                "若连续低分来自同一市场，优先复核该市场行情源、缺口分类和补数规则，不自动修改正式模型参数。"
             ),
         },
         "review_backtest_evidence": {
