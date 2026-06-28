@@ -25,6 +25,7 @@ AUTOMATION_FILES = {
     "automation_check": "latest_automation_check.json",
     "weekly_ops_check": "latest_weekly_ops_check.json",
     "weekly_ops_history": "latest_weekly_ops_history_summary.json",
+    "weekly_delivery_history": "latest_weekly_delivery_history_summary.json",
 }
 
 DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
@@ -282,7 +283,7 @@ def render_automation_section(payload):
         f"- 结论状态：{payload['status']}",
         f"- 优先动作：{payload['recommended_action']}",
     ]
-    for key in ("automation_check", "weekly_ops_check", "weekly_ops_history"):
+    for key in ("automation_check", "weekly_ops_check", "weekly_ops_history", "weekly_delivery_history"):
         entry = automation.get(key, {})
         lines.append(f"- {key}：{entry.get('status', 'missing')} ({entry.get('path', '')})")
     lines.append("")

@@ -144,6 +144,10 @@ def write_ready_automation(root, as_of_date="2026-06-28"):
         Path(root) / "outputs" / "automation" / "latest_weekly_ops_history_summary.json",
         {"latest_as_of_date": as_of_date, "latest_status": "ready"},
     )
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_delivery_history_summary.json",
+        {"latest_as_of_date": as_of_date, "latest_status": "ready"},
+    )
 
 
 def write_manual_review_automation(root, as_of_date="2026-06-28"):
@@ -162,6 +166,10 @@ def write_manual_review_automation(root, as_of_date="2026-06-28"):
     )
     write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_ops_history_summary.json",
+        {"latest_as_of_date": as_of_date, "latest_status": "ready"},
+    )
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_delivery_history_summary.json",
         {"latest_as_of_date": as_of_date, "latest_status": "ready"},
     )
 
@@ -255,7 +263,9 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 payload["automation"]["automation_check"]["priority_actions"],
                 ["review_manual_queue", "review_candidate_findings"],
             )
+            self.assertEqual(payload["automation"]["weekly_delivery_history"]["status"], "ready")
             self.assertIn("## 优先动作", markdown)
+            self.assertIn("weekly_delivery_history", markdown)
             self.assertIn("| review_manual_queue | 复核人工队列 | 查看本周人工复核队列", markdown)
             self.assertIn("| review_candidate_findings | 复核候选结论 | 检查候选公司的风险说明", markdown)
             self.assertIn("- 优先动作：review_manual_queue", markdown)
