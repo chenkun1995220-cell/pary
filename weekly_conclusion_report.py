@@ -44,6 +44,14 @@ ACTION_DETAILS = {
         "label": "复核数据健康",
         "description": "检查行情、财务字段、数据质量问题和人工覆盖项是否影响候选可信度。",
     },
+    "review_data_quality_score": {
+        "label": "复核三市场数据质量评分",
+        "description": "检查三市场数据质量评分、最低分市场和评分原因，确认本周数据底座是否足以支撑候选结论。",
+    },
+    "review_data_quality_trend": {
+        "label": "复核数据质量历史趋势",
+        "description": "检查 data_quality_score_history.csv 中连续低分或评分下滑的市场，优先复核行情源、缺口分类和补数规则。",
+    },
     "review_backtest_evidence": {
         "label": "复核回测证据",
         "description": "确认严格时点回测证据等级、弱证据周次和泄漏审计结果。",
@@ -145,6 +153,18 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             "priority_actions": payload.get("priority_actions", []),
             "path": relative_path(project_root, path),
         }
+        if key == "automation_check":
+            if "data_quality_status" in payload or "data_quality_score" in payload:
+                state["data_quality"] = {
+                    "status": payload.get("data_quality_status", "unknown"),
+                    "score": payload.get("data_quality_score"),
+                    "path": relative_path(project_root, path),
+                }
+            if "data_quality_history_status" in payload:
+                state["data_quality_history"] = {
+                    "status": payload.get("data_quality_history_status", "unknown"),
+                    "path": relative_path(project_root, path),
+                }
 
     check = state.get("automation_check", {})
     check_date = parse_iso_date(check.get("as_of_date"))
@@ -442,9 +462,19 @@ def render_automation_section(payload):
         f"- overall_health：{health.get('status', 'unknown')} / {health.get('score', 0)}",
         f"- 优先动作：{payload['recommended_action']}",
     ]
-    for key in ("automation_check", "weekly_ops_check", "weekly_ops_history", "weekly_delivery_history"):
+    for key in (
+        "automation_check",
+        "data_quality",
+        "data_quality_history",
+        "weekly_ops_check",
+        "weekly_ops_history",
+        "weekly_delivery_history",
+    ):
         entry = automation.get(key, {})
-        lines.append(f"- {key}：{entry.get('status', 'missing')} ({entry.get('path', '')})")
+        status = entry.get("status", "missing")
+        if key == "data_quality" and entry.get("score") is not None:
+            status = f"{status} / {entry.get('score')}"
+        lines.append(f"- {key}：{status} ({entry.get('path', '')})")
     lines.append("")
     return lines
 
@@ -996,7 +1026,18 @@ def pick(row, *names):
 
 def is_acceptable_status(status):
     normalized = str(status or "").strip().lower()
-    return normalized in {"ready", "ok", "success", "completed", "fresh", "manual_review_needed"}
+    return normalized in {
+        "ready",
+        "ok",
+        "success",
+        "completed",
+        "fresh",
+        "needs_review",
+        "collecting",
+        "sample_accumulating",
+        "partial_sample_accumulating",
+        "manual_review_needed",
+    }
 
 
 def choose_recommended_action(status, automation):

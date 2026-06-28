@@ -377,6 +377,50 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| review_manual_review_backlog | 处理人工复核积压 |", markdown)
             self.assertIn("| review_delivery_health_issues | 复查最终交付健康提示 |", markdown)
 
+    def test_data_quality_trend_signal_reaches_weekly_conclusion_health(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_automation_check.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "manual_review_needed",
+                    "recommended_action": "review_data_quality_trend",
+                    "priority_actions": [
+                        "review_data_quality_trend",
+                        "review_data_quality_score",
+                    ],
+                    "data_quality_status": "needs_review",
+                    "data_quality_score": 79.0,
+                    "data_quality_history_status": "manual_review_needed",
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+            labels = {
+                item["action"]: item["label"]
+                for item in payload["priority_action_details"]
+            }
+
+            self.assertEqual(payload["recommended_action"], "review_data_quality_trend")
+            self.assertEqual(
+                payload["priority_actions"],
+                ["review_data_quality_trend", "review_data_quality_score"],
+            )
+            self.assertEqual(payload["automation"]["data_quality_history"]["status"], "manual_review_needed")
+            self.assertIn("data_quality_history:manual_review_needed", payload["health"]["reasons"])
+            self.assertIn("automation_check:manual_review_needed", payload["health"]["reasons"])
+            self.assertEqual(labels["review_data_quality_trend"], "复核数据质量历史趋势")
+            self.assertEqual(labels["review_data_quality_score"], "复核三市场数据质量评分")
+            self.assertNotIn("未分类动作", markdown)
+            self.assertIn("| review_data_quality_trend | 复核数据质量历史趋势 |", markdown)
+            self.assertIn("| review_data_quality_score | 复核三市场数据质量评分 |", markdown)
+
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
