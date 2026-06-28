@@ -10,6 +10,8 @@ DELIVERY_CHECK_VERSION = 1
 HISTORY_SCHEMA = "weekly_delivery_check_history"
 HISTORY_VERSION = 1
 DEFAULT_CONCLUSION_JSON = "outputs/automation/latest_weekly_conclusion.json"
+DEFAULT_ACTION_ITEMS_JSON = "outputs/automation/latest_weekly_action_items.json"
+DEFAULT_ACTION_ITEMS_MARKDOWN = "outputs/automation/latest_weekly_action_items.md"
 DEFAULT_OUTPUT = "outputs/automation/latest_weekly_delivery_check.json"
 DEFAULT_HISTORY = "outputs/automation/weekly_delivery_check_history.jsonl"
 
@@ -25,6 +27,10 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     freshness_status = "unknown"
     conclusion_age_days = None
     conclusion_health = {}
+    action_items_status = "unknown"
+    action_items_freshness_status = "unknown"
+    action_items_age_days = None
+    action_items_count = 0
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -64,6 +70,24 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     if missing_outputs:
         attention_reasons.append("missing_outputs")
 
+    action_items = _check_action_items(
+        project_root,
+        today=today,
+        max_age_days=max_age_days,
+        missing_outputs=missing_outputs,
+        missing_output_paths=missing_output_paths,
+    )
+    action_items_status = action_items["status"]
+    action_items_freshness_status = action_items["freshness_status"]
+    action_items_age_days = action_items["age_days"]
+    action_items_count = action_items["item_count"]
+    if action_items["attention_reasons"]:
+        for reason in action_items["attention_reasons"]:
+            if reason not in attention_reasons:
+                attention_reasons.append(reason)
+    if action_items["missing"] and "missing_outputs" not in attention_reasons:
+        attention_reasons.append("missing_outputs")
+
     return {
         "delivery_check_schema": DELIVERY_CHECK_SCHEMA,
         "delivery_check_version": DELIVERY_CHECK_VERSION,
@@ -82,6 +106,10 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "manual_review_queue_count": int(conclusion.get("manual_review_queue", {}).get("count", 0) or 0),
         "manual_review_pending_count": int(conclusion.get("manual_review_decisions", {}).get("pending_count", 0) or 0),
         "manual_review_merge_summary_exists": bool(merge_summary.get("exists")),
+        "action_items_status": action_items_status,
+        "action_items_freshness_status": action_items_freshness_status,
+        "action_items_age_days": action_items_age_days,
+        "action_items_count": action_items_count,
         "missing_outputs": missing_outputs,
         "missing_output_paths": missing_output_paths,
         "attention_reasons": attention_reasons,
@@ -101,6 +129,7 @@ def render_delivery_check(result):
         f"- 人工复核队列：{result.get('manual_review_queue_count', 0)}",
         f"- 待处理复核：{result.get('manual_review_pending_count', 0)}",
         f"- 合并摘要存在：{result.get('manual_review_merge_summary_exists', False)}",
+        f"- 每周人工处理清单：{result.get('action_items_status', 'unknown')} / {result.get('action_items_count', 0)}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
     ]
     if result.get("attention_reasons"):
@@ -115,7 +144,7 @@ def render_delivery_check(result):
         [
             "",
             "## 边界",
-            "- 本验收只读取最终周报、JSON、人工复核模板和可选合并摘要。",
+            "- 本验收只读取最终周报、JSON、每周人工处理清单、人工复核模板和可选合并摘要。",
             "- 本验收不抓取行情、不重新评分、不修改正式模型参数。",
         ]
     )
@@ -151,6 +180,72 @@ def _required_outputs(conclusion, conclusion_path):
             "manual_review_decisions_template",
             "outputs/automation/manual_review_decisions_template.csv",
         ),
+    }
+
+
+def _check_action_items(project_root, today=None, max_age_days=8, missing_outputs=None, missing_output_paths=None):
+    missing_outputs = missing_outputs if missing_outputs is not None else []
+    missing_output_paths = missing_output_paths if missing_output_paths is not None else {}
+    json_path = _resolve_path(project_root, DEFAULT_ACTION_ITEMS_JSON)
+    markdown_path = _resolve_path(project_root, DEFAULT_ACTION_ITEMS_MARKDOWN)
+    attention_reasons = []
+    missing = False
+
+    if not json_path.exists():
+        _add_missing(missing_outputs, missing_output_paths, "weekly_action_items_json", json_path)
+        missing = True
+    if not markdown_path.exists():
+        _add_missing(missing_outputs, missing_output_paths, "weekly_action_items_markdown", markdown_path)
+        missing = True
+    if missing:
+        return {
+            "status": "missing",
+            "freshness_status": "unknown",
+            "age_days": None,
+            "item_count": 0,
+            "attention_reasons": [],
+            "missing": True,
+        }
+
+    payload = _read_json(json_path)
+    if not payload:
+        return {
+            "status": "invalid",
+            "freshness_status": "unknown",
+            "age_days": None,
+            "item_count": 0,
+            "attention_reasons": ["invalid_action_items_json"],
+            "missing": False,
+        }
+
+    status = "ready"
+    if payload.get("action_items_schema") != "weekly_action_items":
+        status = "invalid"
+        attention_reasons.append("unexpected_action_items_schema")
+    if int(payload.get("action_items_version", 0) or 0) != 1:
+        status = "invalid"
+        attention_reasons.append("unexpected_action_items_version")
+
+    item_count = int(payload.get("item_count", 0) or 0)
+    freshness_status, age_days = _freshness(
+        payload.get("as_of_date", "unknown"),
+        today=today,
+        max_age_days=max_age_days,
+    )
+    if freshness_status == "stale":
+        status = "stale"
+        attention_reasons.append("stale_action_items_date")
+    elif freshness_status == "future":
+        status = "future"
+        attention_reasons.append("future_action_items_date")
+
+    return {
+        "status": status,
+        "freshness_status": freshness_status,
+        "age_days": age_days,
+        "item_count": item_count,
+        "attention_reasons": attention_reasons,
+        "missing": False,
     }
 
 
