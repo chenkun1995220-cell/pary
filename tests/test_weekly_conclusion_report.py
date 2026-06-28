@@ -116,6 +116,27 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(payload["status"], "needs_attention")
             self.assertIn("outputs/hk_universe/valuation_targets.csv", payload["missing_inputs"])
 
+    def test_us_summary_can_fall_back_to_automation_summary_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            (root / "outputs" / "us_universe" / "latest_run_summary.md").unlink()
+            write_text(
+                root / "outputs" / "automation" / "latest_run_summary.md",
+                "# US Weekly Screening Run Summary\n\n- Candidate count: 1\n",
+            )
+            write_ready_automation(root)
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            us_market = payload["markets"][0]
+
+            self.assertEqual(payload["status"], "ready")
+            self.assertEqual(us_market["status"], "ready")
+            self.assertNotIn("outputs/us_universe/latest_run_summary.md", payload["missing_inputs"])
+            self.assertIn("outputs/automation/latest_run_summary.md", us_market["source_files"])
+
     def test_extracts_risk_reason_from_investment_summary_table(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

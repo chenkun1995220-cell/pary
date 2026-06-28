@@ -81,10 +81,12 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
 def read_market(project_root, market_config, missing_inputs, warnings):
     market_dir = project_root / "outputs" / market_config["dir"]
     required_missing = []
+    source_files = []
     for filename in REQUIRED_MARKET_FILES:
-        path = market_dir / filename
-        if not path.exists():
-            missing = relative_path(project_root, path)
+        resolved = resolve_required_market_file(project_root, market_config, market_dir, filename)
+        source_files.append(relative_path(project_root, resolved["path"]))
+        if not resolved["exists"]:
+            missing = relative_path(project_root, resolved["path"])
             missing_inputs.append(missing)
             required_missing.append(missing)
 
@@ -130,8 +132,20 @@ def read_market(project_root, market_config, missing_inputs, warnings):
         "candidate_count": len(candidates),
         "missing_inputs": required_missing,
         "source_dir": relative_path(project_root, market_dir),
+        "source_files": source_files,
     }
     return {"summary": summary, "candidates": candidates}
+
+
+def resolve_required_market_file(project_root, market_config, market_dir, filename):
+    default_path = market_dir / filename
+    if default_path.exists():
+        return {"path": default_path, "exists": True}
+    if market_config["market"] == "US" and filename == "latest_run_summary.md":
+        fallback = project_root / "outputs" / "automation" / "latest_run_summary.md"
+        if fallback.exists():
+            return {"path": fallback, "exists": True}
+    return {"path": default_path, "exists": False}
 
 
 def decide_status(markets, candidates, automation, missing_inputs, warnings):
