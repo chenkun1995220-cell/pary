@@ -253,12 +253,15 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("run_weekly_ops_check.ps1", doc)
         self.assertIn("show_weekly_ops_history.ps1", doc)
         self.assertIn("show_weekly_delivery_history.ps1", doc)
+        self.assertIn("show_weekly_action_items.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
         self.assertIn("outputs/automation/latest_manual_review_queue.csv", doc)
         self.assertIn("outputs/automation/manual_review_queue_history.csv", doc)
         self.assertIn("outputs/automation/manual_review_repeats.csv", doc)
         self.assertIn("outputs/automation/latest_self_analysis_manifest.json", doc)
         self.assertIn("outputs/automation/latest_automation_check.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_action_items.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_action_items.md", doc)
         self.assertIn("outputs/automation/latest_weekly_ops_check.json", doc)
         self.assertIn("outputs/automation/weekly_ops_check_history.jsonl", doc)
         self.assertIn("outputs/automation/latest_weekly_ops_history_summary.json", doc)
@@ -269,6 +272,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("codex_automation_audit.py", doc)
         self.assertIn("weekly_ops_check.py", doc)
         self.assertIn("weekly_ops_history_report.py", doc)
+        self.assertIn("weekly_action_items.py", doc)
         self.assertIn("manifest_schema", doc)
         self.assertIn("manifest_version", doc)
         self.assertIn("review_status", doc)
@@ -282,6 +286,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("weekly_delivery_history_recommended_action", doc)
         self.assertIn("review_manual_review_backlog", doc)
         self.assertIn("review_delivery_health_issues", doc)
+        self.assertIn("每周人工处理清单", doc)
         self.assertIn("weekly_delivery_history_report.py", doc)
         self.assertIn("recurring_health_reasons", doc)
         self.assertIn("manifest 结构校验", doc)
@@ -409,6 +414,19 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("--output", script)
         self.assertIn("--report", script)
         self.assertIn("--window", script)
+
+    def test_weekly_action_items_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "show_weekly_action_items.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("weekly_action_items.py", script)
+        self.assertIn("latest_self_analysis_manifest.json", script)
+        self.assertIn("latest_weekly_action_items.json", script)
+        self.assertIn("latest_weekly_action_items.md", script)
+        self.assertIn("--manifest", script)
+        self.assertIn("--output", script)
+        self.assertIn("--report", script)
 
 
 if __name__ == "__main__":
