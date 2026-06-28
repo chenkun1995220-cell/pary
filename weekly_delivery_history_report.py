@@ -87,6 +87,11 @@ def summarize_weekly_delivery_history(history, window=8):
         for row in recent
         for signal in row.get("missing_conclusion_signals", [])
     )
+    missing_signal_fix_counts = Counter(
+        (signal, fix)
+        for row in recent
+        for signal, fix in (row.get("missing_conclusion_signal_fixes", {}) or {}).items()
+    )
     action_items_ready_count = action_status_counts.get("ready", 0)
     action_items_problem_count = sum(
         count
@@ -107,6 +112,11 @@ def summarize_weekly_delivery_history(history, window=8):
     recurring_missing_conclusion_signals = [
         {"signal": signal, "count": count}
         for signal, count in sorted(missing_signal_counts.items())
+        if count >= 2
+    ]
+    recurring_missing_conclusion_signal_fixes = [
+        {"signal": signal, "fix": fix, "count": count}
+        for (signal, fix), count in sorted(missing_signal_fix_counts.items())
         if count >= 2
     ]
     if recurring:
@@ -135,12 +145,14 @@ def summarize_weekly_delivery_history(history, window=8):
         "latest_action_items_count": int(latest.get("action_items_count", 0) or 0),
         "latest_conclusion_signal_status": latest.get("conclusion_signal_status", "unknown"),
         "latest_missing_conclusion_signals": latest.get("missing_conclusion_signals", []),
+        "latest_missing_conclusion_signal_fixes": latest.get("missing_conclusion_signal_fixes", {}),
         "action_items_ready_count": action_items_ready_count,
         "action_items_problem_count": action_items_problem_count,
         "recurring_action_items_issues": recurring_action_items_issues,
         "conclusion_signal_ready_count": conclusion_signal_ready_count,
         "conclusion_signal_problem_count": conclusion_signal_problem_count,
         "recurring_missing_conclusion_signals": recurring_missing_conclusion_signals,
+        "recurring_missing_conclusion_signal_fixes": recurring_missing_conclusion_signal_fixes,
         "ready_count": ready_count,
         "needs_attention_count": needs_attention_count,
         "stale_count": stale_count,
@@ -174,6 +186,18 @@ def _join_recurring_missing_signals(signals):
     return ", ".join(f"{item['signal']} ({item['count']})" for item in signals)
 
 
+def _join_signal_fixes(fixes):
+    if not fixes:
+        return "无"
+    return ", ".join(f"{signal}: {fix}" for signal, fix in fixes.items())
+
+
+def _join_recurring_signal_fixes(fixes):
+    if not fixes:
+        return "无"
+    return ", ".join(f"{item['signal']}: {item['fix']} ({item['count']})" for item in fixes)
+
+
 def render_weekly_delivery_history_report(summary):
     lines = [
         "# 每周最终交付历史摘要",
@@ -189,6 +213,7 @@ def render_weekly_delivery_history_report(summary):
         f"- 最新待处理复核：{summary.get('latest_manual_review_pending_count', 0)}",
         f"- 周结论关键信号：{summary.get('latest_conclusion_signal_status', 'unknown')}",
         f"- 最新缺失周结论信号：{_join_missing_signals(summary.get('latest_missing_conclusion_signals', []))}",
+        f"- 最新周结论信号修复指向：{_join_signal_fixes(summary.get('latest_missing_conclusion_signal_fixes', {}))}",
         f"- 每周人工处理清单：{summary.get('latest_action_items_status', 'unknown')} / {summary.get('latest_action_items_count', 0)}",
         f"- 周结论关键信号 ready 次数：{summary.get('conclusion_signal_ready_count', 0)}",
         f"- 周结论关键信号 problem 次数：{summary.get('conclusion_signal_problem_count', 0)}",
@@ -200,6 +225,7 @@ def render_weekly_delivery_history_report(summary):
         f"- 重复问题：{_join_recurring(summary.get('recurring_attention_reasons', []))}",
         f"- 重复健康原因：{_join_recurring(summary.get('recurring_health_reasons', []))}",
         f"- 重复缺失周结论信号：{_join_recurring_missing_signals(summary.get('recurring_missing_conclusion_signals', []))}",
+        f"- 重复周结论信号修复指向：{_join_recurring_signal_fixes(summary.get('recurring_missing_conclusion_signal_fixes', []))}",
         f"- 重复 action_items 问题：{_join_action_item_issues(summary.get('recurring_action_items_issues', []))}",
         f"- 建议动作：{summary.get('recommended_action', 'unknown')}",
         "",

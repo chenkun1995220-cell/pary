@@ -54,6 +54,12 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                         "action_items_count": 0,
                         "conclusion_signal_status": "missing",
                         "missing_conclusion_signals": ["automation.forecast_performance"],
+                        "missing_conclusion_signal_fixes": {
+                            "automation.forecast_performance": (
+                                "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                                "contains forecast_performance before show_weekly_conclusion.ps1"
+                            )
+                        },
                     },
                     {
                         "history_schema": "weekly_delivery_check_history",
@@ -76,6 +82,16 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                             "automation.data_quality_history",
                             "automation.forecast_performance",
                         ],
+                        "missing_conclusion_signal_fixes": {
+                            "automation.data_quality_history": (
+                                "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                                "contains data_quality_history before show_weekly_conclusion.ps1"
+                            ),
+                            "automation.forecast_performance": (
+                                "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                                "contains forecast_performance before show_weekly_conclusion.ps1"
+                            ),
+                        },
                     },
                 ],
             )
@@ -123,6 +139,32 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                 summary["recurring_missing_conclusion_signals"],
                 [{"signal": "automation.forecast_performance", "count": 2}],
             )
+            self.assertEqual(
+                summary["latest_missing_conclusion_signal_fixes"],
+                {
+                    "automation.data_quality_history": (
+                        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                        "contains data_quality_history before show_weekly_conclusion.ps1"
+                    ),
+                    "automation.forecast_performance": (
+                        "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                        "contains forecast_performance before show_weekly_conclusion.ps1"
+                    ),
+                },
+            )
+            self.assertEqual(
+                summary["recurring_missing_conclusion_signal_fixes"],
+                [
+                    {
+                        "signal": "automation.forecast_performance",
+                        "fix": (
+                            "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
+                            "contains forecast_performance before show_weekly_conclusion.ps1"
+                        ),
+                        "count": 2,
+                    }
+                ],
+            )
             self.assertEqual(summary["recommended_action"], "review_recurring_delivery_issues")
             self.assertIn("# 每周最终交付历史摘要", report)
             self.assertIn("最近记录：3", report)
@@ -134,6 +176,8 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
             self.assertIn("missing (2)", report)
             self.assertIn("周结论关键信号：missing", report)
             self.assertIn("automation.forecast_performance (2)", report)
+            self.assertIn("latest_self_analysis_manifest.json", report)
+            self.assertIn("show_weekly_conclusion.ps1", report)
 
     def test_summary_uses_latest_record_per_as_of_date_for_trend_counts(self):
         with tempfile.TemporaryDirectory() as tmp:
