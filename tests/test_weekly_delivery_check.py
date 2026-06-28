@@ -74,6 +74,28 @@ def write_ready_delivery_files(root, as_of_date="2026-06-28"):
                 "path": "outputs/automation/latest_manual_review_decision_merge.json",
                 "exists": False,
             },
+            "automation": {
+                "automation_check": {
+                    "status": "manual_review_needed",
+                    "path": "outputs/automation/latest_automation_check.json",
+                },
+                "data_quality": {
+                    "status": "needs_review",
+                    "score": 79.0,
+                    "path": "outputs/automation/latest_automation_check.json",
+                },
+                "data_quality_history": {
+                    "status": "collecting",
+                    "path": "outputs/automation/latest_automation_check.json",
+                },
+                "forecast_performance": {
+                    "status": "sample_accumulating",
+                    "mature_evaluations": 0,
+                    "direction_hit_rate": None,
+                    "average_excess_return": None,
+                    "path": "outputs/automation/latest_self_analysis_manifest.json",
+                },
+            },
             "outputs": {
                 "markdown": "outputs/automation/latest_weekly_conclusion.md",
                 "json": "outputs/automation/latest_weekly_conclusion.json",
@@ -104,6 +126,8 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertEqual(result["action_items_status"], "ready")
             self.assertEqual(result["action_items_freshness_status"], "fresh")
             self.assertEqual(result["action_items_count"], 7)
+            self.assertEqual(result["conclusion_signal_status"], "ready")
+            self.assertEqual(result["missing_conclusion_signals"], [])
             self.assertEqual(
                 result["conclusion_health_reasons"],
                 ["automation_check:manual_review_needed", "manual_review_pending:12"],
@@ -116,6 +140,31 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertIn("needs_review / 75", report)
             self.assertIn("每周人工处理清单：ready / 7", report)
             self.assertIn("- 候选总数：64", report)
+
+    def test_delivery_check_needs_attention_when_conclusion_key_signals_are_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["automation"].pop("data_quality_history")
+            conclusion["automation"].pop("forecast_performance")
+            write_json(conclusion_path, conclusion)
+
+            from weekly_delivery_check import render_delivery_check, run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+            report = render_delivery_check(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["conclusion_signal_status"], "missing")
+            self.assertEqual(
+                result["missing_conclusion_signals"],
+                ["automation.data_quality_history", "automation.forecast_performance"],
+            )
+            self.assertIn("missing_conclusion_signals", result["attention_reasons"])
+            self.assertIn("automation.data_quality_history", report)
+            self.assertIn("automation.forecast_performance", report)
 
     def test_delivery_check_needs_attention_when_conclusion_health_needs_fix(self):
         with tempfile.TemporaryDirectory() as tmp:

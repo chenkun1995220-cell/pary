@@ -14,6 +14,11 @@ DEFAULT_ACTION_ITEMS_JSON = "outputs/automation/latest_weekly_action_items.json"
 DEFAULT_ACTION_ITEMS_MARKDOWN = "outputs/automation/latest_weekly_action_items.md"
 DEFAULT_OUTPUT = "outputs/automation/latest_weekly_delivery_check.json"
 DEFAULT_HISTORY = "outputs/automation/weekly_delivery_check_history.jsonl"
+REQUIRED_CONCLUSION_SIGNALS = (
+    "automation.data_quality",
+    "automation.data_quality_history",
+    "automation.forecast_performance",
+)
 
 
 def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_days=8):
@@ -31,6 +36,8 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_freshness_status = "unknown"
     action_items_age_days = None
     action_items_count = 0
+    conclusion_signal_status = "unknown"
+    missing_conclusion_signals = []
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -55,6 +62,9 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
             attention_reasons.append("conclusion_health_needs_fix")
         elif conclusion_health["status"] not in {"healthy", "needs_review"}:
             attention_reasons.append("invalid_conclusion_health")
+        conclusion_signal_status, missing_conclusion_signals = _check_conclusion_signals(conclusion)
+        if missing_conclusion_signals:
+            attention_reasons.append("missing_conclusion_signals")
 
     for key, raw_path in _required_outputs(conclusion, conclusion_path).items():
         path = _resolve_path(project_root, raw_path)
@@ -106,6 +116,8 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "manual_review_queue_count": int(conclusion.get("manual_review_queue", {}).get("count", 0) or 0),
         "manual_review_pending_count": int(conclusion.get("manual_review_decisions", {}).get("pending_count", 0) or 0),
         "manual_review_merge_summary_exists": bool(merge_summary.get("exists")),
+        "conclusion_signal_status": conclusion_signal_status,
+        "missing_conclusion_signals": missing_conclusion_signals,
         "action_items_status": action_items_status,
         "action_items_freshness_status": action_items_freshness_status,
         "action_items_age_days": action_items_age_days,
@@ -129,6 +141,7 @@ def render_delivery_check(result):
         f"- 人工复核队列：{result.get('manual_review_queue_count', 0)}",
         f"- 待处理复核：{result.get('manual_review_pending_count', 0)}",
         f"- 合并摘要存在：{result.get('manual_review_merge_summary_exists', False)}",
+        f"- 周结论关键信号：{result.get('conclusion_signal_status', 'unknown')}",
         f"- 每周人工处理清单：{result.get('action_items_status', 'unknown')} / {result.get('action_items_count', 0)}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
     ]
@@ -136,6 +149,10 @@ def render_delivery_check(result):
         lines.extend(["", "## 需要处理"])
         for reason in result["attention_reasons"]:
             lines.append(f"- {reason}")
+    if result.get("missing_conclusion_signals"):
+        lines.extend(["", "## 缺失周结论信号"])
+        for signal in result["missing_conclusion_signals"]:
+            lines.append(f"- {signal}")
     if result.get("missing_output_paths"):
         lines.extend(["", "## 缺失路径"])
         for key, path in result["missing_output_paths"].items():
@@ -274,6 +291,23 @@ def _conclusion_health(conclusion):
         "score": max(0, min(100, score)),
         "reasons": [str(reason) for reason in reasons],
     }
+
+
+def _check_conclusion_signals(conclusion):
+    missing = []
+    for signal in REQUIRED_CONCLUSION_SIGNALS:
+        if _nested_value(conclusion, signal) in (None, ""):
+            missing.append(signal)
+    return ("ready" if not missing else "missing"), missing
+
+
+def _nested_value(payload, dotted_key):
+    current = payload
+    for part in dotted_key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
 
 
 def _resolve_path(project_root, raw_path):
