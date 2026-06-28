@@ -70,6 +70,26 @@ def write_ready_automation(root, as_of_date="2026-06-28"):
     )
 
 
+def write_manual_review_automation(root, as_of_date="2026-06-28"):
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_automation_check.json",
+        {
+            "as_of_date": as_of_date,
+            "status": "manual_review_needed",
+            "recommended_action": "review_manual_queue",
+            "priority_actions": ["review_manual_queue", "review_candidate_findings"],
+        },
+    )
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_ops_check.json",
+        {"as_of_date": as_of_date, "status": "ready"},
+    )
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_ops_history_summary.json",
+        {"latest_as_of_date": as_of_date, "latest_status": "ready"},
+    )
+
+
 def write_three_markets(root):
     write_market(root, "us_universe", "MSFT", "Microsoft")
     write_market(root, "cn_universe", "000300.SZ", "沪深样本")
@@ -136,6 +156,26 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(us_market["status"], "ready")
             self.assertNotIn("outputs/us_universe/latest_run_summary.md", payload["missing_inputs"])
             self.assertIn("outputs/automation/latest_run_summary.md", us_market["source_files"])
+
+    def test_manual_review_automation_check_keeps_conclusion_ready_with_review_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_manual_review_automation(root)
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            self.assertEqual(payload["status"], "ready")
+            self.assertEqual(payload["recommended_action"], "review_manual_queue")
+            self.assertEqual(payload["automation"]["automation_check"]["status"], "manual_review_needed")
+            self.assertEqual(
+                payload["automation"]["automation_check"]["priority_actions"],
+                ["review_manual_queue", "review_candidate_findings"],
+            )
+            self.assertIn("- 优先动作：review_manual_queue", markdown)
 
     def test_extracts_risk_reason_from_investment_summary_table(self):
         with tempfile.TemporaryDirectory() as tmp:

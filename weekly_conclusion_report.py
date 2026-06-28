@@ -62,6 +62,8 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
         state[key] = {
             "status": payload.get("status") or payload.get("latest_status") or "unknown",
             "as_of_date": payload.get("as_of_date") or payload.get("latest_as_of_date"),
+            "recommended_action": payload.get("recommended_action"),
+            "priority_actions": payload.get("priority_actions", []),
             "path": relative_path(project_root, path),
         }
 
@@ -163,7 +165,7 @@ def decide_status(markets, candidates, automation, missing_inputs, warnings):
 
 
 def build_payload(as_of_date, status, automation, markets, candidates, missing_inputs, warnings):
-    recommended_action = "monitor_next_run" if status == "ready" else "review_inputs"
+    recommended_action = choose_recommended_action(status, automation)
     return {
         "conclusion_schema": "weekly_conclusion",
         "conclusion_version": 1,
@@ -373,7 +375,14 @@ def pick(row, *names):
 
 def is_acceptable_status(status):
     normalized = str(status or "").strip().lower()
-    return normalized in {"ready", "ok", "success", "completed", "fresh"}
+    return normalized in {"ready", "ok", "success", "completed", "fresh", "manual_review_needed"}
+
+
+def choose_recommended_action(status, automation):
+    if status != "ready":
+        return "review_inputs"
+    automation_action = automation.get("automation_check", {}).get("recommended_action")
+    return automation_action or "monitor_next_run"
 
 
 def parse_iso_date(value):
