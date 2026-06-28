@@ -304,6 +304,17 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("候选风险说明", doc)
         self.assertIn("候选结论质量检查", doc)
 
+    def test_weekly_conclusion_report_documented(self):
+        doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("scripts\\show_weekly_conclusion.ps1", doc)
+        self.assertIn("outputs/automation/latest_weekly_conclusion.md", doc)
+        self.assertIn("outputs/automation/latest_weekly_conclusion.json", doc)
+        self.assertIn("不重新抓取行情", doc)
+        self.assertIn("不构成投资建议", doc)
+
     def test_self_analysis_script_static_contract(self):
         script = (PROJECT_ROOT / "scripts" / "run_self_analysis.ps1").read_text(
             encoding="utf-8-sig"

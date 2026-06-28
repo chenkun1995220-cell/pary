@@ -48,7 +48,7 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 tmp,
                 "automation-2",
                 "港股大中盘每周筛选",
-                "scripts\\run_hk_weekly.ps1 scripts\\run_self_analysis.ps1 scripts\\show_automation_check.ps1 scripts\\run_weekly_ops_check.ps1 scripts\\show_weekly_ops_history.ps1",
+                "scripts\\run_hk_weekly.ps1 scripts\\run_self_analysis.ps1 scripts\\show_automation_check.ps1 scripts\\run_weekly_ops_check.ps1 scripts\\show_weekly_ops_history.ps1 scripts\\show_weekly_conclusion.ps1",
                 45,
             )
 
@@ -67,6 +67,45 @@ class CodexAutomationAuditTests(unittest.TestCase):
             self.assertIn("show_automation_check.ps1", report)
             self.assertIn("run_weekly_ops_check.ps1", report)
             self.assertIn("show_weekly_ops_history.ps1", report)
+            self.assertIn("show_weekly_conclusion.ps1", report)
+
+    def test_audit_reports_missing_weekly_conclusion_prompt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_automation(
+                tmp,
+                "automation",
+                "美股低估公司每周筛选",
+                "scripts\\run_us_universe_weekly.ps1 不要运行或引用 outputs\\automation\\latest_automation_check.json",
+                5,
+            )
+            write_automation(
+                tmp,
+                "a-300",
+                "A股沪深300每周筛选",
+                "scripts\\run_cn_weekly.ps1 不要运行或引用 outputs\\automation\\latest_automation_check.json",
+                25,
+            )
+            write_automation(
+                tmp,
+                "automation-2",
+                "港股大中盘每周筛选",
+                "scripts\\run_hk_weekly.ps1 scripts\\run_self_analysis.ps1 scripts\\show_automation_check.ps1 scripts\\run_weekly_ops_check.ps1 scripts\\show_weekly_ops_history.ps1",
+                45,
+            )
+
+            from codex_automation_audit import audit_automations, render_audit_report
+
+            result = audit_automations(tmp)
+            report = render_audit_report(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertTrue(
+                any(
+                    "scripts\\show_weekly_conclusion.ps1" in issue
+                    for issue in result["checks"][2]["issues"]
+                )
+            )
+            self.assertIn("weekly_conclusion_report_missing", report)
 
     def test_audit_reports_schedule_and_prompt_drift(self):
         with tempfile.TemporaryDirectory() as tmp:
