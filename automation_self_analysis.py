@@ -490,6 +490,18 @@ def _forecast_performance_snapshot(project_root):
     one_month = sum(item["one_month_mature"] for item in markets)
     prediction_unavailable = sum(item["prediction_unavailable"] for item in markets)
     missing_market_count = sum(1 for item in markets if item["status"] == "missing")
+    average_return = _average(item.get("average_return") for item in markets if item.get("average_return") is not None)
+    average_excess_return = _average(
+        item.get("average_excess_return") for item in markets if item.get("average_excess_return") is not None
+    )
+    direction_hit_rate = hits / mature if mature else None
+    weak_performance = (
+        mature >= 30
+        and (
+            (direction_hit_rate is not None and direction_hit_rate < 0.45)
+            or (average_excess_return is not None and average_excess_return < 0)
+        )
+    )
     if missing_market_count and total == 0:
         status = "missing"
         action = "collect_forecast_evaluations"
@@ -499,6 +511,9 @@ def _forecast_performance_snapshot(project_root):
     elif mature < 30:
         status = "sample_accumulating"
         action = "continue_sample_accumulation"
+    elif weak_performance:
+        status = "performance_review_needed"
+        action = "review_forecast_performance"
     else:
         status = "ready"
         action = "review_forecast_performance"
@@ -514,7 +529,9 @@ def _forecast_performance_snapshot(project_root):
         "prediction_unavailable": prediction_unavailable,
         "missing_market_count": missing_market_count,
         "direction_hits": hits,
-        "direction_hit_rate": hits / mature if mature else None,
+        "direction_hit_rate": direction_hit_rate,
+        "average_return": average_return,
+        "average_excess_return": average_excess_return,
         "markets": markets,
     }
 
@@ -1109,6 +1126,7 @@ def _manifest_weekly_delivery_history_status(weekly_delivery_history):
 def _manifest_automation_decision(
     model_audit_status,
     backtest_status,
+    forecast_performance,
     data_health_status,
     candidate_review_status,
     weekly_ops_history_status,
@@ -1120,6 +1138,7 @@ def _manifest_automation_decision(
         (review_status, recommended_next_action),
         (data_health_status["data_health_status"], data_health_status["data_health_recommended_action"]),
         (backtest_status["backtest_status"], backtest_status["backtest_recommended_action"]),
+        (forecast_performance["status"], forecast_performance["recommended_action"]),
         (
             candidate_review_status["candidate_review_status"],
             candidate_review_status["candidate_review_recommended_action"],
@@ -1138,7 +1157,7 @@ def _manifest_automation_decision(
         action_candidates.append(("manual_review_needed", action))
     priority_actions = []
     for status, action in action_candidates:
-        if status in {"clear", "missing"} or action == "monitor_next_run" or action in priority_actions:
+        if status in {"clear", "missing", "ready"} or action == "monitor_next_run" or action in priority_actions:
             continue
         priority_actions.append(action)
     if not priority_actions:
@@ -1496,6 +1515,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         **_manifest_automation_decision(
             model_audit_status,
             backtest_status,
+            forecast_performance,
             data_health_status,
             candidate_review_status,
             weekly_ops_history_status,

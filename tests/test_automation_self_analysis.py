@@ -577,6 +577,89 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("1w", report)
             self.assertIn("prediction_unavailable", report)
 
+    def test_mature_weak_forecast_performance_requests_review_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for universe, title in (
+                ("us_universe", "US Weekly Screening Run Summary"),
+                ("cn_universe", "CN Weekly Data Summary"),
+                ("hk_universe", "HK Weekly Data Summary"),
+            ):
+                write_text(root / "outputs" / universe / "latest_run_summary.md", f"# {title}\n")
+                write_text(root / "outputs" / universe / "model_audit.md", "- 审计状态：sample_accumulating\n")
+                write_csv(
+                    root / "outputs" / universe / "data_health_history.csv",
+                    ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                    [
+                        {
+                            "run_time": "2026-06-28 14:00:00",
+                            "refresh_status": "online",
+                            "quote_coverage_pct": "100.00",
+                            "financial_coverage_pct": "100.00",
+                            "candidate_count": "0",
+                        }
+                    ],
+                )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            rows = []
+            for index in range(30):
+                rows.append(
+                    {
+                        "market": "US",
+                        "ticker": f"AAA{index:02d}",
+                        "generated_date": "2026-01-01",
+                        "checkpoint_weeks": "4",
+                        "prediction_horizon": "1m",
+                        "evaluation_status": "evaluated",
+                        "direction_hit": "False",
+                        "actual_return": "-0.03",
+                        "excess_return": "-0.04",
+                    }
+                )
+            write_csv(
+                root / "outputs" / "us_universe" / "forecast_evaluations.csv",
+                [
+                    "market",
+                    "ticker",
+                    "generated_date",
+                    "checkpoint_weeks",
+                    "prediction_horizon",
+                    "evaluation_status",
+                    "direction_hit",
+                    "actual_return",
+                    "excess_return",
+                ],
+                rows,
+            )
+            for universe in ("cn_universe", "hk_universe"):
+                write_csv(
+                    root / "outputs" / universe / "forecast_evaluations.csv",
+                    [
+                        "market",
+                        "ticker",
+                        "generated_date",
+                        "checkpoint_weeks",
+                        "prediction_horizon",
+                        "evaluation_status",
+                        "direction_hit",
+                        "actual_return",
+                        "excess_return",
+                    ],
+                    [],
+                )
+
+            result = run_self_analysis(root, as_of_date="2026-06-28")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(manifest["forecast_performance_status"], "performance_review_needed")
+            self.assertEqual(manifest["forecast_performance_recommended_action"], "review_forecast_performance")
+            self.assertEqual(manifest["forecast_performance"]["mature_evaluations"], 30)
+            self.assertEqual(manifest["forecast_performance"]["direction_hit_rate"], 0.0)
+            self.assertAlmostEqual(manifest["forecast_performance"]["average_excess_return"], -0.04)
+            self.assertIn("review_forecast_performance", manifest["automation_priority_actions"])
+            self.assertEqual(check["forecast_performance_status"], "performance_review_needed")
+
     def test_missing_inputs_are_reported_without_failing(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = run_self_analysis(Path(tmp), as_of_date="2026-06-25")

@@ -54,10 +54,20 @@ def _manual_review_count(manifest, history):
     )
 
 
+def _percent_value(value):
+    try:
+        return f"{float(value):.2%}"
+    except (TypeError, ValueError):
+        return "unknown"
+
+
 def _action_template(action_code, manifest):
     history = _delivery_history(manifest)
     manual_review_count = _manual_review_count(manifest, history)
     health_text = _health_reason_text(history)
+    forecast_performance = manifest.get("forecast_performance", {})
+    if not isinstance(forecast_performance, dict):
+        forecast_performance = {}
     templates = {
         "review_manual_queue": {
             "title": "检查本周人工复核队列",
@@ -98,6 +108,20 @@ def _action_template(action_code, manifest):
             "category": "candidate_review",
             "source": f"candidate_review_status:{manifest.get('candidate_review_status', 'unknown')}",
             "recommended_check": "检查候选风险说明、目标价、建议买入价和数据质量说明是否完整。",
+        },
+        "review_forecast_performance": {
+            "title": "复核预测表现",
+            "category": "forecast_performance",
+            "source": (
+                f"forecast_performance_status:{manifest.get('forecast_performance_status', 'unknown')}; "
+                f"mature:{forecast_performance.get('mature_evaluations', 0)}"
+            ),
+            "recommended_check": (
+                "检查 forecast_evaluations.csv、performance_report.md 和预测方向阈值；"
+                f"当前方向命中率 {_percent_value(forecast_performance.get('direction_hit_rate'))}，"
+                f"平均超额收益 {_percent_value(forecast_performance.get('average_excess_return'))}。"
+                "仅生成影子分析或人工复核建议，不自动修改正式模型参数。"
+            ),
         },
         "continue_sample_accumulation": {
             "title": "继续积累模型跟踪样本",
