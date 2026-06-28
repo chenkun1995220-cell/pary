@@ -31,6 +31,37 @@ DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
 DEFAULT_JSON_OUTPUT = "outputs/automation/latest_weekly_conclusion.json"
 MANUAL_REVIEW_QUEUE_PATH = "outputs/automation/latest_manual_review_queue.csv"
 
+ACTION_DETAILS = {
+    "review_manual_queue": {
+        "label": "复核人工队列",
+        "description": "查看本周人工复核队列，优先处理估值口径、风险提示和候选结论缺口。",
+    },
+    "review_data_health": {
+        "label": "复核数据健康",
+        "description": "检查行情、财务字段、数据质量问题和人工覆盖项是否影响候选可信度。",
+    },
+    "review_backtest_evidence": {
+        "label": "复核回测证据",
+        "description": "确认严格时点回测证据等级、弱证据周次和泄漏审计结果。",
+    },
+    "review_candidate_findings": {
+        "label": "复核候选结论",
+        "description": "检查候选公司的风险说明、建议买入价、目标价和跟踪状态是否完整。",
+    },
+    "continue_sample_accumulation": {
+        "label": "继续积累样本",
+        "description": "维持正式模型不变，等待更多成熟跟踪样本后再评估参数优化。",
+    },
+    "monitor_next_run": {
+        "label": "继续观察下次运行",
+        "description": "当前未发现优先处理项，下次自动运行后继续复核输出。",
+    },
+    "review_inputs": {
+        "label": "复核输入文件",
+        "description": "先处理缺失、过期或字段异常的输入文件，再使用本周结论。",
+    },
+}
+
 
 def build_weekly_conclusion(project_root, today=None, max_age_days=8):
     project_root = Path(project_root)
@@ -169,6 +200,7 @@ def decide_status(markets, candidates, automation, missing_inputs, warnings):
 def build_payload(as_of_date, status, automation, markets, candidates, missing_inputs, warnings, manual_review_queue):
     recommended_action = choose_recommended_action(status, automation)
     priority_actions = choose_priority_actions(status, automation, recommended_action)
+    priority_action_details = describe_priority_actions(priority_actions)
     return {
         "conclusion_schema": "weekly_conclusion",
         "conclusion_version": 1,
@@ -176,6 +208,7 @@ def build_payload(as_of_date, status, automation, markets, candidates, missing_i
         "status": status,
         "recommended_action": recommended_action,
         "priority_actions": priority_actions,
+        "priority_action_details": priority_action_details,
         "automation": automation,
         "markets": markets,
         "manual_review_queue": manual_review_queue,
@@ -221,12 +254,16 @@ def render_automation_section(payload):
 
 def render_priority_actions_section(payload):
     lines = ["## 优先动作", ""]
-    actions = payload.get("priority_actions") or []
-    if not actions:
-        lines.append("- monitor_next_run")
-    else:
-        for action in actions:
-            lines.append(f"- {action}")
+    details = payload.get("priority_action_details") or describe_priority_actions(payload.get("priority_actions") or [])
+    lines.extend(["| 动作码 | 中文动作 | 说明 |", "|---|---|---|"])
+    for item in details:
+        lines.append(
+            "| {action} | {label} | {description} |".format(
+                action=escape_cell(item.get("action")),
+                label=escape_cell(item.get("label")),
+                description=escape_cell(item.get("description")),
+            )
+        )
     lines.append("")
     return lines
 
@@ -465,6 +502,26 @@ def choose_priority_actions(status, automation, recommended_action):
     if actions:
         return actions
     return [recommended_action]
+
+
+def describe_priority_actions(actions):
+    details = []
+    for action in actions or ["monitor_next_run"]:
+        template = ACTION_DETAILS.get(
+            action,
+            {
+                "label": "未分类动作",
+                "description": "保留原始动作码，等待后续补充中文说明。",
+            },
+        )
+        details.append(
+            {
+                "action": action,
+                "label": template["label"],
+                "description": template["description"],
+            }
+        )
+    return details
 
 
 def parse_iso_date(value):
