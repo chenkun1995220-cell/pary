@@ -292,6 +292,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("weekly_delivery_history_recommended_action", doc)
         self.assertIn("review_manual_review_backlog", doc)
         self.assertIn("review_delivery_health_issues", doc)
+        self.assertIn("处理人工复核积压", doc)
+        self.assertIn("复查最终交付健康提示", doc)
         self.assertIn("每周人工处理清单", doc)
         self.assertIn("weekly_delivery_history_report.py", doc)
         self.assertIn("recurring_health_reasons", doc)

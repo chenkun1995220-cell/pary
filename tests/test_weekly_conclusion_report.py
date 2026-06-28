@@ -275,6 +275,39 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| review_candidate_findings | 复核候选结论 | 检查候选公司的风险说明", markdown)
             self.assertIn("- 优先动作：review_manual_queue", markdown)
 
+    def test_delivery_health_actions_have_chinese_labels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_automation_check.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "manual_review_needed",
+                    "recommended_action": "review_manual_review_backlog",
+                    "priority_actions": [
+                        "review_manual_review_backlog",
+                        "review_delivery_health_issues",
+                    ],
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            labels = {
+                item["action"]: item["label"]
+                for item in payload["priority_action_details"]
+            }
+            self.assertEqual(labels["review_manual_review_backlog"], "处理人工复核积压")
+            self.assertEqual(labels["review_delivery_health_issues"], "复查最终交付健康提示")
+            self.assertNotIn("未分类动作", markdown)
+            self.assertIn("| review_manual_review_backlog | 处理人工复核积压 |", markdown)
+            self.assertIn("| review_delivery_health_issues | 复查最终交付健康提示 |", markdown)
+
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

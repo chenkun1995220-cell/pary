@@ -52,9 +52,17 @@ ACTION_DETAILS = {
         "label": "复核候选结论",
         "description": "检查候选公司的风险说明、建议买入价、目标价和跟踪状态是否完整。",
     },
+    "review_manual_review_backlog": {
+        "label": "处理人工复核积压",
+        "description": "优先处理未完成的人工复核项，确认是否需要合并 manual_review_decisions.csv 并减少重复待办。",
+    },
     "continue_sample_accumulation": {
         "label": "继续积累样本",
         "description": "维持正式模型不变，等待更多成熟跟踪样本后再评估参数优化。",
+    },
+    "review_delivery_health_issues": {
+        "label": "复查最终交付健康提示",
+        "description": "检查最终交付健康分、周结论和人工处理清单，区分人工积压和流程修复问题。",
     },
     "monitor_next_run": {
         "label": "继续观察下次运行",
