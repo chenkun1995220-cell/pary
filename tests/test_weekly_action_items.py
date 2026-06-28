@@ -19,6 +19,7 @@ def write_manifest(path):
             "review_manual_queue",
             "review_manual_review_backlog",
             "review_delivery_health_issues",
+            "review_data_quality_score",
             "review_forecast_performance",
             "continue_sample_accumulation",
         ],
@@ -33,6 +34,26 @@ def write_manifest(path):
             ],
             "recurring_health_reasons": [
                 {"reason": "manual_review_pending:12", "count": 2}
+            ],
+        },
+        "data_quality_status": "needs_review",
+        "data_quality_score": 79.0,
+        "data_quality_summary": {
+            "status": "needs_review",
+            "average_score": 79.0,
+            "markets": [
+                {
+                    "name": "美股周筛",
+                    "quality_score": 100,
+                    "quality_status": "ready",
+                    "reasons": ["clear"],
+                },
+                {
+                    "name": "港股周筛",
+                    "quality_score": 57,
+                    "quality_status": "needs_review",
+                    "reasons": ["quote_coverage:84.10%", "quote_review_gap:50"],
+                },
             ],
         },
         "data_health_status": "ready",
@@ -68,7 +89,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(payload["as_of_date"], "2026-06-28")
             self.assertEqual(payload["source_manifest"], str(manifest_path))
             self.assertEqual(payload["automation_status"], "manual_review_needed")
-            self.assertEqual(payload["item_count"], 5)
+            self.assertEqual(payload["item_count"], 6)
 
             backlog = next(
                 item
@@ -88,6 +109,17 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             self.assertIn("automation_check:manual_review_needed", delivery["source"])
             self.assertIn("needs_review", delivery["recommended_check"])
+
+            data_quality = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_data_quality_score"
+            )
+            self.assertEqual(data_quality["category"], "data_quality")
+            self.assertIn("needs_review", data_quality["source"])
+            self.assertIn("79", data_quality["source"])
+            self.assertIn("港股周筛", data_quality["recommended_check"])
+            self.assertIn("57", data_quality["recommended_check"])
 
             sample = next(
                 item
@@ -110,6 +142,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
 
             self.assertIn("# 每周人工处理清单", report)
             self.assertIn("review_manual_review_backlog", report)
+            self.assertIn("review_data_quality_score", report)
             self.assertIn("review_forecast_performance", report)
             self.assertIn("人工复核积压", report)
             self.assertIn("不抓取行情", report)
@@ -145,7 +178,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, output)
             payload = json.loads(output_path.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["action_items_schema"], "weekly_action_items")
-            self.assertEqual(payload["item_count"], 5)
+            self.assertEqual(payload["item_count"], 6)
             self.assertIn("review_delivery_health_issues", output)
             self.assertIn("每周人工处理清单", report_path.read_text(encoding="utf-8-sig"))
 

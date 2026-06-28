@@ -61,6 +61,29 @@ def _percent_value(value):
         return "unknown"
 
 
+def _data_quality_text(manifest):
+    summary = manifest.get("data_quality_summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    markets = summary.get("markets", [])
+    if not isinstance(markets, list):
+        markets = []
+    ranked = sorted(
+        [market for market in markets if isinstance(market, dict)],
+        key=lambda item: float(item.get("quality_score", 0) or 0),
+    )
+    if not ranked:
+        return "暂无市场评分明细"
+    weakest = ranked[0]
+    reasons = "; ".join(weakest.get("reasons", []) or ["none"])
+    return (
+        f"优先复核 {weakest.get('name', 'unknown')}："
+        f"评分 {weakest.get('quality_score', 0)}，"
+        f"状态 {weakest.get('quality_status', 'unknown')}，"
+        f"原因 {reasons}"
+    )
+
+
 def _action_template(action_code, manifest):
     history = _delivery_history(manifest)
     manual_review_count = _manual_review_count(manifest, history)
@@ -96,6 +119,19 @@ def _action_template(action_code, manifest):
             "category": "data_health",
             "source": f"data_health_status:{manifest.get('data_health_status', 'unknown')}",
             "recommended_check": "检查三市场 data_health_history.csv、quote_gaps.csv 和缺口分类，确认是否为可接受的数据缺口。",
+        },
+        "review_data_quality_score": {
+            "title": "复核三市场数据质量评分",
+            "category": "data_quality",
+            "source": (
+                f"data_quality_status:{manifest.get('data_quality_status', 'unknown')}; "
+                f"score:{manifest.get('data_quality_score', 0)}"
+            ),
+            "recommended_check": (
+                "检查 latest_self_analysis.md 的“数据质量评分”段落，并核对三市场 "
+                f"data_health_history.csv、quote_gaps.csv 和 valuation_review_items.csv；{_data_quality_text(manifest)}。"
+                "该动作只用于人工复核数据底座，不自动修改正式模型参数。"
+            ),
         },
         "review_backtest_evidence": {
             "title": "复查回测证据质量",

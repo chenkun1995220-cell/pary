@@ -287,6 +287,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("data_quality_summary", manifest)
             self.assertEqual(manifest["data_quality_status"], "needs_review")
             self.assertEqual(manifest["data_quality_score"], quality["average_score"])
+            self.assertIn("review_data_quality_score", manifest["automation_priority_actions"])
             self.assertEqual(automation_check["data_quality_status"], "needs_review")
             self.assertEqual(automation_check["data_quality_score"], quality["average_score"])
 

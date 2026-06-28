@@ -1249,6 +1249,7 @@ def _manifest_automation_decision(
     backtest_status,
     forecast_performance,
     data_health_status,
+    data_quality_summary,
     candidate_review_status,
     weekly_ops_history_status,
     weekly_delivery_history_status,
@@ -1258,22 +1259,34 @@ def _manifest_automation_decision(
     action_candidates = [
         (review_status, recommended_next_action),
         (data_health_status["data_health_status"], data_health_status["data_health_recommended_action"]),
-        (backtest_status["backtest_status"], backtest_status["backtest_recommended_action"]),
-        (forecast_performance["status"], forecast_performance["recommended_action"]),
-        (
-            candidate_review_status["candidate_review_status"],
-            candidate_review_status["candidate_review_recommended_action"],
-        ),
-        (
-            weekly_ops_history_status["weekly_ops_history_status"],
-            weekly_ops_history_status["weekly_ops_history_recommended_action"],
-        ),
-        (
-            weekly_delivery_history_status["weekly_delivery_history_status"],
-            weekly_delivery_history_status["weekly_delivery_history_recommended_action"],
-        ),
-        (model_audit_status["model_audit_status"], model_audit_status["model_audit_recommended_action"]),
     ]
+    data_quality_status = data_quality_summary.get("status", "unknown")
+    if data_quality_status not in {"ready", "watch"}:
+        action_candidates.append(
+            (
+                data_quality_status,
+                data_quality_summary.get("recommended_action", "review_data_quality_score"),
+            )
+        )
+    action_candidates.extend(
+        [
+            (backtest_status["backtest_status"], backtest_status["backtest_recommended_action"]),
+            (forecast_performance["status"], forecast_performance["recommended_action"]),
+            (
+                candidate_review_status["candidate_review_status"],
+                candidate_review_status["candidate_review_recommended_action"],
+            ),
+            (
+                weekly_ops_history_status["weekly_ops_history_status"],
+                weekly_ops_history_status["weekly_ops_history_recommended_action"],
+            ),
+            (
+                weekly_delivery_history_status["weekly_delivery_history_status"],
+                weekly_delivery_history_status["weekly_delivery_history_recommended_action"],
+            ),
+            (model_audit_status["model_audit_status"], model_audit_status["model_audit_recommended_action"]),
+        ]
+    )
     for action in weekly_delivery_history_status.get("weekly_delivery_history_priority_actions", []):
         action_candidates.append(("manual_review_needed", action))
     priority_actions = []
@@ -1665,6 +1678,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             backtest_status,
             forecast_performance,
             data_health_status,
+            data_quality_summary,
             candidate_review_status,
             weekly_ops_history_status,
             weekly_delivery_history_status,

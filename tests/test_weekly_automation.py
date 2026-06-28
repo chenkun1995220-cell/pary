@@ -353,6 +353,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("forecast_performance_recommended_action", doc)
         self.assertIn("1周成熟评估", doc)
         self.assertIn("prediction_unavailable", doc)
+        self.assertIn("review_data_quality_score", doc)
         self.assertIn("review_forecast_performance", doc)
         self.assertIn("方向命中率", doc)
         self.assertIn("平均超额收益", doc)
