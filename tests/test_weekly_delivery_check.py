@@ -110,6 +110,7 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             root = Path(tmp)
             write_ready_delivery_files(root)
             output = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            history = root / "outputs" / "automation" / "weekly_delivery_check_history.jsonl"
 
             result = subprocess.run(
                 [
@@ -121,6 +122,8 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
                     "2026-06-28",
                     "--output",
                     str(output),
+                    "--history",
+                    str(history),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -135,12 +138,24 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertEqual(payload["delivery_check_schema"], "weekly_delivery_check")
             self.assertEqual(payload["status"], "ready")
             self.assertIn("每周最终交付验收", result.stdout)
+            history_rows = [
+                json.loads(line)
+                for line in history.read_text(encoding="utf-8-sig").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(history_rows), 1)
+            self.assertEqual(history_rows[0]["history_schema"], "weekly_delivery_check_history")
+            self.assertEqual(history_rows[0]["history_version"], 1)
+            self.assertEqual(history_rows[0]["delivery_check_schema"], "weekly_delivery_check")
+            self.assertEqual(history_rows[0]["status"], "ready")
 
     def test_powershell_wrapper_static_contract(self):
         script = (PROJECT_ROOT / "scripts" / "run_weekly_delivery_check.ps1").read_text(encoding="utf-8-sig")
 
         self.assertIn("weekly_delivery_check.py", script)
         self.assertIn("latest_weekly_delivery_check.json", script)
+        self.assertIn("weekly_delivery_check_history.jsonl", script)
+        self.assertIn("--history", script)
         self.assertIn("-NoProfile -ExecutionPolicy Bypass", script)
         self.assertIn("codex-primary-runtime", script)
 

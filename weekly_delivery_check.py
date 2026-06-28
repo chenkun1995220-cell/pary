@@ -7,8 +7,11 @@ from pathlib import Path
 
 DELIVERY_CHECK_SCHEMA = "weekly_delivery_check"
 DELIVERY_CHECK_VERSION = 1
+HISTORY_SCHEMA = "weekly_delivery_check_history"
+HISTORY_VERSION = 1
 DEFAULT_CONCLUSION_JSON = "outputs/automation/latest_weekly_conclusion.json"
 DEFAULT_OUTPUT = "outputs/automation/latest_weekly_delivery_check.json"
+DEFAULT_HISTORY = "outputs/automation/weekly_delivery_check_history.jsonl"
 
 
 def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_days=8):
@@ -116,6 +119,19 @@ def write_delivery_check(result, output):
     return output_path
 
 
+def append_delivery_check_history(result, history):
+    history_path = Path(history)
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "history_schema": HISTORY_SCHEMA,
+        "history_version": HISTORY_VERSION,
+        **result,
+    }
+    with history_path.open("a", encoding="utf-8-sig") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+    return history_path
+
+
 def _required_outputs(conclusion, conclusion_path):
     outputs = conclusion.get("outputs", {}) if conclusion else {}
     return {
@@ -188,6 +204,7 @@ def main(argv=None):
     parser.add_argument("--today", default="")
     parser.add_argument("--max-age-days", type=int, default=8)
     parser.add_argument("--output", default="")
+    parser.add_argument("--history", default="")
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root)
@@ -199,6 +216,8 @@ def main(argv=None):
     )
     if args.output:
         write_delivery_check(result, args.output)
+    if args.history:
+        append_delivery_check_history(result, args.history)
     print(render_delivery_check(result), end="")
     if result["status"] != "ready":
         raise SystemExit(1)
