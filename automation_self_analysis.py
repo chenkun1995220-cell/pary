@@ -919,6 +919,8 @@ def _automation_check_payload(manifest, manifest_validation):
         "manual_review_queue_count": manifest.get("manual_review_queue_count", 0),
         "manual_review_repeat_count": manifest.get("manual_review_repeat_count", 0),
         "data_health_status": manifest.get("data_health_status", "unknown"),
+        "data_quality_status": manifest.get("data_quality_status", "unknown"),
+        "data_quality_score": manifest.get("data_quality_score", 0),
         "candidate_review_status": manifest.get("candidate_review_status", "unknown"),
         "weekly_ops_history_status": manifest.get("weekly_ops_history_status", "unknown"),
         "weekly_delivery_history_status": manifest.get("weekly_delivery_history_status", "unknown"),
@@ -1016,6 +1018,125 @@ def _manifest_data_health_status(health):
         "data_health_recommended_action": "monitor_next_run",
         "data_health_risk_count": 0,
         "data_health_risks": [],
+    }
+
+
+def _coverage_penalty(value, threshold=95.0, multiplier=2.0, cap=30):
+    if value is None:
+        return 0
+    if value >= threshold:
+        return 0
+    return min(cap, int(round((threshold - value) * multiplier)))
+
+
+def _quality_status(score):
+    if score >= 90:
+        return "ready"
+    if score >= 70:
+        return "watch"
+    return "needs_review"
+
+
+def _market_data_quality(item):
+    score = 100
+    reasons = []
+    if item.get("status") != "ready":
+        return {
+            "name": item.get("name", ""),
+            "quality_score": 0,
+            "quality_status": "needs_review",
+            "recommended_action": "restore_data_health_snapshot",
+            "reasons": ["data_health_missing"],
+            "path": item.get("path", ""),
+        }
+
+    refresh_status = item.get("refresh_status", "unknown")
+    if refresh_status not in {"online", "n/a", "unknown"}:
+        score -= 15
+        reasons.append(f"refresh_status:{refresh_status}")
+
+    quote_penalty = _coverage_penalty(item.get("quote_coverage_number"))
+    if quote_penalty:
+        score -= quote_penalty
+        reasons.append(f"quote_coverage:{item.get('quote_coverage', 'unknown')}")
+
+    financial_penalty = _coverage_penalty(item.get("financial_coverage_number"))
+    if financial_penalty:
+        score -= financial_penalty
+        reasons.append(f"financial_coverage:{item.get('financial_coverage', 'unknown')}")
+
+    refetch = _as_int(item.get("quote_gap_refetch_count")) or 0
+    if refetch > 0:
+        score -= min(15, refetch * 3)
+        reasons.append(f"quote_refetch_gap:{refetch}")
+
+    review_gaps = _as_int(item.get("quote_gap_review_count")) or 0
+    if review_gaps > 0:
+        score -= min(15, review_gaps * 3)
+        reasons.append(f"quote_review_gap:{review_gaps}")
+
+    blocked = _as_int(item.get("data_quality_blocked")) or 0
+    if blocked > 0:
+        score -= 20
+        reasons.append(f"data_quality_blocked:{blocked}")
+
+    affected = _as_int(item.get("affected_candidate_count")) or 0
+    if affected > 0:
+        score -= min(20, affected * 5)
+        reasons.append(f"affected_candidate_count:{affected}")
+
+    override_review = _as_int(item.get("share_override_review")) or 0
+    if override_review > 0:
+        score -= min(10, override_review * 5)
+        reasons.append(f"share_override_review:{override_review}")
+
+    score = max(0, min(100, score))
+    status = _quality_status(score)
+    if status == "needs_review":
+        action = "review_data_quality_score"
+    elif status == "watch":
+        action = "monitor_data_quality_drift"
+    else:
+        action = "monitor_next_run"
+    return {
+        "name": item.get("name", ""),
+        "quality_score": score,
+        "quality_status": status,
+        "recommended_action": action,
+        "reasons": reasons or ["clear"],
+        "path": item.get("path", ""),
+    }
+
+
+def _data_quality_summary(health):
+    markets = [_market_data_quality(item) for item in health]
+    if not markets:
+        return {
+            "summary_schema": "data_quality_summary",
+            "summary_version": 1,
+            "status": "missing",
+            "average_score": 0,
+            "recommended_action": "collect_data_quality_inputs",
+            "markets": [],
+        }
+    average_score = round(sum(item["quality_score"] for item in markets) / len(markets), 2)
+    statuses = [item["quality_status"] for item in markets]
+    if "needs_review" in statuses:
+        status = "needs_review"
+        action = "review_data_quality_score"
+    elif "watch" in statuses:
+        status = "watch"
+        action = "monitor_data_quality_drift"
+    else:
+        status = "ready"
+        action = "monitor_next_run"
+    return {
+        "summary_schema": "data_quality_summary",
+        "summary_version": 1,
+        "status": status,
+        "average_score": average_score,
+        "recommended_action": action,
+        "markets": markets,
     }
 
 
@@ -1208,6 +1329,7 @@ def _render(
     health,
     candidate_reviews,
     forecast_performance=None,
+    data_quality_summary=None,
     manual_review_history_repeats=None,
     manual_review_queue=None,
     weekly_ops_history=None,
@@ -1219,6 +1341,7 @@ def _render(
     manual_review_history_repeats = manual_review_history_repeats or []
     weekly_ops_history = weekly_ops_history or {}
     weekly_delivery_history = weekly_delivery_history or {}
+    data_quality_summary = data_quality_summary or _data_quality_summary(health)
     forecast_performance = forecast_performance or {
         "status": "unknown",
         "recommended_action": "collect_forecast_evaluations",
@@ -1285,6 +1408,25 @@ def _render(
                 )
             if samples:
                 lines.append(f"- {item['name']} 估值复核样例：" + "; ".join(samples))
+    lines.extend(
+        [
+            "",
+            "## 数据质量评分",
+            "",
+            f"- status: {data_quality_summary.get('status', 'unknown')}",
+            f"- average_score: {data_quality_summary.get('average_score', 0)}",
+            f"- recommended_action: {data_quality_summary.get('recommended_action', 'unknown')}",
+            "",
+            "| 模块 | 评分 | 状态 | 原因 |",
+            "|---|---:|---|---|",
+        ]
+    )
+    for item in data_quality_summary.get("markets", []):
+        reasons = "; ".join(item.get("reasons", [])) or "clear"
+        lines.append(
+            f"| {item.get('name', '')} | {item.get('quality_score', 0)} | "
+            f"{item.get('quality_status', '')} | {reasons} |"
+        )
     lines.extend(
         [
             "",
@@ -1444,6 +1586,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
     forecast_performance = _forecast_performance_snapshot(project_root)
+    data_quality_summary = _data_quality_summary(health)
     weekly_ops_history = _weekly_ops_history_snapshot(project_root)
     weekly_delivery_history = _weekly_delivery_history_snapshot(project_root)
     manual_review_queue = _manual_review_queue(health, candidate_reviews)
@@ -1471,6 +1614,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             health,
             candidate_reviews,
             forecast_performance,
+            data_quality_summary,
             manual_review_history_repeats,
             manual_review_queue,
             weekly_ops_history,
@@ -1503,6 +1647,10 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "forecast_performance_recommended_action": forecast_performance.get("recommended_action", "unknown"),
         "health": _manifest_health(health),
         **data_health_status,
+        "data_quality_summary": data_quality_summary,
+        "data_quality_status": data_quality_summary.get("status", "unknown"),
+        "data_quality_score": data_quality_summary.get("average_score", 0),
+        "data_quality_recommended_action": data_quality_summary.get("recommended_action", "unknown"),
         **candidate_review_status,
         "weekly_ops_history": weekly_ops_history,
         **weekly_ops_history_status,
@@ -1548,6 +1696,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "markets": markets,
         "backtest": backtest,
         "forecast_performance": forecast_performance,
+        "data_quality_summary": data_quality_summary,
         "health": health,
         "candidate_reviews": candidate_reviews,
         "weekly_ops_history": weekly_ops_history,
@@ -1575,6 +1724,10 @@ REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
     "health",
     "data_health_status",
     "data_health_recommended_action",
+    "data_quality_summary",
+    "data_quality_status",
+    "data_quality_score",
+    "data_quality_recommended_action",
     "candidate_review_status",
     "candidate_review_recommended_action",
     "weekly_ops_history",

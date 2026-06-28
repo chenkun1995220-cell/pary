@@ -200,6 +200,96 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertNotIn("数据健康需关注：A股周筛 行情缺口 2", report)
             self.assertIn("数据健康需关注：A股周筛 行情可重抓缺口 2", report)
 
+    def test_self_analysis_scores_cross_market_data_quality(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            market_configs = [
+                ("us_universe", "US Weekly Screening Run Summary", "US1", "online", "100.00", "100.00", "0", "0", "0"),
+                ("cn_universe", "CN Weekly Data Summary", "CN1", "online", "92.00", "100.00", "0", "0", "0"),
+                ("hk_universe", "HK Weekly Data Summary", "HK1", "cache_fallback", "84.00", "90.00", "1", "2", "0"),
+            ]
+            for folder, title, ticker, refresh, quote, financial, blocked, affected, override in market_configs:
+                write_text(
+                    root / "outputs" / folder / "latest_run_summary.md",
+                    "\n".join(
+                        [
+                            f"# {title}",
+                            "- Candidate count: 1",
+                            f"- Candidate tickers: {ticker}",
+                            f"- Model audit: outputs/{folder}/model_audit.md",
+                            f"- Data health history: outputs/{folder}/data_health_history.csv",
+                            f"- Quote gaps: outputs/{folder}/quote_gaps.csv",
+                        ]
+                    ),
+                )
+                write_text(root / "outputs" / folder / "model_audit.md", "- Audit status: sample_accumulating\n")
+                write_csv(
+                    root / "outputs" / folder / "data_health_history.csv",
+                    [
+                        "run_time",
+                        "refresh_status",
+                        "quote_coverage_pct",
+                        "financial_coverage_pct",
+                        "candidate_count",
+                        "data_quality_blocked",
+                        "affected_candidate_count",
+                        "share_override_review",
+                    ],
+                    [
+                        {
+                            "run_time": "2026-06-28 14:05:00",
+                            "refresh_status": refresh,
+                            "quote_coverage_pct": quote,
+                            "financial_coverage_pct": financial,
+                            "candidate_count": "1",
+                            "data_quality_blocked": blocked,
+                            "affected_candidate_count": affected,
+                            "share_override_review": override,
+                        }
+                    ],
+                )
+            write_csv(
+                root / "outputs" / "cn_universe" / "quote_gaps.csv",
+                ["ticker", "issue_type"],
+                [
+                    {"ticker": "CN1", "issue_type": "partial_quote"},
+                    {"ticker": "CN2", "issue_type": "missing_quote"},
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "quote_gaps.csv",
+                ["ticker", "remediation_type", "review_category"],
+                [
+                    {
+                        "ticker": "HK1",
+                        "remediation_type": "manual_financial_review",
+                        "review_category": "special_industry_valuation_review",
+                    }
+                ],
+            )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+
+            result = run_self_analysis(root, as_of_date="2026-06-28")
+
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            automation_check = json.loads(
+                Path(result["automation_check_output"]).read_text(encoding="utf-8-sig")
+            )
+            quality = result["data_quality_summary"]
+
+            self.assertIn("## 数据质量评分", report)
+            self.assertEqual(quality["status"], "needs_review")
+            self.assertEqual(quality["recommended_action"], "review_data_quality_score")
+            self.assertEqual([item["quality_status"] for item in quality["markets"]], ["ready", "watch", "needs_review"])
+            self.assertEqual(quality["markets"][0]["quality_score"], 100)
+            self.assertLess(quality["markets"][2]["quality_score"], 70)
+            self.assertIn("data_quality_summary", manifest)
+            self.assertEqual(manifest["data_quality_status"], "needs_review")
+            self.assertEqual(manifest["data_quality_score"], quality["average_score"])
+            self.assertEqual(automation_check["data_quality_status"], "needs_review")
+            self.assertEqual(automation_check["data_quality_score"], quality["average_score"])
+
     def test_quote_gap_count_ignores_ready_status_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
