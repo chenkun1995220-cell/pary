@@ -1,5 +1,6 @@
 import argparse
 import csv
+import json
 from pathlib import Path
 
 
@@ -84,19 +85,78 @@ def merge_decisions(template_rows, existing_rows):
         "merged": merged_count,
         "skipped_pending": skipped_pending,
         "skipped_invalid": skipped_invalid,
+        "by_status": count_by_status([merged[key] for key in order]),
     }
+
+
+def count_by_status(rows):
+    counts = {}
+    for row in rows:
+        status = row.get("decision_status") or ""
+        if not status:
+            continue
+        counts[status] = counts.get(status, 0) + 1
+    return [{"decision_status": status, "count": count} for status, count in counts.items()]
+
+
+def build_summary(result, template_path, decisions_path):
+    return {
+        "merge_schema": "manual_review_decision_merge",
+        "merge_version": 1,
+        "template": str(template_path),
+        "decisions": str(decisions_path),
+        "merged": result["merged"],
+        "skipped_pending": result["skipped_pending"],
+        "skipped_invalid": result["skipped_invalid"],
+        "row_count": len(result["rows"]),
+        "by_status": result["by_status"],
+    }
+
+
+def render_summary_markdown(summary):
+    lines = [
+        "# 人工复核结果合并摘要",
+        "",
+        f"- 模板文件：{summary['template']}",
+        f"- 结果文件：{summary['decisions']}",
+        f"- 合并/更新：{summary['merged']}",
+        f"- 跳过 pending：{summary['skipped_pending']}",
+        f"- 跳过无效：{summary['skipped_invalid']}",
+        f"- 当前正式结果行数：{summary['row_count']}",
+        "",
+        "| 状态 | 数量 |",
+        "|---|---:|",
+    ]
+    for item in summary["by_status"]:
+        lines.append(f"| {item['decision_status']} | {item['count']} |")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_summary_outputs(summary, json_path=None, markdown_path=None):
+    if json_path:
+        path = Path(json_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8-sig")
+    if markdown_path:
+        path = Path(markdown_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(render_summary_markdown(summary), encoding="utf-8-sig")
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--template", required=True)
     parser.add_argument("--decisions", required=True)
+    parser.add_argument("--summary-json", default=None)
+    parser.add_argument("--summary-md", default=None)
     args = parser.parse_args(argv)
 
     template_rows = read_rows(args.template)
     existing_rows = read_rows(args.decisions)
     result = merge_decisions(template_rows, existing_rows)
     write_rows(args.decisions, result["rows"])
+    summary = build_summary(result, args.template, args.decisions)
+    write_summary_outputs(summary, json_path=args.summary_json, markdown_path=args.summary_md)
     print(
         "merged={merged} skipped_pending={skipped_pending} skipped_invalid={skipped_invalid} output={output}".format(
             merged=result["merged"],
