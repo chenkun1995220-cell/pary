@@ -27,6 +27,9 @@ $BacktestEvaluations = Join-Path $OutputRoot "backtest_evaluations.csv"
 $ModelComparison = Join-Path $OutputRoot "model_comparison.csv"
 $BacktestReport = Join-Path $OutputRoot "backtest_report.md"
 $BacktestSummary = Join-Path $AutomationRoot "latest_backtest_summary.md"
+$MembershipEvidenceGapsJson = Join-Path $AutomationRoot "latest_membership_evidence_gaps.json"
+$MembershipEvidenceGapsCsv = Join-Path $AutomationRoot "latest_membership_evidence_gaps.csv"
+$MembershipEvidenceGapsMarkdown = Join-Path $AutomationRoot "latest_membership_evidence_gaps.md"
 $LeakageAudit = Join-Path $OutputRoot "data_leakage_audit.md"
 $PreparedPriceHistory = Join-Path $OutputRoot "price_history.csv"
 $PreparedBenchmarkHistory = Join-Path $OutputRoot "benchmark_history.csv"
@@ -68,6 +71,10 @@ Write-Host "checkpoint.json -> $Checkpoint"
 Write-Host "backtest_evaluations.csv -> $BacktestEvaluations"
 Write-Host "backtest_report.md -> $BacktestReport"
 Write-Host "latest_backtest_summary.md -> $BacktestSummary"
+Write-Host "backtest_membership_evidence_gaps.py -> $MembershipEvidenceGapsCsv"
+Write-Host "latest_membership_evidence_gaps.json -> $MembershipEvidenceGapsJson"
+Write-Host "latest_membership_evidence_gaps.csv -> $MembershipEvidenceGapsCsv"
+Write-Host "latest_membership_evidence_gaps.md -> $MembershipEvidenceGapsMarkdown"
 Write-Host "data_leakage_audit.md -> $LeakageAudit"
 foreach ($step in $Steps) { Write-Host $step }
 Write-Host "Default command: scripts\run_us_point_in_time_backtest.ps1 -PilotWeeks 8"
@@ -254,6 +261,15 @@ try {
   } else {
     "monitor_next_run"
   }
+  & $Python -B backtest_membership_evidence_gaps.py `
+    --membership $HistoricalMembership `
+    --output-json $MembershipEvidenceGapsJson `
+    --output-csv $MembershipEvidenceGapsCsv `
+    --output-md $MembershipEvidenceGapsMarkdown `
+    --limit 50
+  if ($LASTEXITCODE -ne 0) {
+    throw "Membership evidence gap report failed with exit code $LASTEXITCODE."
+  }
   $summary = @(
     "# US Point-in-Time Backtest Summary",
     "",
@@ -266,6 +282,9 @@ try {
     "- Evidence status: $evidenceStatus",
     "- Weak evidence weeks: $weakWeeksValue",
     "- Evidence next action: $evidenceNextAction",
+    "- Membership evidence gaps CSV: $MembershipEvidenceGapsCsv",
+    "- Membership evidence gaps report: $MembershipEvidenceGapsMarkdown",
+    "- Membership evidence gaps JSON: $MembershipEvidenceGapsJson",
     "- Backtest report: $BacktestReport",
     "- Data leakage audit: $LeakageAudit",
     "- Model comparison: $ModelComparison",
