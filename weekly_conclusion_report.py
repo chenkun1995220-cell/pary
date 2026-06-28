@@ -219,6 +219,44 @@ def decide_status(markets, candidates, automation, missing_inputs, warnings):
     return "ready"
 
 
+def summarize_health(status, automation, missing_inputs, warnings, manual_review_decisions):
+    score = 100
+    reasons = []
+    if status != "ready":
+        score -= 40
+        reasons.append(f"conclusion_status:{status}")
+    if missing_inputs:
+        score -= 20
+        reasons.append(f"missing_inputs:{len(set(missing_inputs))}")
+    if warnings:
+        score -= 20
+        reasons.append(f"warnings:{len(set(warnings))}")
+    for key, entry in automation.items():
+        entry_status = entry.get("status", "unknown")
+        if entry_status == "manual_review_needed":
+            score -= 10
+            reasons.append(f"{key}:manual_review_needed")
+        elif not is_acceptable_status(entry_status):
+            score -= 25
+            reasons.append(f"{key}:{entry_status}")
+    pending_count = int(manual_review_decisions.get("pending_count", 0) or 0)
+    if pending_count:
+        score -= 15
+        reasons.append(f"manual_review_pending:{pending_count}")
+    score = max(0, min(100, score))
+    if score >= 95:
+        health_status = "healthy"
+    elif score >= 60:
+        health_status = "needs_review"
+    else:
+        health_status = "needs_fix"
+    return {
+        "score": score,
+        "status": health_status,
+        "reasons": reasons,
+    }
+
+
 def build_payload(
     as_of_date,
     status,
@@ -234,6 +272,7 @@ def build_payload(
     recommended_action = choose_recommended_action(status, automation)
     priority_actions = choose_priority_actions(status, automation, recommended_action)
     priority_action_details = describe_priority_actions(priority_actions)
+    health = summarize_health(status, automation, missing_inputs, warnings, manual_review_decisions)
     return {
         "conclusion_schema": "weekly_conclusion",
         "conclusion_version": 1,
@@ -242,6 +281,7 @@ def build_payload(
         "recommended_action": recommended_action,
         "priority_actions": priority_actions,
         "priority_action_details": priority_action_details,
+        "health": health,
         "automation": automation,
         "markets": markets,
         "manual_review_queue": manual_review_queue,
@@ -276,11 +316,13 @@ def render_markdown(payload, per_market_limit=10):
 
 def render_automation_section(payload):
     automation = payload["automation"]
+    health = payload.get("health", {})
     lines = [
         "## 自动化状态",
         "",
         f"- 本周日期：{payload['as_of_date']}",
         f"- 结论状态：{payload['status']}",
+        f"- overall_health：{health.get('status', 'unknown')} / {health.get('score', 0)}",
         f"- 优先动作：{payload['recommended_action']}",
     ]
     for key in ("automation_check", "weekly_ops_check", "weekly_ops_history", "weekly_delivery_history"):

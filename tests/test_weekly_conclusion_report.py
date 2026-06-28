@@ -255,6 +255,9 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(payload["status"], "ready")
             self.assertEqual(payload["recommended_action"], "review_manual_queue")
             self.assertEqual(payload["priority_actions"], ["review_manual_queue", "review_candidate_findings"])
+            self.assertEqual(payload["health"]["status"], "needs_review")
+            self.assertEqual(payload["health"]["score"], 90)
+            self.assertIn("automation_check:manual_review_needed", payload["health"]["reasons"])
             self.assertEqual(payload["priority_action_details"][0]["action"], "review_manual_queue")
             self.assertEqual(payload["priority_action_details"][0]["label"], "复核人工队列")
             self.assertIn("查看本周人工复核队列", payload["priority_action_details"][0]["description"])
@@ -264,6 +267,8 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 ["review_manual_queue", "review_candidate_findings"],
             )
             self.assertEqual(payload["automation"]["weekly_delivery_history"]["status"], "ready")
+            self.assertIn("overall_health", markdown)
+            self.assertIn("needs_review / 90", markdown)
             self.assertIn("## 优先动作", markdown)
             self.assertIn("weekly_delivery_history", markdown)
             self.assertIn("| review_manual_queue | 复核人工队列 | 查看本周人工复核队列", markdown)
