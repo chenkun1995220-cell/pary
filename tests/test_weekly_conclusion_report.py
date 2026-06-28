@@ -395,12 +395,51 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertTrue(js.exists())
             self.assertEqual(json.loads(js.read_text(encoding="utf-8-sig"))["status"], "ready")
 
+    def test_cli_writes_manual_review_decisions_template(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_manual_review_automation(root)
+            write_manual_review_queue(root)
+            write_manual_review_decisions(root)
+
+            template = root / "outputs" / "automation" / "manual_review_decisions_template.csv"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "weekly_conclusion_report.py"),
+                    "--project-root",
+                    str(root),
+                    "--today",
+                    "2026-06-28",
+                ],
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(template.exists())
+            with template.open("r", newline="", encoding="utf-8-sig") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["ticker"], "300122.SZ")
+            self.assertEqual(rows[0]["decision_status"], "accepted")
+            self.assertEqual(rows[0]["decision_note"], "现金流和行业周期仍可解释，保留跟踪。")
+            self.assertEqual(rows[1]["ticker"], "01548.HK")
+            self.assertEqual(rows[1]["decision_status"], "pending")
+            self.assertEqual(rows[1]["decision_note"], "")
+
     def test_powershell_wrapper_static_contract(self):
         script = (PROJECT_ROOT / "scripts" / "show_weekly_conclusion.ps1").read_text(encoding="utf-8-sig")
 
         self.assertIn("weekly_conclusion_report.py", script)
         self.assertIn("latest_weekly_conclusion.md", script)
         self.assertIn("latest_weekly_conclusion.json", script)
+        self.assertIn("manual_review_decisions_template.csv", script)
+        self.assertIn("--decisions-template-output", script)
         self.assertIn("-NoProfile -ExecutionPolicy Bypass", script)
         self.assertIn("codex-primary-runtime", script)
 

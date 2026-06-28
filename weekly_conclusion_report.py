@@ -31,6 +31,7 @@ DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
 DEFAULT_JSON_OUTPUT = "outputs/automation/latest_weekly_conclusion.json"
 MANUAL_REVIEW_QUEUE_PATH = "outputs/automation/latest_manual_review_queue.csv"
 MANUAL_REVIEW_DECISIONS_PATH = "outputs/automation/manual_review_decisions.csv"
+MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT = "outputs/automation/manual_review_decisions_template.csv"
 
 ACTION_DETAILS = {
     "review_manual_queue": {
@@ -247,6 +248,7 @@ def build_payload(
         "outputs": {
             "markdown": DEFAULT_MARKDOWN_OUTPUT,
             "json": DEFAULT_JSON_OUTPUT,
+            "manual_review_decisions_template": MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT,
         },
     }
 
@@ -469,14 +471,54 @@ def render_boundary_section():
     ]
 
 
-def write_outputs(payload, markdown, output=None, json_output=None):
+def write_outputs(payload, markdown, output=None, json_output=None, decisions_template_output=None):
     output_path = Path(output or DEFAULT_MARKDOWN_OUTPUT)
     json_path = Path(json_output or DEFAULT_JSON_OUTPUT)
+    template_path = Path(decisions_template_output or MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.parent.mkdir(parents=True, exist_ok=True)
+    template_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(markdown, encoding="utf-8-sig")
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8-sig")
-    return {"markdown": str(output_path), "json": str(json_path)}
+    write_manual_review_decisions_template(payload, template_path)
+    return {"markdown": str(output_path), "json": str(json_path), "manual_review_decisions_template": str(template_path)}
+
+
+def write_manual_review_decisions_template(payload, path):
+    fieldnames = [
+        "as_of_date",
+        "market",
+        "review_type",
+        "ticker",
+        "company",
+        "review_detail",
+        "decision_status",
+        "decision_note",
+        "reviewer",
+        "decided_at",
+    ]
+    decisions = {decision_key(item): item for item in payload.get("manual_review_decisions", {}).get("items", [])}
+    rows = []
+    for item in payload.get("manual_review_queue", {}).get("all_items", []):
+        decision = decisions.get(decision_key(item), {})
+        rows.append(
+            {
+                "as_of_date": payload.get("as_of_date", ""),
+                "market": item.get("market", ""),
+                "review_type": item.get("review_type", ""),
+                "ticker": item.get("ticker", ""),
+                "company": item.get("company", ""),
+                "review_detail": item.get("review_detail", ""),
+                "decision_status": decision.get("decision_status") or "pending",
+                "decision_note": decision.get("decision_note", ""),
+                "reviewer": decision.get("reviewer", ""),
+                "decided_at": decision.get("decided_at", ""),
+            }
+        )
+    with Path(path).open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def read_json(path):
@@ -723,6 +765,7 @@ def main(argv=None):
     parser.add_argument("--max-age-days", type=int, default=8)
     parser.add_argument("--output", default=None)
     parser.add_argument("--json-output", default=None)
+    parser.add_argument("--decisions-template-output", default=None)
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root)
@@ -735,6 +778,7 @@ def main(argv=None):
         markdown,
         output=args.output or default_output,
         json_output=args.json_output or default_json_output,
+        decisions_template_output=args.decisions_template_output or project_root / MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT,
     )
     print(markdown)
     return 0
