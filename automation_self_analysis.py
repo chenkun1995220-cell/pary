@@ -232,6 +232,11 @@ def _weekly_delivery_history_snapshot(project_root):
             "needs_attention_count": 0,
             "stale_count": 0,
             "recurring_attention_reasons": [],
+            "latest_conclusion_signal_status": "unknown",
+            "latest_missing_conclusion_signals": [],
+            "conclusion_signal_ready_count": 0,
+            "conclusion_signal_problem_count": 0,
+            "recurring_missing_conclusion_signals": [],
             "recommended_action": "collect_weekly_delivery_history",
             "path": str(path),
         }
@@ -250,6 +255,11 @@ def _weekly_delivery_history_snapshot(project_root):
             "needs_attention_count": 0,
             "stale_count": 0,
             "recurring_attention_reasons": [],
+            "latest_conclusion_signal_status": "unknown",
+            "latest_missing_conclusion_signals": [],
+            "conclusion_signal_ready_count": 0,
+            "conclusion_signal_problem_count": 0,
+            "recurring_missing_conclusion_signals": [],
             "recommended_action": "review_weekly_delivery_history_file",
             "error": str(exc),
             "path": str(path),
@@ -1329,10 +1339,16 @@ def _weekly_delivery_health_priority_actions(weekly_delivery_history):
         if reason:
             reasons.append(reason)
     reasons.extend(weekly_delivery_history.get("latest_conclusion_health_reasons", []))
+    missing_signals = list(weekly_delivery_history.get("latest_missing_conclusion_signals", []))
+    missing_signals.extend(
+        item.get("signal", "")
+        for item in weekly_delivery_history.get("recurring_missing_conclusion_signals", [])
+        if item.get("signal", "")
+    )
     priority_actions = []
     if any(str(reason).startswith("manual_review_pending:") for reason in reasons):
         priority_actions.append("review_manual_review_backlog")
-    if any(not str(reason).startswith("manual_review_pending:") for reason in reasons):
+    if any(not str(reason).startswith("manual_review_pending:") for reason in reasons) or missing_signals:
         priority_actions.append("review_delivery_health_issues")
     return priority_actions
 
@@ -1340,7 +1356,7 @@ def _weekly_delivery_health_priority_actions(weekly_delivery_history):
 def _manifest_weekly_delivery_history_status(weekly_delivery_history):
     action = weekly_delivery_history.get("recommended_action", "collect_weekly_delivery_history")
     health_actions = _weekly_delivery_health_priority_actions(weekly_delivery_history)
-    if action == "continue_monitoring" and health_actions:
+    if health_actions:
         status = "manual_review_needed"
         recommended_action = health_actions[0]
     elif action == "continue_monitoring":
@@ -1662,6 +1678,21 @@ def _render(
         if delivery_health_reasons
         else "none"
     )
+    delivery_latest_missing_signals = weekly_delivery_history.get("latest_missing_conclusion_signals", [])
+    delivery_latest_missing_signal_text = (
+        ", ".join(str(signal) for signal in delivery_latest_missing_signals)
+        if delivery_latest_missing_signals
+        else "none"
+    )
+    delivery_recurring_missing_signals = weekly_delivery_history.get("recurring_missing_conclusion_signals", [])
+    delivery_recurring_missing_signal_text = (
+        ", ".join(
+            f"{item.get('signal', '')} ({item.get('count', 0)})"
+            for item in delivery_recurring_missing_signals
+        )
+        if delivery_recurring_missing_signals
+        else "none"
+    )
     delivery_health_actions = _weekly_delivery_health_priority_actions(weekly_delivery_history)
     delivery_health_action_text = ", ".join(delivery_health_actions) if delivery_health_actions else "none"
     lines.extend(
@@ -1676,6 +1707,9 @@ def _render(
             f"- recurring_attention_reasons: {delivery_recurring_text}",
             f"- latest_conclusion_health: {weekly_delivery_history.get('latest_conclusion_health_status', 'unknown')} / {weekly_delivery_history.get('latest_conclusion_health_score', 0)}",
             f"- recurring_health_reasons: {delivery_health_text}",
+            f"- latest_conclusion_signal_status: {weekly_delivery_history.get('latest_conclusion_signal_status', 'unknown')}",
+            f"- latest_missing_conclusion_signals: {delivery_latest_missing_signal_text}",
+            f"- recurring_missing_conclusion_signals: {delivery_recurring_missing_signal_text}",
             f"- health_priority_actions: {delivery_health_action_text}",
             f"- recommended_action: {weekly_delivery_history.get('recommended_action', 'unknown')}",
             f"- history_path: {weekly_delivery_history.get('path', '')}",
