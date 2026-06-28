@@ -40,6 +40,25 @@ def _health_reason_text(history):
     return "; ".join(parts) if parts else "无交付健康原因"
 
 
+def _missing_conclusion_signal_text(history):
+    latest = [
+        str(signal)
+        for signal in history.get("latest_missing_conclusion_signals", []) or []
+        if str(signal)
+    ]
+    recurring = [
+        f"{item.get('signal', 'unknown')} ({item.get('count', 0)})"
+        for item in history.get("recurring_missing_conclusion_signals", []) or []
+        if isinstance(item, dict) and item.get("signal")
+    ]
+    parts = []
+    if latest:
+        parts.append("latest_missing_signals=" + ", ".join(latest))
+    if recurring:
+        parts.append("recurring_missing_signals=" + ", ".join(recurring))
+    return "; ".join(parts)
+
+
 def _int_value(value, default=0):
     try:
         return int(value or default)
@@ -97,6 +116,13 @@ def _action_template(action_code, manifest):
     history = _delivery_history(manifest)
     manual_review_count = _manual_review_count(manifest, history)
     health_text = _health_reason_text(history)
+    missing_signal_text = _missing_conclusion_signal_text(history)
+    delivery_health_source = "; ".join(
+        part for part in [health_text, missing_signal_text] if part
+    )
+    delivery_signal_check = (
+        f"；关键结论信号：{missing_signal_text}" if missing_signal_text else ""
+    )
     forecast_performance = manifest.get("forecast_performance", {})
     if not isinstance(forecast_performance, dict):
         forecast_performance = {}
@@ -116,11 +142,12 @@ def _action_template(action_code, manifest):
         "review_delivery_health_issues": {
             "title": "复查最终交付健康提示",
             "category": "delivery_health",
-            "source": health_text,
+            "source": delivery_health_source,
             "recommended_check": (
                 "检查 weekly_delivery_history 中的健康状态 "
                 f"{history.get('latest_conclusion_health_status', 'unknown')} / "
-                f"{history.get('latest_conclusion_health_score', 0)}，区分人工积压和流程问题。"
+                f"{history.get('latest_conclusion_health_score', 0)}{delivery_signal_check}，"
+                "区分人工积压、流程问题和周结论关键字段缺口。"
             ),
         },
         "review_data_health": {

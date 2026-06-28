@@ -36,6 +36,14 @@ def write_manifest(path):
             "recurring_health_reasons": [
                 {"reason": "manual_review_pending:12", "count": 2}
             ],
+            "latest_conclusion_signal_status": "missing",
+            "latest_missing_conclusion_signals": [
+                "automation.data_quality_history",
+                "automation.forecast_performance",
+            ],
+            "recurring_missing_conclusion_signals": [
+                {"signal": "automation.forecast_performance", "count": 2}
+            ],
         },
         "data_quality_status": "needs_review",
         "data_quality_score": 79.0,
@@ -115,6 +123,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 if item["action_code"] == "review_delivery_health_issues"
             )
             self.assertIn("automation_check:manual_review_needed", delivery["source"])
+            self.assertIn("automation.forecast_performance", delivery["source"])
+            self.assertIn("automation.data_quality_history", delivery["recommended_check"])
+            self.assertIn("automation.forecast_performance", delivery["recommended_check"])
             self.assertIn("needs_review", delivery["recommended_check"])
 
             data_quality = next(
@@ -159,6 +170,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
 
             self.assertIn("# 每周人工处理清单", report)
             self.assertIn("review_manual_review_backlog", report)
+            self.assertIn("automation.forecast_performance", report)
             self.assertIn("review_data_quality_score", report)
             self.assertIn("review_forecast_performance", report)
             self.assertIn("人工复核积压", report)
