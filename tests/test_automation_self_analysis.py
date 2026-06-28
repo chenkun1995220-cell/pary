@@ -197,7 +197,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             self.assertEqual(result["health"][1]["quote_gap_count"], "2")
             self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 2 | 2 | 0 | 1 |", report)
-            self.assertIn("数据健康需关注：A股周筛 行情缺口 2", report)
+            self.assertNotIn("数据健康需关注：A股周筛 行情缺口 2", report)
+            self.assertIn("数据健康需关注：A股周筛 行情可重抓缺口 2", report)
 
     def test_quote_gap_count_ignores_ready_status_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -302,6 +303,72 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("| 港股周筛 | ready | online | 84.10% | 99.69% | 2 | 1 | 1 | 2 |", report)
             self.assertIn("数据健康需关注：港股周筛 行情可重抓缺口 1", report)
             self.assertIn("数据健康需关注：港股周筛 估值口径复核 1", report)
+
+    def test_data_health_deduplicates_valuation_review_risk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                "\n".join(
+                    [
+                        "# HK Weekly Data Summary",
+                        "- Candidate count: 1",
+                        "- Candidate tickers: AAA",
+                        "- Model audit: outputs/hk_universe/model_audit.md",
+                        "- Data health history: outputs/hk_universe/data_health_history.csv",
+                        "- Quote gaps: outputs/hk_universe/quote_gaps.csv",
+                    ]
+                ),
+            )
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_csv(
+                root / "outputs" / "hk_universe" / "data_health_history.csv",
+                ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                [
+                    {
+                        "run_time": "2026-06-27 14:05:00",
+                        "refresh_status": "online",
+                        "quote_coverage_pct": "84.10",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "1",
+                    }
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "quote_gaps.csv",
+                ["ticker", "issue_type", "remediation_type", "review_category", "review_detail"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "issue_type": "non_positive_metric",
+                        "remediation_type": "manual_financial_review",
+                        "review_category": "loss_making_or_negative_pe",
+                        "review_detail": "pe=-3.5",
+                    },
+                ],
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "valuation_review_items.csv",
+                ["ticker", "company_name", "valuation_review_category", "valuation_review_detail"],
+                [
+                    {
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "valuation_review_category": "loss_making_or_negative_pe",
+                        "valuation_review_detail": "pe=-3.5",
+                    },
+                ],
+            )
+
+            result = run_self_analysis(root)
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+
+            self.assertIn("数据健康需关注：港股周筛 估值口径复核 1", report)
+            self.assertNotIn("估值复核待确认：港股周筛 1", report)
+            self.assertIn("优先人工复核估值复核清单", report)
 
     def test_generates_summary_from_weekly_market_and_backtest_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
