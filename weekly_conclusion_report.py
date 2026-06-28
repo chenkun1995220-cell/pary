@@ -168,12 +168,14 @@ def decide_status(markets, candidates, automation, missing_inputs, warnings):
 
 def build_payload(as_of_date, status, automation, markets, candidates, missing_inputs, warnings, manual_review_queue):
     recommended_action = choose_recommended_action(status, automation)
+    priority_actions = choose_priority_actions(status, automation, recommended_action)
     return {
         "conclusion_schema": "weekly_conclusion",
         "conclusion_version": 1,
         "as_of_date": as_of_date,
         "status": status,
         "recommended_action": recommended_action,
+        "priority_actions": priority_actions,
         "automation": automation,
         "markets": markets,
         "manual_review_queue": manual_review_queue,
@@ -191,6 +193,7 @@ def build_payload(as_of_date, status, automation, markets, candidates, missing_i
 def render_markdown(payload, per_market_limit=10):
     lines = ["# 每周低估候选统一结论", ""]
     lines.extend(render_automation_section(payload))
+    lines.extend(render_priority_actions_section(payload))
     lines.extend(render_market_section(payload))
     lines.extend(render_candidate_section(payload, per_market_limit=per_market_limit))
     lines.extend(render_manual_review_queue_section(payload))
@@ -212,6 +215,18 @@ def render_automation_section(payload):
     for key in ("automation_check", "weekly_ops_check", "weekly_ops_history"):
         entry = automation.get(key, {})
         lines.append(f"- {key}：{entry.get('status', 'missing')} ({entry.get('path', '')})")
+    lines.append("")
+    return lines
+
+
+def render_priority_actions_section(payload):
+    lines = ["## 优先动作", ""]
+    actions = payload.get("priority_actions") or []
+    if not actions:
+        lines.append("- monitor_next_run")
+    else:
+        for action in actions:
+            lines.append(f"- {action}")
     lines.append("")
     return lines
 
@@ -441,6 +456,15 @@ def choose_recommended_action(status, automation):
         return "review_inputs"
     automation_action = automation.get("automation_check", {}).get("recommended_action")
     return automation_action or "monitor_next_run"
+
+
+def choose_priority_actions(status, automation, recommended_action):
+    if status != "ready":
+        return [recommended_action]
+    actions = automation.get("automation_check", {}).get("priority_actions") or []
+    if actions:
+        return actions
+    return [recommended_action]
 
 
 def parse_iso_date(value):

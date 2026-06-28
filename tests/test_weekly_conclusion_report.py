@@ -196,11 +196,15 @@ class WeeklyConclusionReportTests(unittest.TestCase):
 
             self.assertEqual(payload["status"], "ready")
             self.assertEqual(payload["recommended_action"], "review_manual_queue")
+            self.assertEqual(payload["priority_actions"], ["review_manual_queue", "review_candidate_findings"])
             self.assertEqual(payload["automation"]["automation_check"]["status"], "manual_review_needed")
             self.assertEqual(
                 payload["automation"]["automation_check"]["priority_actions"],
                 ["review_manual_queue", "review_candidate_findings"],
             )
+            self.assertIn("## 优先动作", markdown)
+            self.assertIn("- review_manual_queue", markdown)
+            self.assertIn("- review_candidate_findings", markdown)
             self.assertIn("- 优先动作：review_manual_queue", markdown)
 
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
