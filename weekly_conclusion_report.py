@@ -567,6 +567,8 @@ def write_manual_review_decisions_template(payload, path):
         "ticker",
         "company",
         "review_detail",
+        "suggested_decision_status",
+        "suggested_decision_note",
         "decision_status",
         "decision_note",
         "reviewer",
@@ -576,6 +578,7 @@ def write_manual_review_decisions_template(payload, path):
     rows = []
     for item in payload.get("manual_review_queue", {}).get("all_items", []):
         decision = decisions.get(decision_key(item), {})
+        suggestion = suggest_manual_review_decision(item)
         rows.append(
             {
                 "as_of_date": payload.get("as_of_date", ""),
@@ -584,6 +587,8 @@ def write_manual_review_decisions_template(payload, path):
                 "ticker": item.get("ticker", ""),
                 "company": item.get("company", ""),
                 "review_detail": item.get("review_detail", ""),
+                "suggested_decision_status": suggestion["status"],
+                "suggested_decision_note": suggestion["note"],
                 "decision_status": decision.get("decision_status") or "pending",
                 "decision_note": decision.get("decision_note", ""),
                 "reviewer": decision.get("reviewer", ""),
@@ -594,6 +599,25 @@ def write_manual_review_decisions_template(payload, path):
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def suggest_manual_review_decision(item):
+    review_type = item.get("review_type", "")
+    review_detail = item.get("review_detail", "")
+    if "风险" in review_type or "risk" in review_type.lower():
+        return {
+            "status": "needs_more_data",
+            "note": f"风险提示复核：{review_detail}；确认是否需要降低候选优先级或补充人工备注。",
+        }
+    if "估值" in review_type or "valuation" in review_type.lower():
+        return {
+            "status": "needs_more_data",
+            "note": f"估值口径复核：{review_detail}；用现金流、盈利质量、收入增长或净资产口径补充判断。",
+        }
+    return {
+        "status": "needs_more_data",
+        "note": f"人工复核：{review_detail}；确认后填写 accepted、rejected 或 needs_more_data。",
+    }
 
 
 def read_json(path):

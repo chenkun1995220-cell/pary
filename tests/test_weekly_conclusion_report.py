@@ -496,6 +496,8 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(rows[1]["ticker"], "01548.HK")
             self.assertEqual(rows[1]["decision_status"], "pending")
             self.assertEqual(rows[1]["decision_note"], "")
+            self.assertEqual(rows[1]["suggested_decision_status"], "needs_more_data")
+            self.assertIn("风险提示", rows[1]["suggested_decision_note"])
 
     def test_powershell_wrapper_static_contract(self):
         script = (PROJECT_ROOT / "scripts" / "show_weekly_conclusion.ps1").read_text(encoding="utf-8-sig")
