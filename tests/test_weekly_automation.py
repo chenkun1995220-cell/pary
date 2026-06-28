@@ -281,6 +281,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("weekly_delivery_history_status", doc)
         self.assertIn("weekly_delivery_history_recommended_action", doc)
         self.assertIn("weekly_delivery_history_report.py", doc)
+        self.assertIn("recurring_health_reasons", doc)
         self.assertIn("manifest 结构校验", doc)
         self.assertIn("三市场摘要均为 `ready`", doc)
         self.assertIn("markets", doc)

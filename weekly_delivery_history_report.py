@@ -53,9 +53,19 @@ def summarize_weekly_delivery_history(history, window=8):
         for row in recent
         for reason in row.get("attention_reasons", [])
     )
+    health_reason_counts = Counter(
+        reason
+        for row in recent
+        for reason in row.get("conclusion_health_reasons", [])
+    )
     recurring = [
         {"reason": reason, "count": count}
         for reason, count in sorted(reason_counts.items())
+        if count >= 2
+    ]
+    recurring_health = [
+        {"reason": reason, "count": count}
+        for reason, count in sorted(health_reason_counts.items())
         if count >= 2
     ]
     latest = recent[-1] if recent else {}
@@ -78,12 +88,16 @@ def summarize_weekly_delivery_history(history, window=8):
         "latest_as_of_date": latest.get("as_of_date", "unknown"),
         "latest_status": latest.get("status", "unknown"),
         "latest_freshness_status": latest.get("freshness_status", "unknown"),
+        "latest_conclusion_health_status": latest.get("conclusion_health_status", "unknown"),
+        "latest_conclusion_health_score": int(latest.get("conclusion_health_score", 0) or 0),
+        "latest_conclusion_health_reasons": latest.get("conclusion_health_reasons", []),
         "latest_candidate_count_total": int(latest.get("candidate_count_total", 0) or 0),
         "latest_manual_review_pending_count": int(latest.get("manual_review_pending_count", 0) or 0),
         "ready_count": ready_count,
         "needs_attention_count": needs_attention_count,
         "stale_count": stale_count,
         "recurring_attention_reasons": recurring,
+        "recurring_health_reasons": recurring_health,
         "recommended_action": recommended_action,
     }
 
@@ -104,12 +118,14 @@ def render_weekly_delivery_history_report(summary):
         f"- 最新日期：{summary.get('latest_as_of_date', 'unknown')}",
         f"- 最新状态：{summary.get('latest_status', 'unknown')}",
         f"- 最新新鲜度：{summary.get('latest_freshness_status', 'unknown')}",
+        f"- 最新周结论健康：{summary.get('latest_conclusion_health_status', 'unknown')} / {summary.get('latest_conclusion_health_score', 0)}",
         f"- 最新候选总数：{summary.get('latest_candidate_count_total', 0)}",
         f"- 最新待处理复核：{summary.get('latest_manual_review_pending_count', 0)}",
         f"- ready 次数：{summary.get('ready_count', 0)}",
         f"- needs_attention 次数：{summary.get('needs_attention_count', 0)}",
         f"- stale 次数：{summary.get('stale_count', 0)}",
         f"- 重复问题：{_join_recurring(summary.get('recurring_attention_reasons', []))}",
+        f"- 重复健康原因：{_join_recurring(summary.get('recurring_health_reasons', []))}",
         f"- 建议动作：{summary.get('recommended_action', 'unknown')}",
         "",
         "## 边界",

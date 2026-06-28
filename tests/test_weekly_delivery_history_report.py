@@ -44,6 +44,9 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                         "status": "needs_attention",
                         "freshness_status": "fresh",
                         "attention_reasons": ["missing_outputs"],
+                        "conclusion_health_status": "needs_review",
+                        "conclusion_health_score": 80,
+                        "conclusion_health_reasons": ["manual_review_pending:6"],
                         "candidate_count_total": 62,
                         "manual_review_pending_count": 6,
                     },
@@ -55,6 +58,9 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                         "status": "needs_attention",
                         "freshness_status": "fresh",
                         "attention_reasons": ["missing_outputs", "stale_conclusion_date"],
+                        "conclusion_health_status": "needs_review",
+                        "conclusion_health_score": 75,
+                        "conclusion_health_reasons": ["manual_review_pending:6"],
                         "candidate_count_total": 64,
                         "manual_review_pending_count": 12,
                     },
@@ -80,12 +86,20 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
             self.assertEqual(summary["ready_count"], 1)
             self.assertEqual(summary["needs_attention_count"], 2)
             self.assertEqual(summary["recurring_attention_reasons"], [{"reason": "missing_outputs", "count": 2}])
+            self.assertEqual(
+                summary["recurring_health_reasons"],
+                [{"reason": "manual_review_pending:6", "count": 2}],
+            )
+            self.assertEqual(summary["latest_conclusion_health_status"], "needs_review")
+            self.assertEqual(summary["latest_conclusion_health_score"], 75)
+            self.assertEqual(summary["latest_conclusion_health_reasons"], ["manual_review_pending:6"])
             self.assertEqual(summary["recommended_action"], "review_recurring_delivery_issues")
             self.assertIn("# 每周最终交付历史摘要", report)
             self.assertIn("最近记录：3", report)
             self.assertIn("重复问题：missing_outputs (2)", report)
             self.assertIn("建议动作：review_recurring_delivery_issues", report)
             self.assertIn("raw_history_count: 3", report)
+            self.assertIn("manual_review_pending:6 (2)", report)
 
     def test_summary_uses_latest_record_per_as_of_date_for_trend_counts(self):
         with tempfile.TemporaryDirectory() as tmp:
