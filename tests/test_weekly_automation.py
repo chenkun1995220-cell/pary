@@ -322,6 +322,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("data_health_history.csv", doc)
         self.assertIn("review_category", doc)
         self.assertIn("估值复核分类", doc)
+        self.assertIn("non_positive_metric` 不再单独触发 `review_data_health", doc)
         self.assertIn("valuation_review_items.csv", doc)
         self.assertIn("估值复核清单", doc)
         self.assertIn("估值复核样例", doc)

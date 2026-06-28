@@ -302,7 +302,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(result["health"][2]["quote_gap_review_count"], "1")
             self.assertIn("| 港股周筛 | ready | online | 84.10% | 99.69% | 2 | 1 | 1 | 2 |", report)
             self.assertIn("数据健康需关注：港股周筛 行情可重抓缺口 1", report)
-            self.assertIn("数据健康需关注：港股周筛 估值口径复核 1", report)
+            self.assertNotIn("数据健康需关注：港股周筛 估值口径复核 1", report)
 
     def test_data_health_deduplicates_valuation_review_risk(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -324,6 +324,20 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
             write_text(root / "outputs" / "hk_universe" / "model_audit.md", "- 审计状态：sample_accumulating\n")
             write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            for universe in ["us_universe", "cn_universe"]:
+                write_csv(
+                    root / "outputs" / universe / "data_health_history.csv",
+                    ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
+                    [
+                        {
+                            "run_time": "2026-06-27 14:05:00",
+                            "refresh_status": "online",
+                            "quote_coverage_pct": "100.00",
+                            "financial_coverage_pct": "100.00",
+                            "candidate_count": "0",
+                        }
+                    ],
+                )
             write_csv(
                 root / "outputs" / "hk_universe" / "data_health_history.csv",
                 ["run_time", "refresh_status", "quote_coverage_pct", "financial_coverage_pct", "candidate_count"],
@@ -331,7 +345,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                     {
                         "run_time": "2026-06-27 14:05:00",
                         "refresh_status": "online",
-                        "quote_coverage_pct": "84.10",
+                        "quote_coverage_pct": "100.00",
                         "financial_coverage_pct": "99.69",
                         "candidate_count": "1",
                     }
@@ -365,8 +379,14 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             result = run_self_analysis(root)
             report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
 
-            self.assertIn("数据健康需关注：港股周筛 估值口径复核 1", report)
+            self.assertEqual(manifest["data_health_status"], "clear")
+            self.assertEqual(manifest["data_health_recommended_action"], "monitor_next_run")
+            self.assertNotIn("review_data_health", manifest["automation_priority_actions"])
+            self.assertIn("review_manual_queue", manifest["automation_priority_actions"])
+            self.assertEqual(manifest["manual_review_queue_count"], 1)
+            self.assertNotIn("数据健康需关注：港股周筛 估值口径复核 1", report)
             self.assertNotIn("估值复核待确认：港股周筛 1", report)
             self.assertIn("优先人工复核估值复核清单", report)
 
@@ -1189,7 +1209,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("估值复核清单：2", report)
             self.assertIn("non_positive_book_value_or_pb=1", report)
             self.assertIn("AAA Alpha loss_making_or_negative_pe pe=-3.5", report)
-            self.assertIn("估值复核待确认：港股周筛 2", report)
+            self.assertNotIn("估值复核待确认：港股周筛 2", report)
             self.assertIn("优先人工复核估值复核清单", report)
             self.assertIn("## 人工复核队列", report)
             self.assertIn("| 港股周筛 | 估值口径 | AAA | Alpha | loss_making_or_negative_pe；pe=-3.5 |", report)

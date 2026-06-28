@@ -516,12 +516,6 @@ def _health_risks(health):
             risks.append(f"数据健康需关注：{name} 行情缺口 {unclassified_gaps}")
         if refetch and refetch > 0:
             risks.append(f"数据健康需关注：{name} 行情可重抓缺口 {refetch}")
-        if review_gaps and review_gaps > 0:
-            risks.append(f"数据健康需关注：{name} 估值口径复核 {review_gaps}")
-        valuation_reviews = _as_int(item.get("valuation_review_item_count"))
-        uncovered_valuation_reviews = max((valuation_reviews or 0) - (review_gaps or 0), 0)
-        if uncovered_valuation_reviews > 0:
-            risks.append(f"估值复核待确认：{name} {uncovered_valuation_reviews}")
         review = _as_int(item.get("share_override_review"))
         if review and review > 0:
             risks.append(f"数据健康需关注：{name} 人工覆盖需复核 {review}")
@@ -1079,15 +1073,18 @@ def _manifest_automation_decision(
     }
 
 
-def _recommendations(risks, backtest):
+def _recommendations(risks, backtest, manual_queue=None):
     recommendations = []
+    manual_queue = manual_queue or []
     if any(risk.startswith("缺失摘要") for risk in risks) or "缺失严格时点回测摘要" in risks:
         recommendations.append("先补齐缺失的周筛或回测摘要，再做模型参数判断。")
     if any(risk.startswith("数据健康") for risk in risks):
         recommendations.append("数据健康异常先人工复核，不自动修改正式模型参数。")
     if any("候选需复核" in risk or "风险需复核" in risk for risk in risks):
         recommendations.append("优先复核候选风险和结论缺口，不自动调整正式模型参数。")
-    if any(risk.startswith("估值复核待确认") or "估值口径复核" in risk for risk in risks):
+    if any(risk.startswith("估值复核待确认") or "估值口径复核" in risk for risk in risks) or any(
+        item.get("type") == "估值口径" for item in manual_queue
+    ):
         recommendations.append("优先人工复核估值复核清单，确认亏损、非正净资产或特殊行业估值口径后再解读候选缺口。")
     if _as_int(backtest.get("weak_rows")):
         recommendations.append("继续补充历史成分 verified 证据，降低严格时点回测的数据质量风险。")
@@ -1105,12 +1102,13 @@ def _render(
     health,
     candidate_reviews,
     manual_review_history_repeats=None,
+    manual_review_queue=None,
     weekly_ops_history=None,
     weekly_delivery_history=None,
 ):
     risks = _risks(markets, backtest, health) + _candidate_review_risks(candidate_reviews)
-    recommendations = _recommendations(risks, backtest)
-    manual_queue = _manual_review_queue(health, candidate_reviews)
+    manual_queue = manual_review_queue if manual_review_queue is not None else _manual_review_queue(health, candidate_reviews)
+    recommendations = _recommendations(risks, backtest, manual_queue)
     manual_review_history_repeats = manual_review_history_repeats or []
     weekly_ops_history = weekly_ops_history or {}
     weekly_delivery_history = weekly_delivery_history or {}
@@ -1327,6 +1325,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             health,
             candidate_reviews,
             manual_review_history_repeats,
+            manual_review_queue,
             weekly_ops_history,
             weekly_delivery_history,
         ),
