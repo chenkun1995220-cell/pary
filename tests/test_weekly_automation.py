@@ -351,6 +351,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/latest_weekly_delivery_history_report.md", doc)
         self.assertIn("最终交付历史状态", doc)
         self.assertIn("overall_health", doc)
+        self.assertIn("候选行动分层", doc)
+        self.assertIn("不改变候选池排序和正式评分模型", doc)
         self.assertIn("action_items_status", doc)
         self.assertIn("action_items_freshness_status", doc)
         self.assertIn("action_items_count", doc)

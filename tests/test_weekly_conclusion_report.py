@@ -206,6 +206,67 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| US | MSFT | Microsoft | 82.5 | 120.00 | 96.00 |", markdown)
             self.assertIn("研究筛选和人工复核用途", markdown)
 
+    def test_adds_candidate_action_tiers_to_weekly_conclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_csv(
+                root / "outputs" / "cn_universe" / "valuation_targets.csv",
+                [
+                    {
+                        "ticker": "000300.SZ",
+                        "target_price": "90.00",
+                        "buy_price": "72.00",
+                        "expected_return": "-8.0%",
+                        "trend_label": "中性",
+                        "trend_confidence": "high",
+                        "valuation_confidence": "high",
+                        "reason": "安全边际不足",
+                    }
+                ],
+            )
+            write_text(
+                root / "outputs" / "cn_universe" / "latest_investment_summary.md",
+                "# investment\n## 000300.SZ\n风险：当前无安全边际；预期收益为负\n",
+            )
+            write_csv(
+                root / "outputs" / "hk_universe" / "valuation_targets.csv",
+                [
+                    {
+                        "ticker": "0700.HK",
+                        "target_price": "520.00",
+                        "buy_price": "390.00",
+                        "expected_return": "18.0%",
+                        "trend_label": "偏弱",
+                        "trend_confidence": "low",
+                        "valuation_confidence": "low",
+                        "reason": "估值有折价但证据弱",
+                    }
+                ],
+            )
+            write_text(
+                root / "outputs" / "hk_universe" / "latest_investment_summary.md",
+                "# investment\n## 0700.HK\n风险：走势偏弱；估值置信度低\n",
+            )
+            write_ready_automation(root)
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+            tiers = {candidate["ticker"]: candidate["action_tier"] for candidate in payload["candidates"]}
+
+            self.assertEqual(tiers["MSFT"], "优先研究")
+            self.assertEqual(tiers["000300.SZ"], "暂缓研究")
+            self.assertEqual(tiers["0700.HK"], "谨慎观察")
+            self.assertEqual(payload["candidate_action_summary"]["by_tier"]["优先研究"], 1)
+            self.assertEqual(payload["candidate_action_summary"]["by_tier"]["暂缓研究"], 1)
+            self.assertEqual(payload["candidate_action_summary"]["by_tier"]["谨慎观察"], 1)
+            self.assertIn("## 候选行动分层", markdown)
+            self.assertIn("| 优先研究 | 1 | MSFT |", markdown)
+            self.assertIn("| 暂缓研究 | 1 | 000300.SZ |", markdown)
+            self.assertIn("| 谨慎观察 | 1 | 0700.HK |", markdown)
+
     def test_missing_required_market_file_marks_needs_attention(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

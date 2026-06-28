@@ -79,6 +79,22 @@ REVIEW_TYPE_ACTIONS = {
     "风险提示": "复核趋势、估值置信度和风险说明，确认是否需要降低候选优先级或补充人工备注。",
 }
 
+CANDIDATE_ACTION_TIERS = (
+    "优先研究",
+    "等待回调",
+    "谨慎观察",
+    "暂缓研究",
+    "资料不足",
+)
+
+CANDIDATE_ACTION_GUIDANCE = {
+    "优先研究": "评分、预期收益和置信度较好，优先进入人工深研。",
+    "等待回调": "基本面仍可跟踪，但价格或安全边际需要继续等待。",
+    "谨慎观察": "趋势、置信度或风险提示偏弱，先复核风险和数据质量。",
+    "暂缓研究": "预期收益为负或缺少安全边际，本周暂不优先深研。",
+    "资料不足": "关键估值或收益字段不足，先补数据再判断。",
+}
+
 
 def build_weekly_conclusion(project_root, today=None, max_age_days=8):
     project_root = Path(project_root)
@@ -265,6 +281,89 @@ def summarize_health(status, automation, missing_inputs, warnings, manual_review
     }
 
 
+def parse_number(value):
+    text = str(value or "").strip().replace(",", "")
+    if not text:
+        return None
+    match = re.search(r"-?\d+(?:\.\d+)?", text)
+    if not match:
+        return None
+    try:
+        return float(match.group(0))
+    except ValueError:
+        return None
+
+
+def parse_return(value):
+    number = parse_number(value)
+    if number is None:
+        return None
+    if "%" in str(value):
+        return number / 100
+    return number
+
+
+def classify_candidate_action(candidate):
+    expected_return = parse_return(candidate.get("expected_return"))
+    score = parse_number(candidate.get("score"))
+    risk_reason = str(candidate.get("risk_reason") or "")
+    trend_label = str(candidate.get("trend_label") or "")
+    trend_confidence = str(candidate.get("trend_confidence") or "").lower()
+    valuation_confidence = str(candidate.get("valuation_confidence") or "").lower()
+
+    if expected_return is None:
+        return "资料不足", "缺少预期收益率，先补齐目标价或收益字段。"
+    if expected_return < 0 or "当前无安全边际" in risk_reason or "预期收益为负" in risk_reason:
+        return "暂缓研究", "预期收益为负或缺少安全边际，本周暂不优先深研。"
+    if (
+        "low" in {trend_confidence, valuation_confidence}
+        or "偏弱" in trend_label
+        or "走势偏弱" in risk_reason
+        or "置信度低" in risk_reason
+    ):
+        return "谨慎观察", "趋势、估值置信度或风险提示偏弱，先复核风险。"
+    if expected_return >= 0.20 and (score is None or score >= 80):
+        return "优先研究", "评分和预期收益较高，优先进入人工深研。"
+    return "等待回调", "仍可跟踪，但收益空间或安全边际需要继续等待。"
+
+
+def annotate_candidate_actions(candidates):
+    annotated = []
+    for candidate in candidates:
+        tier, reason = classify_candidate_action(candidate)
+        next_candidate = dict(candidate)
+        next_candidate["action_tier"] = tier
+        next_candidate["action_reason"] = reason
+        annotated.append(next_candidate)
+    return annotated
+
+
+def summarize_candidate_actions(candidates):
+    by_tier = {tier: 0 for tier in CANDIDATE_ACTION_TIERS}
+    examples = {tier: [] for tier in CANDIDATE_ACTION_TIERS}
+    for candidate in candidates:
+        tier = candidate.get("action_tier") or "资料不足"
+        if tier not in by_tier:
+            by_tier[tier] = 0
+            examples[tier] = []
+        by_tier[tier] += 1
+        if len(examples[tier]) < 5:
+            examples[tier].append(candidate.get("ticker", ""))
+    groups = []
+    for tier in CANDIDATE_ACTION_TIERS:
+        count = by_tier.get(tier, 0)
+        if count:
+            groups.append(
+                {
+                    "tier": tier,
+                    "count": count,
+                    "examples": [ticker for ticker in examples.get(tier, []) if ticker],
+                    "guidance": CANDIDATE_ACTION_GUIDANCE.get(tier, ""),
+                }
+            )
+    return {"by_tier": by_tier, "groups": groups}
+
+
 def build_payload(
     as_of_date,
     status,
@@ -281,6 +380,8 @@ def build_payload(
     priority_actions = choose_priority_actions(status, automation, recommended_action)
     priority_action_details = describe_priority_actions(priority_actions)
     health = summarize_health(status, automation, missing_inputs, warnings, manual_review_decisions)
+    candidates = annotate_candidate_actions(candidates)
+    candidate_action_summary = summarize_candidate_actions(candidates)
     return {
         "conclusion_schema": "weekly_conclusion",
         "conclusion_version": 1,
@@ -296,6 +397,7 @@ def build_payload(
         "manual_review_decisions": manual_review_decisions,
         "manual_review_merge_summary": manual_review_merge_summary,
         "candidate_count_total": len(candidates),
+        "candidate_action_summary": candidate_action_summary,
         "candidates": candidates,
         "missing_inputs": sorted(set(missing_inputs)),
         "warnings": sorted(set(warnings)),
@@ -312,6 +414,7 @@ def render_markdown(payload, per_market_limit=10):
     lines.extend(render_automation_section(payload))
     lines.extend(render_priority_actions_section(payload))
     lines.extend(render_market_section(payload))
+    lines.extend(render_candidate_action_section(payload))
     lines.extend(render_candidate_section(payload, per_market_limit=per_market_limit))
     lines.extend(render_manual_review_queue_section(payload))
     lines.extend(render_manual_review_decisions_section(payload))
@@ -361,6 +464,32 @@ def render_market_section(payload):
     for market in payload["markets"]:
         lines.append(
             f"| {market['market']} | {market['status']} | {market['candidate_count']} | {escape_cell(market['source_dir'])} |"
+        )
+    lines.append("")
+    return lines
+
+
+def render_candidate_action_section(payload):
+    summary = payload.get("candidate_action_summary", {})
+    groups = summary.get("groups", [])
+    lines = [
+        "## 候选行动分层",
+        "",
+        "| 层级 | 数量 | 代表股票 | 处理建议 |",
+        "|---|---:|---|---|",
+    ]
+    if not groups:
+        lines.append("| 资料不足 | 0 | - | 暂无可分层候选。 |")
+        lines.append("")
+        return lines
+    for group in groups:
+        lines.append(
+            "| {tier} | {count} | {examples} | {guidance} |".format(
+                tier=escape_cell(group.get("tier")),
+                count=escape_cell(group.get("count")),
+                examples=escape_cell(", ".join(group.get("examples", [])) or "-"),
+                guidance=escape_cell(group.get("guidance")),
+            )
         )
     lines.append("")
     return lines
