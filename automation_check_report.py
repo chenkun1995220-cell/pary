@@ -45,6 +45,7 @@ def render_automation_check(path):
         f"- 候选总数：{data.get('candidate_count_total', 0)}",
         f"- 人工复核队列：{data.get('manual_review_queue_count', 0)}",
         f"- 历史重复复核：{data.get('manual_review_repeat_count', 0)}",
+        f"- weekly_ops_history_status: {data.get('weekly_ops_history_status', 'unknown')}",
         f"- manifest 校验：{data.get('manifest_validation_status', 'unknown')}",
         f"- 重点动作：{_join_actions(data.get('priority_actions', []))}",
         "",

@@ -273,6 +273,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("automation_status", doc)
         self.assertIn("automation_recommended_action", doc)
         self.assertIn("automation_priority_actions", doc)
+        self.assertIn("weekly_ops_history_status", doc)
+        self.assertIn("weekly_ops_history_recommended_action", doc)
         self.assertIn("manifest 结构校验", doc)
         self.assertIn("三市场摘要均为 `ready`", doc)
         self.assertIn("markets", doc)

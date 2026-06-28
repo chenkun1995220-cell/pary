@@ -4,6 +4,8 @@ import json
 from datetime import date
 from pathlib import Path
 
+from weekly_ops_history_report import summarize_weekly_ops_history
+
 
 MARKETS = [
     {
@@ -159,6 +161,47 @@ def _backtest_snapshot(project_root):
         "weak_rows": fields.get("Weak evidence rows", "unknown"),
         "summary_path": str(path),
     }
+
+
+def _weekly_ops_history_snapshot(project_root):
+    path = Path(project_root) / "outputs" / "automation" / "weekly_ops_check_history.jsonl"
+    if not path.exists():
+        return {
+            "history_summary_schema": "weekly_ops_history_summary",
+            "history_summary_version": 1,
+            "history_count": 0,
+            "window_size": 0,
+            "latest_as_of_date": "unknown",
+            "latest_status": "missing",
+            "latest_freshness_status": "unknown",
+            "ready_count": 0,
+            "needs_attention_count": 0,
+            "stale_count": 0,
+            "recurring_attention_reasons": [],
+            "recommended_action": "collect_weekly_ops_history",
+            "path": str(path),
+        }
+    try:
+        summary = summarize_weekly_ops_history(path)
+    except (ValueError, json.JSONDecodeError) as exc:
+        return {
+            "history_summary_schema": "weekly_ops_history_summary",
+            "history_summary_version": 1,
+            "history_count": 0,
+            "window_size": 0,
+            "latest_as_of_date": "unknown",
+            "latest_status": "invalid",
+            "latest_freshness_status": "unknown",
+            "ready_count": 0,
+            "needs_attention_count": 0,
+            "stale_count": 0,
+            "recurring_attention_reasons": [],
+            "recommended_action": "review_weekly_ops_history_file",
+            "error": str(exc),
+            "path": str(path),
+        }
+    summary["path"] = str(path)
+    return summary
 
 
 def _as_int(value):
@@ -684,6 +727,7 @@ def _automation_check_payload(manifest, manifest_validation):
         "manual_review_repeat_count": manifest.get("manual_review_repeat_count", 0),
         "data_health_status": manifest.get("data_health_status", "unknown"),
         "candidate_review_status": manifest.get("candidate_review_status", "unknown"),
+        "weekly_ops_history_status": manifest.get("weekly_ops_history_status", "unknown"),
         "model_audit_status": manifest.get("model_audit_status", "unknown"),
         "backtest_status": manifest.get("backtest_status", "unknown"),
         "outputs": manifest.get("outputs", {}),
@@ -827,11 +871,29 @@ def _manifest_backtest_status(backtest):
     }
 
 
+def _manifest_weekly_ops_history_status(weekly_ops_history):
+    action = weekly_ops_history.get("recommended_action", "collect_weekly_ops_history")
+    if action == "continue_monitoring":
+        status = "clear"
+        recommended_action = "monitor_next_run"
+    elif action == "collect_weekly_ops_history":
+        status = "missing"
+        recommended_action = action
+    else:
+        status = "manual_review_needed"
+        recommended_action = action
+    return {
+        "weekly_ops_history_status": status,
+        "weekly_ops_history_recommended_action": recommended_action,
+    }
+
+
 def _manifest_automation_decision(
     model_audit_status,
     backtest_status,
     data_health_status,
     candidate_review_status,
+    weekly_ops_history_status,
     review_status,
     recommended_next_action,
 ):
@@ -843,11 +905,15 @@ def _manifest_automation_decision(
             candidate_review_status["candidate_review_status"],
             candidate_review_status["candidate_review_recommended_action"],
         ),
+        (
+            weekly_ops_history_status["weekly_ops_history_status"],
+            weekly_ops_history_status["weekly_ops_history_recommended_action"],
+        ),
         (model_audit_status["model_audit_status"], model_audit_status["model_audit_recommended_action"]),
     ]
     priority_actions = []
     for status, action in action_candidates:
-        if status == "clear" or action == "monitor_next_run" or action in priority_actions:
+        if status in {"clear", "missing"} or action == "monitor_next_run" or action in priority_actions:
             continue
         priority_actions.append(action)
     if not priority_actions:
@@ -888,11 +954,20 @@ def _recommendations(risks, backtest):
     return recommendations
 
 
-def _render(as_of_date, markets, backtest, health, candidate_reviews, manual_review_history_repeats=None):
+def _render(
+    as_of_date,
+    markets,
+    backtest,
+    health,
+    candidate_reviews,
+    manual_review_history_repeats=None,
+    weekly_ops_history=None,
+):
     risks = _risks(markets, backtest, health) + _candidate_review_risks(candidate_reviews)
     recommendations = _recommendations(risks, backtest)
     manual_queue = _manual_review_queue(health, candidate_reviews)
     manual_review_history_repeats = manual_review_history_repeats or []
+    weekly_ops_history = weekly_ops_history or {}
     lines = [
         f"# 每周自我分析摘要（{as_of_date}）",
         "",
@@ -961,6 +1036,26 @@ def _render(as_of_date, markets, backtest, health, candidate_reviews, manual_rev
             f"| {item['name']} | {item['status']} | {item['field_complete']} | "
             f"{item['quality_gap_count']} | {len(item['risk_items'])} |"
         )
+    recurring_reasons = weekly_ops_history.get("recurring_attention_reasons", [])
+    recurring_text = (
+        ", ".join(f"{item.get('reason', '')} ({item.get('count', 0)})" for item in recurring_reasons)
+        if recurring_reasons
+        else "none"
+    )
+    lines.extend(
+        [
+            "",
+            "## 周度运维历史",
+            "",
+            f"- history_count: {weekly_ops_history.get('history_count', 0)}",
+            f"- latest_status: {weekly_ops_history.get('latest_status', 'unknown')}",
+            f"- latest_freshness_status: {weekly_ops_history.get('latest_freshness_status', 'unknown')}",
+            f"- needs_attention_count: {weekly_ops_history.get('needs_attention_count', 0)}",
+            f"- recurring_attention_reasons: {recurring_text}",
+            f"- recommended_action: {weekly_ops_history.get('recommended_action', 'unknown')}",
+            f"- history_path: {weekly_ops_history.get('path', '')}",
+        ]
+    )
     lines.extend(
         [
             "",
@@ -1025,6 +1120,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     health = [_health_snapshot(market) for market in markets]
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
+    weekly_ops_history = _weekly_ops_history_snapshot(project_root)
     manual_review_queue = _manual_review_queue(health, candidate_reviews)
     manual_review_queue_output = output.parent / "latest_manual_review_queue.csv"
     manual_review_history_output = output.parent / "manual_review_queue_history.csv"
@@ -1036,7 +1132,15 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
-        _render(as_of_date, markets, backtest, health, candidate_reviews, manual_review_history_repeats),
+        _render(
+            as_of_date,
+            markets,
+            backtest,
+            health,
+            candidate_reviews,
+            manual_review_history_repeats,
+            weekly_ops_history,
+        ),
         encoding="utf-8-sig",
     )
     _write_manual_review_queue(manual_review_queue_output, manual_review_queue, as_of_date)
@@ -1049,6 +1153,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     backtest_status = _manifest_backtest_status(backtest)
     data_health_status = _manifest_data_health_status(health)
     candidate_review_status = _manifest_candidate_review_status(candidate_reviews)
+    weekly_ops_history_status = _manifest_weekly_ops_history_status(weekly_ops_history)
     manifest = {
         "manifest_schema": "self_analysis_manifest",
         "manifest_version": 1,
@@ -1060,6 +1165,8 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "health": _manifest_health(health),
         **data_health_status,
         **candidate_review_status,
+        "weekly_ops_history": weekly_ops_history,
+        **weekly_ops_history_status,
         "manual_review_queue_count": len(manual_review_queue),
         "manual_review_repeat_count": len(manual_review_history_repeats),
         "review_status": review_status,
@@ -1069,6 +1176,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             backtest_status,
             data_health_status,
             candidate_review_status,
+            weekly_ops_history_status,
             review_status,
             recommended_next_action,
         ),
@@ -1098,6 +1206,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "backtest": backtest,
         "health": health,
         "candidate_reviews": candidate_reviews,
+        "weekly_ops_history": weekly_ops_history,
         "manual_review_queue": manual_review_queue,
         "manual_review_history_repeats": manual_review_history_repeats,
     }
@@ -1120,6 +1229,9 @@ REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
     "data_health_recommended_action",
     "candidate_review_status",
     "candidate_review_recommended_action",
+    "weekly_ops_history",
+    "weekly_ops_history_status",
+    "weekly_ops_history_recommended_action",
     "manual_review_queue_count",
     "manual_review_repeat_count",
     "review_status",
