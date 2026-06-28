@@ -48,7 +48,7 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 tmp,
                 "automation-2",
                 "港股大中盘每周筛选",
-                "scripts\\run_hk_weekly.ps1 scripts\\run_self_analysis.ps1 scripts\\show_automation_check.ps1 scripts\\run_weekly_ops_check.ps1",
+                "scripts\\run_hk_weekly.ps1 scripts\\run_self_analysis.ps1 scripts\\show_automation_check.ps1 scripts\\run_weekly_ops_check.ps1 scripts\\show_weekly_ops_history.ps1",
                 45,
             )
 
@@ -66,6 +66,7 @@ class CodexAutomationAuditTests(unittest.TestCase):
             self.assertIn("automation-2：ready", report)
             self.assertIn("show_automation_check.ps1", report)
             self.assertIn("run_weekly_ops_check.ps1", report)
+            self.assertIn("show_weekly_ops_history.ps1", report)
 
     def test_audit_reports_schedule_and_prompt_drift(self):
         with tempfile.TemporaryDirectory() as tmp:

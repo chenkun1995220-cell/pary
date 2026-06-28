@@ -33,6 +33,7 @@ EXPECTED_AUTOMATIONS = [
             "scripts\\run_self_analysis.ps1",
             "scripts\\show_automation_check.ps1",
             "scripts\\run_weekly_ops_check.ps1",
+            "scripts\\show_weekly_ops_history.ps1",
         ],
     },
 ]
@@ -116,7 +117,7 @@ def render_audit_report(result):
             "",
             "## 验收重点",
             "- 美股和A股任务不得提前引用旧 latest_automation_check.json。",
-            "- 港股任务必须在三市场完成后运行 run_self_analysis.ps1、show_automation_check.ps1 和 run_weekly_ops_check.ps1。",
+            "- 港股任务必须在三市场完成后运行 run_self_analysis.ps1、show_automation_check.ps1、run_weekly_ops_check.ps1 和 show_weekly_ops_history.ps1。",
         ]
     )
     return "\n".join(lines) + "\n"
