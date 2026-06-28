@@ -252,6 +252,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("audit_codex_automations.ps1", doc)
         self.assertIn("run_weekly_ops_check.ps1", doc)
         self.assertIn("show_weekly_ops_history.ps1", doc)
+        self.assertIn("show_weekly_delivery_history.ps1", doc)
         self.assertIn("outputs/automation/latest_self_analysis.md", doc)
         self.assertIn("outputs/automation/latest_manual_review_queue.csv", doc)
         self.assertIn("outputs/automation/manual_review_queue_history.csv", doc)
@@ -315,6 +316,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/latest_weekly_conclusion.json", doc)
         self.assertIn("outputs/automation/latest_weekly_delivery_check.json", doc)
         self.assertIn("outputs/automation/weekly_delivery_check_history.jsonl", doc)
+        self.assertIn("outputs/automation/latest_weekly_delivery_history_summary.json", doc)
+        self.assertIn("outputs/automation/latest_weekly_delivery_history_report.md", doc)
         self.assertIn("不重新抓取行情", doc)
         self.assertIn("不构成投资建议", doc)
 
@@ -383,6 +386,16 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("weekly_ops_check_history.jsonl", script)
         self.assertIn("latest_weekly_ops_history_summary.json", script)
         self.assertIn("latest_weekly_ops_history_report.md", script)
+
+    def test_weekly_delivery_history_script_static_contract(self):
+        script = (PROJECT_ROOT / "scripts" / "show_weekly_delivery_history.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("weekly_delivery_history_report.py", script)
+        self.assertIn("weekly_delivery_check_history.jsonl", script)
+        self.assertIn("latest_weekly_delivery_history_summary.json", script)
+        self.assertIn("latest_weekly_delivery_history_report.md", script)
         self.assertIn("--history", script)
         self.assertIn("--output", script)
         self.assertIn("--report", script)
