@@ -329,7 +329,7 @@ def build_candidate_risk_summary(row):
     return "；".join(risks)
 
 
-def build_candidate_risk_lines(rows, row_limit=20):
+def build_candidate_risk_lines(rows, row_limit=None):
     if not rows:
         return []
     lines = [
@@ -339,7 +339,8 @@ def build_candidate_risk_lines(rows, row_limit=20):
         "| 股票 | 公司 | 风险说明 |",
         "|---|---|---|",
     ]
-    for row in rows[:row_limit]:
+    visible_rows = rows if row_limit is None else rows[:row_limit]
+    for row in visible_rows:
         lines.append(
             "| {ticker} | {company} | {risk} |".format(
                 ticker=row.get("ticker", ""),

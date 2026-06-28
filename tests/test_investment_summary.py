@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from investment_summary import generate_investment_summary
+from investment_summary import build_candidate_risk_lines, generate_investment_summary
 
 
 def write_csv(path, fieldnames, rows):
@@ -14,6 +14,21 @@ def write_csv(path, fieldnames, rows):
 
 
 class InvestmentSummaryTests(unittest.TestCase):
+    def test_candidate_risk_lines_include_all_candidates_by_default(self):
+        rows = [
+            {
+                "ticker": f"T{i:02d}",
+                "company_name": f"Company {i:02d}",
+                "risk_summary": f"risk {i:02d}",
+            }
+            for i in range(1, 26)
+        ]
+
+        report = "\n".join(build_candidate_risk_lines(rows))
+
+        self.assertIn("| T01 | Company 01 | risk 01 |", report)
+        self.assertIn("| T25 | Company 25 | risk 25 |", report)
+
     def test_generates_candidate_risk_explanations_when_risk_flag_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
