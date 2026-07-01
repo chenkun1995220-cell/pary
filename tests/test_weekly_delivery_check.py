@@ -56,6 +56,28 @@ def write_ready_delivery_files(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_action_items.json",
+        {
+            "action_items_schema": "weekly_action_items",
+            "action_items_version": 1,
+            "as_of_date": as_of_date,
+            "automation_status": "manual_review_needed",
+            "item_count": 7,
+            "items": [
+                {
+                    "priority": index,
+                    "status": "open",
+                    "action_code": f"review_manual_queue_{index}",
+                    "category": "manual_review",
+                    "title": "review manual queue",
+                    "source": "manual_review_queue_count:12",
+                    "recommended_check": "review manual items",
+                }
+                for index in range(1, 8)
+            ],
+        },
+    )
+    write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_conclusion.json",
         {
             "conclusion_schema": "weekly_conclusion",
@@ -259,6 +281,25 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertEqual(result["action_items_status"], "stale")
             self.assertEqual(result["action_items_freshness_status"], "stale")
             self.assertIn("stale_action_items_date", result["attention_reasons"])
+
+    def test_delivery_check_needs_attention_when_action_item_count_mismatches_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["item_count"] = 9
+            write_json(action_items_path, action_items)
+
+            from weekly_delivery_check import run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["action_items_status"], "needs_attention")
+            self.assertEqual(result["action_items_count"], 9)
+            self.assertEqual(result["action_items_actual_count"], 7)
+            self.assertIn("weekly_action_items_count_mismatch", result["attention_reasons"])
 
     def test_delivery_check_needs_attention_when_conclusion_json_is_stale(self):
         with tempfile.TemporaryDirectory() as tmp:

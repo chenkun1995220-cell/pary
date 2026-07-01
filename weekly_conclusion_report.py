@@ -31,6 +31,7 @@ AUTOMATION_FILES = {
 DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
 DEFAULT_JSON_OUTPUT = "outputs/automation/latest_weekly_conclusion.json"
 MANUAL_REVIEW_QUEUE_PATH = "outputs/automation/latest_manual_review_queue.csv"
+WEEKLY_ACTION_ITEMS_PATH = "outputs/automation/latest_weekly_action_items.json"
 MANUAL_REVIEW_DECISIONS_PATH = "outputs/automation/manual_review_decisions.csv"
 MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT = "outputs/automation/manual_review_decisions_template.csv"
 MANUAL_REVIEW_MERGE_SUMMARY_PATH = "outputs/automation/latest_manual_review_decision_merge.json"
@@ -75,6 +76,10 @@ ACTION_DETAILS = {
     "review_delivery_health_issues": {
         "label": "复查最终交付健康提示",
         "description": "检查最终交付健康分、周结论和人工处理清单，区分人工积压和流程修复问题。",
+    },
+    "reduce_weekly_action_backlog": {
+        "label": "制定人工待办压降计划",
+        "description": "按分类复核 latest_weekly_action_items.json，通过 manual_review_decisions.csv 关闭已处理项，合并重复交付健康提示；该动作只用于运营清理，不修改正式模型参数。",
     },
     "monitor_next_run": {
         "label": "继续观察下次运行",
@@ -172,6 +177,18 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             forecast_state = read_forecast_performance_state(project_root, payload, path)
             if forecast_state:
                 state["forecast_performance"] = forecast_state
+
+    weekly_action_items_path = project_root / WEEKLY_ACTION_ITEMS_PATH
+    weekly_action_items = read_json(weekly_action_items_path)
+    if isinstance(weekly_action_items, dict):
+        state["weekly_action_items"] = {
+            "status": "ready",
+            "as_of_date": weekly_action_items.get("as_of_date"),
+            "item_count": weekly_action_items.get("item_count", 0),
+            "items": weekly_action_items.get("items", []),
+            "backlog_reduction_plan": weekly_action_items.get("backlog_reduction_plan", []),
+            "path": relative_path(project_root, weekly_action_items_path),
+        }
 
     check = state.get("automation_check", {})
     check_date = parse_iso_date(check.get("as_of_date"))
@@ -462,7 +479,10 @@ def build_payload(
 ):
     recommended_action = choose_recommended_action(status, automation)
     priority_actions = choose_priority_actions(status, automation, recommended_action)
-    priority_action_details = describe_priority_actions(priority_actions)
+    priority_action_details = describe_priority_actions(
+        priority_actions,
+        automation.get("weekly_action_items", {}).get("items", []),
+    )
     health = summarize_health(status, automation, missing_inputs, warnings, manual_review_decisions)
     candidates = annotate_candidate_actions(candidates)
     candidate_action_summary = summarize_candidate_actions(candidates)
@@ -497,6 +517,7 @@ def render_markdown(payload, per_market_limit=10):
     lines = ["# 每周低估候选统一结论", ""]
     lines.extend(render_automation_section(payload))
     lines.extend(render_priority_actions_section(payload))
+    lines.extend(render_backlog_reduction_section(payload))
     lines.extend(render_market_section(payload))
     lines.extend(render_candidate_action_section(payload))
     lines.extend(render_candidate_section(payload, per_market_limit=per_market_limit))
@@ -525,6 +546,7 @@ def render_automation_section(payload):
         "data_quality",
         "data_quality_history",
         "forecast_performance",
+        "weekly_action_items",
         "weekly_ops_check",
         "weekly_ops_history",
         "weekly_delivery_history",
@@ -550,6 +572,29 @@ def render_priority_actions_section(payload):
                 action=escape_cell(item.get("action")),
                 label=escape_cell(item.get("label")),
                 description=escape_cell(item.get("description")),
+            )
+        )
+    lines.append("")
+    return lines
+
+
+def render_backlog_reduction_section(payload):
+    weekly_action_items = payload.get("automation", {}).get("weekly_action_items", {})
+    plan = weekly_action_items.get("backlog_reduction_plan", []) or []
+    if not plan:
+        return []
+    lines = [
+        "## 待办压降分流",
+        "",
+        "| category | count | actions |",
+        "|---|---:|---|",
+    ]
+    for entry in plan:
+        lines.append(
+            "| {category} | {count} | {actions} |".format(
+                category=escape_cell(entry.get("category", "unknown")),
+                count=escape_cell(entry.get("count", 0)),
+                actions=escape_cell(", ".join(entry.get("actions", []) or [])),
             )
         )
     lines.append("")
@@ -1113,26 +1158,43 @@ def choose_priority_actions(status, automation, recommended_action):
     if status != "ready":
         return [recommended_action]
     actions = automation.get("automation_check", {}).get("priority_actions") or []
-    if actions:
-        return actions
-    return [recommended_action]
+    weekly_items = automation.get("weekly_action_items", {}).get("items", []) or []
+    weekly_actions = [
+        str(item.get("action_code", "")).strip()
+        for item in weekly_items
+        if isinstance(item, dict) and str(item.get("action_code", "")).strip()
+    ]
+    merged = list(actions or weekly_actions or [recommended_action])
+    for action in weekly_actions:
+        if action not in merged:
+            merged.append(action)
+    return merged
 
 
-def describe_priority_actions(actions):
+def describe_priority_actions(actions, weekly_action_items=None):
+    dynamic_templates = {
+        str(item.get("action_code", "")).strip(): item
+        for item in weekly_action_items or []
+        if isinstance(item, dict) and str(item.get("action_code", "")).strip()
+    }
     details = []
     for action in actions or ["monitor_next_run"]:
-        template = ACTION_DETAILS.get(
-            action,
-            {
-                "label": "未分类动作",
-                "description": "保留原始动作码，等待后续补充中文说明。",
-            },
-        )
+        if action in ACTION_DETAILS:
+            template = ACTION_DETAILS[action]
+            label = template["label"]
+            description = template["description"]
+        elif action in dynamic_templates:
+            template = dynamic_templates[action]
+            label = template.get("title") or "未分类动作"
+            description = template.get("recommended_check") or "保留原始动作码，等待后续补充中文说明。"
+        else:
+            label = "未分类动作"
+            description = "保留原始动作码，等待后续补充中文说明。"
         details.append(
             {
                 "action": action,
-                "label": template["label"],
-                "description": template["description"],
+                "label": label,
+                "description": description,
             }
         )
     return details

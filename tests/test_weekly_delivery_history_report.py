@@ -228,6 +228,66 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
             self.assertEqual(summary["recurring_attention_reasons"], [])
             self.assertEqual(summary["recommended_action"], "continue_monitoring")
 
+    def test_summarizes_action_items_actual_count_trend(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            history_path = Path(tmp) / "weekly_delivery_check_history.jsonl"
+            write_history(
+                history_path,
+                [
+                    {
+                        "history_schema": "weekly_delivery_check_history",
+                        "history_version": 1,
+                        "delivery_check_schema": "weekly_delivery_check",
+                        "as_of_date": "2026-06-14",
+                        "status": "ready",
+                        "freshness_status": "fresh",
+                        "attention_reasons": [],
+                        "action_items_status": "ready",
+                        "action_items_count": 3,
+                        "action_items_actual_count": 3,
+                    },
+                    {
+                        "history_schema": "weekly_delivery_check_history",
+                        "history_version": 1,
+                        "delivery_check_schema": "weekly_delivery_check",
+                        "as_of_date": "2026-06-21",
+                        "status": "ready",
+                        "freshness_status": "fresh",
+                        "attention_reasons": [],
+                        "action_items_status": "ready",
+                        "action_items_count": 5,
+                        "action_items_actual_count": 5,
+                    },
+                    {
+                        "history_schema": "weekly_delivery_check_history",
+                        "history_version": 1,
+                        "delivery_check_schema": "weekly_delivery_check",
+                        "as_of_date": "2026-06-28",
+                        "status": "ready",
+                        "freshness_status": "fresh",
+                        "attention_reasons": [],
+                        "action_items_status": "ready",
+                        "action_items_count": 8,
+                        "action_items_actual_count": 8,
+                    },
+                ],
+            )
+
+            from weekly_delivery_history_report import (
+                render_weekly_delivery_history_report,
+                summarize_weekly_delivery_history,
+            )
+
+            summary = summarize_weekly_delivery_history(history_path, window=3)
+            report = render_weekly_delivery_history_report(summary)
+
+            self.assertEqual(summary["latest_action_items_actual_count"], 8)
+            self.assertEqual(summary["max_action_items_actual_count"], 8)
+            self.assertEqual(summary["action_items_actual_count_delta"], 5)
+            self.assertEqual(summary["action_items_actual_count_trend"], "increasing")
+            self.assertIn("latest_action_items_actual_count: 8", report)
+            self.assertIn("action_items_actual_count_trend: increasing", report)
+
     def test_cli_writes_json_and_markdown_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

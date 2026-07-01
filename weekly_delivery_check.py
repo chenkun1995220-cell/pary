@@ -50,6 +50,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_freshness_status = "unknown"
     action_items_age_days = None
     action_items_count = 0
+    action_items_actual_count = 0
     conclusion_signal_status = "unknown"
     missing_conclusion_signals = []
     missing_conclusion_signal_fixes = {}
@@ -107,6 +108,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_freshness_status = action_items["freshness_status"]
     action_items_age_days = action_items["age_days"]
     action_items_count = action_items["item_count"]
+    action_items_actual_count = action_items["actual_item_count"]
     if action_items["attention_reasons"]:
         for reason in action_items["attention_reasons"]:
             if reason not in attention_reasons:
@@ -139,6 +141,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "action_items_freshness_status": action_items_freshness_status,
         "action_items_age_days": action_items_age_days,
         "action_items_count": action_items_count,
+        "action_items_actual_count": action_items_actual_count,
         "missing_outputs": missing_outputs,
         "missing_output_paths": missing_output_paths,
         "attention_reasons": attention_reasons,
@@ -162,6 +165,7 @@ def render_delivery_check(result):
         f"- 每周人工处理清单：{result.get('action_items_status', 'unknown')} / {result.get('action_items_count', 0)}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
     ]
+    lines.append(f"- action_items_actual_count: {result.get('action_items_actual_count', 0)}")
     if result.get("attention_reasons"):
         lines.extend(["", "## 需要处理"])
         for reason in result["attention_reasons"]:
@@ -241,6 +245,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "freshness_status": "unknown",
             "age_days": None,
             "item_count": 0,
+            "actual_item_count": 0,
             "attention_reasons": [],
             "missing": True,
         }
@@ -252,6 +257,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "freshness_status": "unknown",
             "age_days": None,
             "item_count": 0,
+            "actual_item_count": 0,
             "attention_reasons": ["invalid_action_items_json"],
             "missing": False,
         }
@@ -264,7 +270,17 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
         status = "invalid"
         attention_reasons.append("unexpected_action_items_version")
 
+    items = payload.get("items", []) or []
+    if not isinstance(items, list):
+        items = []
+        status = "invalid"
+        attention_reasons.append("invalid_action_items_list")
     item_count = int(payload.get("item_count", 0) or 0)
+    actual_item_count = len(items)
+    if item_count != actual_item_count:
+        if status == "ready":
+            status = "needs_attention"
+        attention_reasons.append("weekly_action_items_count_mismatch")
     freshness_status, age_days = _freshness(
         payload.get("as_of_date", "unknown"),
         today=today,
@@ -282,6 +298,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
         "freshness_status": freshness_status,
         "age_days": age_days,
         "item_count": item_count,
+        "actual_item_count": actual_item_count,
         "attention_reasons": attention_reasons,
         "missing": False,
     }

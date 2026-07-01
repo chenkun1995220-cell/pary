@@ -358,6 +358,59 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                     "priority_actions": [
                         "review_manual_review_backlog",
                         "review_delivery_health_issues",
+                        "reduce_weekly_action_backlog",
+                    ],
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+            self.assertIn("reduce_weekly_action_backlog", markdown)
+            self.assertIn("manual_review_decisions.csv", markdown)
+
+            labels = {
+                item["action"]: item["label"]
+                for item in payload["priority_action_details"]
+            }
+            self.assertEqual(labels["reduce_weekly_action_backlog"], "制定人工待办压降计划")
+            self.assertEqual(labels["review_manual_review_backlog"], "处理人工复核积压")
+            self.assertEqual(labels["review_delivery_health_issues"], "复查最终交付健康提示")
+            self.assertNotIn("未分类动作", markdown)
+            self.assertIn("| review_manual_review_backlog | 处理人工复核积压 |", markdown)
+            self.assertIn("| review_delivery_health_issues | 复查最终交付健康提示 |", markdown)
+
+    def test_includes_weekly_action_items_backlog_reduction_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_action_items.json",
+                {
+                    "action_items_schema": "weekly_action_items",
+                    "action_items_version": 1,
+                    "as_of_date": "2026-06-28",
+                    "item_count": 5,
+                    "backlog_reduction_plan": [
+                        {
+                            "category": "delivery_health",
+                            "count": 3,
+                            "actions": [
+                                "review_manual_review_backlog",
+                                "review_delivery_health_issues",
+                                "reduce_weekly_action_backlog",
+                            ],
+                        },
+                        {
+                            "category": "data_quality",
+                            "count": 2,
+                            "actions": [
+                                "review_data_quality_score",
+                                "review_data_quality_trend",
+                            ],
+                        },
                     ],
                 },
             )
@@ -367,15 +420,69 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             payload = build_weekly_conclusion(root, today="2026-06-28")
             markdown = render_markdown(payload)
 
-            labels = {
-                item["action"]: item["label"]
-                for item in payload["priority_action_details"]
+            plan = payload["automation"]["weekly_action_items"]["backlog_reduction_plan"]
+            self.assertEqual(plan[0]["category"], "delivery_health")
+            self.assertEqual(plan[0]["count"], 3)
+            self.assertEqual(plan[1]["category"], "data_quality")
+            self.assertIn("## 待办压降分流", markdown)
+            self.assertIn("| delivery_health | 3 |", markdown)
+            self.assertIn("| data_quality | 2 |", markdown)
+
+    def test_merges_weekly_action_items_into_priority_actions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_manual_review_automation(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_action_items.json",
+                {
+                    "action_items_schema": "weekly_action_items",
+                    "action_items_version": 1,
+                    "as_of_date": "2026-06-28",
+                    "item_count": 1,
+                    "backlog_reduction_plan": [],
+                    "items": [
+                        {
+                            "action_code": "review_current_membership_source_status",
+                            "category": "backtest",
+                            "title": "核对当前 S&P 500 成分来源缺口",
+                            "source": "decisions_template_status:ready; decisions_template_matched_open_count:1",
+                            "recommended_check": (
+                                "核对 S&P 当前成分来源复核队列；决策模板 status=ready, "
+                                "matched_open=1, missing_open=0。"
+                            ),
+                            "status": "open",
+                        }
+                    ],
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+            details = {
+                item["action"]: item for item in payload["priority_action_details"]
             }
-            self.assertEqual(labels["review_manual_review_backlog"], "处理人工复核积压")
-            self.assertEqual(labels["review_delivery_health_issues"], "复查最终交付健康提示")
-            self.assertNotIn("未分类动作", markdown)
-            self.assertIn("| review_manual_review_backlog | 处理人工复核积压 |", markdown)
-            self.assertIn("| review_delivery_health_issues | 复查最终交付健康提示 |", markdown)
+
+            self.assertIn(
+                "review_current_membership_source_status",
+                payload["priority_actions"],
+            )
+            self.assertIn(
+                "review_current_membership_source_status",
+                details,
+            )
+            self.assertEqual(
+                details["review_current_membership_source_status"]["label"],
+                "核对当前 S&P 500 成分来源缺口",
+            )
+            self.assertIn(
+                "决策模板 status=ready",
+                details["review_current_membership_source_status"]["description"],
+            )
+            self.assertIn("review_current_membership_source_status", markdown)
+            self.assertIn("决策模板 status=ready", markdown)
 
     def test_data_quality_trend_signal_reaches_weekly_conclusion_health(self):
         with tempfile.TemporaryDirectory() as tmp:

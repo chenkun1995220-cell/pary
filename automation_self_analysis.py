@@ -232,6 +232,10 @@ def _weekly_delivery_history_snapshot(project_root):
             "needs_attention_count": 0,
             "stale_count": 0,
             "recurring_attention_reasons": [],
+            "latest_action_items_actual_count": 0,
+            "max_action_items_actual_count": 0,
+            "action_items_actual_count_delta": 0,
+            "action_items_actual_count_trend": "insufficient",
             "latest_conclusion_signal_status": "unknown",
             "latest_missing_conclusion_signals": [],
             "conclusion_signal_ready_count": 0,
@@ -255,6 +259,10 @@ def _weekly_delivery_history_snapshot(project_root):
             "needs_attention_count": 0,
             "stale_count": 0,
             "recurring_attention_reasons": [],
+            "latest_action_items_actual_count": 0,
+            "max_action_items_actual_count": 0,
+            "action_items_actual_count_delta": 0,
+            "action_items_actual_count_trend": "insufficient",
             "latest_conclusion_signal_status": "unknown",
             "latest_missing_conclusion_signals": [],
             "conclusion_signal_ready_count": 0,
@@ -1049,6 +1057,15 @@ def _automation_check_payload(manifest, manifest_validation):
         "candidate_review_status": manifest.get("candidate_review_status", "unknown"),
         "weekly_ops_history_status": manifest.get("weekly_ops_history_status", "unknown"),
         "weekly_delivery_history_status": manifest.get("weekly_delivery_history_status", "unknown"),
+        "weekly_delivery_action_items_actual_count": manifest.get(
+            "weekly_delivery_action_items_actual_count", 0
+        ),
+        "weekly_delivery_action_items_actual_count_delta": manifest.get(
+            "weekly_delivery_action_items_actual_count_delta", 0
+        ),
+        "weekly_delivery_action_items_actual_count_trend": manifest.get(
+            "weekly_delivery_action_items_actual_count_trend", "unknown"
+        ),
         "model_audit_status": manifest.get("model_audit_status", "unknown"),
         "forecast_performance_status": manifest.get("forecast_performance_status", "unknown"),
         "backtest_status": manifest.get("backtest_status", "unknown"),
@@ -1350,6 +1367,11 @@ def _weekly_delivery_health_priority_actions(weekly_delivery_history):
         priority_actions.append("review_manual_review_backlog")
     if any(not str(reason).startswith("manual_review_pending:") for reason in reasons) or missing_signals:
         priority_actions.append("review_delivery_health_issues")
+    if (
+        weekly_delivery_history.get("action_items_actual_count_trend") == "increasing"
+        and (_as_int(weekly_delivery_history.get("action_items_actual_count_delta")) or 0) > 0
+    ):
+        priority_actions.append("reduce_weekly_action_backlog")
     return priority_actions
 
 
@@ -1705,6 +1727,10 @@ def _render(
             f"- latest_freshness_status: {weekly_delivery_history.get('latest_freshness_status', 'unknown')}",
             f"- needs_attention_count: {weekly_delivery_history.get('needs_attention_count', 0)}",
             f"- recurring_attention_reasons: {delivery_recurring_text}",
+            f"- latest_action_items_actual_count: {weekly_delivery_history.get('latest_action_items_actual_count', 0)}",
+            f"- max_action_items_actual_count: {weekly_delivery_history.get('max_action_items_actual_count', 0)}",
+            f"- action_items_actual_count_delta: {weekly_delivery_history.get('action_items_actual_count_delta', 0)}",
+            f"- action_items_actual_count_trend: {weekly_delivery_history.get('action_items_actual_count_trend', 'unknown')}",
             f"- latest_conclusion_health: {weekly_delivery_history.get('latest_conclusion_health_status', 'unknown')} / {weekly_delivery_history.get('latest_conclusion_health_score', 0)}",
             f"- recurring_health_reasons: {delivery_health_text}",
             f"- latest_conclusion_signal_status: {weekly_delivery_history.get('latest_conclusion_signal_status', 'unknown')}",
@@ -1864,6 +1890,15 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         **weekly_ops_history_status,
         "weekly_delivery_history": weekly_delivery_history,
         **weekly_delivery_history_status,
+        "weekly_delivery_action_items_actual_count": weekly_delivery_history.get(
+            "latest_action_items_actual_count", 0
+        ),
+        "weekly_delivery_action_items_actual_count_delta": weekly_delivery_history.get(
+            "action_items_actual_count_delta", 0
+        ),
+        "weekly_delivery_action_items_actual_count_trend": weekly_delivery_history.get(
+            "action_items_actual_count_trend", "unknown"
+        ),
         "manual_review_queue_count": len(manual_review_queue),
         "manual_review_repeat_count": len(manual_review_history_repeats),
         "review_status": review_status,
@@ -1952,6 +1987,9 @@ REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
     "weekly_delivery_history",
     "weekly_delivery_history_status",
     "weekly_delivery_history_recommended_action",
+    "weekly_delivery_action_items_actual_count",
+    "weekly_delivery_action_items_actual_count_delta",
+    "weekly_delivery_action_items_actual_count_trend",
     "manual_review_queue_count",
     "manual_review_repeat_count",
     "review_status",

@@ -44,6 +44,31 @@ def _latest_record_per_as_of_date(rows):
     return deduped
 
 
+def _int_value(value, default=0):
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _action_items_actual_count(row):
+    if "action_items_actual_count" in row:
+        return _int_value(row.get("action_items_actual_count"), 0)
+    return _int_value(row.get("action_items_count"), 0)
+
+
+def _trend_label(values):
+    if len(values) < 2:
+        return "insufficient"
+    if all(current > previous for previous, current in zip(values, values[1:])):
+        return "increasing"
+    if all(current < previous for previous, current in zip(values, values[1:])):
+        return "decreasing"
+    if all(current == previous for previous, current in zip(values, values[1:])):
+        return "flat"
+    return "mixed"
+
+
 def summarize_weekly_delivery_history(history, window=8):
     rows = load_weekly_delivery_history(history)
     trend_rows = _latest_record_per_as_of_date(rows)
@@ -69,6 +94,7 @@ def summarize_weekly_delivery_history(history, window=8):
         if count >= 2
     ]
     latest = recent[-1] if recent else {}
+    action_actual_counts = [_action_items_actual_count(row) for row in recent]
     needs_attention_count = sum(1 for row in recent if row.get("status") == "needs_attention")
     ready_count = sum(1 for row in recent if row.get("status") == "ready")
     stale_count = sum(1 for row in recent if row.get("freshness_status") == "stale")
@@ -136,13 +162,19 @@ def summarize_weekly_delivery_history(history, window=8):
         "latest_status": latest.get("status", "unknown"),
         "latest_freshness_status": latest.get("freshness_status", "unknown"),
         "latest_conclusion_health_status": latest.get("conclusion_health_status", "unknown"),
-        "latest_conclusion_health_score": int(latest.get("conclusion_health_score", 0) or 0),
+        "latest_conclusion_health_score": _int_value(latest.get("conclusion_health_score"), 0),
         "latest_conclusion_health_reasons": latest.get("conclusion_health_reasons", []),
-        "latest_candidate_count_total": int(latest.get("candidate_count_total", 0) or 0),
-        "latest_manual_review_pending_count": int(latest.get("manual_review_pending_count", 0) or 0),
+        "latest_candidate_count_total": _int_value(latest.get("candidate_count_total"), 0),
+        "latest_manual_review_pending_count": _int_value(latest.get("manual_review_pending_count"), 0),
         "latest_action_items_status": latest.get("action_items_status", "unknown"),
         "latest_action_items_freshness_status": latest.get("action_items_freshness_status", "unknown"),
-        "latest_action_items_count": int(latest.get("action_items_count", 0) or 0),
+        "latest_action_items_count": _int_value(latest.get("action_items_count"), 0),
+        "latest_action_items_actual_count": _action_items_actual_count(latest) if latest else 0,
+        "max_action_items_actual_count": max(action_actual_counts) if action_actual_counts else 0,
+        "action_items_actual_count_delta": (
+            action_actual_counts[-1] - action_actual_counts[0] if len(action_actual_counts) >= 2 else 0
+        ),
+        "action_items_actual_count_trend": _trend_label(action_actual_counts),
         "latest_conclusion_signal_status": latest.get("conclusion_signal_status", "unknown"),
         "latest_missing_conclusion_signals": latest.get("missing_conclusion_signals", []),
         "latest_missing_conclusion_signal_fixes": latest.get("missing_conclusion_signal_fixes", {}),
@@ -233,6 +265,15 @@ def render_weekly_delivery_history_report(summary):
         "- 该摘要按 as_of_date 取最后一条记录统计趋势；同一天手动重跑不会被当成多周重复问题。",
         "- 该摘要只读取最终交付验收历史，不抓取行情，不重新评分，也不修改模型参数。",
     ]
+    lines.extend(
+        [
+            "",
+        f"- latest_action_items_actual_count: {summary.get('latest_action_items_actual_count', 0)}",
+        f"- max_action_items_actual_count: {summary.get('max_action_items_actual_count', 0)}",
+        f"- action_items_actual_count_delta: {summary.get('action_items_actual_count_delta', 0)}",
+        f"- action_items_actual_count_trend: {summary.get('action_items_actual_count_trend', 'unknown')}",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 

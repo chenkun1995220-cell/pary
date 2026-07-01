@@ -8,6 +8,11 @@ ACTION_ITEMS_SCHEMA = "weekly_action_items"
 ACTION_ITEMS_VERSION = 1
 EXPECTED_MANIFEST_SCHEMA = "self_analysis_manifest"
 EXPECTED_MANIFEST_VERSION = 1
+DEFAULT_MEMBERSHIP_IMPORT_PLAN = "outputs/automation/latest_membership_evidence_import_plan.json"
+DEFAULT_CURRENT_MEMBERSHIP_SOURCES = "outputs/automation/latest_sp500_current_membership_sources.json"
+DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
+    "outputs/automation/latest_sp500_current_membership_source_review_status.json"
+)
 
 
 def load_manifest(manifest):
@@ -18,6 +23,19 @@ def load_manifest(manifest):
     if int(payload.get("manifest_version", 0) or 0) != EXPECTED_MANIFEST_VERSION:
         raise ValueError(f"unexpected manifest_version: {payload.get('manifest_version', '')}")
     return payload
+
+
+def load_optional_json(path):
+    if not path:
+        return {}
+    payload_path = Path(path)
+    if not payload_path.exists():
+        return {}
+    try:
+        payload = json.loads(payload_path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _delivery_history(manifest):
@@ -133,6 +151,15 @@ def _data_quality_trend_text(manifest):
 
 
 def _action_template(action_code, manifest):
+    if action_code == "reduce_weekly_action_backlog":
+        action = _backlog_reduction_action(manifest)
+        if action:
+            return {
+                "title": action["title"],
+                "category": action["category"],
+                "source": action["source"],
+                "recommended_check": action["recommended_check"],
+            }
     history = _delivery_history(manifest)
     manual_review_count = _manual_review_count(manifest, history)
     health_text = _health_reason_text(history)
@@ -254,9 +281,189 @@ def _action_template(action_code, manifest):
     )
 
 
-def build_weekly_action_items(manifest):
+def _membership_import_plan_action(import_plan):
+    ready_count = _int_value(import_plan.get("ready_to_import_count"), 0)
+    if ready_count <= 0:
+        return None
+
+    weeks_affected = _int_value(import_plan.get("ready_to_import_weeks_affected"), 0)
+    ready_items = [
+        item
+        for item in import_plan.get("items", []) or []
+        if isinstance(item, dict) and item.get("import_status") == "ready_current_source"
+    ]
+    ready_items = sorted(
+        ready_items,
+        key=lambda item: (-_int_value(item.get("weeks_affected"), 0), str(item.get("ticker", ""))),
+    )
+    tickers = ", ".join(
+        str(item.get("ticker", "")).strip()
+        for item in ready_items[:5]
+        if str(item.get("ticker", "")).strip()
+    )
+    ticker_text = tickers or "ready_current_source items"
+    next_action = import_plan.get("next_action", "run_membership_evidence_apply_preview")
+
+    return {
+        "action_code": "run_membership_evidence_apply_preview",
+        "category": "backtest",
+        "title": "Run membership evidence apply preview",
+        "source": (
+            f"ready_to_import_count:{ready_count}; "
+            f"weeks_affected:{weeks_affected}; "
+            f"next_action:{next_action}"
+        ),
+        "recommended_check": (
+            "Run scripts/run_membership_evidence_apply_preview.ps1 for "
+            f"{ticker_text}; compare latest_membership_evidence_import_plan.md and "
+            "latest_membership_evidence_apply_preview.md; keep this as preview only, "
+            "without modifying historical_membership.csv or formal model parameters."
+        ),
+    }
+
+
+def _current_membership_source_action(source_status, review_status=None):
+    review_status = review_status or {}
+    if source_status.get("recommended_followup") != "review_current_membership_source_status":
+        return None
+    missing_count = _int_value(source_status.get("missing_count"), 0)
+    intake_missing_count = _int_value(source_status.get("intake_missing_count"), 0)
+    missing_queue_count = len(source_status.get("missing_ticker_review_queue", []) or [])
+    if missing_count <= 0 and intake_missing_count <= 0:
+        return None
+
+    missing_tickers = [
+        str(ticker).strip()
+        for ticker in source_status.get("missing_tickers", []) or []
+        if str(ticker).strip()
+    ]
+    intake_missing_tickers = [
+        str(ticker).strip()
+        for ticker in source_status.get("intake_missing_tickers", []) or []
+        if str(ticker).strip()
+    ]
+    ticker_text = ", ".join((missing_tickers or intake_missing_tickers)[:10]) or "missing tickers"
+    review_queue_file = (
+        str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
+        or "outputs/automation/sp500_current_membership_source_review_queue.csv"
+    )
+    review_status_file = "outputs/automation/latest_sp500_current_membership_source_review_status.json"
+    review_status_value = review_status.get("status", "missing")
+    review_open_count = _int_value(review_status.get("open_count"), 0)
+    review_resolved_count = _int_value(review_status.get("resolved_count"), 0)
+    decisions_template_file = str(
+        review_status.get(
+            "decisions_template_file",
+            "outputs/automation/sp500_current_membership_source_review_decisions_template.csv",
+        )
+        or ""
+    ).strip()
+    decisions_template_status = str(
+        review_status.get("decisions_template_status", "unknown") or "unknown"
+    ).strip()
+    decisions_template_matched = _int_value(
+        review_status.get("decisions_template_matched_open_count"), 0
+    )
+    decisions_template_missing_open_count = len(
+        review_status.get("decisions_template_missing_open_tickers", []) or []
+    )
+    ticker_text = (
+        f"{ticker_text}; {review_status_file}；"
+        f"状态报告 open={review_open_count}, resolved={review_resolved_count}；"
+        f"{decisions_template_file}；"
+        f"决策模板 status={decisions_template_status}, "
+        f"matched_open={decisions_template_matched}, "
+        f"missing_open={decisions_template_missing_open_count}"
+    )
+
+    return {
+        "action_code": "review_current_membership_source_status",
+        "category": "backtest",
+        "title": "核对当前 S&P 500 成分来源缺口",
+        "source": (
+            f"status:{source_status.get('status', 'unknown')}; "
+            f"matched_count:{_int_value(source_status.get('matched_count'), 0)}; "
+            f"missing_count:{missing_count}; "
+            f"missing_ticker_review_queue_count:{missing_queue_count}; "
+            f"review_status:{review_status_value}; "
+            f"review_open_count:{review_open_count}; "
+            f"review_resolved_count:{review_resolved_count}; "
+            f"decisions_template_status:{decisions_template_status}; "
+            f"decisions_template_matched_open_count:{decisions_template_matched}; "
+            f"decisions_template_missing_open_count:{decisions_template_missing_open_count}; "
+            f"intake_coverage_status:{source_status.get('intake_coverage_status', 'unknown')}; "
+            f"intake_missing_count:{intake_missing_count}; "
+            f"next_action:{source_status.get('next_action', 'unknown')}"
+        ),
+        "recommended_check": (
+            "核对 outputs/automation/latest_sp500_current_membership_sources.json、"
+            f"{review_queue_file} 和 "
+            "outputs/automation/sp500_current_membership_source_intake_template.csv 中的 "
+            f"{ticker_text}；当前缺失复核队列 {missing_queue_count} 条，确认缺失 ticker 是官方导出不覆盖，还是人工来源文件仍不完整。"
+            "该动作只做证据复核，不修改 historical_membership.csv 或正式模型参数。"
+        ),
+    }
+
+
+def _backlog_reduction_action(manifest):
+    trend = str(manifest.get("weekly_delivery_action_items_actual_count_trend", "") or "")
+    actual_count = _int_value(manifest.get("weekly_delivery_action_items_actual_count"), 0)
+    delta = _int_value(manifest.get("weekly_delivery_action_items_actual_count_delta"), 0)
+    if trend != "increasing" or delta <= 0:
+        return None
+
+    return {
+        "action_code": "reduce_weekly_action_backlog",
+        "category": "delivery_health",
+        "title": "制定人工待办压降计划",
+        "source": f"actual_count:{actual_count}; delta:{delta}; trend:{trend}",
+        "recommended_check": (
+            "按分类复核 outputs/automation/latest_weekly_action_items.json；"
+            "通过 manual_review_decisions.csv 关闭已处理的人工复核项，"
+            "合并重复的交付健康提示，并把该动作限定为运营清理，"
+            "不修改正式模型参数。"
+        ),
+    }
+
+
+def _backlog_reduction_plan(items):
+    grouped = {}
+    for item in items:
+        if item.get("status") != "open":
+            continue
+        category = item.get("category", "unknown") or "unknown"
+        entry = grouped.setdefault(
+            category,
+            {
+                "category": category,
+                "count": 0,
+                "actions": [],
+                "first_priority": _int_value(item.get("priority"), 9999),
+            },
+        )
+        entry["count"] += 1
+        entry["actions"].append(item.get("action_code", ""))
+        entry["first_priority"] = min(entry["first_priority"], _int_value(item.get("priority"), 9999))
+    plan = sorted(
+        grouped.values(),
+        key=lambda entry: (-entry["count"], entry["first_priority"], entry["category"]),
+    )
+    for entry in plan:
+        entry.pop("first_priority", None)
+    return plan
+
+
+def build_weekly_action_items(
+    manifest,
+    membership_import_plan=None,
+    current_membership_sources=None,
+    current_membership_source_review_status=None,
+):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
+    import_plan = load_optional_json(membership_import_plan)
+    current_source_status = load_optional_json(current_membership_sources)
+    current_source_review_status = load_optional_json(current_membership_source_review_status)
     actions = list(source.get("automation_priority_actions", []) or [])
     if not actions:
         actions = [source.get("automation_recommended_action", "") or "continue_monitoring"]
@@ -276,6 +483,36 @@ def build_weekly_action_items(manifest):
             }
         )
 
+    membership_action = _membership_import_plan_action(import_plan)
+    if membership_action and not any(
+        item.get("action_code") == membership_action["action_code"] for item in items
+    ):
+        membership_action = dict(membership_action)
+        membership_action["priority"] = len(items) + 1
+        membership_action["status"] = "open"
+        items.append(membership_action)
+
+    current_source_action = _current_membership_source_action(
+        current_source_status,
+        current_source_review_status,
+    )
+    if current_source_action and not any(
+        item.get("action_code") == current_source_action["action_code"] for item in items
+    ):
+        current_source_action = dict(current_source_action)
+        current_source_action["priority"] = len(items) + 1
+        current_source_action["status"] = "open"
+        items.append(current_source_action)
+
+    backlog_reduction_action = _backlog_reduction_action(source)
+    if backlog_reduction_action and not any(
+        item.get("action_code") == backlog_reduction_action["action_code"] for item in items
+    ):
+        backlog_reduction_action = dict(backlog_reduction_action)
+        backlog_reduction_action["priority"] = len(items) + 1
+        backlog_reduction_action["status"] = "open"
+        items.append(backlog_reduction_action)
+
     return {
         "action_items_schema": ACTION_ITEMS_SCHEMA,
         "action_items_version": ACTION_ITEMS_VERSION,
@@ -283,6 +520,7 @@ def build_weekly_action_items(manifest):
         "source_manifest": str(manifest_path),
         "automation_status": source.get("automation_status", "unknown"),
         "item_count": len(items),
+        "backlog_reduction_plan": _backlog_reduction_plan(items),
         "items": items,
         "boundary": "只读取自我分析 manifest，不抓取行情，不重新评分，不修改正式模型参数。",
     }
@@ -299,6 +537,16 @@ def render_weekly_action_items(payload):
         "",
         "## 处理事项",
     ]
+    action_items_heading = lines.pop()
+    plan = payload.get("backlog_reduction_plan", []) or []
+    if plan:
+        lines.extend(["", "## 待办压降分流", "", "| category | count | actions |", "|---|---:|---|"])
+        for entry in plan:
+            lines.append(
+                f"| {entry.get('category', 'unknown')} | {entry.get('count', 0)} | "
+                f"{', '.join(entry.get('actions', []) or [])} |"
+            )
+    lines.extend(["", action_items_heading])
     items = payload.get("items", []) or []
     if not items:
         lines.append("- 暂无待处理事项。")
@@ -348,9 +596,20 @@ def main():
     parser.add_argument("--manifest", default="outputs/automation/latest_self_analysis_manifest.json")
     parser.add_argument("--output", default="outputs/automation/latest_weekly_action_items.json")
     parser.add_argument("--report", default="outputs/automation/latest_weekly_action_items.md")
+    parser.add_argument("--membership-import-plan", default=DEFAULT_MEMBERSHIP_IMPORT_PLAN)
+    parser.add_argument("--current-membership-sources", default=DEFAULT_CURRENT_MEMBERSHIP_SOURCES)
+    parser.add_argument(
+        "--current-membership-source-review-status",
+        default=DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS,
+    )
     args = parser.parse_args()
 
-    payload = build_weekly_action_items(args.manifest)
+    payload = build_weekly_action_items(
+        args.manifest,
+        membership_import_plan=args.membership_import_plan,
+        current_membership_sources=args.current_membership_sources,
+        current_membership_source_review_status=args.current_membership_source_review_status,
+    )
     report = render_weekly_action_items(payload)
     if args.output:
         write_json(payload, args.output)

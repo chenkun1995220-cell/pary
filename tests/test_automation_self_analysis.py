@@ -911,6 +911,79 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(check["weekly_delivery_history_status"], "manual_review_needed")
             self.assertIn("review_recurring_delivery_issues", report)
 
+    def test_self_analysis_exposes_delivery_action_items_actual_count_trend(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_text(root / "outputs" / "us_universe" / "latest_run_summary.md", "# US Weekly Screening Run Summary\n")
+            write_text(root / "outputs" / "cn_universe" / "latest_run_summary.md", "# CN Weekly Data Summary\n")
+            write_text(root / "outputs" / "hk_universe" / "latest_run_summary.md", "# HK Weekly Data Summary\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_text(
+                root / "outputs" / "automation" / "weekly_delivery_check_history.jsonl",
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "history_schema": "weekly_delivery_check_history",
+                                "history_version": 1,
+                                "delivery_check_schema": "weekly_delivery_check",
+                                "as_of_date": "2026-06-13",
+                                "status": "ready",
+                                "freshness_status": "fresh",
+                                "attention_reasons": [],
+                                "action_items_status": "ready",
+                                "action_items_count": 3,
+                                "action_items_actual_count": 3,
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "history_schema": "weekly_delivery_check_history",
+                                "history_version": 1,
+                                "delivery_check_schema": "weekly_delivery_check",
+                                "as_of_date": "2026-06-20",
+                                "status": "ready",
+                                "freshness_status": "fresh",
+                                "attention_reasons": [],
+                                "action_items_status": "ready",
+                                "action_items_count": 5,
+                                "action_items_actual_count": 5,
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "history_schema": "weekly_delivery_check_history",
+                                "history_version": 1,
+                                "delivery_check_schema": "weekly_delivery_check",
+                                "as_of_date": "2026-06-27",
+                                "status": "ready",
+                                "freshness_status": "fresh",
+                                "attention_reasons": [],
+                                "action_items_status": "ready",
+                                "action_items_count": 8,
+                                "action_items_actual_count": 8,
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-06-27")
+            report = Path(result["output"]).read_text(encoding="utf-8-sig")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(manifest["weekly_delivery_action_items_actual_count"], 8)
+            self.assertEqual(manifest["weekly_delivery_action_items_actual_count_delta"], 5)
+            self.assertEqual(manifest["weekly_delivery_action_items_actual_count_trend"], "increasing")
+            self.assertEqual(check["weekly_delivery_action_items_actual_count"], 8)
+            self.assertEqual(check["weekly_delivery_action_items_actual_count_delta"], 5)
+            self.assertEqual(check["weekly_delivery_action_items_actual_count_trend"], "increasing")
+            self.assertIn("reduce_weekly_action_backlog", manifest["automation_priority_actions"])
+            self.assertIn("reduce_weekly_action_backlog", check["priority_actions"])
+            self.assertIn("action_items_actual_count_trend: increasing", report)
+
     def test_self_analysis_maps_delivery_health_reasons_to_priority_actions(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

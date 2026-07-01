@@ -29,6 +29,9 @@ class AutomationCheckReportTests(unittest.TestCase):
                         "manual_review_repeat_count": 0,
                         "weekly_ops_history_status": "manual_review_needed",
                         "weekly_delivery_history_status": "manual_review_needed",
+                        "weekly_delivery_action_items_actual_count": 8,
+                        "weekly_delivery_action_items_actual_count_delta": 2,
+                        "weekly_delivery_action_items_actual_count_trend": "increasing",
                         "priority_actions": ["review_manual_queue", "review_data_health"],
                         "market_candidate_counts": [
                             {"name": "美股周筛", "status": "ready", "candidate_count": "22"},
@@ -61,6 +64,9 @@ class AutomationCheckReportTests(unittest.TestCase):
 
             self.assertIn("weekly_ops_history_status: manual_review_needed", report)
             self.assertIn("weekly_delivery_history_status: manual_review_needed", report)
+            self.assertIn("weekly_delivery_action_items_actual_count: 8", report)
+            self.assertIn("weekly_delivery_action_items_actual_count_delta: 2", report)
+            self.assertIn("weekly_delivery_action_items_actual_count_trend: increasing", report)
 
     def test_cli_prints_report_from_check_json(self):
         with tempfile.TemporaryDirectory() as tmp:
