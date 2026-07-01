@@ -1,13 +1,16 @@
-param(
+﻿param(
   [string]$Companies = "",
   [string]$CacheDir = "",
   [string]$OutputRoot = "",
+  [switch]$RunPostChecks,
+  [int]$PostCheckMaxAgeDays = 8,
   [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
 
 if (-not $Companies) { $Companies = Join-Path $ProjectRoot "data\samples\hk_universe_companies.csv" }
 if (-not $CacheDir) { $CacheDir = Join-Path $ProjectRoot "data\cache\hk_large_mid" }
@@ -18,6 +21,12 @@ Write-Host "Companies: $Companies"
 Write-Host "Cache: $CacheDir"
 Write-Host "OutputRoot: $OutputRoot"
 Write-Host "Steps: universe -> market snapshot -> quote gap diagnostics -> quote retry -> final quote gap diagnostics -> financial snapshot -> regional screening -> price history -> valuation_trend_v1 -> benchmark -> forecast tracking -> model audit -> data health history"
+if ($RunPostChecks) {
+  Write-Host "完成后将自动执行 run_weekly_reporting_bundle.ps1"
+} else {
+  Write-Host "完成后请先执行复核清单：$ReviewChecklistPath"
+  Write-Host "可一键收口：powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_weekly_reporting_bundle.ps1"
+}
 
 if ($DryRun) {
   Write-Host "DryRun: no files or network requests were created."
@@ -60,12 +69,14 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "HK quote gap diagnostics failed with exit code $LASTEXITCODE." }
 
   $quoteRetryReportPath = Join-Path $OutputRoot "quote_retry.md"
+  $quoteRetryResultsPath = Join-Path $OutputRoot "quote_retry_results.json"
   & $Python -B regional_quote_retry.py `
     --companies $Companies `
     --snapshot $snapshotPath `
     --gaps $quoteGapsPath `
     --output $snapshotPath `
-    --report $quoteRetryReportPath
+    --report $quoteRetryReportPath `
+    --result-json $quoteRetryResultsPath
   if ($LASTEXITCODE -ne 0) { throw "HK quote retry failed with exit code $LASTEXITCODE." }
 
   & $Python -B regional_quote_gaps.py `
@@ -193,12 +204,20 @@ try {
     "- Quote gaps: $quoteGapsPath",
     "- Quote gap report: $quoteGapReportPath",
     "- Quote retry report: $quoteRetryReportPath",
+    "- Quote retry results: $quoteRetryResultsPath",
     "- Data health history: $dataHealthHistoryPath",
     "- Data health report: $dataHealthReportPath",
     "- Report: $(Join-Path $OutputRoot 'weekly_report.md')",
     "- Log: $logPath"
   )
   Set-Content -LiteralPath (Join-Path $OutputRoot "latest_run_summary.md") -Value $summary -Encoding UTF8
+
+  if ($RunPostChecks) {
+    & (Get-Command powershell.exe).Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "scripts\\run_weekly_reporting_bundle.ps1") -ProjectRoot $ProjectRoot -MaxAgeDays $PostCheckMaxAgeDays -IgnorePreSubmitFailure
+    if ($LASTEXITCODE -ne 0) {
+      throw "post-check bundle failed with exit code $LASTEXITCODE."
+    }
+  }
 }
 finally {
   if ($transcriptStarted) { Stop-Transcript | Out-Null }

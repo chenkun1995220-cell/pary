@@ -25,7 +25,7 @@ EXPECTED_AUTOMATIONS = [
         ],
     },
     {
-        "id": "automation-2",
+        "id": "automation-3",
         "name": "港股大中盘每周筛选",
         "minute": 45,
         "required_prompt_terms": [
@@ -37,6 +37,7 @@ EXPECTED_AUTOMATIONS = [
             "scripts\\show_weekly_conclusion.ps1",
             "scripts\\run_weekly_delivery_check.ps1",
             "scripts\\show_weekly_delivery_history.ps1",
+            "scripts\\run_pre_submit_review.ps1",
         ],
     },
 ]
@@ -124,7 +125,7 @@ def render_audit_report(result):
             "",
             "## 验收重点",
             "- 美股和A股任务不得提前引用旧 latest_automation_check.json。",
-            "- 港股任务必须在三市场完成后运行 run_self_analysis.ps1、show_automation_check.ps1、run_weekly_ops_check.ps1、show_weekly_ops_history.ps1、show_weekly_conclusion.ps1、run_weekly_delivery_check.ps1 和 show_weekly_delivery_history.ps1。",
+            "- 港股任务必须在三市场完成后运行 run_self_analysis.ps1、show_automation_check.ps1、run_weekly_ops_check.ps1、show_weekly_ops_history.ps1、show_weekly_conclusion.ps1、run_weekly_delivery_check.ps1、show_weekly_delivery_history.ps1 和 run_pre_submit_review.ps1。",
         ]
     )
     return "\n".join(lines) + "\n"

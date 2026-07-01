@@ -82,6 +82,36 @@ class WeeklyAutomationTests(unittest.TestCase):
             self.assertIn(str(output_root), output)
             self.assertFalse(output_root.exists())
 
+    def test_orchestrator_dry_run_with_post_checks_prints_closure_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_root = Path(tmp) / "weekly_output"
+            result = subprocess.run(
+                [
+                    "powershell.exe",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "scripts\\run_us_universe_weekly.ps1",
+                    "-SecUserAgent",
+                    "Test test@example.com",
+                    "-OutputRoot",
+                    str(output_root),
+                    "-RunPostChecks",
+                    "-DryRun",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            output = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, output)
+            self.assertIn("run_weekly_reporting_bundle.ps1", output)
+            self.assertIn("DryRun: no files or network requests were created.", output)
+            self.assertFalse(output_root.exists())
+
     def test_task_registration_what_if_prints_schedule_and_orchestrator(self):
         result = subprocess.run(
             [
@@ -142,7 +172,11 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("us_sp500_membership_evidence.csv", script)
         self.assertIn("EvidencePack", script)
         self.assertIn("--evidence-pack", script)
+        self.assertIn("us_sp500_current_membership_sources.csv", script)
+        self.assertIn("CurrentSourcePack", script)
+        self.assertIn("--current-source-pack", script)
         self.assertIn("evidence_pack_newer", script)
+        self.assertIn("current_source_pack_newer", script)
         self.assertIn("universe_config_newer", script)
         self.assertIn("membership_newer", script)
         self.assertIn("benchmark_config_newer", script)
@@ -246,6 +280,12 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("outputs/automation/latest_membership_evidence_gaps.csv", doc)
         self.assertIn("outputs/automation/latest_membership_evidence_gaps.md", doc)
         self.assertIn("outputs/automation/latest_membership_evidence_gaps.json", doc)
+        self.assertIn("run_sp500_current_membership_sources.ps1", doc)
+        self.assertIn("latest_sp500_current_membership_sources.md", doc)
+        self.assertIn("us_sp500_current_membership_sources.csv", doc)
+        self.assertIn("run_membership_evidence_apply_preview.ps1", doc)
+        self.assertIn("latest_membership_evidence_apply_preview.json", doc)
+        self.assertIn("latest_membership_evidence_apply_preview.md", doc)
         self.assertIn("data_leakage_audit.md", doc)
         self.assertIn("us_sp500_membership_evidence.csv", doc)
         self.assertIn("Evidence status", doc)
@@ -298,8 +338,13 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("weekly_ops_history_recommended_action", doc)
         self.assertIn("weekly_delivery_history_status", doc)
         self.assertIn("weekly_delivery_history_recommended_action", doc)
+        self.assertIn("weekly_delivery_action_items_actual_count", doc)
+        self.assertIn("weekly_delivery_action_items_actual_count_delta", doc)
+        self.assertIn("weekly_delivery_action_items_actual_count_trend", doc)
         self.assertIn("review_manual_review_backlog", doc)
         self.assertIn("review_delivery_health_issues", doc)
+        self.assertIn("reduce_weekly_action_backlog", doc)
+        self.assertIn("backlog_reduction_plan", doc)
         self.assertIn("处理人工复核积压", doc)
         self.assertIn("复查最终交付健康提示", doc)
         self.assertIn("每周人工处理清单", doc)
