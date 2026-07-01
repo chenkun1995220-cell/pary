@@ -1,4 +1,4 @@
-param(
+﻿param(
   [int]$Years = 3,
   [int]$PilotWeeks = 8,
   [ValidateSet("latest", "earliest")]
@@ -13,6 +13,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
+$ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
 if (-not $OutputRoot) {
   $OutputRoot = Join-Path $ProjectRoot "outputs\backtests\us_3y_weekly"
 }
@@ -38,6 +39,7 @@ $HistoricalPriceCache = Join-Path $ProjectRoot "data\cache\historical_price_stor
 $BenchmarkConfig = Join-Path $ProjectRoot "data\config\market_benchmarks.csv"
 $UniverseConfig = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
 $EvidencePack = Join-Path $ProjectRoot "data\config\us_sp500_membership_evidence.csv"
+$CurrentSourcePack = Join-Path $ProjectRoot "data\config\us_sp500_current_membership_sources.csv"
 
 $Steps = @(
   "1/8 Build historical S&P 500 membership",
@@ -59,6 +61,8 @@ Write-Host "MaxCompanies: $MaxCompanies"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "EvidencePack: $EvidencePack"
 Write-Host "EvidencePackReady: $((Test-Path -LiteralPath $EvidencePack))"
+Write-Host "CurrentSourcePack: $CurrentSourcePack"
+Write-Host "CurrentSourcePackReady: $((Test-Path -LiteralPath $CurrentSourcePack))"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
 Write-Host "backtest_membership_inputs.py -> $HistoricalMembership"
 Write-Host "backtest_sec_cache.py -> $CompanyFactsCache"
@@ -78,6 +82,7 @@ Write-Host "latest_membership_evidence_gaps.md -> $MembershipEvidenceGapsMarkdow
 Write-Host "data_leakage_audit.md -> $LeakageAudit"
 foreach ($step in $Steps) { Write-Host $step }
 Write-Host "Default command: scripts\run_us_point_in_time_backtest.ps1 -PilotWeeks 8"
+Write-Host "完成后请先执行复核清单：$ReviewChecklistPath"
 
 function Test-CsvHasDataRows {
   param([string]$Path)
@@ -107,6 +112,9 @@ if ($membershipReady) {
   if ((Test-Path -LiteralPath $EvidencePack) -and ((Get-Item -LiteralPath $EvidencePack).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
     $membershipRefreshReasons += "evidence_pack_newer"
   }
+  if ((Test-Path -LiteralPath $CurrentSourcePack) -and ((Get-Item -LiteralPath $CurrentSourcePack).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
+    $membershipRefreshReasons += "current_source_pack_newer"
+  }
   if ($membershipRefreshReasons.Count -gt 0) {
     $membershipReady = $false
     Write-Host "MembershipRefreshReason: $($membershipRefreshReasons -join ',')"
@@ -125,6 +133,9 @@ if (-not $membershipReady) {
   )
   if (Test-Path -LiteralPath $EvidencePack) {
     $membershipArgs += @("--evidence-pack", $EvidencePack)
+  }
+  if (Test-Path -LiteralPath $CurrentSourcePack) {
+    $membershipArgs += @("--current-source-pack", $CurrentSourcePack)
   }
   & $Python @membershipArgs
   if ($LASTEXITCODE -ne 0) {
