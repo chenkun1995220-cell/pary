@@ -404,10 +404,49 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "missing_ticker_review_queue_file": "outputs/automation/sp500_current_membership_source_review_queue.csv",
             "next_action": "retry_official_source_or_provide_official_constituents_csv",
             "source_file_required_columns": ["Symbol", "Ticker"],
+            "minimum_official_ticker_count": 400,
+            "source_quality_flags": ["official_source_fetch_failed"],
+            "source_file_next_command": (
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\run_sp500_current_membership_sources.ps1 "
+                "-ProjectRoot <project_root> -SourceFile <official_constituents.csv>"
+            ),
+            "source_file_acceptance_criteria": [
+                "has_symbol_or_ticker_column",
+                "at_least_400_tickers",
+                "official_spglobal_constituents_export",
+            ],
+            "source_file_intake_template": "outputs/automation/sp500_current_membership_source_intake_template.csv",
+            "intake_coverage_status": "none",
+            "intake_expected_count": 2,
+            "intake_matched_count": 0,
+            "intake_missing_count": 2,
+            "intake_missing_tickers": ["ABT", "ADM"],
+            "recommended_followup": "provide_official_constituents_csv",
             "formal_backtest_upgrade_allowed": False,
             "rows": [],
             "error": "HTTP Error 403: Forbidden",
         },
+    )
+    write_csv(
+        root / "outputs" / "automation" / "sp500_current_membership_source_intake_template.csv",
+        [
+            {
+                "expected_ticker": "ABT",
+                "intake_status": "official_export_required",
+                "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                "required_source_columns": "Symbol or Ticker",
+                "notes": "Download the official S&P Global constituents export.",
+            },
+            {
+                "expected_ticker": "ADM",
+                "intake_status": "official_export_required",
+                "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                "required_source_columns": "Symbol or Ticker",
+                "notes": "Download the official S&P Global constituents export.",
+            },
+        ],
+        ["expected_ticker", "intake_status", "required_source_url", "required_source_columns", "notes"],
     )
     write_csv(
         root / "outputs" / "automation" / "sp500_current_membership_source_review_queue.csv",
@@ -989,6 +1028,47 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_file_guidance_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            del source["source_file_next_command"]
+            del source["source_file_acceptance_criteria"]
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_guidance",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_intake_counts_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["intake_expected_count"] = 1
+            source["intake_missing_count"] = 1
+            source["intake_missing_tickers"] = ["ABT"]
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_intake_template_mismatch",
                 result["attention_reasons"],
             )
 

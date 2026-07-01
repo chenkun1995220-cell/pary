@@ -838,8 +838,42 @@ def _sp500_current_membership_source_reasons(payload, project_root=None):
                     reasons.append("sp500_current_membership_source_review_queue_file_mismatch")
                 if not csv_valid:
                     reasons.append("sp500_current_membership_source_review_queue_file_invalid")
+    if payload.get("recommended_followup") == "provide_official_constituents_csv":
+        reasons.extend(_sp500_current_membership_source_file_guidance_reasons(payload, project_root))
     if payload.get("formal_backtest_upgrade_allowed"):
         reasons.append("sp500_current_membership_sources_upgrade_gate_unsafe")
+    return reasons
+
+
+def _sp500_current_membership_source_file_guidance_reasons(payload, project_root=None):
+    reasons = []
+    command = str(payload.get("source_file_next_command", "") or "").strip()
+    criteria = set(payload.get("source_file_acceptance_criteria", []) or [])
+    if (
+        "run_sp500_current_membership_sources.ps1" not in command
+        or "-SourceFile" not in command
+        or "has_symbol_or_ticker_column" not in criteria
+        or "at_least_400_tickers" not in criteria
+    ):
+        reasons.append("sp500_current_membership_sources_missing_source_file_guidance")
+
+    intake_file = str(payload.get("source_file_intake_template", "") or "").strip()
+    expected_count = _int_value(payload.get("intake_expected_count"))
+    missing_count = _int_value(payload.get("intake_missing_count"))
+    missing_tickers = _ticker_set(payload.get("intake_missing_tickers", []) or [])
+    if not intake_file:
+        reasons.append("sp500_current_membership_sources_intake_template_mismatch")
+        return reasons
+
+    intake_path = _resolve_path(project_root or ".", intake_file)
+    intake_tickers, intake_valid = _source_file_intake_template_status(intake_path)
+    if (
+        not intake_valid
+        or expected_count != len(intake_tickers)
+        or missing_count != len(intake_tickers)
+        or missing_tickers != intake_tickers
+    ):
+        reasons.append("sp500_current_membership_sources_intake_template_mismatch")
     return reasons
 
 
@@ -849,6 +883,10 @@ def _ticker_set_from_review_queue(review_queue):
         for item in review_queue
         if isinstance(item, dict) and str(item.get("ticker", "")).strip()
     }
+
+
+def _ticker_set(values):
+    return {str(value).strip().upper() for value in values if str(value).strip()}
 
 
 REVIEW_QUEUE_CSV_REQUIRED_FIELDS = {
@@ -872,6 +910,34 @@ def _review_queue_csv_status(path):
                 if any(not str(row.get(field, "")).strip() for field in REVIEW_QUEUE_CSV_REQUIRED_FIELDS):
                     valid = False
                 ticker = str(row.get("ticker", "")).strip().upper()
+                if ticker:
+                    tickers.add(ticker)
+            return tickers, valid
+    except OSError:
+        return set(), False
+
+
+SOURCE_FILE_INTAKE_TEMPLATE_REQUIRED_FIELDS = {
+    "expected_ticker",
+    "intake_status",
+    "required_source_url",
+    "required_source_columns",
+}
+
+
+def _source_file_intake_template_status(path):
+    try:
+        with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fields = set(reader.fieldnames or [])
+            if not SOURCE_FILE_INTAKE_TEMPLATE_REQUIRED_FIELDS.issubset(fields):
+                return set(), False
+            tickers = set()
+            valid = True
+            for row in reader:
+                if any(not str(row.get(field, "")).strip() for field in SOURCE_FILE_INTAKE_TEMPLATE_REQUIRED_FIELDS):
+                    valid = False
+                ticker = str(row.get("expected_ticker", "")).strip().upper()
                 if ticker:
                     tickers.add(ticker)
             return tickers, valid
