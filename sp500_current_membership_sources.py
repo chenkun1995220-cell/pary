@@ -16,6 +16,16 @@ SOURCE_SCHEMA = "sp500_current_membership_sources"
 SOURCE_VERSION = 1
 MINIMUM_OFFICIAL_TICKER_COUNT = 400
 SOURCE_FILE_REQUIRED_COLUMNS = ["Symbol", "Ticker"]
+SOURCE_FILE_NEXT_COMMAND = (
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+    "scripts\\run_sp500_current_membership_sources.ps1 "
+    "-ProjectRoot <project_root> -SourceFile <official_constituents.csv>"
+)
+SOURCE_FILE_ACCEPTANCE_CRITERIA = [
+    "has_symbol_or_ticker_column",
+    "at_least_400_tickers",
+    "official_spglobal_constituents_export",
+]
 INTAKE_TEMPLATE_FIELDS = [
     "expected_ticker",
     "intake_status",
@@ -164,6 +174,13 @@ def _missing_ticker_review_queue(missing_tickers, source_url, status):
     ]
 
 
+def _source_file_guidance():
+    return {
+        "source_file_next_command": SOURCE_FILE_NEXT_COMMAND,
+        "source_file_acceptance_criteria": SOURCE_FILE_ACCEPTANCE_CRITERIA,
+    }
+
+
 def build_current_membership_sources_from_tickers(template_path, official_tickers, source_url, as_of_date=None):
     if not _is_official_spglobal_source(source_url):
         raise ValueError("source_url must be an official S&P Global HTTPS URL")
@@ -194,7 +211,7 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
         }
         for ticker in matched
     ]
-    return {
+    payload = {
         "source_schema": SOURCE_SCHEMA,
         "source_version": SOURCE_VERSION,
         "status": status,
@@ -214,6 +231,9 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
         "rows": rows,
         "boundary": "只在官方 S&P Global 来源中解析到 ticker 时生成 verified 当前成分来源；不推断、不补全、不修改回测输入。",
     }
+    if status == "source_file_required":
+        payload.update(_source_file_guidance())
+    return payload
 
 
 def build_current_membership_sources(template_path, html_text, source_url, as_of_date=None):
@@ -245,6 +265,9 @@ def build_fetch_failed_payload(template_path, source_url, error, as_of_date=None
         ),
         "next_action": "retry_official_source_or_provide_official_constituents_csv",
         "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
+        "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "source_quality_flags": ["official_source_fetch_failed"],
+        **_source_file_guidance(),
         "formal_backtest_upgrade_allowed": False,
         "rows": [],
         "error": str(error),
@@ -336,6 +359,13 @@ def render_report(payload):
         f"- recommended_followup: {payload.get('recommended_followup', '')}",
         f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
     ]
+    if payload.get("source_file_next_command"):
+        lines.append(f"- source_file_next_command: {payload.get('source_file_next_command', '')}")
+    if payload.get("source_file_acceptance_criteria"):
+        lines.append(
+            "- source_file_acceptance_criteria: "
+            + ", ".join(payload.get("source_file_acceptance_criteria") or [])
+        )
     if payload.get("error"):
         lines.append(f"- error: {payload.get('error', '')}")
     lines.extend(["", "| ticker | evidence | source |", "|---|---|---|"])
@@ -426,6 +456,11 @@ def main():
             exc,
             as_of_date=args.as_of_date or None,
         )
+    if args.intake_template and not args.source_file and payload.get("status") in {
+        "fetch_failed",
+        "source_file_required",
+    }:
+        write_intake_template(payload, args.intake_template)
     if args.intake_template:
         add_intake_coverage(payload, args.intake_template)
     write_sources_csv(payload, args.output)

@@ -379,6 +379,15 @@ def _current_membership_source_action(source_status, review_status=None):
         if str(column).strip()
     ]
     source_file_required_text = ", ".join(source_file_required_columns) or "none"
+    source_file_next_command = str(
+        source_status.get("source_file_next_command", "") or ""
+    ).strip()
+    source_file_acceptance_criteria = [
+        str(item).strip()
+        for item in source_status.get("source_file_acceptance_criteria", []) or []
+        if str(item).strip()
+    ]
+    source_file_criteria_text = ", ".join(source_file_acceptance_criteria) or "none"
     review_decision_status = str(
         review_status.get("review_decision_status", "unknown") or "unknown"
     ).strip()
@@ -432,7 +441,9 @@ def _current_membership_source_action(source_status, review_status=None):
             "outputs/automation/sp500_current_membership_source_intake_template.csv 中的 "
             f"{ticker_text}；当前缺失复核队列 {missing_queue_count} 条；"
             f"若 recommended_followup={recommended_followup}，提供官方 S&P Global constituents CSV，"
-            f"要求列：{source_file_required_text}；确认缺失 ticker 是官方导出不覆盖，还是人工来源文件仍不完整。"
+            f"要求列：{source_file_required_text}；验收条件：{source_file_criteria_text}；"
+            f"导入命令：{source_file_next_command or 'run_sp500_current_membership_sources.ps1 -SourceFile <official_constituents.csv>'}；"
+            "确认缺失 ticker 是官方导出不覆盖，还是人工来源文件仍不完整。"
             "该动作只做证据复核，不修改 historical_membership.csv 或正式模型参数。"
         ),
     }

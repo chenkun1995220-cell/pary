@@ -407,6 +407,15 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     "next_action": "retry_official_source_or_provide_official_constituents_csv",
                     "recommended_followup": "provide_official_constituents_csv",
                     "source_file_required_columns": ["Symbol", "Ticker"],
+                    "source_file_next_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 "
+                        "-ProjectRoot <project_root> -SourceFile <official_constituents.csv>"
+                    ),
+                    "source_file_acceptance_criteria": [
+                        "has_symbol_or_ticker_column",
+                        "at_least_400_tickers",
+                    ],
                     "source_quality_flags": ["official_ticker_count_below_minimum"],
                 }
             )
@@ -435,6 +444,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("sp500_current_membership_source_intake_template.csv", source_item["recommended_check"])
             self.assertIn("提供官方 S&P Global constituents CSV", source_item["recommended_check"])
             self.assertIn("Symbol, Ticker", source_item["recommended_check"])
+            self.assertIn("run_sp500_current_membership_sources.ps1", source_item["recommended_check"])
+            self.assertIn("-SourceFile <official_constituents.csv>", source_item["recommended_check"])
+            self.assertIn("at_least_400_tickers", source_item["recommended_check"])
             self.assertIn("review_current_membership_source_status", report)
 
     def test_adds_backlog_reduction_action_when_weekly_action_items_are_increasing(self):
