@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from investment_summary import generate_investment_summary
+from investment_summary import build_candidate_risk_lines, generate_investment_summary
 
 
 def write_csv(path, fieldnames, rows):
@@ -14,6 +14,21 @@ def write_csv(path, fieldnames, rows):
 
 
 class InvestmentSummaryTests(unittest.TestCase):
+    def test_candidate_risk_lines_include_all_candidates_by_default(self):
+        rows = [
+            {
+                "ticker": f"T{i:02d}",
+                "company_name": f"Company {i:02d}",
+                "risk_summary": f"risk {i:02d}",
+            }
+            for i in range(1, 26)
+        ]
+
+        report = "\n".join(build_candidate_risk_lines(rows))
+
+        self.assertIn("| T01 | Company 01 | risk 01 |", report)
+        self.assertIn("| T25 | Company 25 | risk 25 |", report)
+
     def test_generates_candidate_risk_explanations_when_risk_flag_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -595,6 +610,11 @@ class InvestmentSummaryTests(unittest.TestCase):
             self.assertIn("- 候选公司数量：2", report)
             self.assertIn("- 模型审计状态：sample_accumulating", report)
             self.assertIn("| AAA | Alpha Inc. | A | 92.0 | USD 100.00 | USD 112.00 | USD 160.00 | 60.0% | 达到建议买入区间 |", report)
+            self.assertIn("## 候选解释摘要", report)
+            self.assertIn("- 达到建议买入区间：1/2", report)
+            self.assertIn("- 等待回调或安全边际不足：1/2", report)
+            self.assertIn("- 估值置信度 low：2/2", report)
+            self.assertIn("- 走势偏弱：1/2", report)
             self.assertIn("## 新入选", report)
             self.assertIn("BBB", report)
             self.assertIn("## 连续入选", report)

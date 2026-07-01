@@ -5,7 +5,8 @@ import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from historical_sp500 import restore_membership
+from historical_sp500 import _trusted_evidence, restore_membership
+from sp500_constituents import normalize_ticker
 
 
 BACKTEST_MEMBERSHIP_FIELDS = [
@@ -75,9 +76,28 @@ def _active_universe_rows(universe_rows):
     return rows
 
 
-def _current_membership_map(active_rows, evidence, source_url, evidence_rows=None):
+def _current_source_map(current_source_rows):
+    sources = {}
+    for row in current_source_rows or []:
+        ticker = normalize_ticker(row.get("ticker"))
+        if ticker:
+            sources[ticker] = row
+    return sources
+
+
+def _current_source_evidence(ticker, current_sources, evidence, source_url):
+    source_row = current_sources.get(ticker, {})
+    if not source_row:
+        return evidence, source_url
+    raw_evidence = str(source_row.get("membership_evidence", evidence) or evidence).strip().lower()
+    raw_source_url = str(source_row.get("membership_source_url", source_url) or source_url).strip()
+    return _trusted_evidence(raw_evidence, raw_source_url), raw_source_url
+
+
+def _current_membership_map(active_rows, evidence, source_url, evidence_rows=None, current_source_rows=None):
     added_events = {}
     removed_tickers = set()
+    current_sources = _current_source_map(current_source_rows)
     for event in evidence_rows or []:
         added_ticker = str(event.get("added_ticker", "") or "").strip().upper()
         removed_ticker = str(event.get("removed_ticker", "") or "").strip().upper()
@@ -92,12 +112,13 @@ def _current_membership_map(active_rows, evidence, source_url, evidence_rows=Non
         if ticker in removed_tickers and ticker not in added_events:
             continue
         event = added_events.get(ticker, {})
+        current_evidence, current_source_url = _current_source_evidence(ticker, current_sources, evidence, source_url)
         current[ticker] = {
             "ticker": ticker,
             "company_name": row.get("company_name", ""),
             "effective_date": event.get("effective_date", row.get("date_added", "")),
-            "membership_evidence": event.get("membership_evidence", evidence),
-            "membership_source_url": event.get("membership_source_url", source_url),
+            "membership_evidence": event.get("membership_evidence", current_evidence),
+            "membership_source_url": event.get("membership_source_url", current_source_url),
             "_source_row": row,
         }
     return current
@@ -123,6 +144,7 @@ def build_backtest_membership(
     source_url="data/config/us_universe_symbols.csv",
     company_limit=0,
     evidence_rows=None,
+    current_source_rows=None,
 ):
     active_rows = _active_universe_rows(universe_rows)
     limit = int(company_limit or 0)
@@ -134,7 +156,13 @@ def build_backtest_membership(
     for week in week_dates:
         week_date = _iso_date(week, "week")
         if applicable_evidence_rows:
-            current = _current_membership_map(active_rows, evidence, source_url, applicable_evidence_rows)
+            current = _current_membership_map(
+                active_rows,
+                evidence,
+                source_url,
+                applicable_evidence_rows,
+                current_source_rows=current_source_rows,
+            )
             week_members = restore_membership(current, applicable_evidence_rows, week)
             active_by_ticker = {row["ticker"]: row for row in active_rows}
             week_rows = []
@@ -150,13 +178,19 @@ def build_backtest_membership(
             for row in sorted(active_rows, key=lambda item: item["ticker"]):
                 added = _iso_date(row.get("date_added"), "date_added")
                 if added <= week_date:
+                    current_evidence, current_source_url = _current_source_evidence(
+                        row["ticker"],
+                        _current_source_map(current_source_rows),
+                        evidence,
+                        source_url,
+                    )
                     week_rows.append(
                         (
                             row,
                             {
                                 "effective_date": row.get("date_added", ""),
-                                "membership_evidence": evidence,
-                                "membership_source_url": source_url,
+                                "membership_evidence": current_evidence,
+                                "membership_source_url": current_source_url,
                             },
                         )
                     )
@@ -215,6 +249,7 @@ def prepare_backtest_membership(
     market="US",
     company_limit=0,
     evidence_pack=None,
+    current_source_pack=None,
 ):
     rows = build_backtest_membership(
         _read_csv(universe_config),
@@ -224,6 +259,7 @@ def prepare_backtest_membership(
         source_url=str(universe_config),
         company_limit=company_limit,
         evidence_rows=_read_optional_csv(evidence_pack),
+        current_source_rows=_read_optional_csv(current_source_pack),
     )
     write_backtest_membership_csv(output, rows)
     return {"rows": len(rows), "weeks": len({row["week"] for row in rows}), "output": Path(output)}
@@ -238,6 +274,7 @@ def main():
     parser.add_argument("--market", default="US")
     parser.add_argument("--max-companies", type=int, default=0)
     parser.add_argument("--evidence-pack")
+    parser.add_argument("--current-source-pack")
     args = parser.parse_args()
     result = prepare_backtest_membership(
         args.universe_config,
@@ -247,6 +284,7 @@ def main():
         market=args.market,
         company_limit=args.max_companies,
         evidence_pack=args.evidence_pack,
+        current_source_pack=args.current_source_pack,
     )
     print(f"Backtest membership weeks: {result['weeks']}")
     print(f"Backtest membership rows: {result['rows']}")

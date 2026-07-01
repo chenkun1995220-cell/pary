@@ -1,6 +1,8 @@
-param(
+﻿param(
   [string]$SecUserAgent = $env:SEC_USER_AGENT,
   [string]$OutputRoot = "",
+  [switch]$RunPostChecks,
+  [int]$PostCheckMaxAgeDays = 8,
   [switch]$DryRun
 )
 
@@ -18,6 +20,7 @@ $Sp500Cache = Join-Path $ProjectRoot "data\cache\sp500"
 $SecCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
 $PowerShell = (Get-Command powershell.exe).Source
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
 
 $Steps = @(
   @{ Label = "1/10 Refresh S&P 500 constituents"; Script = "refresh_sp500_constituents.ps1"; Arguments = @("-Output", $Symbols, "-CacheDir", $Sp500Cache) },
@@ -34,6 +37,13 @@ foreach ($step in $Steps) {
   Write-Host $step.Label
 }
 foreach ($label in $ValuationSteps) { Write-Host $label }
+if ($RunPostChecks) {
+  Write-Host "完成后将自动执行 run_weekly_reporting_bundle.ps1"
+} else {
+  Write-Host "完成后请先执行复核清单：$ReviewChecklistPath"
+  Write-Host "完成后请执行 run_pre_submit_review.ps1"
+  Write-Host "可一键收口：powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_weekly_reporting_bundle.ps1"
+}
 
 if ($DryRun) {
   Write-Host "DryRun: no files or network requests were created."
@@ -167,6 +177,13 @@ try {
   )
   Set-Content -LiteralPath $summaryPath -Value $summary -Encoding UTF8
   Write-Host "Weekly pipeline completed. Summary: $summaryPath"
+
+  if ($RunPostChecks) {
+    & (Get-Command powershell.exe).Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "scripts\\run_weekly_reporting_bundle.ps1") -ProjectRoot $ProjectRoot -MaxAgeDays $PostCheckMaxAgeDays -IgnorePreSubmitFailure
+    if ($LASTEXITCODE -ne 0) {
+      throw "post-check bundle failed with exit code $LASTEXITCODE."
+    }
+  }
 }
 finally {
   if ($transcriptStarted) {

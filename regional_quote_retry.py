@@ -1,5 +1,6 @@
 import argparse
 import csv
+import json
 from pathlib import Path
 
 from regional_market_snapshot import (
@@ -106,12 +107,32 @@ def write_report(path, attempted, updated, results, errors):
     output.write_text("\n".join(lines), encoding="utf-8-sig")
 
 
+def write_result_json(path, attempted, updated, results, errors):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "retry_schema": "regional_quote_retry",
+        "retry_version": 1,
+        "attempted": attempted,
+        "updated": updated,
+        "errors": len(errors),
+        "results": results,
+        "error_messages": errors,
+    }
+    output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8-sig",
+    )
+    return output
+
+
 def run_regional_quote_retry(
     companies_path,
     snapshot_path,
     gaps_path,
     output_path,
     report_path,
+    result_json_path=None,
     fetcher=None,
     batch_size=20,
     quote_date=None,
@@ -149,12 +170,16 @@ def run_regional_quote_retry(
         else:
             results.append({"ticker": ticker, "status": "missing", "message": "重抓未返回可用行情"})
     write_report(report_path, len(targets), updated, results, errors)
+    result_path = None
+    if result_json_path:
+        result_path = write_result_json(result_json_path, len(targets), updated, results, errors)
     return {
         "attempted": len(targets),
         "updated": updated,
         "errors": len(errors),
         "output_path": Path(output_path),
         "report_path": Path(report_path),
+        "result_json_path": result_path,
     }
 
 
@@ -165,6 +190,7 @@ def main():
     parser.add_argument("--gaps", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--report", required=True)
+    parser.add_argument("--result-json")
     parser.add_argument("--batch-size", type=int, default=20)
     args = parser.parse_args()
 
@@ -174,6 +200,7 @@ def main():
         gaps_path=args.gaps,
         output_path=args.output,
         report_path=args.report,
+        result_json_path=args.result_json,
         batch_size=args.batch_size,
     )
     print(f"Regional quote retry attempted: {result['attempted']}")

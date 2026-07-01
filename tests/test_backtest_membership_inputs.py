@@ -114,6 +114,57 @@ class BacktestMembershipInputsTests(unittest.TestCase):
 
         self.assertEqual(membership[0]["membership_evidence"], "secondary")
 
+    def test_current_source_pack_can_upgrade_current_membership_only(self):
+        rows = [
+            {
+                "ticker": "ABT",
+                "cik": "1800",
+                "company_name": "Abbott Laboratories",
+                "industry": "Health Care",
+                "gics_sub_industry": "Health Care Equipment",
+                "date_added": "1957-03-04",
+                "enabled": "1",
+            },
+            {
+                "ticker": "ADM",
+                "cik": "7084",
+                "company_name": "Archer Daniels Midland",
+                "industry": "Consumer Staples",
+                "gics_sub_industry": "Agricultural Products",
+                "date_added": "1957-03-04",
+                "enabled": "1",
+            },
+        ]
+        current_source_rows = [
+            {
+                "ticker": "ABT",
+                "membership_evidence": "verified",
+                "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                "source_as_of_date": "2026-06-30",
+            },
+            {
+                "ticker": "ADM",
+                "membership_evidence": "verified",
+                "membership_source_url": "https://spglobal.com.example.test/sp-500/",
+                "source_as_of_date": "2026-06-30",
+            },
+        ]
+
+        membership = build_backtest_membership(
+            rows,
+            weeks=1,
+            end_date="2026-06-26",
+            current_source_rows=current_source_rows,
+        )
+
+        by_ticker = {row["ticker"]: row for row in membership}
+        self.assertEqual(by_ticker["ABT"]["membership_evidence"], "verified")
+        self.assertEqual(
+            by_ticker["ABT"]["membership_source_url"],
+            "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+        )
+        self.assertEqual(by_ticker["ADM"]["membership_evidence"], "secondary")
+
     def test_evidence_pack_ignores_events_outside_limited_universe(self):
         rows = [
             {
@@ -200,6 +251,53 @@ class BacktestMembershipInputsTests(unittest.TestCase):
                 loaded = list(csv.DictReader(handle))
             self.assertEqual(result["rows"], 1)
             self.assertEqual(loaded[0]["ticker"], "NEW")
+            self.assertEqual(loaded[0]["membership_evidence"], "verified")
+
+    def test_prepare_membership_reads_current_source_pack_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            universe = root / "universe.csv"
+            current_source_pack = root / "current_sources.csv"
+            output = root / "membership.csv"
+            write_csv(
+                universe,
+                [
+                    {
+                        "ticker": "ABT",
+                        "cik": "1800",
+                        "company_name": "Abbott Laboratories",
+                        "industry": "Health Care",
+                        "gics_sub_industry": "Health Care Equipment",
+                        "date_added": "1957-03-04",
+                        "enabled": "1",
+                    }
+                ],
+            )
+            write_csv(
+                current_source_pack,
+                [
+                    {
+                        "ticker": "ABT",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "2026-06-30",
+                        "notes": "official current S&P 500 source",
+                    }
+                ],
+            )
+
+            result = prepare_backtest_membership(
+                universe,
+                output,
+                weeks=1,
+                end_date="2026-06-26",
+                current_source_pack=current_source_pack,
+            )
+
+            with output.open(encoding="utf-8-sig", newline="") as handle:
+                loaded = list(csv.DictReader(handle))
+            self.assertEqual(result["rows"], 1)
+            self.assertEqual(loaded[0]["ticker"], "ABT")
             self.assertEqual(loaded[0]["membership_evidence"], "verified")
 
     def test_invalid_evidence_pack_fails_before_writing_output(self):

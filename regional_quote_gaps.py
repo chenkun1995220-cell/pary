@@ -12,6 +12,8 @@ GAP_FIELDS = [
     "missing_fields",
     "reason",
     "remediation_type",
+    "review_category",
+    "review_detail",
     "cache_status",
     "recommended_action",
 ]
@@ -59,6 +61,38 @@ def _missing_field_groups(row):
     return missing_values, non_positive_values
 
 
+def _non_positive_review_fields(row, non_positive_values):
+    categories = []
+    details = []
+
+    if "pe" in non_positive_values:
+        categories.append("loss_making_or_negative_pe")
+        details.append(f"pe={row.get('pe', '')}")
+    if "pb" in non_positive_values:
+        categories.append("non_positive_book_value_or_pb")
+        details.append(f"pb={row.get('pb', '')}")
+
+    industry = str(
+        row.get("industry")
+        or row.get("sector")
+        or row.get("industry_name")
+        or ""
+    ).strip()
+    company_name = str(row.get("company_name") or row.get("name") or "").strip()
+    industry_text = f"{industry} {company_name}".lower()
+    special_tokens = ["reit", "real estate", "property", "bank", "insurance", "financial"]
+    if any(token in industry_text for token in special_tokens):
+        categories.append("special_industry_valuation_review")
+        if industry:
+            details.append(f"industry={industry}")
+        else:
+            details.append(f"company_name={company_name}")
+
+    if not categories:
+        categories.append("valuation_metric_review")
+    return ";".join(categories), ";".join(details)
+
+
 def read_cache_status(cache_dir):
     metadata_path = Path(cache_dir) / "refresh_metadata.json"
     if not metadata_path.exists():
@@ -98,6 +132,8 @@ def build_quote_gap_rows(companies, snapshot_rows, market, cache_status):
                     "missing_fields": "all_quote_fields",
                     "reason": "Eastmoney batch quote 未返回该 ticker",
                     "remediation_type": "refetch_quote",
+                    "review_category": "",
+                    "review_detail": "",
                     "cache_status": cache_status,
                     "recommended_action": "重新运行 regional_market_snapshot.py；若仍缺失，检查 raw_ticker/secid 映射或临时剔除",
                 }
@@ -112,11 +148,14 @@ def build_quote_gap_rows(companies, snapshot_rows, market, cache_status):
                 issue_type = "partial_quote"
                 reason = "行情字段不完整或未达到 ready 状态"
                 remediation_type = "refetch_or_supplement_quote"
+                review_category = ""
+                review_detail = ""
                 recommended_action = "重新运行 regional_market_snapshot.py；必要时补充行情源或人工复核字段口径"
             else:
                 issue_type = "non_positive_metric"
                 reason = "PE/PB 非正，通常来自亏损、净资产异常或估值字段口径不可用"
                 remediation_type = "manual_financial_review"
+                review_category, review_detail = _non_positive_review_fields(snapshot, non_positive_values)
                 recommended_action = "不要反复重抓行情；进入盈利、净资产和估值口径复核，筛选时保持质量门禁"
             gaps.append(
                 {
@@ -127,6 +166,8 @@ def build_quote_gap_rows(companies, snapshot_rows, market, cache_status):
                     "missing_fields": ";".join(missing_fields) or "data_quality_status",
                     "reason": reason,
                     "remediation_type": remediation_type,
+                    "review_category": review_category,
+                    "review_detail": review_detail,
                     "cache_status": cache_status,
                     "recommended_action": recommended_action,
                 }
@@ -160,22 +201,23 @@ def write_markdown_report(path, rows, market, cache_status):
         f"- 非正估值指标：{non_positive_count}",
         f"- 缓存状态：{cache_status}",
         "",
-        "| 股票 | 公司 | 缺口类型 | 缺失字段 | 建议动作 |",
-        "|---|---|---|---|---|",
+        "| 股票 | 公司 | 缺口类型 | 缺失字段 | 复核分类 | 建议动作 |",
+        "|---|---|---|---|---|---|",
     ]
     if rows:
         for row in rows:
             lines.append(
-                "| {ticker} | {company} | {issue_type} | {missing_fields} | {action} |".format(
+                "| {ticker} | {company} | {issue_type} | {missing_fields} | {review_category} | {action} |".format(
                     ticker=row["ticker"],
                     company=row["company_name"],
                     issue_type=row["issue_type"],
                     missing_fields=row["missing_fields"],
+                    review_category=row.get("review_category", ""),
                     action=row["recommended_action"],
                 )
             )
     else:
-        lines.append("| 无 | 无 | none | none | 保持当前抓取流程 |")
+        lines.append("| 无 | 无 | none | none | none | 保持当前抓取流程 |")
     lines.append("")
     output.write_text("\n".join(lines), encoding="utf-8-sig")
 

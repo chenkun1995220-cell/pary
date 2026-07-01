@@ -7,11 +7,12 @@ from datetime import date, timedelta
 from pathlib import Path
 
 
-CHECKPOINTS = {4: 28, 12: 84, 26: 182, 52: 364}
+CHECKPOINTS = {1: 7, 4: 28, 12: 84, 26: 182, 52: 364}
 EVALUATION_VERSION = "forecast_eval_v1"
 TRACKING_FIELDS = [
     "market", "ticker", "company_name", "generated_date", "model_version",
-    "as_of_date", "checkpoint_weeks", "evaluation_status", "predicted_direction",
+    "as_of_date", "checkpoint_weeks", "prediction_horizon", "prediction_signal",
+    "evaluation_status", "predicted_direction",
     "actual_direction", "direction_hit", "start_price", "actual_price",
     "target_price", "actual_return", "benchmark_return", "excess_return",
     "target_error", "target_error_pct", "max_favorable_excursion",
@@ -62,6 +63,38 @@ def _direction(value):
     return "neutral"
 
 
+def _direction_from_signal(value):
+    text = str(value or "").strip().lower()
+    if not text:
+        return "unknown"
+    if text in {"up", "upward", "bullish"}:
+        return "up"
+    if text in {"down", "downward", "bearish"}:
+        return "down"
+    if text in {"neutral", "flat", "sideways"}:
+        return "neutral"
+    if "数据不足" in text or "insufficient" in text:
+        return "unknown"
+    if "上行" in text or "偏强" in text:
+        return "up"
+    if "下行" in text or "偏弱" in text:
+        return "down"
+    if "震荡" in text or "中性" in text:
+        return "neutral"
+    return "unknown"
+
+
+def _prediction_direction(forecast, checkpoint_weeks):
+    if checkpoint_weeks == 1:
+        signal = forecast.get("one_week_expected_direction", "")
+        return "1w", signal, _direction_from_signal(signal)
+    if checkpoint_weeks == 4 and forecast.get("one_month_expected_direction"):
+        signal = forecast.get("one_month_expected_direction", "")
+        return "1m", signal, _direction_from_signal(signal)
+    expected_return = _number(forecast.get("expected_return"))
+    return "12m", "expected_return", _direction(expected_return)
+
+
 def _adjusted(row):
     return _number(row.get("adjusted_close") or row.get("close")) if row else None
 
@@ -90,6 +123,13 @@ def evaluate_forecast(forecast, stock_prices, benchmark_prices, as_of_date, chec
         "valuation_confidence": forecast.get("valuation_confidence", ""),
         "evaluation_version": EVALUATION_VERSION,
     }
+    prediction_horizon, prediction_signal, predicted_direction = _prediction_direction(
+        forecast, checkpoint_weeks
+    )
+    base.update({
+        "prediction_horizon": prediction_horizon,
+        "prediction_signal": prediction_signal,
+    })
     if any(row.get("data_status") == "corporate_action_review" for row in interval):
         return {**base, "evaluation_status": "corporate_action_review"}
     start_price, actual_price = _adjusted(start), _adjusted(actual)
@@ -108,14 +148,16 @@ def evaluate_forecast(forecast, stock_prices, benchmark_prices, as_of_date, chec
     target_price = _number(forecast.get("target_price"))
     prices = [_adjusted(row) for row in interval]
     prices = [value for value in prices if value is not None]
-    predicted_direction = _direction(expected_return)
     actual_direction = _direction(actual_return)
+    status = "evaluated" if checkpoint_weeks else "tracking"
+    if checkpoint_weeks and predicted_direction == "unknown":
+        status = "prediction_unavailable"
     result = {
         **base,
-        "evaluation_status": "evaluated" if checkpoint_weeks else "tracking",
+        "evaluation_status": status,
         "predicted_direction": predicted_direction,
         "actual_direction": actual_direction,
-        "direction_hit": predicted_direction == actual_direction,
+        "direction_hit": predicted_direction == actual_direction if predicted_direction != "unknown" else "",
         "start_price": start_price,
         "actual_price": actual_price,
         "target_price": target_price,
@@ -188,12 +230,27 @@ def run_forecast_tracking(forecasts_path, stock_history_path, benchmark_history_
     _atomic_csv(output / "forecast_evaluations.csv", evaluations)
     mature = [row for row in evaluations if row.get("evaluation_status") == "evaluated"]
     hits = [row for row in mature if str(row.get("direction_hit")).lower() == "true"]
-    lines = [f"# {as_of_date} 预测表现跟踪报告", "", f"- 市场：{market}",
-             f"- 跟踪预测：{len(tracking)}", f"- 成熟评价：{len(mature)}"]
+    one_week = [row for row in mature if row.get("prediction_horizon") == "1w"]
+    one_month = [row for row in mature if row.get("prediction_horizon") == "1m"]
+    unavailable = [row for row in evaluations if row.get("evaluation_status") == "prediction_unavailable"]
+    lines = [
+        f"# {as_of_date} 预测表现跟踪报告",
+        "",
+        f"- 市场：{market}",
+        f"- 跟踪预测：{len(tracking)}",
+        f"- 成熟评价：{len(mature)}",
+        f"- 1周成熟评估：{len(one_week)}",
+        f"- 1个月成熟评估：{len(one_month)}",
+        f"- 预测字段缺失未评估：{len(unavailable)}",
+    ]
     if mature:
         lines.append(f"- 方向命中率：{len(hits) / len(mature):.2%}")
     else:
         lines.append("- 评价状态：样本积累中")
+    for label, rows in (("1周", one_week), ("1个月", one_month)):
+        if rows:
+            row_hits = [row for row in rows if str(row.get("direction_hit")).lower() == "true"]
+            lines.append(f"- {label}方向命中率：{len(row_hits) / len(rows):.2%}")
     _atomic_text(output / "performance_report.md", "\n".join(lines) + "\n")
     return {"tracking": len(tracking), "evaluations": len(evaluations), "mature": len(mature)}
 

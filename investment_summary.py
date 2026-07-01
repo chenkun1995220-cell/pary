@@ -329,7 +329,7 @@ def build_candidate_risk_summary(row):
     return "；".join(risks)
 
 
-def build_candidate_risk_lines(rows, row_limit=20):
+def build_candidate_risk_lines(rows, row_limit=None):
     if not rows:
         return []
     lines = [
@@ -339,7 +339,8 @@ def build_candidate_risk_lines(rows, row_limit=20):
         "| 股票 | 公司 | 风险说明 |",
         "|---|---|---|",
     ]
-    for row in rows[:row_limit]:
+    visible_rows = rows if row_limit is None else rows[:row_limit]
+    for row in visible_rows:
         lines.append(
             "| {ticker} | {company} | {risk} |".format(
                 ticker=row.get("ticker", ""),
@@ -348,6 +349,46 @@ def build_candidate_risk_lines(rows, row_limit=20):
             )
         )
     return lines
+
+
+def build_candidate_explanation_summary_lines(rows):
+    if not rows:
+        return []
+
+    total = len(rows)
+    buy_zone_count = sum(
+        1 for row in rows if "达到建议买入区间" in str(row.get("price_action", ""))
+    )
+    wait_count = sum(
+        1
+        for row in rows
+        if "等待" in str(row.get("price_action", ""))
+        or "安全边际" in str(row.get("price_action", ""))
+    )
+    low_confidence_count = sum(
+        1
+        for row in rows
+        if str(row.get("valuation_confidence", "")).strip().lower() == "low"
+    )
+    weak_trend_count = sum(
+        1 for row in rows if str(row.get("trend_label", "")).strip() in {"偏弱", "弱势"}
+    )
+    negative_return_count = sum(
+        1
+        for row in rows
+        if (to_float(row.get("expected_return")) is not None and to_float(row.get("expected_return")) < 0)
+    )
+
+    return [
+        "",
+        "## 候选解释摘要",
+        "",
+        f"- 达到建议买入区间：{buy_zone_count}/{total}",
+        f"- 等待回调或安全边际不足：{wait_count}/{total}",
+        f"- 估值置信度 low：{low_confidence_count}/{total}",
+        f"- 走势偏弱：{weak_trend_count}/{total}",
+        f"- 预期收益为负：{negative_return_count}/{total}",
+    ]
 
 
 def _tracking_status_by_ticker(tracking_rows):
@@ -515,6 +556,7 @@ def build_summary_lines(
             )
         )
     lines.extend(build_candidate_risk_lines(rows))
+    lines.extend(build_candidate_explanation_summary_lines(rows))
     lines.extend(build_conclusion_quality_lines(rows, tracking_rows))
     lines.extend(
         [

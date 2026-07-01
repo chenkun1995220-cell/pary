@@ -1,4 +1,4 @@
-param(
+﻿param(
   [int]$Years = 3,
   [int]$PilotWeeks = 8,
   [ValidateSet("latest", "earliest")]
@@ -13,6 +13,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
+$ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
 if (-not $OutputRoot) {
   $OutputRoot = Join-Path $ProjectRoot "outputs\backtests\us_3y_weekly"
 }
@@ -27,6 +28,9 @@ $BacktestEvaluations = Join-Path $OutputRoot "backtest_evaluations.csv"
 $ModelComparison = Join-Path $OutputRoot "model_comparison.csv"
 $BacktestReport = Join-Path $OutputRoot "backtest_report.md"
 $BacktestSummary = Join-Path $AutomationRoot "latest_backtest_summary.md"
+$MembershipEvidenceGapsJson = Join-Path $AutomationRoot "latest_membership_evidence_gaps.json"
+$MembershipEvidenceGapsCsv = Join-Path $AutomationRoot "latest_membership_evidence_gaps.csv"
+$MembershipEvidenceGapsMarkdown = Join-Path $AutomationRoot "latest_membership_evidence_gaps.md"
 $LeakageAudit = Join-Path $OutputRoot "data_leakage_audit.md"
 $PreparedPriceHistory = Join-Path $OutputRoot "price_history.csv"
 $PreparedBenchmarkHistory = Join-Path $OutputRoot "benchmark_history.csv"
@@ -35,6 +39,7 @@ $HistoricalPriceCache = Join-Path $ProjectRoot "data\cache\historical_price_stor
 $BenchmarkConfig = Join-Path $ProjectRoot "data\config\market_benchmarks.csv"
 $UniverseConfig = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
 $EvidencePack = Join-Path $ProjectRoot "data\config\us_sp500_membership_evidence.csv"
+$CurrentSourcePack = Join-Path $ProjectRoot "data\config\us_sp500_current_membership_sources.csv"
 
 $Steps = @(
   "1/8 Build historical S&P 500 membership",
@@ -56,6 +61,8 @@ Write-Host "MaxCompanies: $MaxCompanies"
 Write-Host "FullRun: $([bool]$FullRun)"
 Write-Host "EvidencePack: $EvidencePack"
 Write-Host "EvidencePackReady: $((Test-Path -LiteralPath $EvidencePack))"
+Write-Host "CurrentSourcePack: $CurrentSourcePack"
+Write-Host "CurrentSourcePackReady: $((Test-Path -LiteralPath $CurrentSourcePack))"
 Write-Host "historical_sp500.py -> $HistoricalMembership"
 Write-Host "backtest_membership_inputs.py -> $HistoricalMembership"
 Write-Host "backtest_sec_cache.py -> $CompanyFactsCache"
@@ -68,9 +75,14 @@ Write-Host "checkpoint.json -> $Checkpoint"
 Write-Host "backtest_evaluations.csv -> $BacktestEvaluations"
 Write-Host "backtest_report.md -> $BacktestReport"
 Write-Host "latest_backtest_summary.md -> $BacktestSummary"
+Write-Host "backtest_membership_evidence_gaps.py -> $MembershipEvidenceGapsCsv"
+Write-Host "latest_membership_evidence_gaps.json -> $MembershipEvidenceGapsJson"
+Write-Host "latest_membership_evidence_gaps.csv -> $MembershipEvidenceGapsCsv"
+Write-Host "latest_membership_evidence_gaps.md -> $MembershipEvidenceGapsMarkdown"
 Write-Host "data_leakage_audit.md -> $LeakageAudit"
 foreach ($step in $Steps) { Write-Host $step }
 Write-Host "Default command: scripts\run_us_point_in_time_backtest.ps1 -PilotWeeks 8"
+Write-Host "完成后请先执行复核清单：$ReviewChecklistPath"
 
 function Test-CsvHasDataRows {
   param([string]$Path)
@@ -100,6 +112,9 @@ if ($membershipReady) {
   if ((Test-Path -LiteralPath $EvidencePack) -and ((Get-Item -LiteralPath $EvidencePack).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
     $membershipRefreshReasons += "evidence_pack_newer"
   }
+  if ((Test-Path -LiteralPath $CurrentSourcePack) -and ((Get-Item -LiteralPath $CurrentSourcePack).LastWriteTimeUtc -gt $membershipItem.LastWriteTimeUtc)) {
+    $membershipRefreshReasons += "current_source_pack_newer"
+  }
   if ($membershipRefreshReasons.Count -gt 0) {
     $membershipReady = $false
     Write-Host "MembershipRefreshReason: $($membershipRefreshReasons -join ',')"
@@ -118,6 +133,9 @@ if (-not $membershipReady) {
   )
   if (Test-Path -LiteralPath $EvidencePack) {
     $membershipArgs += @("--evidence-pack", $EvidencePack)
+  }
+  if (Test-Path -LiteralPath $CurrentSourcePack) {
+    $membershipArgs += @("--current-source-pack", $CurrentSourcePack)
   }
   & $Python @membershipArgs
   if ($LASTEXITCODE -ne 0) {
@@ -234,6 +252,35 @@ try {
     }
   }
   $weakValue = if ($weakLine) { $weakLine -replace "^[^0-9]*", "" } else { "unknown" }
+  $weakWeeksLine = ($reportLines | Where-Object { $_ -match "存在弱证据的回放周|Weak evidence weeks" } | Select-Object -First 1)
+  $weakWeeksValue = if ($weakWeeksLine) { $weakWeeksLine -replace "^[^0-9]*", "" } else { "unknown" }
+  $weakCount = $null
+  if ($weakValue -match "^(\d+)") {
+    $weakCount = [int]$Matches[1]
+  }
+  $evidenceStatus = if (($null -ne $weakCount) -and ($weakCount -gt 0)) {
+    "evidence_review_needed"
+  } elseif ($weakValue -eq "unknown") {
+    "unknown"
+  } else {
+    "clear"
+  }
+  $evidenceNextAction = if ($evidenceStatus -eq "evidence_review_needed") {
+    "supplement_verified_membership_evidence"
+  } elseif ($evidenceStatus -eq "unknown") {
+    "review_backtest_report"
+  } else {
+    "monitor_next_run"
+  }
+  & $Python -B backtest_membership_evidence_gaps.py `
+    --membership $HistoricalMembership `
+    --output-json $MembershipEvidenceGapsJson `
+    --output-csv $MembershipEvidenceGapsCsv `
+    --output-md $MembershipEvidenceGapsMarkdown `
+    --limit 50
+  if ($LASTEXITCODE -ne 0) {
+    throw "Membership evidence gap report failed with exit code $LASTEXITCODE."
+  }
   $summary = @(
     "# US Point-in-Time Backtest Summary",
     "",
@@ -243,6 +290,12 @@ try {
     "- Weeks failed: $($checkpointData.failure_count)",
     "- Membership evidence verified: $verifiedValue",
     "- Weak evidence rows: $weakValue",
+    "- Evidence status: $evidenceStatus",
+    "- Weak evidence weeks: $weakWeeksValue",
+    "- Evidence next action: $evidenceNextAction",
+    "- Membership evidence gaps CSV: $MembershipEvidenceGapsCsv",
+    "- Membership evidence gaps report: $MembershipEvidenceGapsMarkdown",
+    "- Membership evidence gaps JSON: $MembershipEvidenceGapsJson",
     "- Backtest report: $BacktestReport",
     "- Data leakage audit: $LeakageAudit",
     "- Model comparison: $ModelComparison",

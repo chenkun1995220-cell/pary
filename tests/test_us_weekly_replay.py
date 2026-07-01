@@ -118,7 +118,7 @@ class WeeklyReplayQualityTests(unittest.TestCase):
 
 
 class WeeklyReplayEvaluationTests(unittest.TestCase):
-    def test_evaluate_backtest_forecast_outputs_four_unique_checkpoint_returns(self):
+    def test_evaluate_backtest_forecast_outputs_five_unique_checkpoint_returns(self):
         forecast = {
             "market": "US",
             "ticker": "AAPL",
@@ -127,6 +127,8 @@ class WeeklyReplayEvaluationTests(unittest.TestCase):
             "model_version": "valuation_trend_v1",
             "target_price": "150",
             "expected_return": "0.50",
+            "one_week_expected_direction": "上行",
+            "one_month_expected_direction": "上行",
             "valuation_confidence": "high",
             "week_eligible": "true",
         }
@@ -136,6 +138,13 @@ class WeeklyReplayEvaluationTests(unittest.TestCase):
                 "ticker": "AAPL",
                 "date": "2024-01-07",
                 "adjusted_close": "100",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "AAPL",
+                "date": "2024-01-14",
+                "adjusted_close": "108",
                 "data_status": "ready",
             },
             {
@@ -178,6 +187,13 @@ class WeeklyReplayEvaluationTests(unittest.TestCase):
             {
                 "market": "US",
                 "ticker": "^GSPC",
+                "date": "2024-01-14",
+                "adjusted_close": "102",
+                "data_status": "ready",
+            },
+            {
+                "market": "US",
+                "ticker": "^GSPC",
                 "date": "2024-02-04",
                 "adjusted_close": "105",
                 "data_status": "ready",
@@ -207,7 +223,7 @@ class WeeklyReplayEvaluationTests(unittest.TestCase):
 
         evaluations = evaluate_backtest_forecast(forecast, stock_rows, benchmark_rows)
 
-        self.assertEqual([row["checkpoint_weeks"] for row in evaluations], [4, 12, 26, 52])
+        self.assertEqual([row["checkpoint_weeks"] for row in evaluations], [1, 4, 12, 26, 52])
         unique_keys = {
             (
                 row["market"],
@@ -218,7 +234,9 @@ class WeeklyReplayEvaluationTests(unittest.TestCase):
             )
             for row in evaluations
         }
-        self.assertEqual(len(unique_keys), 4)
+        self.assertEqual(len(unique_keys), 5)
+        self.assertEqual(evaluations[0]["prediction_horizon"], "1w")
+        self.assertEqual(evaluations[1]["prediction_horizon"], "1m")
         self.assertTrue(all(row["evaluation_status"] == "evaluated" for row in evaluations))
         self.assertTrue(all(row["backtest_eligible"] == "true" for row in evaluations))
         self.assertAlmostEqual(evaluations[-1]["actual_return"], 0.40)

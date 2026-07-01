@@ -1,4 +1,5 @@
 import csv
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,6 +24,7 @@ class RegionalQuoteRetryTests(unittest.TestCase):
             gaps = root / "quote_gaps.csv"
             output = root / "updated_snapshot.csv"
             report = root / "quote_retry.md"
+            result_json = root / "quote_retry_results.json"
 
             write_csv(
                 companies,
@@ -142,6 +144,7 @@ class RegionalQuoteRetryTests(unittest.TestCase):
                 gaps_path=gaps,
                 output_path=output,
                 report_path=report,
+                result_json_path=result_json,
                 fetcher=lambda secids: payload,
                 quote_date="2026-06-28",
             )
@@ -152,6 +155,7 @@ class RegionalQuoteRetryTests(unittest.TestCase):
 
             self.assertEqual(result["attempted"], 1)
             self.assertEqual(result["updated"], 1)
+            self.assertTrue(result_json.exists())
             self.assertEqual(rows["00754.HK"]["price"], "5.6")
             self.assertEqual(rows["00754.HK"]["pe"], "8.5")
             self.assertEqual(rows["00754.HK"]["data_quality_status"], "ready")
@@ -160,6 +164,12 @@ class RegionalQuoteRetryTests(unittest.TestCase):
             self.assertIn("- 尝试重抓：1", text)
             self.assertIn("- 成功更新：1", text)
             self.assertIn("| 00754.HK | updated |", text)
+            retry_payload = json.loads(result_json.read_text(encoding="utf-8-sig"))
+            self.assertEqual(retry_payload["retry_schema"], "regional_quote_retry")
+            self.assertEqual(retry_payload["attempted"], 1)
+            self.assertEqual(retry_payload["updated"], 1)
+            self.assertEqual(retry_payload["results"][0]["ticker"], "00754.HK")
+            self.assertEqual(retry_payload["results"][0]["status"], "updated")
 
 
 if __name__ == "__main__":
