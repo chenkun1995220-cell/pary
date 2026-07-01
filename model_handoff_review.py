@@ -93,6 +93,13 @@ def build_model_handoff_review(
             medium_term.get("overall_completion_percent"),
             0,
         ),
+        "current_target_total_completion_percent": _int_value(
+            medium_term.get(
+                "current_target_total_completion_percent",
+                medium_term.get("overall_completion_percent"),
+            ),
+            0,
+        ),
         "strategy_code": medium_term.get("strategy_code", "unknown"),
         "strategy_title": medium_term.get("strategy_title", "unknown"),
         "automatic_multi_model_collaboration_enabled": auto_collaboration,
@@ -127,6 +134,7 @@ def render_model_handoff_review(result):
         f"- 当前模块：{result.get('current_module', 'unknown')}",
         f"- 模块完成度：{result.get('module_completion_percent', 0)}%",
         f"- 中期目标整体完成度：{result.get('medium_term_overall_completion_percent', 0)}%",
+        f"- 当前目标总完成度：{result.get('current_target_total_completion_percent', 0)}%",
         f"- 自动双模型协作：{'已启用' if result.get('automatic_multi_model_collaboration_enabled') else '未启用自动双模型协作'}",
         f"- 真实执行模式：{result.get('collaboration_execution_mode', 'unknown')}",
         f"- 边界：{result.get('collaboration_boundary_note', 'unknown')}",

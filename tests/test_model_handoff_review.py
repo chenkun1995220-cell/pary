@@ -55,6 +55,7 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertEqual(result["current_module"], "模型治理与多模型协作准备")
             self.assertEqual(result["module_completion_percent"], 75)
             self.assertEqual(result["medium_term_overall_completion_percent"], 61)
+            self.assertEqual(result["current_target_total_completion_percent"], 61)
             self.assertFalse(result["automatic_multi_model_collaboration_enabled"])
             self.assertEqual(
                 result["collaboration_execution_mode"],
@@ -110,6 +111,7 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertEqual(result["current_module"], "S&P 500 成分证据补强")
             self.assertEqual(result["module_completion_percent"], 30)
             self.assertEqual(result["medium_term_overall_completion_percent"], 61)
+            self.assertEqual(result["current_target_total_completion_percent"], 61)
 
     def test_weekly_bundle_runs_handoff_before_pre_submit_review(self):
         project_root = Path(__file__).resolve().parents[1]

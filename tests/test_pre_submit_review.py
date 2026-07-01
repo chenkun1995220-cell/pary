@@ -485,9 +485,10 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "as_of_date": as_of_date,
             "period": "8 weeks",
             "status": "on_track_with_monitoring",
-            "strategy_code": "steady_delivery_evidence_first",
-            "strategy_title": "稳交付 + 补证据 + 等预测样本成熟",
+            "strategy_code": "evidence_prediction_decision_maturity",
+            "strategy_title": "证据、预测与决策成熟化",
             "overall_completion_percent": 61,
+            "current_target_total_completion_percent": 61,
             "automatic_multi_model_collaboration_enabled": False,
             "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
             "collaboration_boundary_note": "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。",
@@ -497,6 +498,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                     "current_module",
                     "module_completion_percent",
                     "medium_term_overall_completion_percent",
+                    "current_target_total_completion_percent",
                 ],
             },
             "task_closeout_snapshot": {
@@ -504,6 +506,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                 "current_module": "S&P 500 成分证据补强",
                 "module_completion_percent": 30,
                 "medium_term_overall_completion_percent": 61,
+                "current_target_total_completion_percent": 61,
             },
             "goals": [
                 {
@@ -564,6 +567,10 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["development_closeout"]["medium_term_overall_completion_percent"],
                 61,
             )
+            self.assertEqual(
+                result["development_closeout"]["current_target_total_completion_percent"],
+                61,
+            )
             self.assertFalse(
                 result["development_closeout"]["automatic_multi_model_collaboration_enabled"]
             )
@@ -582,6 +589,7 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertIn("priority_actions", report)
             self.assertIn("review_data_health", report)
             self.assertIn("medium_term_overall_completion_percent=61", report)
+            self.assertIn("current_target_total_completion_percent=61", report)
             self.assertIn(
                 "collaboration_execution_mode=single_codex_with_gpt55_review_checklist",
                 report,

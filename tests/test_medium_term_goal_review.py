@@ -284,8 +284,8 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(payload["as_of_date"], "2026-06-29")
             self.assertEqual(payload["period"], "8 weeks")
             self.assertEqual(payload["status"], "on_track_with_monitoring")
-            self.assertEqual(payload["strategy_code"], "steady_delivery_evidence_first")
-            self.assertEqual(payload["strategy_title"], "稳交付 + 补证据 + 等预测样本成熟")
+            self.assertEqual(payload["strategy_code"], "evidence_prediction_decision_maturity")
+            self.assertEqual(payload["strategy_title"], "证据、预测与决策成熟化")
             self.assertEqual(payload["core_delivery_status"], "ready")
             self.assertEqual(payload["candidate_count_total"], 64)
             self.assertEqual(payload["markets_ready_count"], 3)
@@ -305,9 +305,14 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                     "current_module",
                     "module_completion_percent",
                     "medium_term_overall_completion_percent",
+                    "current_target_total_completion_percent",
                 ],
             )
             self.assertIn("overall_completion_percent", payload)
+            self.assertEqual(
+                payload["current_target_total_completion_percent"],
+                payload["overall_completion_percent"],
+            )
             self.assertGreater(payload["overall_completion_percent"], 0)
 
             goals = {item["goal_code"]: item for item in payload["goals"]}
@@ -487,6 +492,10 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 payload["task_closeout_snapshot"]["medium_term_overall_completion_percent"],
                 payload["overall_completion_percent"],
             )
+            self.assertEqual(
+                payload["task_closeout_snapshot"]["current_target_total_completion_percent"],
+                payload["overall_completion_percent"],
+            )
 
             self.assertIn(
                 "run_membership_evidence_import_plan_then_apply_preview",
@@ -496,9 +505,10 @@ class MediumTermGoalReviewTests(unittest.TestCase):
 
             self.assertIn("中期目标进度看板", report)
             self.assertIn("8 weeks", report)
-            self.assertIn("稳交付 + 补证据 + 等预测样本成熟", report)
+            self.assertIn("证据、预测与决策成熟化", report)
             self.assertIn("当前开发收尾摘要", report)
             self.assertIn("current_module=S&P 500 成分证据补强", report)
+            self.assertIn("current_target_total_completion_percent=", report)
             self.assertIn("正式模型变更：不允许", report)
             self.assertIn("backtest_evidence_quality", report)
             self.assertIn("weekly_action_backlog_reduction_plan_status=ready", report)
@@ -717,7 +727,11 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 summary["medium_term_overall_completion_percent"],
                 review["overall_completion_percent"],
             )
-            self.assertEqual(summary["strategy_code"], "steady_delivery_evidence_first")
+            self.assertEqual(summary["strategy_code"], "evidence_prediction_decision_maturity")
+            self.assertEqual(
+                summary["current_target_total_completion_percent"],
+                review["overall_completion_percent"],
+            )
             self.assertFalse(summary["automatic_multi_model_collaboration_enabled"])
             self.assertEqual(
                 summary["collaboration_execution_mode"],
@@ -726,6 +740,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("当前开发内容所属模块：S&P 500 成分证据补强", report)
             self.assertIn("该模块完成度：30%", report)
             self.assertIn("中期目标整体完成度：", report)
+            self.assertIn("当前目标总完成度：", report)
             self.assertIn("真实执行模式：single_codex_with_gpt55_review_checklist", report)
 
     def test_development_closeout_wrapper_exists(self):

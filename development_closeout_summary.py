@@ -47,6 +47,16 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
             )
             or 0
         ),
+        "current_target_total_completion_percent": int(
+            review.get(
+                "current_target_total_completion_percent",
+                review.get(
+                    "overall_completion_percent",
+                    snapshot.get("current_target_total_completion_percent", 0),
+                ),
+            )
+            or 0
+        ),
         "medium_term_status": review.get("status", "unknown"),
         "strategy_code": review.get("strategy_code", "unknown"),
         "strategy_title": review.get("strategy_title", "unknown"),
@@ -77,6 +87,7 @@ def render_development_closeout_summary(summary):
         f"- 当前开发内容所属模块：{summary.get('current_module', 'unknown')}",
         f"- 该模块完成度：{summary.get('module_completion_percent', 0)}%",
         f"- 中期目标整体完成度：{summary.get('medium_term_overall_completion_percent', 0)}%",
+        f"- 当前目标总完成度：{summary.get('current_target_total_completion_percent', 0)}%",
         f"- 中期目标方案：{summary.get('strategy_title', 'unknown')}",
         f"- 中期目标状态：{summary.get('medium_term_status', 'unknown')}",
         f"- 自动双模型协作：{collaboration}",

@@ -157,6 +157,7 @@ MEDIUM_TERM_GOAL_REVIEW_REQUIRED_FIELDS = [
     "strategy_title",
     "period",
     "overall_completion_percent",
+    "current_target_total_completion_percent",
     "development_completion_policy",
     "task_closeout_snapshot",
     "goals",
@@ -169,6 +170,7 @@ MEDIUM_TERM_CLOSEOUT_REQUIRED_FIELDS = [
     "current_module",
     "module_completion_percent",
     "medium_term_overall_completion_percent",
+    "current_target_total_completion_percent",
 ]
 
 MODEL_HANDOFF_REQUIRED_FIELDS = [
@@ -565,6 +567,7 @@ def render_pre_submit_review(result):
                 f"- current_module={closeout.get('current_module', 'unknown')}",
                 f"- module_completion_percent={closeout.get('module_completion_percent', 0)}",
                 f"- medium_term_overall_completion_percent={closeout.get('medium_term_overall_completion_percent', 0)}",
+                f"- current_target_total_completion_percent={closeout.get('current_target_total_completion_percent', 0)}",
                 f"- strategy_code={closeout.get('strategy_code', 'unknown')}",
                 f"- medium_term_status={closeout.get('medium_term_status', 'unknown')}",
                 f"- automatic_multi_model_collaboration_enabled={closeout.get('automatic_multi_model_collaboration_enabled', False)}",
@@ -1109,8 +1112,8 @@ def _medium_term_goal_review_reasons(payload):
         reasons.append("medium_term_goal_review_status_not_acceptable")
     if any(field not in payload for field in MEDIUM_TERM_GOAL_REVIEW_REQUIRED_FIELDS):
         reasons.append("medium_term_goal_review_missing_progress_fields")
-    if payload.get("strategy_code") != "steady_delivery_evidence_first":
-        reasons.append("medium_term_goal_review_strategy_not_scheme_1")
+    if payload.get("strategy_code") != "evidence_prediction_decision_maturity":
+        reasons.append("medium_term_goal_review_strategy_not_current_target")
     if payload.get("period") != "8 weeks":
         reasons.append("medium_term_goal_review_period_not_8_weeks")
     snapshot = payload.get("task_closeout_snapshot")
@@ -1123,6 +1126,11 @@ def _medium_term_goal_review_reasons(payload):
         -2,
     ):
         reasons.append("medium_term_goal_review_closeout_overall_mismatch")
+    elif _int_value(snapshot.get("current_target_total_completion_percent"), -1) != _int_value(
+        payload.get("current_target_total_completion_percent"),
+        -2,
+    ):
+        reasons.append("medium_term_goal_review_closeout_current_target_mismatch")
     goals = payload.get("goals", [])
     if not isinstance(goals, list) or not goals:
         reasons.append("medium_term_goal_review_missing_goals")
@@ -1234,6 +1242,16 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
         "medium_term_overall_completion_percent": _int_value(
             snapshot.get("medium_term_overall_completion_percent"),
             _int_value(medium_term_goal_review.get("overall_completion_percent"), 0),
+        ),
+        "current_target_total_completion_percent": _int_value(
+            snapshot.get("current_target_total_completion_percent"),
+            _int_value(
+                medium_term_goal_review.get(
+                    "current_target_total_completion_percent",
+                    medium_term_goal_review.get("overall_completion_percent"),
+                ),
+                0,
+            ),
         ),
         "strategy_code": medium_term_goal_review.get("strategy_code", "unknown"),
         "strategy_title": medium_term_goal_review.get("strategy_title", "unknown"),

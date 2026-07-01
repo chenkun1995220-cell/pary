@@ -7,8 +7,8 @@ from pathlib import Path
 REVIEW_SCHEMA = "medium_term_goal_review"
 REVIEW_VERSION = 1
 PERIOD = "8 weeks"
-STRATEGY_CODE = "steady_delivery_evidence_first"
-STRATEGY_TITLE = "稳交付 + 补证据 + 等预测样本成熟"
+STRATEGY_CODE = "evidence_prediction_decision_maturity"
+STRATEGY_TITLE = "证据、预测与决策成熟化"
 AUTOMATIC_MULTI_MODEL_COLLABORATION_ENABLED = False
 COLLABORATION_EXECUTION_MODE = "single_codex_with_gpt55_review_checklist"
 COLLABORATION_BOUNDARY_NOTE = (
@@ -174,9 +174,10 @@ def _development_completion_policy():
             "current_module",
             "module_completion_percent",
             "medium_term_overall_completion_percent",
+            "current_target_total_completion_percent",
         ],
         "module_completion_source": "outputs/automation/latest_medium_term_goal_review.json goals[].completion_percent",
-        "scope_note": "每次小任务开发完成后，最终汇报必须说明当前开发内容所属模块、该模块完成度和中期目标整体完成度。",
+        "scope_note": "每次小任务开发完成后，最终汇报必须说明当前开发内容所属模块、该模块完成度和当前目标总完成度。",
     }
 
 
@@ -201,6 +202,7 @@ def _task_closeout_snapshot(goals):
         "current_module": goal.get("module", "unknown"),
         "module_completion_percent": _int_value(goal.get("completion_percent")),
         "medium_term_overall_completion_percent": overall,
+        "current_target_total_completion_percent": overall,
     }
 
 
@@ -653,6 +655,7 @@ def build_medium_term_goal_review(project_root="."):
         "status": status,
         "core_delivery_status": core_delivery_status,
         "overall_completion_percent": overall_completion_percent,
+        "current_target_total_completion_percent": overall_completion_percent,
         "candidate_count_total": _int_value(
             _first_value(
                 pre_submit.get("candidate_count_total"),
@@ -766,9 +769,10 @@ def render_medium_term_goal_review(payload):
         f"- 日期：{payload.get('as_of_date', 'unknown')}",
         f"- 周期：{payload.get('period', PERIOD)}",
         f"- 推荐方案：{payload.get('strategy_title', STRATEGY_TITLE)}",
-        f"- 总体状态：{payload.get('status', 'unknown')}（{_status_label(payload.get('status', 'unknown'))}）",
-        f"- 中期目标整体完成度：{payload.get('overall_completion_percent', 0)}%",
-        f"- 主交付链路：{payload.get('core_delivery_status', 'unknown')}",
+            f"- 总体状态：{payload.get('status', 'unknown')}（{_status_label(payload.get('status', 'unknown'))}）",
+            f"- 中期目标整体完成度：{payload.get('overall_completion_percent', 0)}%",
+            f"- 当前目标总完成度：{payload.get('current_target_total_completion_percent', payload.get('overall_completion_percent', 0))}%",
+            f"- 主交付链路：{payload.get('core_delivery_status', 'unknown')}",
         f"- 三市场 ready：{payload.get('markets_ready_count', 0)}/{payload.get('market_count', 0)}",
         f"- 候选公司数：{payload.get('candidate_count_total', 0)}",
         f"- 自动双模型协作：{'已启用' if payload.get('automatic_multi_model_collaboration_enabled') else '未启用，当前为单 Codex 执行 + gpt5.5 复核清单模拟'}",
@@ -798,6 +802,7 @@ def render_medium_term_goal_review(payload):
             f"- current_module={snapshot.get('current_module', 'unknown')}",
             f"- module_completion_percent={snapshot.get('module_completion_percent', 0)}%",
             f"- medium_term_overall_completion_percent={snapshot.get('medium_term_overall_completion_percent', 0)}%",
+            f"- current_target_total_completion_percent={snapshot.get('current_target_total_completion_percent', payload.get('current_target_total_completion_percent', 0))}%",
             "",
             "## 优先动作",
             "",
