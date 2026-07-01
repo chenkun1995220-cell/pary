@@ -14,6 +14,7 @@ from sp500_constituents import normalize_ticker
 
 SOURCE_SCHEMA = "sp500_current_membership_sources"
 SOURCE_VERSION = 1
+MINIMUM_OFFICIAL_TICKER_COUNT = 400
 SOURCE_FILE_REQUIRED_COLUMNS = ["Symbol", "Ticker"]
 INTAKE_TEMPLATE_FIELDS = [
     "expected_ticker",
@@ -168,12 +169,16 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
         raise ValueError("source_url must be an official S&P Global HTTPS URL")
     requested = _template_tickers(template_path)
     official = set(official_tickers)
-    matched = [ticker for ticker in requested if ticker in official]
-    missing = [ticker for ticker in requested if ticker not in official]
+    source_quality_flags = []
+    if len(official) < MINIMUM_OFFICIAL_TICKER_COUNT:
+        source_quality_flags.append("official_ticker_count_below_minimum")
+    official_for_matching = official if not source_quality_flags else set()
+    matched = [ticker for ticker in requested if ticker in official_for_matching]
+    missing = [ticker for ticker in requested if ticker not in official_for_matching]
     status = "ready"
     next_action = "import_current_membership_sources"
     source_file_required_columns = []
-    if not official:
+    if source_quality_flags:
         status = "source_file_required"
         next_action = "provide_official_constituents_csv"
         source_file_required_columns = SOURCE_FILE_REQUIRED_COLUMNS
@@ -197,6 +202,8 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
         "source_url": source_url,
         "requested_count": len(requested),
         "parsed_official_ticker_count": len(official),
+        "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "source_quality_flags": source_quality_flags,
         "matched_count": len(rows),
         "missing_count": len(missing),
         "missing_tickers": missing,

@@ -10,21 +10,44 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-OFFICIAL_HTML = """
-<html><body>
-<table>
-  <tr><th>Symbol</th><th>Company</th></tr>
-  <tr><td>ABT</td><td>Abbott Laboratories</td></tr>
-  <tr><td>ADM</td><td>Archer Daniels Midland</td></tr>
-</table>
-</body></html>
-"""
+def official_html_with_ticker_count(count=400):
+    rows = [
+        "<tr><td>ABT</td><td>Abbott Laboratories</td></tr>",
+        "<tr><td>ADM</td><td>Archer Daniels Midland</td></tr>",
+    ]
+    rows.extend(
+        f"<tr><td>T{i:03d}</td><td>Test Company {i}</td></tr>"
+        for i in range(max(0, count - len(rows)))
+    )
+    return "\n".join(
+        [
+            "<html><body>",
+            "<table>",
+            "<tr><th>Symbol</th><th>Company</th></tr>",
+            *rows,
+            "</table>",
+            "</body></html>",
+        ]
+    )
+
+
+OFFICIAL_HTML = official_html_with_ticker_count()
 
 OFFICIAL_SHELL_HTML = """
 <html><body>
 <h2>Full Constituents List</h2>
 <table>
   <tr><th>Symbol</th><th>Company</th></tr>
+</table>
+</body></html>
+"""
+
+OFFICIAL_LOW_CONFIDENCE_HTML = """
+<html><body>
+<table>
+  <tr><th>Symbol</th><th>Company</th></tr>
+  <tr><td>ABT</td><td>Abbott Laboratories</td></tr>
+  <tr><td>ADM</td><td>Archer Daniels Midland</td></tr>
 </table>
 </body></html>
 """
@@ -71,6 +94,8 @@ def write_official_csv(path):
         writer.writeheader()
         writer.writerow({"Symbol": "ABT", "Security": "Abbott Laboratories"})
         writer.writerow({"Symbol": "ADM", "Security": "Archer Daniels Midland"})
+        for index in range(398):
+            writer.writerow({"Symbol": f"T{index:03d}", "Security": f"Test Company {index}"})
 
 
 def write_intake_template(path):
@@ -167,6 +192,32 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["rows"], [])
             self.assertEqual(payload["next_action"], "provide_official_constituents_csv")
             self.assertEqual(payload["source_file_required_columns"], ["Symbol", "Ticker"])
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+
+    def test_build_rejects_low_confidence_official_page_parse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            write_template(template)
+
+            from sp500_current_membership_sources import build_current_membership_sources
+
+            payload = build_current_membership_sources(
+                template,
+                OFFICIAL_LOW_CONFIDENCE_HTML,
+                "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                as_of_date="2026-06-30",
+            )
+
+            self.assertEqual(payload["status"], "source_file_required")
+            self.assertEqual(payload["matched_count"], 0)
+            self.assertEqual(payload["parsed_official_ticker_count"], 2)
+            self.assertEqual(payload["minimum_official_ticker_count"], 400)
+            self.assertEqual(payload["missing_count"], 2)
+            self.assertEqual(payload["rows"], [])
+            self.assertEqual(payload["next_action"], "provide_official_constituents_csv")
+            self.assertEqual(payload["source_file_required_columns"], ["Symbol", "Ticker"])
+            self.assertIn("official_ticker_count_below_minimum", payload["source_quality_flags"])
             self.assertFalse(payload["formal_backtest_upgrade_allowed"])
 
     def test_rejects_unofficial_source_url(self):

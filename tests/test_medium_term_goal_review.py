@@ -652,6 +652,34 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 payload["priority_next_actions"],
             )
 
+    def test_dashboard_prioritizes_official_csv_when_current_source_fetch_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            source_path = automation / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["status"] = "fetch_failed"
+            source["matched_count"] = 0
+            source["missing_count"] = 50
+            source["next_action"] = "retry_official_source_or_provide_official_constituents_csv"
+            source["recommended_followup"] = "provide_official_constituents_csv"
+            source["source_file_required_columns"] = ["Symbol", "Ticker"]
+            write_json(source_path, source)
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(root)
+            goals = {item["goal_code"]: item for item in payload["goals"]}
+
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["next_action"],
+                "provide_official_constituents_csv",
+            )
+            self.assertIn(
+                "provide_official_constituents_csv",
+                payload["priority_next_actions"],
+            )
+
     def test_cli_writes_json_and_markdown(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

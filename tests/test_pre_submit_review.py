@@ -1238,7 +1238,12 @@ class PreSubmitReviewTests(unittest.TestCase):
                 ],
                 ["ticker", "membership_evidence", "membership_source_url", "source_as_of_date", "notes"],
             )
-            write_csv(official_export, [{"Symbol": "ABT", "Security": "Abbott Laboratories"}], ["Symbol", "Security"])
+            official_rows = [{"Symbol": "ABT", "Security": "Abbott Laboratories"}]
+            official_rows.extend(
+                {"Symbol": f"T{index:03d}", "Security": f"Test Company {index}"}
+                for index in range(399)
+            )
+            write_csv(official_export, official_rows, ["Symbol", "Security"])
             write_csv(
                 intake,
                 [

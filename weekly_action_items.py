@@ -324,7 +324,13 @@ def _membership_import_plan_action(import_plan):
 
 def _current_membership_source_action(source_status, review_status=None):
     review_status = review_status or {}
-    if source_status.get("recommended_followup") != "review_current_membership_source_status":
+    recommended_followup = str(
+        source_status.get("recommended_followup", "") or ""
+    ).strip()
+    if recommended_followup not in {
+        "review_current_membership_source_status",
+        "provide_official_constituents_csv",
+    }:
         return None
     missing_count = _int_value(source_status.get("missing_count"), 0)
     intake_missing_count = _int_value(source_status.get("intake_missing_count"), 0)
@@ -367,6 +373,12 @@ def _current_membership_source_action(source_status, review_status=None):
     decisions_template_missing_open_count = len(
         review_status.get("decisions_template_missing_open_tickers", []) or []
     )
+    source_file_required_columns = [
+        str(column).strip()
+        for column in source_status.get("source_file_required_columns", []) or []
+        if str(column).strip()
+    ]
+    source_file_required_text = ", ".join(source_file_required_columns) or "none"
     review_decision_status = str(
         review_status.get("review_decision_status", "unknown") or "unknown"
     ).strip()
@@ -399,6 +411,8 @@ def _current_membership_source_action(source_status, review_status=None):
             f"matched_count:{_int_value(source_status.get('matched_count'), 0)}; "
             f"missing_count:{missing_count}; "
             f"missing_ticker_review_queue_count:{missing_queue_count}; "
+            f"recommended_followup:{recommended_followup}; "
+            f"source_file_required_columns:{source_file_required_text}; "
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "
@@ -416,7 +430,9 @@ def _current_membership_source_action(source_status, review_status=None):
             "核对 outputs/automation/latest_sp500_current_membership_sources.json、"
             f"{review_queue_file} 和 "
             "outputs/automation/sp500_current_membership_source_intake_template.csv 中的 "
-            f"{ticker_text}；当前缺失复核队列 {missing_queue_count} 条，确认缺失 ticker 是官方导出不覆盖，还是人工来源文件仍不完整。"
+            f"{ticker_text}；当前缺失复核队列 {missing_queue_count} 条；"
+            f"若 recommended_followup={recommended_followup}，提供官方 S&P Global constituents CSV，"
+            f"要求列：{source_file_required_text}；确认缺失 ticker 是官方导出不覆盖，还是人工来源文件仍不完整。"
             "该动作只做证据复核，不修改 historical_membership.csv 或正式模型参数。"
         ),
     }
