@@ -1,0 +1,2066 @@
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+import csv
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def write_json(path, payload):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8-sig")
+
+
+def write_text(path, text="ok\n"):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8-sig")
+
+
+def write_csv(path, rows, fieldnames):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def write_ready_review_inputs(root, as_of_date="2026-06-28"):
+    root = Path(root)
+    write_text(
+        root / "docs" / "中期目标与模型协作规范.md",
+        "\n".join(
+            [
+                "# 中期目标与模型协作规范",
+                "",
+                "gpt5.3-codex-spark 负责快速迭代。",
+                "gpt5.5 负责关键复核和正式收口。",
+                "组合开发习惯要求保留证据三件套。",
+                "每次迭代必须是可回放改动，先完成收敛迭代，再进入正式发布判断。",
+                "每次改动前明确回退策略。",
+                "所有模型优化建议先进入影子层。",
+                "不得自动修改正式模型参数。",
+                "当前未启用自动多模型协作。",
+                "真实执行模式为 single_codex_with_gpt55_review_checklist。",
+            ]
+        )
+        + "\n",
+    )
+    write_text(root / "docs" / "提交前复核清单.md", "# checklist\n")
+    write_json(
+        root / "outputs" / "automation" / "latest_model_handoff_review.json",
+        {
+            "handoff_schema": "model_handoff_review",
+            "handoff_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "goal_code": "backtest_evidence_quality",
+            "current_module": "S&P 500 成分证据补强",
+            "module_completion_percent": 30,
+            "medium_term_overall_completion_percent": 61,
+            "automatic_multi_model_collaboration_enabled": False,
+            "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
+            "collaboration_boundary_note": "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。",
+            "spark_execution_summary": "小步实现并保留验证证据。",
+            "gpt55_review_checklist": [
+                "确认未自动修改正式模型参数",
+                "确认输出不声称已启用自动双模型协作",
+            ],
+            "validation_commands": ["python -m unittest discover -s tests"],
+            "risk_notes": ["当前仍为单 Codex 执行加复核清单。"],
+            "formal_release_allowed": True,
+        },
+    )
+    write_json(
+        root
+        / "outputs"
+        / "automation"
+        / "latest_sp500_current_membership_source_review_status.json",
+        {
+            "review_status_schema": "sp500_current_membership_source_review_status",
+            "review_status_version": 1,
+            "as_of_date": as_of_date,
+            "status": "review_needed",
+            "queue_file": "outputs/automation/sp500_current_membership_source_review_queue.csv",
+            "decisions_template_file": "outputs/automation/sp500_current_membership_source_review_decisions_template.csv",
+            "queue_exists": True,
+            "queue_total_count": 1,
+            "open_count": 1,
+            "resolved_count": 0,
+            "open_items": [{"ticker": "ZZZ", "review_status": "open"}],
+            "resolved_items": [],
+            "decision_options": [
+                {
+                    "review_decision": "official_absent",
+                    "when_to_use": "Official current S&P source was checked and the ticker is absent.",
+                    "effect": "Ready to close the open queue item when official_source_checked=yes.",
+                },
+                {
+                    "review_decision": "source_refresh_required",
+                    "when_to_use": "The current official export appears stale or incomplete.",
+                    "effect": "Keeps the queue item open and asks for a fresher official source.",
+                },
+                {
+                    "review_decision": "keep_open",
+                    "when_to_use": "The item still needs more manual evidence before a decision.",
+                    "effect": "Keeps the queue item open.",
+                },
+                {
+                    "review_decision": "not_applicable",
+                    "when_to_use": "The ticker is not applicable to the current S&P 500 source review.",
+                    "effect": "Ready to close the open queue item when official_source_checked=yes.",
+                },
+            ],
+            "decision_required_fields": [
+                "ticker",
+                "review_decision",
+                "official_source_checked",
+                "required_source_url",
+                "issue_type",
+                "recommended_check",
+                "decision_notes",
+            ],
+            "manual_decision_instructions": (
+                "Fill one row per open ticker in the decisions template. "
+                "Set official_source_checked=yes when the official S&P source has been checked."
+            ),
+            "next_action": "review_open_queue_items",
+            "formal_backtest_upgrade_allowed": False,
+        },
+    )
+    write_csv(
+        root / "outputs" / "automation" / "sp500_current_membership_source_review_decisions_template.csv",
+        [
+            {
+                "ticker": "ZZZ",
+                "review_decision": "",
+                "official_source_checked": "",
+                "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                "issue_type": "missing_from_official_current_source",
+                "recommended_check": "Confirm official coverage.",
+                "decision_notes": "",
+            }
+        ],
+        [
+            "ticker",
+            "review_decision",
+            "official_source_checked",
+            "required_source_url",
+            "issue_type",
+            "recommended_check",
+            "decision_notes",
+        ],
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_weekly_delivery_check.json",
+        {
+            "delivery_check_schema": "weekly_delivery_check",
+            "delivery_check_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "freshness_status": "fresh",
+            "conclusion_status": "ready",
+            "conclusion_health_score": 80,
+            "conclusion_health_status": "needs_review",
+            "conclusion_health_reasons": [],
+            "candidate_count_total": 64,
+            "manual_review_queue_count": 0,
+            "manual_review_pending_count": 0,
+            "manual_review_merge_summary_exists": True,
+            "conclusion_signal_status": "ready",
+            "missing_conclusion_signals": [],
+            "missing_conclusion_signal_fixes": {},
+            "action_items_status": "ready",
+            "action_items_freshness_status": "fresh",
+            "action_items_count": 2,
+            "action_items_actual_count": 2,
+            "missing_outputs": [],
+            "attention_reasons": [],
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_weekly_ops_check.json",
+        {
+            "ops_check_schema": "weekly_ops_check",
+            "ops_check_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "freshness_status": "fresh",
+            "automation_audit_status": "ready",
+            "automation_check_status": "manual_review_needed",
+            "manifest_validation_status": "valid",
+            "market_count": 3,
+            "markets_ready_count": 3,
+            "candidate_count_total": 64,
+            "manual_review_queue_count": 0,
+            "manual_review_repeat_count": 0,
+            "recommended_action": "review_data_health",
+            "priority_actions": ["review_data_health", "continue_sample_accumulation"],
+            "automation_issues": [],
+            "missing_outputs": [],
+            "missing_output_paths": {},
+            "attention_reasons": [],
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_automation_check.json",
+        {
+            "check_schema": "weekly_automation_check",
+            "check_version": 1,
+            "as_of_date": as_of_date,
+            "status": "manual_review_needed",
+            "recommended_action": "review_data_health",
+            "manifest_validation_status": "valid",
+            "manifest_validation_errors": [],
+            "market_count": 3,
+            "markets_ready_count": 3,
+            "not_ready_markets": [],
+            "candidate_count_total": 64,
+            "market_candidate_counts": [
+                {"name": "美股周筛", "status": "ready", "candidate_count": 22},
+                {"name": "A股周筛", "status": "ready", "candidate_count": 7},
+                {"name": "港股周筛", "status": "ready", "candidate_count": 35},
+            ],
+            "manual_review_queue_count": 0,
+            "manual_review_repeat_count": 0,
+            "data_health_status": "manual_review_needed",
+            "data_quality_status": "needs_review",
+            "data_quality_score": 79.0,
+            "data_quality_history_status": "manual_review_needed",
+            "candidate_review_status": "manual_review_needed",
+            "weekly_ops_history_status": "clear",
+            "weekly_delivery_history_status": "manual_review_needed",
+            "model_audit_status": "sample_accumulating",
+            "forecast_performance_status": "sample_accumulating",
+            "backtest_status": "evidence_review_needed",
+            "outputs": {
+                "self_analysis": "outputs/automation/latest_self_analysis.md",
+                "manifest": "outputs/automation/latest_self_analysis_manifest.json",
+                "automation_check": "outputs/automation/latest_automation_check.json",
+            },
+            "priority_actions": ["review_data_health", "continue_sample_accumulation"],
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_weekly_conclusion.json",
+        {
+            "conclusion_schema": "weekly_conclusion",
+            "conclusion_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "recommended_action": "monitor_next_run",
+            "priority_actions": ["review_data_health", "continue_sample_accumulation"],
+            "priority_action_details": [
+                {"action": "review_data_health", "description": "review data health"},
+                {"action": "continue_sample_accumulation", "description": "keep tracking"},
+            ],
+            "candidate_count_total": 64,
+            "candidate_action_summary": {"priority_research": 12, "watchlist": 52},
+            "health": {"status": "needs_review", "score": 90, "reasons": []},
+            "automation": {
+                "data_quality": {"status": "needs_review"},
+                "data_quality_history": {"status": "collecting"},
+                "forecast_performance": {"status": "sample_accumulating"},
+            },
+            "markets": [{"market": "美股周筛", "status": "ready", "candidate_count": 22}],
+            "candidates": [],
+            "missing_inputs": [],
+            "warnings": [],
+            "outputs": {
+                "markdown": "outputs/automation/latest_weekly_conclusion.md",
+                "json": "outputs/automation/latest_weekly_conclusion.json",
+                "manual_review_decisions_template": "outputs/automation/manual_review_decisions_template.csv",
+            },
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_weekly_action_items.json",
+        {
+            "action_items_schema": "weekly_action_items",
+            "action_items_version": 1,
+            "as_of_date": as_of_date,
+            "item_count": 2,
+            "items": [
+                {
+                    "priority": 1,
+                    "status": "open",
+                    "action_code": "review_data_health",
+                    "category": "data_health",
+                    "title": "review",
+                    "recommended_check": "check data health",
+                },
+                {
+                    "priority": 2,
+                    "status": "open",
+                    "action_code": "continue_sample_accumulation",
+                    "category": "model_tracking",
+                    "title": "track",
+                    "recommended_check": "keep tracking",
+                }
+            ],
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_data_health_review.json",
+        {
+            "review_schema": "data_health_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "acceptable_with_monitoring",
+            "recommended_action": "monitor_next_run",
+            "blocked_candidate_count": 0,
+            "refetch_gap_count": 2,
+            "manual_financial_review_count": 72,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_backtest_evidence_review.json",
+        {
+            "review_schema": "backtest_evidence_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "evidence_review_needed",
+            "recommended_action": "supplement_verified_membership_evidence",
+            "weeks_completed": 8,
+            "weeks_failed": 0,
+            "verified_membership_ratio": 0.156,
+            "weak_evidence_rows": 3382,
+            "weak_evidence_weeks": 8,
+            "formal_model_upgrade_allowed": False,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_membership_evidence_import_plan.json",
+        {
+            "review_schema": "membership_evidence_import_plan",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "gap_count": 425,
+            "queue_count": 50,
+            "ready_to_import_count": 0,
+            "missing_source_count": 50,
+            "invalid_source_count": 0,
+            "ready_to_import_weeks_affected": 0,
+            "missing_source_weeks_affected": 7800,
+            "invalid_source_weeks_affected": 0,
+            "formal_backtest_upgrade_allowed": False,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_membership_evidence_apply_preview.json",
+        {
+            "preview_schema": "membership_evidence_apply_preview",
+            "preview_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "membership_row_count": 7800,
+            "eligible_ticker_count": 0,
+            "preview_row_count": 0,
+            "preview_weeks_affected": 0,
+            "invalid_source_ticker_count": 0,
+            "already_verified_row_count": 0,
+            "applied_to_historical_membership": False,
+            "formal_backtest_upgrade_allowed": False,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json",
+        {
+            "source_schema": "sp500_current_membership_sources",
+            "source_version": 1,
+            "as_of_date": as_of_date,
+            "status": "fetch_failed",
+            "source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+            "requested_count": 50,
+            "parsed_official_ticker_count": 0,
+            "matched_count": 0,
+            "missing_count": 50,
+            "missing_tickers": ["ABT", "ADM"],
+            "missing_ticker_review_queue": [
+                {
+                    "ticker": "ABT",
+                    "review_status": "open",
+                    "issue_type": "missing_from_official_current_source",
+                    "recommended_check": "Confirm official source coverage.",
+                    "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "source_status": "fetch_failed",
+                },
+                {
+                    "ticker": "ADM",
+                    "review_status": "open",
+                    "issue_type": "missing_from_official_current_source",
+                    "recommended_check": "Confirm official source coverage.",
+                    "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "source_status": "fetch_failed",
+                },
+            ],
+            "missing_ticker_review_queue_file": "outputs/automation/sp500_current_membership_source_review_queue.csv",
+            "next_action": "retry_official_source_or_provide_official_constituents_csv",
+            "source_file_required_columns": ["Symbol", "Ticker"],
+            "formal_backtest_upgrade_allowed": False,
+            "rows": [],
+            "error": "HTTP Error 403: Forbidden",
+        },
+    )
+    write_csv(
+        root / "outputs" / "automation" / "sp500_current_membership_source_review_queue.csv",
+        [
+            {
+                "ticker": "ABT",
+                "review_status": "open",
+                "issue_type": "missing_from_official_current_source",
+                "recommended_check": "Confirm official source coverage.",
+                "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                "source_status": "fetch_failed",
+            },
+            {
+                "ticker": "ADM",
+                "review_status": "open",
+                "issue_type": "missing_from_official_current_source",
+                "recommended_check": "Confirm official source coverage.",
+                "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                "source_status": "fetch_failed",
+            },
+        ],
+        [
+            "ticker",
+            "review_status",
+            "issue_type",
+            "recommended_check",
+            "required_source_url",
+            "source_status",
+        ],
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_candidate_findings_review.json",
+        {
+            "review_schema": "candidate_findings_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "manual_review_needed",
+            "recommended_action": "review_candidate_findings",
+            "candidate_count": 64,
+            "field_complete_count": 64,
+            "missing_field_count": 0,
+            "risk_coverage_count": 64,
+            "risk_missing_count": 0,
+            "risk_review_count": 33,
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_forecast_performance_review.json",
+        {
+            "review_schema": "forecast_performance_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "sample_accumulating",
+            "recommended_action": "continue_sample_accumulation",
+            "total_evaluations": 65,
+            "mature_evaluations": 0,
+            "one_week_mature": 0,
+            "one_month_mature": 0,
+            "prediction_unavailable": 65,
+            "latest_prediction_unavailable_count": 0,
+            "legacy_prediction_unavailable_count": 65,
+            "forecast_history_short_signal_missing_count": 240,
+            "latest_short_signal_missing_count": 0,
+            "legacy_short_signal_missing_count": 240,
+            "missing_market_count": 0,
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_medium_term_goal_review.json",
+        {
+            "review_schema": "medium_term_goal_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "period": "8 weeks",
+            "status": "on_track_with_monitoring",
+            "strategy_code": "steady_delivery_evidence_first",
+            "strategy_title": "稳交付 + 补证据 + 等预测样本成熟",
+            "overall_completion_percent": 61,
+            "automatic_multi_model_collaboration_enabled": False,
+            "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
+            "collaboration_boundary_note": "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。",
+            "development_completion_policy": {
+                "required_in_task_closeout": True,
+                "closeout_fields": [
+                    "current_module",
+                    "module_completion_percent",
+                    "medium_term_overall_completion_percent",
+                ],
+            },
+            "task_closeout_snapshot": {
+                "goal_code": "backtest_evidence_quality",
+                "current_module": "S&P 500 成分证据补强",
+                "module_completion_percent": 30,
+                "medium_term_overall_completion_percent": 61,
+            },
+            "goals": [
+                {
+                    "goal_code": "model_governance_handoff",
+                    "module": "模型治理与多模型协作准备",
+                    "completion_percent": 75,
+                    "status": "on_track",
+                },
+                {
+                    "goal_code": "backtest_evidence_quality",
+                    "module": "S&P 500 成分证据补强",
+                    "completion_percent": 30,
+                    "status": "needs_work",
+                }
+            ],
+        },
+    )
+
+
+class PreSubmitReviewTests(unittest.TestCase):
+    def test_review_is_ready_when_all_existing_checks_are_fresh_and_acceptable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+
+            from pre_submit_review import render_pre_submit_review, run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+            report = render_pre_submit_review(result)
+
+            self.assertEqual(result["pre_submit_review_schema"], "pre_submit_review")
+            self.assertEqual(result["pre_submit_review_version"], 1)
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["freshness_status"], "fresh")
+            self.assertEqual(result["candidate_count_total"], 64)
+            self.assertEqual(result["manual_action_items_count"], 2)
+            self.assertEqual(result["governance_status"], "ready")
+            self.assertIn("review_data_health", result["priority_actions"])
+            self.assertIn("continue_sample_accumulation", result["priority_actions"])
+            self.assertEqual(result["input_statuses"]["weekly_action_items"], "ready")
+            self.assertEqual(result["input_statuses"]["data_health_review"], "acceptable_with_monitoring")
+            self.assertEqual(result["input_statuses"]["backtest_evidence_review"], "evidence_review_needed")
+            self.assertEqual(result["input_statuses"]["membership_evidence_import_plan"], "ready")
+            self.assertEqual(result["input_statuses"]["membership_evidence_apply_preview"], "ready")
+            self.assertEqual(result["input_statuses"]["sp500_current_membership_sources"], "fetch_failed")
+            self.assertEqual(result["input_statuses"]["candidate_findings_review"], "manual_review_needed")
+            self.assertEqual(result["input_statuses"]["forecast_performance_review"], "sample_accumulating")
+            self.assertEqual(
+                result["development_closeout"]["current_module"],
+                "S&P 500 成分证据补强",
+            )
+            self.assertEqual(
+                result["development_closeout"]["goal_code"],
+                "backtest_evidence_quality",
+            )
+            self.assertEqual(result["development_closeout"]["module_completion_percent"], 30)
+            self.assertEqual(
+                result["development_closeout"]["medium_term_overall_completion_percent"],
+                61,
+            )
+            self.assertFalse(
+                result["development_closeout"]["automatic_multi_model_collaboration_enabled"]
+            )
+            self.assertEqual(
+                result["development_closeout"]["collaboration_execution_mode"],
+                "single_codex_with_gpt55_review_checklist",
+            )
+            self.assertEqual(result["attention_reasons"], [])
+            self.assertEqual(result["missing_outputs"], [])
+            self.assertIn("# 提交前复核结果", report)
+            self.assertIn("总体状态：ready", report)
+            self.assertIn("候选总数：64", report)
+
+            self.assertIn("开发收尾摘要", report)
+            self.assertIn("current_module=S&P 500 成分证据补强", report)
+            self.assertIn("priority_actions", report)
+            self.assertIn("review_data_health", report)
+            self.assertIn("medium_term_overall_completion_percent=61", report)
+            self.assertIn(
+                "collaboration_execution_mode=single_codex_with_gpt55_review_checklist",
+                report,
+            )
+
+    def test_review_needs_attention_when_medium_term_closeout_snapshot_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            medium_path = root / "outputs" / "automation" / "latest_medium_term_goal_review.json"
+            medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
+            medium.pop("task_closeout_snapshot")
+            write_json(medium_path, medium)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "medium_term_goal_review_missing_closeout_snapshot",
+                result["attention_reasons"],
+            )
+
+    def test_review_closeout_can_select_module_by_goal_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(
+                root,
+                today="2026-06-28",
+                max_age_days=8,
+                closeout_goal_code="backtest_evidence_quality",
+            )
+
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(
+                result["development_closeout"]["goal_code"],
+                "backtest_evidence_quality",
+            )
+            self.assertEqual(
+                result["development_closeout"]["current_module"],
+                "S&P 500 成分证据补强",
+            )
+            self.assertEqual(result["development_closeout"]["module_completion_percent"], 30)
+            self.assertEqual(
+                result["development_closeout"]["medium_term_overall_completion_percent"],
+                61,
+            )
+
+    def test_review_priority_actions_include_weekly_action_item_codes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["items"].append(
+                {
+                    "priority": 3,
+                    "status": "open",
+                    "action_code": "review_current_membership_source_status",
+                    "category": "backtest",
+                    "title": "review source",
+                    "recommended_check": "review source status",
+                }
+            )
+            action_items["item_count"] = len(action_items["items"])
+            write_json(action_items_path, action_items)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["priority_actions"].append("review_current_membership_source_status")
+            conclusion["priority_action_details"].append(
+                {
+                    "action": "review_current_membership_source_status",
+                    "description": "review source status",
+                }
+            )
+            write_json(conclusion_path, conclusion)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
+            self.assertIn(
+                "review_current_membership_source_status",
+                result["priority_actions"],
+            )
+
+    def test_review_needs_attention_when_weekly_conclusion_misses_weekly_action_item_codes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["items"].append(
+                {
+                    "priority": 3,
+                    "status": "open",
+                    "action_code": "review_current_membership_source_status",
+                    "category": "backtest",
+                    "title": "review source",
+                    "recommended_check": "review source status",
+                }
+            )
+            action_items["item_count"] = len(action_items["items"])
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_missing_weekly_action_item_codes",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_medium_term_collaboration_mode_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            medium_path = root / "outputs" / "automation" / "latest_medium_term_goal_review.json"
+            medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
+            medium.pop("collaboration_execution_mode")
+            write_json(medium_path, medium)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "medium_term_goal_review_missing_collaboration_boundary",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_medium_term_collaboration_mode_claims_automatic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            medium_path = root / "outputs" / "automation" / "latest_medium_term_goal_review.json"
+            medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
+            medium["collaboration_execution_mode"] = "automatic_multi_model_collaboration"
+            write_json(medium_path, medium)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "medium_term_goal_review_collaboration_mode_unsafe",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_medium_term_closeout_overall_progress_mismatches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            medium_path = root / "outputs" / "automation" / "latest_medium_term_goal_review.json"
+            medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
+            medium["task_closeout_snapshot"]["medium_term_overall_completion_percent"] = 60
+            write_json(medium_path, medium)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "medium_term_goal_review_closeout_overall_mismatch",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_medium_term_closeout_module_progress_mismatches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            medium_path = root / "outputs" / "automation" / "latest_medium_term_goal_review.json"
+            medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
+            medium["task_closeout_snapshot"]["current_module"] = medium["goals"][0]["module"]
+            medium["task_closeout_snapshot"]["module_completion_percent"] = 74
+            write_json(medium_path, medium)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "medium_term_goal_review_closeout_module_mismatch",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_backlog_reduction_action_lacks_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["items"].append(
+                {
+                    "priority": 3,
+                    "status": "open",
+                    "action_code": "reduce_weekly_action_backlog",
+                    "category": "delivery_health",
+                    "title": "reduce backlog",
+                    "recommended_check": "review backlog split",
+                }
+            )
+            action_items["item_count"] = len(action_items["items"])
+            write_json(action_items_path, action_items)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            delivery["action_items_count"] = action_items["item_count"]
+            delivery["action_items_actual_count"] = action_items["item_count"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["input_statuses"]["weekly_action_items"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_missing_backlog_reduction_plan",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_checklist_or_required_output_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "docs" / "提交前复核清单.md").unlink()
+            (root / "outputs" / "automation" / "latest_weekly_ops_check.json").unlink()
+
+            from pre_submit_review import render_pre_submit_review, run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+            report = render_pre_submit_review(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_checklist", result["attention_reasons"])
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertEqual(result["missing_outputs"], ["weekly_ops_check"])
+            self.assertIn("提交前复核清单", report)
+            self.assertIn("weekly_ops_check", report)
+
+    def test_review_needs_attention_when_weekly_ops_lacks_quality_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            ops_path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
+            ops = json.loads(ops_path.read_text(encoding="utf-8-sig"))
+            del ops["automation_check_status"]
+            del ops["automation_issues"]
+            write_json(ops_path, ops)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_ops_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_automation_check_lacks_quality_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            check_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            del check["recommended_action"]
+            del check["market_candidate_counts"]
+            write_json(check_path, check)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "automation_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_data_health_review_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_data_health_review.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("data_health_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_data_health_lacks_quality_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_data_health_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            del review["refetch_gap_count"]
+            del review["manual_financial_review_count"]
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "data_health_review_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_backtest_evidence_review_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_backtest_evidence_review.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("backtest_evidence_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_membership_evidence_import_plan_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_membership_evidence_import_plan.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("membership_evidence_import_plan", result["missing_outputs"])
+
+    def test_review_needs_attention_when_membership_apply_preview_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_membership_evidence_apply_preview.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("membership_evidence_apply_preview", result["missing_outputs"])
+
+    def test_review_needs_attention_when_sp500_current_source_status_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("sp500_current_membership_sources", result["missing_outputs"])
+
+    def test_review_needs_attention_when_sp500_current_source_lacks_status_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            del source["next_action"]
+            del source["source_file_required_columns"]
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_lacks_missing_ticker_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            del source["missing_ticker_review_queue"]
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_review_queue_file_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["missing_ticker_review_queue_file"] = (
+                "outputs/automation/missing_sp500_current_membership_source_review_queue.csv"
+            )
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_queue_file_missing",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_review_queue_file_mismatches_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_csv(
+                root / "outputs" / "automation" / "sp500_current_membership_source_review_queue.csv",
+                [
+                    {
+                        "ticker": "ABT",
+                        "review_status": "open",
+                        "issue_type": "missing_from_official_current_source",
+                        "recommended_check": "Confirm official source coverage.",
+                        "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_status": "fetch_failed",
+                    }
+                ],
+                [
+                    "ticker",
+                    "review_status",
+                    "issue_type",
+                    "recommended_check",
+                    "required_source_url",
+                    "source_status",
+                ],
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_queue_file_mismatch",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_review_queue_file_has_incomplete_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_csv(
+                root / "outputs" / "automation" / "sp500_current_membership_source_review_queue.csv",
+                [
+                    {
+                        "ticker": "ABT",
+                        "review_status": "",
+                        "issue_type": "missing_from_official_current_source",
+                        "recommended_check": "Confirm official source coverage.",
+                        "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_status": "fetch_failed",
+                    },
+                    {
+                        "ticker": "ADM",
+                        "review_status": "open",
+                        "issue_type": "missing_from_official_current_source",
+                        "recommended_check": "Confirm official source coverage.",
+                        "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_status": "fetch_failed",
+                    },
+                ],
+                [
+                    "ticker",
+                    "review_status",
+                    "issue_type",
+                    "recommended_check",
+                    "required_source_url",
+                    "source_status",
+                ],
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_queue_file_invalid",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_membership_import_plan_lacks_impact_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_membership_evidence_import_plan.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            del review["ready_to_import_weeks_affected"]
+            del review["missing_source_weeks_affected"]
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "membership_evidence_import_plan_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_membership_import_ready_but_action_item_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_membership_evidence_import_plan.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            review["ready_to_import_count"] = 2
+            review["ready_to_import_weeks_affected"] = 210
+            review["missing_source_count"] = 48
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "membership_evidence_apply_preview_action_item_missing",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_current_source_review_action_item_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["status"] = "ready"
+            source["matched_count"] = 1
+            source["missing_count"] = 1
+            source["next_action"] = "review_missing_tickers"
+            source["recommended_followup"] = "review_current_membership_source_status"
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_action_item_missing",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_current_source_review_action_item_omits_queue_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["status"] = "ready"
+            source["matched_count"] = 1
+            source["missing_count"] = 1
+            source["next_action"] = "review_missing_tickers"
+            source["recommended_followup"] = "review_current_membership_source_status"
+            write_json(source_path, source)
+            action_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_path.read_text(encoding="utf-8-sig"))
+            action_items["items"].append(
+                {
+                    "priority": 3,
+                    "status": "open",
+                    "action_code": "review_current_membership_source_status",
+                    "category": "backtest",
+                    "title": "核对当前 S&P 500 成分来源缺口",
+                    "recommended_check": "核对 latest_sp500_current_membership_sources.json 中的缺失 ticker。",
+                }
+            )
+            action_items["item_count"] = len(action_items["items"])
+            write_json(action_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_action_item_missing_review_queue_file",
+                result["attention_reasons"],
+            )
+
+    def test_review_exposes_membership_closed_loop_when_official_source_fixture_is_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            as_of_date = "2026-06-28"
+            write_ready_review_inputs(root, as_of_date=as_of_date)
+            source_url = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/"
+
+            template = root / "outputs" / "automation" / "us_sp500_current_membership_sources_template.csv"
+            official_export = root / "official_constituents.csv"
+            intake = root / "outputs" / "automation" / "sp500_current_membership_source_intake_template.csv"
+            source_pack = root / "data" / "config" / "us_sp500_current_membership_sources.csv"
+            source_json = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            write_csv(
+                template,
+                [
+                    {
+                        "ticker": "ABT",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "",
+                        "source_as_of_date": "",
+                        "notes": "",
+                    }
+                ],
+                ["ticker", "membership_evidence", "membership_source_url", "source_as_of_date", "notes"],
+            )
+            write_csv(official_export, [{"Symbol": "ABT", "Security": "Abbott Laboratories"}], ["Symbol", "Security"])
+            write_csv(
+                intake,
+                [
+                    {
+                        "expected_ticker": "ABT",
+                        "intake_status": "official_export_required",
+                        "required_source_url": source_url,
+                        "required_source_columns": "Symbol or Ticker",
+                        "notes": "",
+                    }
+                ],
+                ["expected_ticker", "intake_status", "required_source_url", "required_source_columns", "notes"],
+            )
+
+            from sp500_current_membership_sources import (
+                add_intake_coverage,
+                build_current_membership_sources_from_tickers,
+                parse_official_current_tickers_from_source_file,
+                write_json as write_source_json,
+                write_sources_csv,
+            )
+
+            source_payload = build_current_membership_sources_from_tickers(
+                template,
+                parse_official_current_tickers_from_source_file(official_export),
+                source_url,
+                as_of_date=as_of_date,
+            )
+            add_intake_coverage(source_payload, intake)
+            write_sources_csv(source_payload, source_pack)
+            write_source_json(source_payload, source_json)
+
+            gaps = root / "outputs" / "automation" / "latest_membership_evidence_gaps.json"
+            write_json(
+                gaps,
+                {
+                    "schema": "membership_evidence_gap_report",
+                    "version": 1,
+                    "gap_count": 1,
+                    "returned_gap_count": 1,
+                    "gaps": [
+                        {
+                            "rank": 1,
+                            "ticker": "ABT",
+                            "company_name": "Abbott Laboratories",
+                            "effective_date": "1957-03-04",
+                            "current_evidence": "secondary",
+                            "weeks_affected": 2,
+                            "recommended_action": "supplement_official_spglobal_source",
+                        }
+                    ],
+                },
+            )
+
+            from membership_evidence_import_plan import (
+                build_membership_evidence_import_plan,
+                write_json as write_plan_json,
+            )
+
+            plan_json = root / "outputs" / "automation" / "latest_membership_evidence_import_plan.json"
+            plan_payload = build_membership_evidence_import_plan(gaps, source_pack, as_of_date=as_of_date)
+            write_plan_json(plan_payload, plan_json)
+
+            membership = root / "outputs" / "backtests" / "us_3y_weekly" / "historical_membership.csv"
+            write_csv(
+                membership,
+                [
+                    {
+                        "week": "2026-06-21",
+                        "market": "US",
+                        "ticker": "ABT",
+                        "cik": "0000001800",
+                        "company_name": "Abbott Laboratories",
+                        "industry": "Health Care",
+                        "gics_sub_industry": "Health Care Equipment",
+                        "date_added": "1957-03-04",
+                        "effective_date": "1957-03-04",
+                        "membership_evidence": "secondary",
+                        "membership_source_url": "data/config/us_universe_symbols.csv",
+                        "available_at": "2026-06-21",
+                    },
+                    {
+                        "week": "2026-06-28",
+                        "market": "US",
+                        "ticker": "ABT",
+                        "cik": "0000001800",
+                        "company_name": "Abbott Laboratories",
+                        "industry": "Health Care",
+                        "gics_sub_industry": "Health Care Equipment",
+                        "date_added": "1957-03-04",
+                        "effective_date": "1957-03-04",
+                        "membership_evidence": "secondary",
+                        "membership_source_url": "data/config/us_universe_symbols.csv",
+                        "available_at": "2026-06-28",
+                    },
+                ],
+                [
+                    "week",
+                    "market",
+                    "ticker",
+                    "cik",
+                    "company_name",
+                    "industry",
+                    "gics_sub_industry",
+                    "date_added",
+                    "effective_date",
+                    "membership_evidence",
+                    "membership_source_url",
+                    "available_at",
+                ],
+            )
+
+            from membership_evidence_apply_preview import build_apply_preview, write_json as write_preview_json
+
+            preview_json = root / "outputs" / "automation" / "latest_membership_evidence_apply_preview.json"
+            preview_payload = build_apply_preview(membership, source_pack, as_of_date=as_of_date)
+            write_preview_json(preview_payload, preview_json)
+
+            manifest = root / "outputs" / "automation" / "latest_self_analysis_manifest.json"
+            write_json(
+                manifest,
+                {
+                    "manifest_schema": "self_analysis_manifest",
+                    "manifest_version": 1,
+                    "as_of_date": as_of_date,
+                    "automation_status": "manual_review_needed",
+                    "automation_priority_actions": ["review_data_health"],
+                    "data_health_status": "manual_review_needed",
+                },
+            )
+
+            from weekly_action_items import build_weekly_action_items, write_json as write_action_json
+
+            action_items_json = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_payload = build_weekly_action_items(manifest, membership_import_plan=plan_json)
+            write_action_json(action_payload, action_items_json)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            for item in action_payload["items"]:
+                action_code = item["action_code"]
+                if action_code not in conclusion["priority_actions"]:
+                    conclusion["priority_actions"].append(action_code)
+                    conclusion["priority_action_details"].append(
+                        {
+                            "action": action_code,
+                            "description": item.get("recommended_check", ""),
+                        }
+                    )
+            write_json(conclusion_path, conclusion)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            delivery["action_items_count"] = action_payload["item_count"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today=as_of_date, max_age_days=8)
+
+            self.assertEqual(source_payload["recommended_followup"], "run_membership_evidence_import_plan_then_apply_preview")
+            self.assertEqual(plan_payload["ready_to_import_count"], 1)
+            self.assertEqual(preview_payload["preview_row_count"], 2)
+            self.assertIn(
+                "run_membership_evidence_apply_preview",
+                [item["action_code"] for item in action_payload["items"]],
+            )
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["membership_evidence_ready_to_import_count"], 1)
+            self.assertEqual(result["membership_evidence_preview_row_count"], 2)
+            self.assertTrue(result["membership_evidence_preview_action_item_present"])
+
+    def test_review_needs_attention_when_backtest_evidence_lacks_quality_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_backtest_evidence_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            del review["verified_membership_ratio"]
+            del review["weak_evidence_weeks"]
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "backtest_evidence_review_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_candidate_findings_review_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_candidate_findings_review.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("candidate_findings_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_forecast_performance_review_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_forecast_performance_review.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("forecast_performance_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_candidate_findings_have_missing_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_candidate_findings_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            review["status"] = "needs_attention"
+            review["missing_field_count"] = 3
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("candidate_findings_review_missing_fields", result["attention_reasons"])
+
+    def test_review_needs_attention_when_candidate_findings_lack_quality_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_candidate_findings_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            del review["field_complete_count"]
+            del review["risk_coverage_count"]
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "candidate_findings_review_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_forecast_review_missing_market_or_allows_model_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_forecast_performance_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            review["status"] = "needs_attention"
+            review["missing_market_count"] = 1
+            review["formal_model_change_allowed"] = True
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("forecast_performance_review_not_acceptable", result["attention_reasons"])
+            self.assertIn("forecast_performance_review_missing_market", result["attention_reasons"])
+            self.assertIn("forecast_performance_formal_model_change_unsafe", result["attention_reasons"])
+
+    def test_review_needs_attention_when_forecast_latest_short_signals_are_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_forecast_performance_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            review["status"] = "needs_attention"
+            review["latest_short_signal_missing_count"] = 2
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("forecast_performance_review_not_acceptable", result["attention_reasons"])
+            self.assertIn("forecast_performance_latest_short_signals_missing", result["attention_reasons"])
+
+    def test_review_needs_attention_when_forecast_review_lacks_latest_legacy_tracking_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_forecast_performance_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            del review["latest_prediction_unavailable_count"]
+            del review["legacy_short_signal_missing_count"]
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "forecast_performance_review_missing_tracking_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_backtest_review_allows_upgrade_with_weak_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_backtest_evidence_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            review["formal_model_upgrade_allowed"] = True
+            review["weak_evidence_rows"] = 3382
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("backtest_evidence_upgrade_gate_unsafe", result["attention_reasons"])
+
+    def test_review_needs_attention_when_governance_doc_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "docs" / "中期目标与模型协作规范.md").unlink()
+
+            from pre_submit_review import render_pre_submit_review, run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+            report = render_pre_submit_review(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["governance_status"], "missing")
+            self.assertIn("missing_governance_doc", result["attention_reasons"])
+            self.assertIn("中期目标与模型协作规范", report)
+
+    def test_review_needs_attention_when_governance_doc_missing_required_terms(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_text(root / "docs" / "中期目标与模型协作规范.md", "# incomplete\n")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["governance_status"], "needs_attention")
+            self.assertIn("governance_doc_missing_terms", result["attention_reasons"])
+            self.assertIn("gpt5.3-codex-spark", result["governance_missing_terms"])
+
+    def test_review_needs_attention_when_governance_doc_missing_combined_development_habits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_text(
+                root / "docs" / "中期目标与模型协作规范.md",
+                "\n".join(
+                    [
+                        "# 中期目标与模型协作规范",
+                        "gpt5.3-codex-spark 负责快速迭代。",
+                        "gpt5.5 负责关键复核和正式收口。",
+                        "组合开发习惯要求保留证据三件套。",
+                        "所有模型优化建议先进入影子层。",
+                        "不得自动修改正式模型参数。",
+                    ]
+                )
+                + "\n",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["governance_status"], "needs_attention")
+            self.assertIn("governance_doc_missing_terms", result["attention_reasons"])
+            self.assertIn("可回放", result["governance_missing_terms"])
+            self.assertIn("回退策略", result["governance_missing_terms"])
+            self.assertIn("收敛迭代", result["governance_missing_terms"])
+
+    def test_review_needs_attention_when_model_handoff_review_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            ).unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("model_handoff_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_model_handoff_closeout_does_not_match_medium_term(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            handoff["goal_code"] = "model_governance_handoff"
+            handoff["current_module"] = "模型治理与多模型协作准备"
+            handoff["module_completion_percent"] = 75
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_closeout_mismatch",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_source_review_status_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            ).unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn(
+                "sp500_current_membership_source_review_status",
+                result["missing_outputs"],
+            )
+
+    def test_review_needs_attention_when_sp500_source_review_decision_guidance_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            )
+            review_status = json.loads(review_status_path.read_text(encoding="utf-8-sig"))
+            review_status.pop("decision_options")
+            review_status.pop("decision_required_fields")
+            review_status.pop("manual_decision_instructions")
+            write_json(review_status_path, review_status)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_missing_decision_guidance",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_source_review_decisions_template_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            )
+            review_status = json.loads(review_status_path.read_text(encoding="utf-8-sig"))
+            review_status["decisions_template_file"] = (
+                "outputs/automation/sp500_current_membership_source_review_decisions_template.csv"
+            )
+            write_json(review_status_path, review_status)
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_review_decisions_template.csv"
+            ).unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_decisions_template_missing",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_source_review_decisions_template_has_missing_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_csv(
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_review_decisions_template.csv",
+                [
+                    {
+                        "ticker": "ZZZ",
+                        "review_decision": "",
+                        "official_source_checked": "",
+                    }
+                ],
+                [
+                    "ticker",
+                    "review_decision",
+                    "official_source_checked",
+                ],
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_decisions_template_invalid",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_source_review_decisions_template_missing_open_ticker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_csv(
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_review_decisions_template.csv",
+                [
+                    {
+                        "ticker": "ABC",
+                        "review_decision": "",
+                        "official_source_checked": "",
+                        "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "issue_type": "missing_from_official_current_source",
+                        "recommended_check": "Confirm official coverage.",
+                        "decision_notes": "",
+                    }
+                ],
+                [
+                    "ticker",
+                    "review_decision",
+                    "official_source_checked",
+                    "required_source_url",
+                    "issue_type",
+                    "recommended_check",
+                    "decision_notes",
+                ],
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_decisions_template_mismatch",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_source_review_decisions_are_ready_but_apply_summary_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            )
+            review_status = json.loads(review_status_path.read_text(encoding="utf-8-sig"))
+            review_status["next_action"] = "apply_review_decisions_to_queue"
+            review_status["review_decision_status"] = "ready_to_apply"
+            review_status["decision_ready_to_apply_count"] = 1
+            review_status["decision_file_exists"] = True
+            write_json(review_status_path, review_status)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_decision_apply_missing",
+                result["attention_reasons"],
+            )
+
+    def test_review_is_ready_when_sp500_source_review_decisions_have_dry_run_apply_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            )
+            review_status = json.loads(review_status_path.read_text(encoding="utf-8-sig"))
+            review_status["next_action"] = "apply_review_decisions_to_queue"
+            review_status["review_decision_status"] = "ready_to_apply"
+            review_status["decision_ready_to_apply_count"] = 1
+            review_status["decision_file_exists"] = True
+            write_json(review_status_path, review_status)
+            write_json(
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_decision_apply.json",
+                {
+                    "apply_schema": "sp500_current_membership_source_review_decision_apply",
+                    "apply_version": 1,
+                    "status": "dry_run",
+                    "applied_count": 1,
+                    "skipped_pending_count": 0,
+                    "skipped_invalid_count": 0,
+                    "formal_backtest_upgrade_allowed": False,
+                },
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
+
+    def test_review_needs_attention_when_model_handoff_claims_auto_collaboration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            handoff["automatic_multi_model_collaboration_enabled"] = True
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_auto_collaboration_boundary_unsafe",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_existing_check_reports_problem(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            delivery["status"] = "needs_attention"
+            delivery["attention_reasons"] = ["missing_conclusion_signals"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("weekly_delivery_check_not_ready", result["attention_reasons"])
+            self.assertIn("weekly_delivery_check:missing_conclusion_signals", result["attention_reasons"])
+
+    def test_review_needs_attention_when_delivery_check_lacks_quality_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            del delivery["missing_conclusion_signal_fixes"]
+            del delivery["action_items_count"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_delivery_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_delivery_check_lacks_action_items_actual_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            del delivery["action_items_actual_count"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_delivery_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_weekly_conclusion_lacks_summary_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            del conclusion["candidate_action_summary"]
+            del conclusion["outputs"]
+            write_json(conclusion_path, conclusion)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_missing_summary_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_any_input_date_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root, as_of_date="2026-06-10")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["freshness_status"], "stale")
+            self.assertIn("stale_inputs", result["attention_reasons"])
+            self.assertEqual(result["input_age_days"]["weekly_delivery_check"], 18)
+
+    def test_cli_writes_json_report_and_history_for_ready_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            output = root / "outputs" / "automation" / "latest_pre_submit_review.json"
+            report = root / "outputs" / "automation" / "latest_pre_submit_review.md"
+            history = root / "outputs" / "automation" / "pre_submit_review_history.jsonl"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "pre_submit_review.py"),
+                    "--project-root",
+                    str(root),
+                    "--today",
+                    "2026-06-28",
+                    "--max-age-days",
+                    "8",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--history",
+                    str(history),
+                    "--closeout-goal-code",
+                    "backtest_evidence_quality",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            combined = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, combined)
+            self.assertIn("提交前复核结果", combined)
+            payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "ready")
+            self.assertEqual(
+                payload["development_closeout"]["goal_code"],
+                "backtest_evidence_quality",
+            )
+            self.assertEqual(
+                payload["development_closeout"]["current_module"],
+                "S&P 500 成分证据补强",
+            )
+            self.assertIn("总体状态：ready", report.read_text(encoding="utf-8-sig"))
+            self.assertEqual(len(history.read_text(encoding="utf-8-sig").splitlines()), 1)
+
+
+    def test_pre_submit_wrapper_exposes_closeout_goal_code(self):
+        wrapper = (PROJECT_ROOT / "scripts" / "run_pre_submit_review.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("CloseoutGoalCode", wrapper)
+        self.assertIn("--closeout-goal-code", wrapper)
+
+
+if __name__ == "__main__":
+    unittest.main()
