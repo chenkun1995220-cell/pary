@@ -367,13 +367,27 @@ def _current_membership_source_action(source_status, review_status=None):
     decisions_template_missing_open_count = len(
         review_status.get("decisions_template_missing_open_tickers", []) or []
     )
+    review_decision_status = str(
+        review_status.get("review_decision_status", "unknown") or "unknown"
+    ).strip()
+    manual_decision_next_step = str(
+        review_status.get("manual_decision_next_step", "unknown") or "unknown"
+    ).strip()
+    decision_pending_tickers = [
+        str(ticker).strip()
+        for ticker in review_status.get("decision_pending_tickers", []) or []
+        if str(ticker).strip()
+    ]
+    decision_pending_ticker_text = ", ".join(decision_pending_tickers[:10]) or "none"
     ticker_text = (
         f"{ticker_text}; {review_status_file}；"
         f"状态报告 open={review_open_count}, resolved={review_resolved_count}；"
         f"{decisions_template_file}；"
         f"决策模板 status={decisions_template_status}, "
         f"matched_open={decisions_template_matched}, "
-        f"missing_open={decisions_template_missing_open_count}"
+        f"missing_open={decisions_template_missing_open_count}；"
+        f"手工决策下一步={manual_decision_next_step}；"
+        f"待决策 ticker={decision_pending_ticker_text}"
     )
 
     return {
@@ -388,6 +402,9 @@ def _current_membership_source_action(source_status, review_status=None):
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "
+            f"review_decision_status:{review_decision_status}; "
+            f"manual_decision_next_step:{manual_decision_next_step}; "
+            f"decision_pending_tickers:{decision_pending_ticker_text}; "
             f"decisions_template_status:{decisions_template_status}; "
             f"decisions_template_matched_open_count:{decisions_template_matched}; "
             f"decisions_template_missing_open_count:{decisions_template_missing_open_count}; "

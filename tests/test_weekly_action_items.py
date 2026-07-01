@@ -191,6 +191,12 @@ def write_current_membership_source_review_status(path):
         "open_items": [{"ticker": "ZZZ", "review_status": "open"}],
         "resolved_items": [],
         "next_action": "review_open_queue_items",
+        "review_decision_status": "missing",
+        "manual_decision_next_step": "fill_decisions_template",
+        "decision_pending_count": 1,
+        "decision_pending_tickers": ["ZZZ"],
+        "decision_ready_to_apply_count": 0,
+        "decision_ready_to_apply_tickers": [],
         "decisions_template_file": "outputs/automation/sp500_current_membership_source_review_decisions_template.csv",
         "decisions_template_exists": True,
         "decisions_template_status": "ready",
@@ -370,7 +376,12 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("decisions_template_status:ready", source_item["source"])
             self.assertIn("decisions_template_matched_open_count:1", source_item["source"])
             self.assertIn("decisions_template_missing_open_count:0", source_item["source"])
+            self.assertIn("review_decision_status:missing", source_item["source"])
+            self.assertIn("manual_decision_next_step:fill_decisions_template", source_item["source"])
+            self.assertIn("decision_pending_tickers:ZZZ", source_item["source"])
             self.assertIn("状态报告 open=1, resolved=0", source_item["recommended_check"])
+            self.assertIn("手工决策下一步=fill_decisions_template", source_item["recommended_check"])
+            self.assertIn("待决策 ticker=ZZZ", source_item["recommended_check"])
             self.assertIn("latest_sp500_current_membership_sources.json", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_intake_template.csv", source_item["recommended_check"])
             self.assertIn("review_current_membership_source_status", report)

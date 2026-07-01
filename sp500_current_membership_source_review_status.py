@@ -94,10 +94,21 @@ def _normalized_decision_row(row):
     }
 
 
+def _manual_decision_next_step(review_decision_status):
+    if review_decision_status == "ready_to_apply":
+        return "apply_review_decisions_to_queue"
+    if review_decision_status == "invalid":
+        return "fix_review_decisions"
+    if review_decision_status in {"missing", "partial"}:
+        return "fill_decisions_template"
+    return "not_required"
+
+
 def _decision_summary(decisions_path, open_items):
     decision_file = str(Path(decisions_path)) if decisions_path else ""
     rows = _read_csv(decisions_path) if decisions_path else None
     open_tickers = {item.get("ticker", "") for item in open_items if item.get("ticker")}
+    initial_status = "not_required" if not open_tickers else "missing"
     summary = {
         "decision_file": decision_file,
         "decision_file_exists": rows is not None,
@@ -105,9 +116,12 @@ def _decision_summary(decisions_path, open_items):
         "decision_matched_open_count": 0,
         "decision_ready_to_apply_count": 0,
         "decision_pending_count": len(open_tickers),
+        "decision_pending_tickers": sorted(open_tickers),
+        "decision_ready_to_apply_tickers": [],
         "decision_invalid_count": 0,
         "decision_items": [],
-        "review_decision_status": "not_required" if not open_tickers else "missing",
+        "review_decision_status": initial_status,
+        "manual_decision_next_step": _manual_decision_next_step(initial_status),
     }
     if rows is None:
         return summary
@@ -124,21 +138,27 @@ def _decision_summary(decisions_path, open_items):
 
     matched = []
     ready_to_apply = []
+    ready_to_apply_tickers = []
+    pending_tickers = []
     pending_count = 0
     for ticker in sorted(open_tickers):
         decision = decisions_by_ticker.get(ticker)
         if not decision:
             pending_count += 1
+            pending_tickers.append(ticker)
             continue
         matched.append(decision)
         review_decision = decision["review_decision"]
         checked = decision["official_source_checked"] in TRUE_VALUES
         if review_decision in CLOSE_READY_DECISIONS and checked:
             ready_to_apply.append(decision)
+            ready_to_apply_tickers.append(ticker)
         elif review_decision in PENDING_DECISIONS:
             pending_count += 1
+            pending_tickers.append(ticker)
         else:
             invalid_count += 1
+            pending_tickers.append(ticker)
 
     if open_tickers and len(ready_to_apply) == len(open_tickers):
         status = "ready_to_apply"
@@ -157,9 +177,12 @@ def _decision_summary(decisions_path, open_items):
             "decision_matched_open_count": len(matched),
             "decision_ready_to_apply_count": len(ready_to_apply),
             "decision_pending_count": pending_count,
+            "decision_pending_tickers": pending_tickers,
+            "decision_ready_to_apply_tickers": ready_to_apply_tickers,
             "decision_invalid_count": invalid_count,
             "decision_items": matched,
             "review_decision_status": status,
+            "manual_decision_next_step": _manual_decision_next_step(status),
         }
     )
     return summary
@@ -293,7 +316,12 @@ def render_review_status(payload):
         f"- open_count={payload.get('open_count', 0)}",
         f"- resolved_count={payload.get('resolved_count', 0)}",
         f"- review_decision_status={payload.get('review_decision_status', 'unknown')}",
+        f"- manual_decision_next_step={payload.get('manual_decision_next_step', 'unknown')}",
         f"- decision_ready_to_apply_count={payload.get('decision_ready_to_apply_count', 0)}",
+        "- decision_ready_to_apply_tickers="
+        + ", ".join(payload.get("decision_ready_to_apply_tickers", []) or []),
+        "- decision_pending_tickers="
+        + ", ".join(payload.get("decision_pending_tickers", []) or []),
         f"- 下一步：{payload.get('next_action', 'unknown')}",
         "",
         "## 未处理条目",

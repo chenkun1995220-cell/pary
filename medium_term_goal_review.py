@@ -495,6 +495,20 @@ def _backtest_goal(
                 "review_decision_status",
                 "unknown",
             ),
+            "sp500_current_source_review_manual_decision_next_step": current_membership_source_review_status.get(
+                "manual_decision_next_step",
+                "unknown",
+            ),
+            "sp500_current_source_review_decision_pending_tickers": current_membership_source_review_status.get(
+                "decision_pending_tickers",
+                [],
+            )
+            or [],
+            "sp500_current_source_review_decision_ready_to_apply_tickers": current_membership_source_review_status.get(
+                "decision_ready_to_apply_tickers",
+                [],
+            )
+            or [],
             "sp500_current_source_review_decision_file_exists": bool(
                 current_membership_source_review_status.get("decision_file_exists")
             ),

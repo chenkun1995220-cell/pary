@@ -247,10 +247,13 @@ def write_review_fixtures(root):
             "decision_file": "outputs/automation/sp500_current_membership_source_review_decisions.csv",
             "decision_file_exists": True,
             "review_decision_status": "partial",
+            "manual_decision_next_step": "fill_decisions_template",
             "decision_total_count": 1,
             "decision_matched_open_count": 1,
             "decision_ready_to_apply_count": 0,
             "decision_pending_count": 1,
+            "decision_pending_tickers": ["MISS"],
+            "decision_ready_to_apply_tickers": [],
             "decision_invalid_count": 0,
             "decisions_template_exists": True,
             "decisions_template_status": "ready",
@@ -421,6 +424,14 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_decision_status"],
                 "partial",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_manual_decision_next_step"],
+                "fill_decisions_template",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_decision_pending_tickers"],
+                ["MISS"],
             )
             self.assertTrue(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_decision_file_exists"]
