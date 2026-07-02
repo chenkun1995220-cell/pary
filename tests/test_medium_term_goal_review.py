@@ -140,6 +140,11 @@ def write_review_fixtures(root):
             "one_week_mature": 0,
             "one_month_mature": 0,
             "latest_short_signal_missing_count": 0,
+            "maturity_gap_reasons": {
+                "prediction_unavailable": 65,
+                "pending_maturity": 0,
+                "other_not_evaluated": 0,
+            },
             "formal_model_change_allowed": False,
         },
     )
@@ -337,6 +342,18 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(goals["data_quality_convergence"]["status"], "on_track")
             self.assertEqual(goals["candidate_review_convergence"]["status"], "on_track")
             self.assertEqual(goals["forecast_tracking_maturity"]["status"], "sample_accumulating")
+            self.assertEqual(
+                goals["forecast_tracking_maturity"]["current"]["maturity_gap_prediction_unavailable"],
+                65,
+            )
+            self.assertEqual(
+                goals["forecast_tracking_maturity"]["current"]["maturity_gap_pending_maturity"],
+                0,
+            )
+            self.assertEqual(
+                goals["forecast_tracking_maturity"]["next_action"],
+                "review_prediction_unavailable_signals",
+            )
             self.assertEqual(goals["backtest_evidence_quality"]["status"], "needs_work")
             self.assertLess(
                 goals["backtest_evidence_quality"]["completion_percent"],
@@ -512,7 +529,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 "run_membership_evidence_import_plan_then_apply_preview",
                 payload["priority_next_actions"],
             )
-            self.assertIn("continue_sample_accumulation", payload["priority_next_actions"])
+            self.assertIn("review_prediction_unavailable_signals", payload["priority_next_actions"])
 
             self.assertIn("中期目标进度看板", report)
             self.assertIn("8 weeks", report)
@@ -522,6 +539,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("current_target_total_completion_percent=", report)
             self.assertIn("正式模型变更：不允许", report)
             self.assertIn("backtest_evidence_quality", report)
+            self.assertIn("review_prediction_unavailable_signals", report)
             self.assertIn("weekly_action_backlog_reduction_plan_status=ready", report)
 
     def test_dashboard_blocks_when_core_delivery_is_not_ready(self):
