@@ -225,6 +225,9 @@ def write_review_fixtures(root):
             "missing_ticker_review_queue_file": "outputs/automation/sp500_current_membership_source_review_queue.csv",
             "next_action": "retry_official_source_or_provide_official_constituents_csv",
             "source_file_required_columns": ["Symbol", "Ticker"],
+            "source_file_request_file": str(
+                automation / "sp500_current_membership_source_file_request.md"
+            ),
             "intake_coverage_status": "partial",
             "intake_expected_count": 50,
             "intake_matched_count": 0,
@@ -232,6 +235,10 @@ def write_review_fixtures(root):
             "recommended_followup": "run_membership_evidence_import_plan_then_apply_preview",
             "formal_backtest_upgrade_allowed": False,
         },
+    )
+    (automation / "sp500_current_membership_source_file_request.md").write_text(
+        "# S&P 500 official constituents CSV request\n",
+        encoding="utf-8-sig",
     )
     write_json(
         automation / "latest_sp500_current_membership_source_review_status.json",
@@ -415,6 +422,14 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_queue_file"],
                 "outputs/automation/sp500_current_membership_source_review_queue.csv",
+            )
+            self.assertTrue(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_request_exists"]
+            )
+            self.assertTrue(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_request_file"].endswith(
+                    "sp500_current_membership_source_file_request.md"
+                )
             )
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_queue_open_count"],

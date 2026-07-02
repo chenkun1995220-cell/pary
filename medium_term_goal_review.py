@@ -414,6 +414,10 @@ def _review_queue_status_counts(items):
     return counts
 
 
+def _path_exists(path):
+    return bool(path) and Path(path).exists()
+
+
 def _backtest_goal(
     backtest_evidence,
     membership_import_plan=None,
@@ -501,6 +505,13 @@ def _backtest_goal(
             "sp500_current_source_review_queue_file": current_membership_sources.get(
                 "missing_ticker_review_queue_file",
                 "",
+            ),
+            "sp500_current_source_file_request_file": current_membership_sources.get(
+                "source_file_request_file",
+                "",
+            ),
+            "sp500_current_source_file_request_exists": _path_exists(
+                current_membership_sources.get("source_file_request_file", "")
             ),
             "sp500_current_source_review_queue_open_count": review_queue_counts["open"],
             "sp500_current_source_review_queue_resolved_count": review_queue_counts["resolved"],

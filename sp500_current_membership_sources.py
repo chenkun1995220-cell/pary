@@ -21,6 +21,11 @@ SOURCE_FILE_NEXT_COMMAND = (
     "scripts\\run_sp500_current_membership_sources.ps1 "
     "-ProjectRoot <project_root> -SourceFile <official_constituents.csv>"
 )
+SOURCE_FILE_DRY_RUN_COMMAND = (
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+    "scripts\\run_sp500_current_membership_sources.ps1 "
+    "-ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>"
+)
 SOURCE_FILE_ACCEPTANCE_CRITERIA = [
     "has_symbol_or_ticker_column",
     "at_least_400_tickers",
@@ -177,6 +182,7 @@ def _missing_ticker_review_queue(missing_tickers, source_url, status):
 def _source_file_guidance():
     return {
         "source_file_next_command": SOURCE_FILE_NEXT_COMMAND,
+        "source_file_dry_run_command": SOURCE_FILE_DRY_RUN_COMMAND,
         "source_file_acceptance_criteria": SOURCE_FILE_ACCEPTANCE_CRITERIA,
     }
 
@@ -394,6 +400,10 @@ def render_report(payload):
         lines.append(f"- validation_only: {str(payload.get('validation_only')).lower()}")
     if payload.get("source_file_next_command"):
         lines.append(f"- source_file_next_command: {payload.get('source_file_next_command', '')}")
+    if payload.get("source_file_dry_run_command"):
+        lines.append(f"- source_file_dry_run_command: {payload.get('source_file_dry_run_command', '')}")
+    if payload.get("source_file_request_file"):
+        lines.append(f"- source_file_request_file: {payload.get('source_file_request_file', '')}")
     if payload.get("source_file_acceptance_criteria"):
         lines.append(
             "- source_file_acceptance_criteria: "
@@ -428,6 +438,66 @@ def render_report(payload):
     return "\n".join(lines)
 
 
+def render_source_file_request(payload, missing_limit=20):
+    missing = payload.get("missing_tickers", []) or []
+    displayed_missing = missing[:missing_limit]
+    required_columns = " or ".join(payload.get("source_file_required_columns") or [])
+    lines = [
+        "# S&P 500 official constituents CSV request",
+        "",
+        f"- as_of_date: {payload.get('as_of_date', '')}",
+        f"- status: {payload.get('status', 'unknown')}",
+        f"- source_url: {payload.get('source_url', '')}",
+        f"- required_columns: {required_columns}",
+        f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
+        f"- requested_count: {payload.get('requested_count', 0)}",
+        f"- missing_count: {payload.get('missing_count', 0)}",
+        f"- intake_template: {payload.get('source_file_intake_template', '')}",
+        f"- dry_run_command: {payload.get('source_file_dry_run_command', '')}",
+        "- validation_mode: --validate-source-file-only",
+        f"- import_command: {payload.get('source_file_next_command', '')}",
+        "",
+        "## Acceptance criteria",
+        "",
+    ]
+    for item in payload.get("source_file_acceptance_criteria") or []:
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Missing ticker sample",
+            "",
+            "| ticker |",
+            "|---|",
+        ]
+    )
+    for ticker in displayed_missing:
+        lines.append(f"| {ticker} |")
+    if not displayed_missing:
+        lines.append("| - |")
+    if len(missing) > missing_limit:
+        lines.append(f"| ... {len(missing) - missing_limit} more |")
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            "- Use only the official S&P Global constituents export. Do not import the intake template as the source CSV.",
+            "- Run the dry-run command before the import command.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def should_write_source_file_request(payload):
+    return payload.get("recommended_followup") == "provide_official_constituents_csv" or payload.get("next_action") in {
+        "provide_official_constituents_csv",
+        "retry_official_source_or_provide_official_constituents_csv",
+        "provide_valid_official_constituents_csv",
+    }
+
+
 def write_text(text, path):
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -457,6 +527,7 @@ def main():
     parser.add_argument("--json-output", default="outputs/automation/latest_sp500_current_membership_sources.json")
     parser.add_argument("--intake-template", default="outputs/automation/sp500_current_membership_source_intake_template.csv")
     parser.add_argument("--review-queue-output", default="")
+    parser.add_argument("--source-file-request", default="outputs/automation/sp500_current_membership_source_file_request.md")
     parser.add_argument("--user-agent", default="")
     parser.add_argument("--allow-empty-on-fetch-error", action="store_true")
     parser.add_argument("--validate-source-file-only", action="store_true")
@@ -520,6 +591,9 @@ def main():
     if args.review_queue_output:
         payload["missing_ticker_review_queue_file"] = args.review_queue_output
         write_review_queue_csv(payload, args.review_queue_output)
+    if args.source_file_request and should_write_source_file_request(payload):
+        payload["source_file_request_file"] = args.source_file_request
+        write_text(render_source_file_request(payload), args.source_file_request)
     report = render_report(payload)
     write_text(report, args.report)
     if args.json_output:

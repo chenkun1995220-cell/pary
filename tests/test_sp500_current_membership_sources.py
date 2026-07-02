@@ -606,6 +606,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             report = root / "sources.md"
             metadata = root / "sources.json"
             intake = root / "intake_template.csv"
+            source_request = root / "source_file_request.md"
             write_template(template)
 
             result = subprocess.run(
@@ -628,6 +629,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                     str(metadata),
                     "--intake-template",
                     str(intake),
+                    "--source-file-request",
+                    str(source_request),
                     "--allow-empty-on-fetch-error",
                 ],
                 cwd=PROJECT_ROOT,
@@ -654,6 +657,18 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("run_sp500_current_membership_sources.ps1", payload["source_file_next_command"])
             self.assertIn("at_least_400_tickers", payload["source_file_acceptance_criteria"])
             self.assertEqual([row["ticker"] for row in payload["missing_ticker_review_queue"]], ["ABT", "ZZZ"])
+            self.assertEqual(payload["source_file_request_file"], str(source_request))
+            request_text = source_request.read_text(encoding="utf-8-sig")
+            self.assertIn("# S&P 500 official constituents CSV request", request_text)
+            self.assertIn("status: fetch_failed", request_text)
+            self.assertIn("required_columns: Symbol or Ticker", request_text)
+            self.assertIn("minimum_official_ticker_count: 400", request_text)
+            self.assertIn("dry_run_command:", request_text)
+            self.assertIn("--validate-source-file-only", request_text)
+            self.assertIn("import_command:", request_text)
+            self.assertIn("-SourceFile <official_constituents.csv>", request_text)
+            self.assertIn("| ABT |", request_text)
+            self.assertIn("| ZZZ |", request_text)
             with intake.open(encoding="utf-8-sig", newline="") as handle:
                 intake_rows = list(csv.DictReader(handle))
             self.assertEqual(len(intake_rows), 2)
@@ -681,6 +696,9 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
         self.assertIn("ReviewQueueOutput", wrapper)
         self.assertIn("--review-queue-output", wrapper)
         self.assertIn("sp500_current_membership_source_review_queue.csv", wrapper)
+        self.assertIn("SourceFileRequest", wrapper)
+        self.assertIn("--source-file-request", wrapper)
+        self.assertIn("sp500_current_membership_source_file_request.md", wrapper)
         self.assertIn("--allow-empty-on-fetch-error", wrapper)
 
 
