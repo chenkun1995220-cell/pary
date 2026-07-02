@@ -275,6 +275,37 @@ def build_fetch_failed_payload(template_path, source_url, error, as_of_date=None
     }
 
 
+def build_source_file_invalid_payload(template_path, source_url, source_file, error, as_of_date=None):
+    requested = _template_tickers(template_path)
+    return {
+        "source_schema": SOURCE_SCHEMA,
+        "source_version": SOURCE_VERSION,
+        "status": "source_file_invalid",
+        "as_of_date": as_of_date or date.today().isoformat(),
+        "source_url": source_url,
+        "source_file": str(source_file),
+        "requested_count": len(requested),
+        "parsed_official_ticker_count": 0,
+        "matched_count": 0,
+        "missing_count": len(requested),
+        "missing_tickers": requested,
+        "missing_ticker_review_queue": _missing_ticker_review_queue(
+            requested,
+            source_url,
+            "source_file_invalid",
+        ),
+        "next_action": "provide_valid_official_constituents_csv",
+        "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
+        "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "source_quality_flags": ["source_file_invalid"],
+        **_source_file_guidance(),
+        "formal_backtest_upgrade_allowed": False,
+        "rows": [],
+        "error": str(error),
+        "boundary": "只验证本地官方 CSV 是否可导入，不写入当前成分来源包，不修改回测输入或正式模型参数。",
+    }
+
+
 def write_sources_csv(payload, path):
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -359,6 +390,8 @@ def render_report(payload):
         f"- recommended_followup: {payload.get('recommended_followup', '')}",
         f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
     ]
+    if payload.get("validation_only") is not None:
+        lines.append(f"- validation_only: {str(payload.get('validation_only')).lower()}")
     if payload.get("source_file_next_command"):
         lines.append(f"- source_file_next_command: {payload.get('source_file_next_command', '')}")
     if payload.get("source_file_acceptance_criteria"):
@@ -426,7 +459,10 @@ def main():
     parser.add_argument("--review-queue-output", default="")
     parser.add_argument("--user-agent", default="")
     parser.add_argument("--allow-empty-on-fetch-error", action="store_true")
+    parser.add_argument("--validate-source-file-only", action="store_true")
     args = parser.parse_args()
+    if args.validate_source_file_only and not args.source_file:
+        parser.error("--validate-source-file-only requires --source-file")
 
     try:
         if args.source_file:
@@ -448,6 +484,17 @@ def main():
                 as_of_date=args.as_of_date or None,
             )
     except Exception as exc:
+        if args.validate_source_file_only:
+            payload = build_source_file_invalid_payload(
+                args.template,
+                args.source_url,
+                args.source_file,
+                exc,
+                as_of_date=args.as_of_date or None,
+            )
+            payload["validation_only"] = True
+            print(render_report(payload))
+            sys.exit(1)
         if not args.allow_empty_on_fetch_error:
             raise
         payload = build_fetch_failed_payload(
@@ -463,6 +510,10 @@ def main():
         write_intake_template(payload, args.intake_template)
     if args.intake_template:
         add_intake_coverage(payload, args.intake_template)
+    if args.validate_source_file_only:
+        payload["validation_only"] = True
+        print(render_report(payload))
+        return
     write_sources_csv(payload, args.output)
     if args.intake_template:
         write_intake_template(payload, args.intake_template)

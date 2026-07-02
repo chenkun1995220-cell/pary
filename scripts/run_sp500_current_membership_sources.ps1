@@ -61,6 +61,21 @@ Write-Host "Reads: us_sp500_current_membership_sources_template.csv, official S&
 Write-Host "Writes: us_sp500_current_membership_sources.csv, latest_sp500_current_membership_sources.md, latest_sp500_current_membership_sources.json, sp500_current_membership_source_intake_template.csv, sp500_current_membership_source_review_queue.csv"
 
 if ($DryRun) {
+  if ($SourceFile) {
+    $dryRunArgs = @(
+      "-B", $Script,
+      "--template", $Template,
+      "--source-url", $SourceUrl,
+      "--as-of-date", $AsOfDate,
+      "--source-file", $SourceFile,
+      "--intake-template", $IntakeTemplate,
+      "--validate-source-file-only"
+    )
+    & $Python @dryRunArgs
+    if ($LASTEXITCODE -ne 0) {
+      throw "S&P 500 current membership source dry-run validation failed with exit code $LASTEXITCODE."
+    }
+  }
   Write-Host "DryRun: no files or network requests were created."
   exit 0
 }

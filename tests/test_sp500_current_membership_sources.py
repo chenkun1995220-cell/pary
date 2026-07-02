@@ -483,6 +483,120 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                 remaining_rows = list(csv.DictReader(handle))
             self.assertEqual([row["expected_ticker"] for row in remaining_rows], ["ZZZ"])
 
+    def test_cli_validates_source_file_without_writing_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            source_file = root / "official_constituents.csv"
+            output = root / "sources.csv"
+            report = root / "sources.md"
+            metadata = root / "sources.json"
+            review_queue = root / "review_queue.csv"
+            intake = root / "intake_template.csv"
+            write_template(template)
+            write_official_csv(source_file)
+            write_intake_template(intake)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_sources.py"),
+                    "--template",
+                    str(template),
+                    "--source-file",
+                    str(source_file),
+                    "--source-url",
+                    "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "--as-of-date",
+                    "2026-06-30",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--json-output",
+                    str(metadata),
+                    "--intake-template",
+                    str(intake),
+                    "--review-queue-output",
+                    str(review_queue),
+                    "--validate-source-file-only",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("validation_only: true", result.stdout)
+            self.assertIn("matched_count: 1", result.stdout)
+            self.assertIn("intake_coverage_status: partial", result.stdout)
+            self.assertIn(
+                "recommended_followup: run_membership_evidence_import_plan_then_apply_preview",
+                result.stdout,
+            )
+            self.assertFalse(output.exists())
+            self.assertFalse(report.exists())
+            self.assertFalse(metadata.exists())
+            self.assertFalse(review_queue.exists())
+            with intake.open(encoding="utf-8-sig", newline="") as handle:
+                intake_rows = list(csv.DictReader(handle))
+            self.assertEqual([row["expected_ticker"] for row in intake_rows], ["ABT", "ZZZ"])
+
+    def test_cli_validation_reports_invalid_source_file_without_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            source_file = root / "intake_template_is_not_source.csv"
+            output = root / "sources.csv"
+            report = root / "sources.md"
+            metadata = root / "sources.json"
+            intake = root / "intake_template.csv"
+            write_template(template)
+            write_intake_template(source_file)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_sources.py"),
+                    "--template",
+                    str(template),
+                    "--source-file",
+                    str(source_file),
+                    "--source-url",
+                    "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "--as-of-date",
+                    "2026-06-30",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--json-output",
+                    str(metadata),
+                    "--intake-template",
+                    str(intake),
+                    "--validate-source-file-only",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("status: source_file_invalid", result.stdout)
+            self.assertIn("validation_only: true", result.stdout)
+            self.assertIn("source_file must contain a Symbol or Ticker column", result.stdout)
+            self.assertNotIn("Traceback", result.stdout + result.stderr)
+            self.assertFalse(output.exists())
+            self.assertFalse(report.exists())
+            self.assertFalse(metadata.exists())
+            self.assertFalse(intake.exists())
+
     def test_cli_can_write_empty_report_when_fetch_source_is_unavailable(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -559,6 +673,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
         self.assertIn("sp500_current_membership_source_intake_template.csv", wrapper)
         self.assertIn("--source-url", wrapper)
         self.assertIn("SourceFile", wrapper)
+        self.assertIn("--validate-source-file-only", wrapper)
         self.assertIn("--source-file", wrapper)
         self.assertIn("--output", wrapper)
         self.assertIn("--json-output", wrapper)
