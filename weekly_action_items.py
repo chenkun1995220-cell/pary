@@ -480,12 +480,22 @@ def _forecast_prediction_unavailable_action(forecast_performance):
     prediction_unavailable = _int_value(reasons.get("prediction_unavailable"), 0)
     pending_maturity = _int_value(reasons.get("pending_maturity"), 0)
     mature_evaluations = _int_value(forecast_performance.get("mature_evaluations"), 0)
+    latest_prediction_unavailable_raw = forecast_performance.get("latest_prediction_unavailable_count")
+    latest_prediction_unavailable = (
+        prediction_unavailable
+        if latest_prediction_unavailable_raw is None
+        else _int_value(latest_prediction_unavailable_raw, 0)
+    )
+    legacy_prediction_unavailable = _int_value(
+        forecast_performance.get("legacy_prediction_unavailable_count"),
+        0,
+    )
     latest_short_missing = _int_value(
         forecast_performance.get("latest_short_signal_missing_count"),
         0,
     )
     if (
-        prediction_unavailable <= 0
+        latest_prediction_unavailable <= 0
         or pending_maturity > 0
         or mature_evaluations >= 30
         or latest_short_missing > 0
@@ -497,6 +507,8 @@ def _forecast_prediction_unavailable_action(forecast_performance):
         "title": "复核不可评估预测信号",
         "source": (
             f"prediction_unavailable:{prediction_unavailable}; "
+            f"latest_prediction_unavailable:{latest_prediction_unavailable}; "
+            f"legacy_prediction_unavailable:{legacy_prediction_unavailable}; "
             f"pending_maturity:{pending_maturity}; "
             f"mature_evaluations:{mature_evaluations}"
         ),

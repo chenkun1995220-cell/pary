@@ -140,6 +140,8 @@ def write_review_fixtures(root):
             "one_week_mature": 0,
             "one_month_mature": 0,
             "latest_short_signal_missing_count": 0,
+            "latest_prediction_unavailable_count": 0,
+            "legacy_prediction_unavailable_count": 65,
             "maturity_gap_reasons": {
                 "prediction_unavailable": 65,
                 "pending_maturity": 0,
@@ -352,7 +354,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             )
             self.assertEqual(
                 goals["forecast_tracking_maturity"]["next_action"],
-                "review_prediction_unavailable_signals",
+                "continue_sample_accumulation",
             )
             self.assertEqual(goals["backtest_evidence_quality"]["status"], "needs_work")
             self.assertLess(
@@ -529,7 +531,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 "run_membership_evidence_import_plan_then_apply_preview",
                 payload["priority_next_actions"],
             )
-            self.assertIn("review_prediction_unavailable_signals", payload["priority_next_actions"])
+            self.assertNotIn("review_prediction_unavailable_signals", payload["priority_next_actions"])
 
             self.assertIn("中期目标进度看板", report)
             self.assertIn("8 weeks", report)
@@ -539,7 +541,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("current_target_total_completion_percent=", report)
             self.assertIn("正式模型变更：不允许", report)
             self.assertIn("backtest_evidence_quality", report)
-            self.assertIn("review_prediction_unavailable_signals", report)
+            self.assertNotIn("review_prediction_unavailable_signals", report)
             self.assertIn("weekly_action_backlog_reduction_plan_status=ready", report)
 
     def test_dashboard_blocks_when_core_delivery_is_not_ready(self):
@@ -563,6 +565,28 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(payload["status"], "blocked")
             self.assertEqual(payload["core_delivery_status"], "blocked")
             self.assertIn("restore_weekly_delivery_ready_state", payload["priority_next_actions"])
+
+    def test_dashboard_prioritizes_latest_prediction_unavailable_gap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            forecast_path = automation / "latest_forecast_performance_review.json"
+            forecast = json.loads(forecast_path.read_text(encoding="utf-8-sig"))
+            forecast["latest_prediction_unavailable_count"] = 12
+            forecast["legacy_prediction_unavailable_count"] = 0
+            forecast["maturity_gap_reasons"]["prediction_unavailable"] = 12
+            write_json(forecast_path, forecast)
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(root)
+            goals = {item["goal_code"]: item for item in payload["goals"]}
+
+            self.assertEqual(
+                goals["forecast_tracking_maturity"]["next_action"],
+                "review_prediction_unavailable_signals",
+            )
+            self.assertIn("review_prediction_unavailable_signals", payload["priority_next_actions"])
 
     def test_dashboard_needs_work_when_backlog_reduction_plan_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:

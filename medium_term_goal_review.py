@@ -347,10 +347,20 @@ def _forecast_goal(forecast_performance):
     maturity_gap_prediction_unavailable = _int_value(maturity_gap_reasons.get("prediction_unavailable"))
     maturity_gap_pending_maturity = _int_value(maturity_gap_reasons.get("pending_maturity"))
     maturity_gap_other_not_evaluated = _int_value(maturity_gap_reasons.get("other_not_evaluated"))
+    latest_prediction_unavailable_raw = forecast_performance.get("latest_prediction_unavailable_count")
+    latest_prediction_unavailable = (
+        maturity_gap_prediction_unavailable
+        if latest_prediction_unavailable_raw is None
+        else _int_value(latest_prediction_unavailable_raw, 0)
+    )
+    legacy_prediction_unavailable = _int_value(
+        forecast_performance.get("legacy_prediction_unavailable_count"),
+        0,
+    )
     status = "needs_work" if latest_short_missing else "sample_accumulating" if mature < 30 else "on_track"
     if latest_short_missing:
         next_action = "fix_latest_short_prediction_fields"
-    elif maturity_gap_prediction_unavailable and not maturity_gap_pending_maturity and mature < 30:
+    elif latest_prediction_unavailable and not maturity_gap_pending_maturity and mature < 30:
         next_action = "review_prediction_unavailable_signals"
     else:
         next_action = "continue_sample_accumulation"
@@ -364,6 +374,8 @@ def _forecast_goal(forecast_performance):
             "one_week_mature": _int_value(forecast_performance.get("one_week_mature")),
             "one_month_mature": _int_value(forecast_performance.get("one_month_mature")),
             "latest_short_signal_missing_count": latest_short_missing,
+            "latest_prediction_unavailable_count": latest_prediction_unavailable,
+            "legacy_prediction_unavailable_count": legacy_prediction_unavailable,
             "maturity_gap_prediction_unavailable": maturity_gap_prediction_unavailable,
             "maturity_gap_pending_maturity": maturity_gap_pending_maturity,
             "maturity_gap_other_not_evaluated": maturity_gap_other_not_evaluated,

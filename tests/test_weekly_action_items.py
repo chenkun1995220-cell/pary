@@ -219,6 +219,8 @@ def write_forecast_performance_review(
     prediction_unavailable=87,
     pending_maturity=0,
     mature_evaluations=0,
+    latest_prediction_unavailable=87,
+    legacy_prediction_unavailable=0,
 ):
     payload = {
         "review_schema": "forecast_performance_review",
@@ -230,6 +232,8 @@ def write_forecast_performance_review(
         "one_week_mature": 0,
         "one_month_mature": 0,
         "latest_short_signal_missing_count": 0,
+        "latest_prediction_unavailable_count": latest_prediction_unavailable,
+        "legacy_prediction_unavailable_count": legacy_prediction_unavailable,
         "maturity_gap_reasons": {
             "prediction_unavailable": prediction_unavailable,
             "pending_maturity": pending_maturity,
@@ -593,6 +597,33 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("latest_forecast_performance_review.json", action["recommended_check"])
             self.assertIn("formal model parameters", action["recommended_check"])
             self.assertIn("review_prediction_unavailable_signals", report)
+
+    def test_ignores_legacy_only_prediction_unavailable_gap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            forecast_path = root / "latest_forecast_performance_review.json"
+            write_manifest(manifest_path)
+            write_forecast_performance_review(
+                forecast_path,
+                prediction_unavailable=87,
+                latest_prediction_unavailable=0,
+                legacy_prediction_unavailable=87,
+            )
+
+            from weekly_action_items import build_weekly_action_items, render_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                forecast_performance=forecast_path,
+            )
+            report = render_weekly_action_items(payload)
+
+            self.assertNotIn(
+                "review_prediction_unavailable_signals",
+                [item["action_code"] for item in payload["items"]],
+            )
+            self.assertNotIn("review_prediction_unavailable_signals", report)
 
     def test_cli_writes_json_and_markdown_action_items(self):
         with tempfile.TemporaryDirectory() as tmp:
