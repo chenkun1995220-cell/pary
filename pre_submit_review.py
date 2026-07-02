@@ -874,6 +874,9 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         or missing_tickers != intake_tickers
     ):
         reasons.append("sp500_current_membership_sources_intake_template_mismatch")
+    request_file = str(payload.get("source_file_request_file", "") or "").strip()
+    if not request_file or not _resolve_path(project_root or ".", request_file).exists():
+        reasons.append("sp500_current_membership_sources_missing_source_file_request")
     return reasons
 
 

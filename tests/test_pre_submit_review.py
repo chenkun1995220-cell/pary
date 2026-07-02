@@ -417,6 +417,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                 "official_spglobal_constituents_export",
             ],
             "source_file_intake_template": "outputs/automation/sp500_current_membership_source_intake_template.csv",
+            "source_file_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
             "intake_coverage_status": "none",
             "intake_expected_count": 2,
             "intake_matched_count": 0,
@@ -447,6 +448,18 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             },
         ],
         ["expected_ticker", "intake_status", "required_source_url", "required_source_columns", "notes"],
+    )
+    (
+        root
+        / "outputs"
+        / "automation"
+        / "sp500_current_membership_source_file_request.md"
+    ).write_text(
+        "# S&P 500 official constituents CSV request\n\n"
+        "- required_columns: Symbol or Ticker\n"
+        "- dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>\n"
+        "- import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFile <official_constituents.csv>\n",
+        encoding="utf-8-sig",
     )
     write_csv(
         root / "outputs" / "automation" / "sp500_current_membership_source_review_queue.csv",
@@ -1090,6 +1103,27 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_missing_source_file_guidance",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_file_request_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            ).unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_request",
                 result["attention_reasons"],
             )
 
