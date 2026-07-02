@@ -154,6 +154,9 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertEqual(payload["one_month_mature"], 1)
             self.assertEqual(payload["prediction_unavailable"], 1)
             self.assertEqual(payload["prediction_unavailable_reasons"]["missing_prediction_signal"], 1)
+            self.assertEqual(payload["maturity_gap_reasons"]["prediction_unavailable"], 1)
+            self.assertEqual(payload["maturity_gap_reasons"]["pending_maturity"], 0)
+            self.assertEqual(payload["markets"][0]["maturity_gap_reasons"]["prediction_unavailable"], 1)
             self.assertEqual(payload["markets"][0]["prediction_unavailable_reasons"]["missing_prediction_signal"], 1)
             self.assertEqual(payload["latest_prediction_unavailable_count"], 0)
             self.assertEqual(payload["legacy_prediction_unavailable_count"], 1)
@@ -186,6 +189,7 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertIn("legacy短周期字段缺失样例", report)
             self.assertIn("legacy", report)
             self.assertIn("forecast_history.csv", report)
+            self.assertIn("maturity_gap_reasons", report)
             self.assertIn("正式模型修改：不允许", report)
 
     def test_review_needs_attention_when_market_evaluation_file_is_missing(self):
@@ -230,6 +234,35 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertEqual(payload["recommended_action"], "fix_latest_short_prediction_fields")
             self.assertEqual(payload["latest_short_signal_missing_count"], 1)
             self.assertFalse(payload["formal_model_change_allowed"])
+
+    def test_review_counts_pending_maturity_gap_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_evaluations(
+                root / "outputs" / "us_universe" / "forecast_evaluations.csv",
+                [
+                    {
+                        "market": "US",
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "generated_date": "2026-06-29",
+                        "prediction_horizon": "1m",
+                        "evaluation_status": "tracking",
+                        "predicted_direction": "up",
+                        "prediction_signal": "up",
+                    }
+                ],
+            )
+            write_evaluations(root / "outputs" / "cn_universe" / "forecast_evaluations.csv", [])
+            write_evaluations(root / "outputs" / "hk_universe" / "forecast_evaluations.csv", [])
+
+            from forecast_performance_review import build_forecast_performance_review
+
+            payload = build_forecast_performance_review(root, today="2026-06-29")
+
+            self.assertEqual(payload["maturity_gap_reasons"]["pending_maturity"], 1)
+            self.assertEqual(payload["maturity_gap_reasons"]["prediction_unavailable"], 0)
+            self.assertEqual(payload["markets"][0]["maturity_gap_reasons"]["pending_maturity"], 1)
 
     def test_cli_writes_json_and_markdown(self):
         with tempfile.TemporaryDirectory() as tmp:

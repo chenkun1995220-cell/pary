@@ -66,6 +66,33 @@ def _merge_reason_counts(markets):
     return merged
 
 
+def _merge_maturity_gap_reasons(markets):
+    merged = {"prediction_unavailable": 0, "pending_maturity": 0, "other_not_evaluated": 0}
+    for market in markets:
+        for reason, count in (market.get("maturity_gap_reasons") or {}).items():
+            merged[reason] = merged.get(reason, 0) + count
+    return merged
+
+
+def _maturity_gap_reasons(rows, mature, unavailable):
+    pending_statuses = {"tracking", "pending", "not_due", "sample_accumulating"}
+    mature_ids = {id(row) for row in mature}
+    unavailable_ids = {id(row) for row in unavailable}
+    pending = [
+        row
+        for row in rows
+        if id(row) not in mature_ids
+        and id(row) not in unavailable_ids
+        and str(row.get("evaluation_status", "")).strip() in pending_statuses
+    ]
+    other = len(rows) - len(mature) - len(unavailable) - len(pending)
+    return {
+        "prediction_unavailable": len(unavailable),
+        "pending_maturity": len(pending),
+        "other_not_evaluated": max(other, 0),
+    }
+
+
 def _history_path(evaluation_path):
     return Path(evaluation_path).parent / "forecast_history.csv"
 
@@ -150,6 +177,7 @@ def _market_review(project_root, name, path):
         }
     mature = [row for row in rows if row.get("evaluation_status") == "evaluated"]
     unavailable = [row for row in rows if row.get("evaluation_status") == "prediction_unavailable"]
+    maturity_gap_reasons = _maturity_gap_reasons(rows, mature, unavailable)
     latest_generated_date = history_review.get("latest_generated_date", "unknown")
     latest_unavailable = [
         row for row in unavailable if latest_generated_date != "unknown" and row.get("generated_date", "") == latest_generated_date
@@ -192,6 +220,7 @@ def _market_review(project_root, name, path):
         "one_month_mature": sum(1 for row in mature if row.get("prediction_horizon") == "1m"),
         "prediction_unavailable": len(unavailable),
         "prediction_unavailable_reasons": _count_by_reason(unavailable),
+        "maturity_gap_reasons": maturity_gap_reasons,
         "latest_prediction_unavailable_count": len(latest_unavailable),
         "legacy_prediction_unavailable_count": len(legacy_unavailable),
         "latest_prediction_unavailable_samples": [unavailable_sample(row) for row in latest_unavailable[:20]],
@@ -263,6 +292,7 @@ def build_forecast_performance_review(project_root=".", markets=None, today=None
             item.get("legacy_prediction_unavailable_count", 0) for item in reviewed
         ),
         "prediction_unavailable_reasons": _merge_reason_counts(reviewed),
+        "maturity_gap_reasons": _merge_maturity_gap_reasons(reviewed),
         "forecast_history_short_signal_missing_count": sum(
             item.get("forecast_history", {}).get("short_signal_missing_count", 0) for item in reviewed
         ),
@@ -362,6 +392,21 @@ def render_forecast_performance_review(payload):
     reasons = payload.get("prediction_unavailable_reasons", {}) or {}
     if reasons:
         for reason, count in sorted(reasons.items()):
+            lines.append(f"| {reason} | {count} |")
+    else:
+        lines.append("| - | 0 |")
+    lines.extend(
+        [
+            "",
+            "## maturity_gap_reasons",
+            "",
+            "| reason | count |",
+            "|---|---:|",
+        ]
+    )
+    maturity_reasons = payload.get("maturity_gap_reasons", {}) or {}
+    if maturity_reasons:
+        for reason, count in sorted(maturity_reasons.items()):
             lines.append(f"| {reason} | {count} |")
     else:
         lines.append("| - | 0 |")
