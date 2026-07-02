@@ -13,6 +13,7 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCES = "outputs/automation/latest_sp500_current_me
 DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
     "outputs/automation/latest_sp500_current_membership_source_review_status.json"
 )
+DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
 
 
 def load_manifest(manifest):
@@ -470,6 +471,44 @@ def _backlog_reduction_action(manifest):
     }
 
 
+def _forecast_prediction_unavailable_action(forecast_performance):
+    if not forecast_performance:
+        return None
+    reasons = forecast_performance.get("maturity_gap_reasons", {}) or {}
+    if not isinstance(reasons, dict):
+        reasons = {}
+    prediction_unavailable = _int_value(reasons.get("prediction_unavailable"), 0)
+    pending_maturity = _int_value(reasons.get("pending_maturity"), 0)
+    mature_evaluations = _int_value(forecast_performance.get("mature_evaluations"), 0)
+    latest_short_missing = _int_value(
+        forecast_performance.get("latest_short_signal_missing_count"),
+        0,
+    )
+    if (
+        prediction_unavailable <= 0
+        or pending_maturity > 0
+        or mature_evaluations >= 30
+        or latest_short_missing > 0
+    ):
+        return None
+    return {
+        "action_code": "review_prediction_unavailable_signals",
+        "category": "model_tracking",
+        "title": "复核不可评估预测信号",
+        "source": (
+            f"prediction_unavailable:{prediction_unavailable}; "
+            f"pending_maturity:{pending_maturity}; "
+            f"mature_evaluations:{mature_evaluations}"
+        ),
+        "recommended_check": (
+            "Check outputs/automation/latest_forecast_performance_review.json and each market "
+            "forecast_evaluations.csv; confirm whether missing_prediction_signal comes from "
+            "legacy rows or a current forecast write path gap. Keep this review in tracking only; "
+            "do not change formal model parameters."
+        ),
+    }
+
+
 def _backlog_reduction_plan(items):
     grouped = {}
     for item in items:
@@ -521,12 +560,14 @@ def build_weekly_action_items(
     membership_import_plan=None,
     current_membership_sources=None,
     current_membership_source_review_status=None,
+    forecast_performance=None,
 ):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
     import_plan = load_optional_json(membership_import_plan)
     current_source_status = load_optional_json(current_membership_sources)
     current_source_review_status = load_optional_json(current_membership_source_review_status)
+    forecast_performance_review = load_optional_json(forecast_performance)
     actions = list(source.get("automation_priority_actions", []) or [])
     if not actions:
         actions = [source.get("automation_recommended_action", "") or "continue_monitoring"]
@@ -566,6 +607,15 @@ def build_weekly_action_items(
         current_source_action["priority"] = len(items) + 1
         current_source_action["status"] = "open"
         items.append(current_source_action)
+
+    forecast_gap_action = _forecast_prediction_unavailable_action(forecast_performance_review)
+    if forecast_gap_action and not any(
+        item.get("action_code") == forecast_gap_action["action_code"] for item in items
+    ):
+        forecast_gap_action = dict(forecast_gap_action)
+        forecast_gap_action["priority"] = len(items) + 1
+        forecast_gap_action["status"] = "open"
+        items.append(forecast_gap_action)
 
     backlog_reduction_action = _backlog_reduction_action(source)
     if backlog_reduction_action and not any(
@@ -676,6 +726,7 @@ def main():
         "--current-membership-source-review-status",
         default=DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS,
     )
+    parser.add_argument("--forecast-performance", default=DEFAULT_FORECAST_PERFORMANCE)
     args = parser.parse_args()
 
     payload = build_weekly_action_items(
@@ -683,6 +734,7 @@ def main():
         membership_import_plan=args.membership_import_plan,
         current_membership_sources=args.current_membership_sources,
         current_membership_source_review_status=args.current_membership_source_review_status,
+        forecast_performance=args.forecast_performance,
     )
     report = render_weekly_action_items(payload)
     if args.output:

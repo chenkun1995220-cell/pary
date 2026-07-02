@@ -214,6 +214,35 @@ def write_current_membership_source_review_status(path):
     )
 
 
+def write_forecast_performance_review(
+    path,
+    prediction_unavailable=87,
+    pending_maturity=0,
+    mature_evaluations=0,
+):
+    payload = {
+        "review_schema": "forecast_performance_review",
+        "review_version": 1,
+        "as_of_date": "2026-06-28",
+        "status": "sample_accumulating",
+        "total_evaluations": 87,
+        "mature_evaluations": mature_evaluations,
+        "one_week_mature": 0,
+        "one_month_mature": 0,
+        "latest_short_signal_missing_count": 0,
+        "maturity_gap_reasons": {
+            "prediction_unavailable": prediction_unavailable,
+            "pending_maturity": pending_maturity,
+            "other_not_evaluated": 0,
+        },
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 class WeeklyActionItemsTests(unittest.TestCase):
     def test_builds_action_items_from_self_analysis_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -536,6 +565,35 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(payload["backlog_reduction_plan"][0]["category"], "delivery_health")
             self.assertEqual(payload["backlog_reduction_plan"][0]["count"], 3)
 
+    def test_adds_prediction_unavailable_action_when_forecast_gap_is_actionable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            forecast_path = root / "latest_forecast_performance_review.json"
+            write_manifest(manifest_path)
+            write_forecast_performance_review(forecast_path)
+
+            from weekly_action_items import build_weekly_action_items, render_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                forecast_performance=forecast_path,
+            )
+            report = render_weekly_action_items(payload)
+
+            action = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_prediction_unavailable_signals"
+            )
+            self.assertEqual(action["category"], "model_tracking")
+            self.assertIn("prediction_unavailable:87", action["source"])
+            self.assertIn("pending_maturity:0", action["source"])
+            self.assertIn("mature_evaluations:0", action["source"])
+            self.assertIn("latest_forecast_performance_review.json", action["recommended_check"])
+            self.assertIn("formal model parameters", action["recommended_check"])
+            self.assertIn("review_prediction_unavailable_signals", report)
+
     def test_cli_writes_json_and_markdown_action_items(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -558,6 +616,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_membership_evidence_import_plan.json"),
                     "--current-membership-sources",
                     str(root / "latest_sp500_current_membership_sources.json"),
+                    "--forecast-performance",
+                    str(root / "latest_forecast_performance_review.json"),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -590,8 +650,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--membership-import-plan", script)
         self.assertIn("--current-membership-sources", script)
         self.assertIn("--current-membership-source-review-status", script)
+        self.assertIn("--forecast-performance", script)
         self.assertIn("latest_sp500_current_membership_sources.json", script)
         self.assertIn("latest_sp500_current_membership_source_review_status.json", script)
+        self.assertIn("latest_forecast_performance_review.json", script)
         self.assertIn("codex-primary-runtime", script)
 
 
