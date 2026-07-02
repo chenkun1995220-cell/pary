@@ -244,6 +244,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             output = root / "sources.csv"
             report = root / "sources.md"
             metadata = root / "sources.json"
+            intake = root / "intake_template.csv"
             write_template(template)
             html.write_text(OFFICIAL_HTML, encoding="utf-8")
 
@@ -265,6 +266,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                     str(report),
                     "--json-output",
                     str(metadata),
+                    "--intake-template",
+                    str(intake),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -359,6 +362,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             report = root / "sources.md"
             metadata = root / "sources.json"
             review_queue = root / "review_queue.csv"
+            intake = root / "intake_template.csv"
             write_template(template)
             write_official_csv(source_file)
 
@@ -380,6 +384,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                     str(report),
                     "--json-output",
                     str(metadata),
+                    "--intake-template",
+                    str(intake),
                     "--review-queue-output",
                     str(review_queue),
                 ],
@@ -404,6 +410,9 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                 queue_rows = list(csv.DictReader(handle))
             self.assertEqual([row["ticker"] for row in queue_rows], ["ZZZ"])
             self.assertEqual(queue_rows[0]["review_status"], "open")
+            with intake.open(encoding="utf-8-sig", newline="") as handle:
+                intake_rows = list(csv.DictReader(handle))
+            self.assertEqual([row["expected_ticker"] for row in intake_rows], ["ZZZ"])
             self.assertEqual(
                 queue_rows[0]["issue_type"],
                 "missing_from_official_current_source",

@@ -1127,6 +1127,10 @@ def _has_backlog_reduction_plan(action_items, action_code):
             and _int_value(entry.get("count"), 0) > 0
             and isinstance(actions, list)
             and action_code in actions
+            and entry.get("first_action") in actions
+            and "target_count_after_close" in entry
+            and _int_value(entry.get("target_count_after_close"), -1) >= 0
+            and str(entry.get("close_condition", "") or "").strip()
         ):
             return True
     return False

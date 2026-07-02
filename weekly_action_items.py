@@ -493,8 +493,27 @@ def _backlog_reduction_plan(items):
         key=lambda entry: (-entry["count"], entry["first_priority"], entry["category"]),
     )
     for entry in plan:
+        actions = [action for action in entry.get("actions", []) if action]
+        entry["first_action"] = actions[0] if actions else ""
+        entry["target_count_after_close"] = 0
+        entry["close_condition"] = _backlog_reduction_close_condition(entry["category"])
         entry.pop("first_priority", None)
     return plan
+
+
+def _backlog_reduction_close_condition(category):
+    conditions = {
+        "delivery_health": (
+            "Close resolved manual_review_decisions.csv items and merge duplicate delivery health prompts."
+        ),
+        "data_quality": "Classify or route each data quality issue to a concrete market data follow-up.",
+        "backtest": "Attach verified source evidence or keep the item open with an explicit source-file request.",
+        "manual_review": "Resolve or explicitly defer each manual review queue row.",
+        "data_health": "Confirm whether each data health gap is acceptable, refetchable, or needs manual review.",
+        "model_tracking": "Keep sample accumulation open until mature forecast evaluations are available.",
+        "candidate_review": "Confirm each candidate finding has risk, valuation, and data-quality rationale.",
+    }
+    return conditions.get(category, "Resolve, defer, or route every open action in this category.")
 
 
 def build_weekly_action_items(
@@ -584,11 +603,22 @@ def render_weekly_action_items(payload):
     action_items_heading = lines.pop()
     plan = payload.get("backlog_reduction_plan", []) or []
     if plan:
-        lines.extend(["", "## 待办压降分流", "", "| category | count | actions |", "|---|---:|---|"])
+        lines.extend(
+            [
+                "",
+                "## 待办压降分流",
+                "",
+                "| category | count | first_action | target_count_after_close | actions | close_condition |",
+                "|---|---:|---|---:|---|---|",
+            ]
+        )
         for entry in plan:
             lines.append(
                 f"| {entry.get('category', 'unknown')} | {entry.get('count', 0)} | "
-                f"{', '.join(entry.get('actions', []) or [])} |"
+                f"{entry.get('first_action', '')} | "
+                f"{entry.get('target_count_after_close', 0)} | "
+                f"{', '.join(entry.get('actions', []) or [])} | "
+                f"{entry.get('close_condition', '')} |"
             )
     lines.extend(["", action_items_heading])
     items = payload.get("items", []) or []

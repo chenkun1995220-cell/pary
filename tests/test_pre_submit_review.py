@@ -862,6 +862,48 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_backlog_reduction_plan_lacks_execution_details(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["items"].append(
+                {
+                    "priority": 3,
+                    "status": "open",
+                    "action_code": "reduce_weekly_action_backlog",
+                    "category": "delivery_health",
+                    "title": "reduce backlog",
+                    "recommended_check": "review backlog split",
+                }
+            )
+            action_items["backlog_reduction_plan"] = [
+                {
+                    "category": "delivery_health",
+                    "count": 1,
+                    "actions": ["reduce_weekly_action_backlog"],
+                }
+            ]
+            action_items["item_count"] = len(action_items["items"])
+            write_json(action_items_path, action_items)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            delivery["action_items_count"] = action_items["item_count"]
+            delivery["action_items_actual_count"] = action_items["item_count"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["input_statuses"]["weekly_action_items"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_missing_backlog_reduction_plan",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_checklist_or_required_output_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

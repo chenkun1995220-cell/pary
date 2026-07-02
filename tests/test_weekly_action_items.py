@@ -482,6 +482,12 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(payload["backlog_reduction_plan"][0]["category"], "delivery_health")
             self.assertEqual(payload["backlog_reduction_plan"][0]["count"], 3)
             self.assertEqual(
+                payload["backlog_reduction_plan"][0]["first_action"],
+                "review_manual_review_backlog",
+            )
+            self.assertEqual(payload["backlog_reduction_plan"][0]["target_count_after_close"], 0)
+            self.assertIn("manual_review_decisions.csv", payload["backlog_reduction_plan"][0]["close_condition"])
+            self.assertEqual(
                 payload["backlog_reduction_plan"][0]["actions"],
                 [
                     "review_manual_review_backlog",
@@ -491,6 +497,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             self.assertEqual(payload["backlog_reduction_plan"][1]["category"], "data_quality")
             self.assertEqual(payload["backlog_reduction_plan"][1]["count"], 2)
+            self.assertEqual(payload["backlog_reduction_plan"][1]["first_action"], "review_data_quality_score")
+            self.assertEqual(payload["backlog_reduction_plan"][1]["target_count_after_close"], 0)
             self.assertIn("## 待办压降分流", report)
             self.assertIn("| delivery_health | 3 |", report)
             self.assertIn("| data_quality | 2 |", report)
