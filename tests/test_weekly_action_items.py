@@ -556,6 +556,23 @@ class WeeklyActionItemsTests(unittest.TestCase):
             write_manifest(manifest_path)
             write_current_membership_sources(source_path)
             write_current_membership_source_inbox_status(inbox_status_path)
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_status.update(
+                {
+                    "status": "invalid",
+                    "source_file_validation_status": "invalid",
+                    "source_file_available_columns": [
+                        "expected_ticker",
+                        "intake_status",
+                        "required_source_url",
+                    ],
+                    "next_action": "provide_valid_official_constituents_csv",
+                }
+            )
+            inbox_status_path.write_text(
+                json.dumps(inbox_status, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
             source = json.loads(source_path.read_text(encoding="utf-8-sig"))
             source.update(
                 {
@@ -631,13 +648,21 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("source_file_inbox:inputs/sp500_current_membership/official_constituents.csv", source_item["source"])
             self.assertIn("source_file_inbox_exists:false", source_item["source"])
             self.assertIn("source_file_validation_status:missing", source_item["source"])
-            self.assertIn("source_file_inbox_status:missing", source_item["source"])
-            self.assertIn("source_file_inbox_next_action:place_official_constituents_csv", source_item["source"])
+            self.assertIn("source_file_inbox_status:invalid", source_item["source"])
+            self.assertIn("source_file_inbox_next_action:provide_valid_official_constituents_csv", source_item["source"])
+            self.assertIn(
+                "source_file_inbox_available_columns:expected_ticker, intake_status, required_source_url",
+                source_item["source"],
+            )
             self.assertIn("latest_sp500_current_membership_sources.json", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_intake_template.csv", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_file_request.md", source_item["recommended_check"])
             self.assertIn("inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
-            self.assertIn("inbox_status=missing", source_item["recommended_check"])
+            self.assertIn("inbox_status=invalid", source_item["recommended_check"])
+            self.assertIn(
+                "inbox_available_columns=expected_ticker, intake_status, required_source_url",
+                source_item["recommended_check"],
+            )
             self.assertIn("提供官方 S&P Global constituents CSV", source_item["recommended_check"])
             self.assertIn("Symbol, Ticker", source_item["recommended_check"])
             self.assertIn("Ticker Symbol, Constituent Ticker, Constituent Symbol", source_item["recommended_check"])
@@ -645,7 +670,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("run_sp500_current_membership_sources.ps1", source_item["recommended_check"])
             self.assertIn("-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("latest_sp500_current_membership_source_inbox_status.json", source_item["recommended_check"])
-            self.assertIn("inbox_next_action=place_official_constituents_csv", source_item["recommended_check"])
+            self.assertIn("inbox_next_action=provide_valid_official_constituents_csv", source_item["recommended_check"])
             self.assertIn("parsed_official_ticker_count=0", source_item["recommended_check"])
             self.assertIn("inbox_intake_missing_count=50", source_item["recommended_check"])
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])

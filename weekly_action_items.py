@@ -526,6 +526,12 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
     source_file_inbox_intake_missing_count = _int_value(
         inbox_status.get("intake_missing_count"), 0
     )
+    source_file_inbox_available_columns = [
+        str(column).strip()
+        for column in inbox_status.get("source_file_available_columns", []) or []
+        if str(column).strip()
+    ]
+    source_file_inbox_available_columns_text = ", ".join(source_file_inbox_available_columns) or "none"
     source_file_acceptance_criteria = [
         str(item).strip()
         for item in source_status.get("source_file_acceptance_criteria", []) or []
@@ -547,11 +553,12 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
     source_file_action_prefix = (
         f"source_file_request_file:{source_file_request_file or 'outputs/automation/sp500_current_membership_source_file_request.md'}; "
         f"source_file_inbox:{source_file_inbox_default}; "
-        f"inbox_status={source_file_validation_status}; "
+        f"inbox_status={source_file_inbox_status}; "
         "inbox_status_file:outputs/automation/latest_sp500_current_membership_source_inbox_status.json; "
         f"inbox_next_action={source_file_inbox_next_action}; "
         f"parsed_official_ticker_count={source_file_inbox_parsed_count}; "
         f"inbox_intake_missing_count={source_file_inbox_intake_missing_count}; "
+        f"inbox_available_columns={source_file_inbox_available_columns_text}; "
         f"dry_run_command:{source_file_dry_run_command or source_file_dry_run_command_default}; "
         f"import_command:{source_file_next_command or source_file_next_command_default}; "
     )
@@ -592,6 +599,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"source_file_inbox_validation_status:{source_file_inbox_validation_status}; "
             f"source_file_inbox_parsed_official_ticker_count:{source_file_inbox_parsed_count}; "
             f"source_file_inbox_intake_missing_count:{source_file_inbox_intake_missing_count}; "
+            f"source_file_inbox_available_columns:{source_file_inbox_available_columns_text}; "
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "
