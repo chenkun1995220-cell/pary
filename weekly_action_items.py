@@ -21,6 +21,7 @@ DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_r
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
 DEFAULT_CANDIDATE_FINDINGS_REVIEW = "outputs/automation/latest_candidate_findings_review.json"
+DEFAULT_BACKTEST_EVIDENCE_REVIEW = "outputs/automation/latest_backtest_evidence_review.json"
 DEFAULT_HK_QUOTE_RETRY_RESULTS = "outputs/hk_universe/quote_retry_results.json"
 DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
     "Symbol",
@@ -826,6 +827,46 @@ def _data_health_issue_is_actionable(data_health):
     return False
 
 
+def _current_source_requires_official_csv(source_status):
+    if not isinstance(source_status, dict) or not source_status:
+        return False
+    return (
+        source_status.get("recommended_followup") == "provide_official_constituents_csv"
+        or source_status.get("fetch_error_next_action") == "provide_official_constituents_csv"
+    )
+
+
+def _backtest_evidence_issue_is_actionable(backtest_evidence, current_source_status):
+    if not isinstance(backtest_evidence, dict) or not backtest_evidence:
+        return True
+    if _int_value(backtest_evidence.get("weeks_failed"), 0) > 0:
+        return True
+    if not _current_source_requires_official_csv(current_source_status):
+        return True
+    queue = [
+        item
+        for item in backtest_evidence.get("membership_evidence_action_queue", []) or []
+        if isinstance(item, dict)
+    ]
+    if not queue:
+        return True
+    official_source_actions = {
+        "supplement_official_membership_source",
+        "supplement_official_spglobal_source",
+    }
+    for item in queue:
+        values = {
+            str(item.get("action_type", "")).strip(),
+            str(item.get("recommended_action", "")).strip(),
+            str(item.get("recommended_source", "")).strip(),
+        }
+        if not values & official_source_actions and (
+            "official_spglobal_membership_evidence" not in values
+        ):
+            return True
+    return False
+
+
 def _backlog_reduction_plan(items):
     grouped = {}
     for item in items:
@@ -891,6 +932,7 @@ def build_weekly_action_items(
     manual_review_queue=None,
     data_health_review=None,
     candidate_findings_review=None,
+    backtest_evidence_review=None,
     quote_retry_results=None,
 ):
     manifest_path = Path(manifest)
@@ -903,6 +945,7 @@ def build_weekly_action_items(
     manual_review_rows = load_optional_csv_rows(manual_review_queue)
     data_health_payload = load_optional_json(data_health_review)
     candidate_findings_payload = load_optional_json(candidate_findings_review)
+    backtest_evidence_payload = load_optional_json(backtest_evidence_review)
     quote_retry_payload = load_optional_json(quote_retry_results)
     if manual_review_rows:
         source["manual_review_queue_items"] = manual_review_rows
@@ -910,6 +953,8 @@ def build_weekly_action_items(
         source["data_health_review"] = data_health_payload
     if candidate_findings_payload:
         source["candidate_findings_review"] = candidate_findings_payload
+    if backtest_evidence_payload:
+        source["backtest_evidence_review"] = backtest_evidence_payload
     if quote_retry_payload:
         source["quote_retry_results"] = quote_retry_payload
     if forecast_performance_review:
@@ -941,6 +986,12 @@ def build_weekly_action_items(
                 continue
         if action_code == "review_data_health":
             if not _data_health_issue_is_actionable(source.get("data_health_review", {})):
+                continue
+        if action_code == "review_backtest_evidence":
+            if not _backtest_evidence_issue_is_actionable(
+                source.get("backtest_evidence_review", {}),
+                current_source_status,
+            ):
                 continue
         template = _action_template(action_code, source)
         items.append(
@@ -1007,6 +1058,7 @@ def build_weekly_action_items(
             forecast_performance_review,
             data_health_payload,
             candidate_findings_payload,
+            backtest_evidence_payload,
             quote_retry_payload,
         ),
         "source_manifest": str(manifest_path),
@@ -1113,6 +1165,7 @@ def main():
     parser.add_argument("--manual-review-queue", default=DEFAULT_MANUAL_REVIEW_QUEUE)
     parser.add_argument("--data-health-review", default=DEFAULT_DATA_HEALTH_REVIEW)
     parser.add_argument("--candidate-findings-review", default=DEFAULT_CANDIDATE_FINDINGS_REVIEW)
+    parser.add_argument("--backtest-evidence-review", default=DEFAULT_BACKTEST_EVIDENCE_REVIEW)
     parser.add_argument("--quote-retry-results", default=DEFAULT_HK_QUOTE_RETRY_RESULTS)
     args = parser.parse_args()
 
@@ -1126,6 +1179,7 @@ def main():
         manual_review_queue=args.manual_review_queue,
         data_health_review=args.data_health_review,
         candidate_findings_review=args.candidate_findings_review,
+        backtest_evidence_review=args.backtest_evidence_review,
         quote_retry_results=args.quote_retry_results,
     )
     report = render_weekly_action_items(payload)

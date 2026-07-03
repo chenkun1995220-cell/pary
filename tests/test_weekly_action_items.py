@@ -244,6 +244,35 @@ def write_current_membership_source_inbox_status(path):
     )
 
 
+def write_backtest_evidence_review(path):
+    payload = {
+        "review_schema": "backtest_evidence_review",
+        "review_version": 1,
+        "as_of_date": "2026-06-28",
+        "status": "evidence_review_needed",
+        "evidence_status": "evidence_review_needed",
+        "evidence_next_action": "supplement_verified_membership_evidence",
+        "weeks_failed": 0,
+        "membership_evidence_action_required_count": 50,
+        "membership_evidence_action_queue_count": 50,
+        "membership_evidence_action_unqueued_count": 0,
+        "membership_evidence_action_queue": [
+            {
+                "ticker": "ABT",
+                "action_type": "supplement_official_membership_source",
+                "recommended_source": "official_spglobal_membership_evidence",
+                "recommended_action": "supplement_official_spglobal_source",
+            }
+        ],
+        "formal_model_upgrade_allowed": False,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_forecast_performance_review(
     path,
     prediction_unavailable=87,
@@ -932,6 +961,55 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
             self.assertIn("provide_official_constituents_csv", report)
 
+    def test_skips_generic_backtest_review_when_official_csv_action_covers_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            backtest_path = root / "latest_backtest_evidence_review.json"
+            source_path = root / "latest_sp500_current_membership_sources.json"
+            inbox_status_path = root / "latest_sp500_current_membership_source_inbox_status.json"
+            write_manifest(manifest_path)
+            write_backtest_evidence_review(backtest_path)
+            write_current_membership_sources(source_path)
+            write_current_membership_source_inbox_status(inbox_status_path)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            manifest["automation_priority_actions"] = ["review_backtest_evidence"]
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source.update(
+                {
+                    "status": "fetch_failed",
+                    "matched_count": 0,
+                    "missing_count": 50,
+                    "missing_tickers": ["ABT", "ADM"],
+                    "intake_missing_count": 50,
+                    "intake_missing_tickers": ["ABT", "ADM"],
+                    "recommended_followup": "provide_official_constituents_csv",
+                    "fetch_error_type": "official_source_access_denied",
+                    "fetch_retryable_without_environment_change": False,
+                    "fetch_error_next_action": "provide_official_constituents_csv",
+                }
+            )
+            source_path.write_text(
+                json.dumps(source, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                backtest_evidence_review=backtest_path,
+                current_membership_sources=source_path,
+                current_membership_source_inbox_status=inbox_status_path,
+            )
+
+            actions = [item["action_code"] for item in payload["items"]]
+            self.assertEqual(actions, ["provide_official_constituents_csv"])
+
     def test_current_membership_source_action_defaults_to_inbox_commands(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1216,6 +1294,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--data-health-review", script)
         self.assertIn("latest_candidate_findings_review.json", script)
         self.assertIn("--candidate-findings-review", script)
+        self.assertIn("latest_backtest_evidence_review.json", script)
+        self.assertIn("--backtest-evidence-review", script)
         self.assertIn("codex-primary-runtime", script)
 
 
