@@ -228,6 +228,9 @@ def write_review_fixtures(root):
             "source_file_request_file": str(
                 automation / "sp500_current_membership_source_file_request.md"
             ),
+            "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+            "source_file_inbox_exists": False,
+            "source_file_validation_status": "missing",
             "intake_coverage_status": "partial",
             "intake_expected_count": 50,
             "intake_matched_count": 0,
@@ -430,6 +433,17 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_request_file"].endswith(
                     "sp500_current_membership_source_file_request.md"
                 )
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_inbox"],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
+            self.assertFalse(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_inbox_exists"]
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_validation_status"],
+                "missing",
             )
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_queue_open_count"],

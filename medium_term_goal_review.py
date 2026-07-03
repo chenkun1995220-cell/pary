@@ -513,6 +513,17 @@ def _backtest_goal(
             "sp500_current_source_file_request_exists": _path_exists(
                 current_membership_sources.get("source_file_request_file", "")
             ),
+            "sp500_current_source_file_inbox": current_membership_sources.get(
+                "source_file_inbox",
+                "",
+            ),
+            "sp500_current_source_file_inbox_exists": bool(
+                current_membership_sources.get("source_file_inbox_exists")
+            ),
+            "sp500_current_source_file_validation_status": current_membership_sources.get(
+                "source_file_validation_status",
+                "unknown",
+            ),
             "sp500_current_source_review_queue_open_count": review_queue_counts["open"],
             "sp500_current_source_review_queue_resolved_count": review_queue_counts["resolved"],
             "sp500_current_source_review_status": current_membership_source_review_status.get(

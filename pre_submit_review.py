@@ -856,6 +856,12 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         or "at_least_400_tickers" not in criteria
     ):
         reasons.append("sp500_current_membership_sources_missing_source_file_guidance")
+    if (
+        "source_file_inbox" not in payload
+        or "source_file_inbox_exists" not in payload
+        or not str(payload.get("source_file_validation_status", "") or "").strip()
+    ):
+        reasons.append("sp500_current_membership_sources_missing_source_file_inbox_status")
 
     intake_file = str(payload.get("source_file_intake_template", "") or "").strip()
     expected_count = _int_value(payload.get("intake_expected_count"))
