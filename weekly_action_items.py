@@ -16,6 +16,7 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
 )
 DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
+DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
 
 
 def load_manifest(manifest):
@@ -164,6 +165,30 @@ def _forecast_maturity_schedule_text(forecast_performance):
     return f"；下一批1周可评估日期 {one_week}，1个月可评估日期 {one_month}"
 
 
+def _data_health_refetch_gap_text(data_health):
+    if not isinstance(data_health, dict):
+        return ""
+    gaps = []
+    for market in data_health.get("markets", []) or []:
+        if not isinstance(market, dict):
+            continue
+        market_name = market.get("name", "unknown")
+        for gap in market.get("refetch_gaps", []) or []:
+            if not isinstance(gap, dict):
+                continue
+            ticker = gap.get("ticker", "")
+            company = gap.get("company", "")
+            missing_fields = gap.get("missing_fields", "")
+            detail = " ".join(part for part in [market_name, ticker, company] if part)
+            if missing_fields:
+                detail = f"{detail} 缺失 {missing_fields}" if detail else f"缺失 {missing_fields}"
+            if detail:
+                gaps.append(detail)
+    if not gaps:
+        return ""
+    return "；当前可重抓缺口：" + "；".join(gaps[:3])
+
+
 def _data_quality_text(manifest):
     summary = manifest.get("data_quality_summary", {})
     if not isinstance(summary, dict):
@@ -223,6 +248,9 @@ def _action_template(action_code, manifest):
     forecast_performance = manifest.get("forecast_performance", {})
     if not isinstance(forecast_performance, dict):
         forecast_performance = {}
+    data_health_review = manifest.get("data_health_review", {})
+    if not isinstance(data_health_review, dict):
+        data_health_review = {}
     templates = {
         "review_manual_queue": {
             "title": "检查本周人工复核队列",
@@ -255,7 +283,10 @@ def _action_template(action_code, manifest):
             "title": "复查数据健康异常",
             "category": "data_health",
             "source": f"data_health_status:{manifest.get('data_health_status', 'unknown')}",
-            "recommended_check": "检查三市场 data_health_history.csv、quote_gaps.csv 和缺口分类，确认是否为可接受的数据缺口。",
+            "recommended_check": (
+                "检查三市场 data_health_history.csv、quote_gaps.csv 和缺口分类，确认是否为可接受的数据缺口"
+                f"{_data_health_refetch_gap_text(data_health_review)}。"
+            ),
         },
         "review_data_quality_score": {
             "title": "复核三市场数据质量评分",
@@ -673,6 +704,7 @@ def build_weekly_action_items(
     current_membership_source_review_status=None,
     forecast_performance=None,
     manual_review_queue=None,
+    data_health_review=None,
 ):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
@@ -681,8 +713,11 @@ def build_weekly_action_items(
     current_source_review_status = load_optional_json(current_membership_source_review_status)
     forecast_performance_review = load_optional_json(forecast_performance)
     manual_review_rows = load_optional_csv_rows(manual_review_queue)
+    data_health_payload = load_optional_json(data_health_review)
     if manual_review_rows:
         source["manual_review_queue_items"] = manual_review_rows
+    if data_health_payload:
+        source["data_health_review"] = data_health_payload
     if forecast_performance_review:
         manifest_forecast = source.get("forecast_performance", {})
         if not isinstance(manifest_forecast, dict):
@@ -851,6 +886,7 @@ def main():
     )
     parser.add_argument("--forecast-performance", default=DEFAULT_FORECAST_PERFORMANCE)
     parser.add_argument("--manual-review-queue", default=DEFAULT_MANUAL_REVIEW_QUEUE)
+    parser.add_argument("--data-health-review", default=DEFAULT_DATA_HEALTH_REVIEW)
     args = parser.parse_args()
 
     payload = build_weekly_action_items(
@@ -860,6 +896,7 @@ def main():
         current_membership_source_review_status=args.current_membership_source_review_status,
         forecast_performance=args.forecast_performance,
         manual_review_queue=args.manual_review_queue,
+        data_health_review=args.data_health_review,
     )
     report = render_weekly_action_items(payload)
     if args.output:

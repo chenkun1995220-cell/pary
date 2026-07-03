@@ -18,6 +18,7 @@ def write_manifest(path):
         "automation_status": "manual_review_needed",
         "automation_priority_actions": [
             "review_manual_queue",
+            "review_data_health",
             "review_manual_review_backlog",
             "review_delivery_health_issues",
             "review_data_quality_score",
@@ -284,19 +285,55 @@ def write_manual_review_queue(path):
         )
 
 
+def write_data_health_review(path):
+    payload = {
+        "review_schema": "data_health_review",
+        "as_of_date": "2026-06-29",
+        "status": "acceptable_with_monitoring",
+        "refetch_gap_count": 2,
+        "markets": [
+            {
+                "name": "港股周筛",
+                "refetch_gaps": [
+                    {
+                        "ticker": "00754.HK",
+                        "company": "HOPSON DEV HOLD",
+                        "missing_fields": "price;pe",
+                        "in_candidate_pool": False,
+                    },
+                    {
+                        "ticker": "00823.HK",
+                        "company": "LINK REIT",
+                        "missing_fields": "pe;pb",
+                        "in_candidate_pool": False,
+                    },
+                ],
+            }
+        ],
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 class WeeklyActionItemsTests(unittest.TestCase):
     def test_builds_action_items_from_self_analysis_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
             manual_queue_path = Path(tmp) / "latest_manual_review_queue.csv"
+            data_health_path = Path(tmp) / "latest_data_health_review.json"
             write_manifest(manifest_path)
             write_manual_review_queue(manual_queue_path)
+            write_data_health_review(data_health_path)
 
             from weekly_action_items import build_weekly_action_items, render_weekly_action_items
 
             payload = build_weekly_action_items(
                 manifest_path,
                 manual_review_queue=manual_queue_path,
+                data_health_review=data_health_path,
             )
             report = render_weekly_action_items(payload)
 
@@ -305,7 +342,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(payload["as_of_date"], "2026-06-28")
             self.assertEqual(payload["source_manifest"], str(manifest_path))
             self.assertEqual(payload["automation_status"], "manual_review_needed")
-            self.assertEqual(payload["item_count"], 7)
+            self.assertEqual(payload["item_count"], 8)
 
             backlog = next(
                 item
@@ -340,6 +377,18 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("300433.SZ", manual_queue["recommended_check"])
             self.assertIn("蓝思科技", manual_queue["recommended_check"])
             self.assertIn("loss_making_or_negative_pe", manual_queue["recommended_check"])
+
+            data_health = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_data_health"
+            )
+            self.assertIn("00754.HK", data_health["recommended_check"])
+            self.assertIn("HOPSON DEV HOLD", data_health["recommended_check"])
+            self.assertIn("price;pe", data_health["recommended_check"])
+            self.assertIn("00823.HK", data_health["recommended_check"])
+            self.assertIn("LINK REIT", data_health["recommended_check"])
+            self.assertIn("pe;pb", data_health["recommended_check"])
 
             data_quality = next(
                 item
@@ -413,7 +462,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 for item in payload["items"]
                 if item["action_code"] == "run_membership_evidence_apply_preview"
             )
-            self.assertEqual(payload["item_count"], 8)
+            self.assertEqual(payload["item_count"], 9)
             self.assertEqual(apply_item["category"], "backtest")
             self.assertIn("ready_to_import_count:2", apply_item["source"])
             self.assertIn("weeks_affected:210", apply_item["source"])
@@ -445,7 +494,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 for item in payload["items"]
                 if item["action_code"] == "review_current_membership_source_status"
             )
-            self.assertEqual(payload["item_count"], 8)
+            self.assertEqual(payload["item_count"], 9)
             self.assertEqual(source_item["category"], "backtest")
             self.assertIn("matched_count:1", source_item["source"])
             self.assertIn("missing_count:1", source_item["source"])
@@ -641,7 +690,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             report = render_weekly_action_items(payload)
 
             reduction = payload["items"][-1]
-            self.assertEqual(payload["item_count"], 8)
+            self.assertEqual(payload["item_count"], 9)
             self.assertEqual(reduction["action_code"], "reduce_weekly_action_backlog")
             self.assertEqual(reduction["category"], "delivery_health")
             self.assertIn("actual_count:9", reduction["source"])
@@ -772,6 +821,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             output_path = root / "latest_weekly_action_items.json"
             report_path = root / "latest_weekly_action_items.md"
             write_manifest(manifest_path)
+            write_data_health_review(root / "latest_data_health_review.json")
 
             result = subprocess.run(
                 [
@@ -791,6 +841,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_forecast_performance_review.json"),
                     "--manual-review-queue",
                     str(root / "latest_manual_review_queue.csv"),
+                    "--data-health-review",
+                    str(root / "latest_data_health_review.json"),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -804,7 +856,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, output)
             payload = json.loads(output_path.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["action_items_schema"], "weekly_action_items")
-            self.assertEqual(payload["item_count"], 7)
+            self.assertEqual(payload["item_count"], 8)
             self.assertIn("review_delivery_health_issues", output)
             self.assertIn("每周人工处理清单", report_path.read_text(encoding="utf-8-sig"))
 
@@ -829,6 +881,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("latest_forecast_performance_review.json", script)
         self.assertIn("latest_manual_review_queue.csv", script)
         self.assertIn("--manual-review-queue", script)
+        self.assertIn("latest_data_health_review.json", script)
+        self.assertIn("--data-health-review", script)
         self.assertIn("codex-primary-runtime", script)
 
 
