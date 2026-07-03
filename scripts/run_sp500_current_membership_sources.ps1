@@ -46,6 +46,9 @@ if (-not $SourceFileRequest) {
 if (-not $SourceFileInbox) {
   $SourceFileInbox = Join-Path $ProjectRoot "inputs\sp500_current_membership\official_constituents.csv"
 }
+if ((-not $SourceFile) -and (Test-Path -LiteralPath $SourceFileInbox)) {
+  $SourceFile = $SourceFileInbox
+}
 if (-not $AsOfDate) {
   $AsOfDate = Get-Date -Format "yyyy-MM-dd"
 }

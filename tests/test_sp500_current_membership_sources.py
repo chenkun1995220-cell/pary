@@ -98,6 +98,68 @@ def write_official_csv(path):
             writer.writerow({"Symbol": f"T{index:03d}", "Security": f"Test Company {index}"})
 
 
+def write_official_csv_for_project_template(path):
+    tickers = [
+        "ABT",
+        "ADM",
+        "AEP",
+        "BA",
+        "BMY",
+        "CAT",
+        "CL",
+        "CMS",
+        "COP",
+        "CSX",
+        "CVS",
+        "CVX",
+        "DE",
+        "DTE",
+        "ED",
+        "EIX",
+        "ETN",
+        "ETR",
+        "EXC",
+        "F",
+        "GD",
+        "GE",
+        "GIS",
+        "HAL",
+        "HIG",
+        "HON",
+        "HSY",
+        "IBM",
+        "IP",
+        "KMB",
+        "KO",
+        "KR",
+        "LMT",
+        "MMM",
+        "MO",
+        "MRK",
+        "MSI",
+        "NOC",
+        "NSC",
+        "OXY",
+        "PEG",
+        "PEP",
+        "PFE",
+        "PG",
+        "PPG",
+        "RTX",
+        "SLB",
+        "SO",
+        "SPGI",
+        "UNP",
+    ]
+    tickers.extend(f"T{i:03d}" for i in range(400 - len(tickers)))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["Symbol", "Security"])
+        writer.writeheader()
+        for ticker in tickers:
+            writer.writerow({"Symbol": ticker, "Security": f"{ticker} Company"})
+
+
 def write_intake_template(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -714,6 +776,38 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
         self.assertIn("--source-file-request", wrapper)
         self.assertIn("sp500_current_membership_source_file_request.md", wrapper)
         self.assertIn("--allow-empty-on-fetch-error", wrapper)
+
+    def test_powershell_wrapper_dry_run_uses_existing_source_file_inbox(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source_file = Path(tmp) / "official_constituents.csv"
+            write_official_csv_for_project_template(source_file)
+
+            result = subprocess.run(
+                [
+                    "powershell.exe",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "scripts\\run_sp500_current_membership_sources.ps1",
+                    "-ProjectRoot",
+                    str(PROJECT_ROOT),
+                    "-SourceFileInbox",
+                    str(source_file),
+                    "-DryRun",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            output = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, output)
+            self.assertIn("SourceFile: " + str(source_file), output)
+            self.assertIn("validation_only: true", output)
+            self.assertIn("matched_count: 50", output)
 
 
 if __name__ == "__main__":
