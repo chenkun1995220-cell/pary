@@ -1223,6 +1223,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_inbox_status_details"
             ]
+        if _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_missing_accepted_ticker_columns"
+            ]
         return []
     review_queue_file = str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
     if review_queue_file:
@@ -1252,6 +1256,16 @@ def _official_csv_action_item_inbox_status_details_missing(recommended_check):
         ["source_file_inbox_intake_missing_count", "inbox_intake_missing_count"],
     ]
     return any(not any(marker in text for marker in group) for group in required_marker_groups)
+
+
+def _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):
+    text = str(recommended_check or "")
+    required_columns = [
+        "Ticker Symbol",
+        "Constituent Ticker",
+        "Constituent Symbol",
+    ]
+    return any(column not in text for column in required_columns)
 
 
 def _has_action_item(action_items, action_code):

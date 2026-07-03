@@ -345,6 +345,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                         "inbox_next_action:place_official_constituents_csv; "
                         "parsed_official_ticker_count:0; "
                         "inbox_intake_missing_count:2; "
+                        "accepted_ticker_columns:Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol; "
                         "dry_run_command:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
                         "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
                         "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv; "
@@ -1470,6 +1471,30 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_source_official_csv_action_item_missing_inbox_status_details",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_official_csv_action_item_lacks_accepted_ticker_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            for item in action_items["items"]:
+                if item["action_code"] == "provide_official_constituents_csv":
+                    item["recommended_check"] = item["recommended_check"].replace(
+                        "accepted_ticker_columns:Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol; ",
+                        "",
+                    )
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_official_csv_action_item_missing_accepted_ticker_columns",
                 result["attention_reasons"],
             )
 
