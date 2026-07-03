@@ -248,6 +248,13 @@ def _fetch_error_classification(error):
             "fetch_error_next_action": "retry_official_source_or_provide_official_constituents_csv",
             "source_quality_flag": "official_source_fetch_timeout",
         }
+    if "http error 403" in lowered or "forbidden" in lowered:
+        return {
+            "fetch_error_type": "official_source_access_denied",
+            "fetch_retryable_without_environment_change": False,
+            "fetch_error_next_action": "provide_official_constituents_csv",
+            "source_quality_flag": "official_source_fetch_blocked_by_remote_access_policy",
+        }
     return {
         "fetch_error_type": "official_source_fetch_error",
         "fetch_retryable_without_environment_change": True,

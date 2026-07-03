@@ -857,6 +857,29 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["fetch_error_next_action"], "provide_official_constituents_csv_or_fix_network_permission")
             self.assertIn("official_source_fetch_blocked_by_permission", payload["source_quality_flags"])
 
+    def test_fetch_failed_payload_classifies_official_access_denied_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            write_template(template)
+
+            from sp500_current_membership_sources import build_fetch_failed_payload
+
+            payload = build_fetch_failed_payload(
+                template,
+                "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                Exception("HTTP Error 403: Forbidden"),
+                as_of_date="2026-07-03",
+            )
+
+            self.assertEqual(payload["fetch_error_type"], "official_source_access_denied")
+            self.assertFalse(payload["fetch_retryable_without_environment_change"])
+            self.assertEqual(payload["fetch_error_next_action"], "provide_official_constituents_csv")
+            self.assertIn(
+                "official_source_fetch_blocked_by_remote_access_policy",
+                payload["source_quality_flags"],
+            )
+
     def test_powershell_wrapper_static_contract(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_sp500_current_membership_sources.ps1").read_text(
             encoding="utf-8-sig"
