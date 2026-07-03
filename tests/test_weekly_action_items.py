@@ -233,6 +233,9 @@ def write_current_membership_source_inbox_status(path):
         "intake_expected_count": 50,
         "intake_matched_count": 0,
         "intake_missing_count": 50,
+        "external_input_required": True,
+        "blocking_reason": "official_constituents_csv_missing",
+        "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
         "next_action": "place_official_constituents_csv",
         "formal_backtest_upgrade_allowed": False,
         "formal_model_change_allowed": False,
@@ -923,6 +926,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("source_file_validation_status:missing", source_item["source"])
             self.assertIn("source_file_inbox_status:invalid", source_item["source"])
             self.assertIn("source_file_inbox_next_action:provide_valid_official_constituents_csv", source_item["source"])
+            self.assertIn("source_file_inbox_external_input_required:true", source_item["source"])
+            self.assertIn("source_file_inbox_blocking_reason:official_constituents_csv_missing", source_item["source"])
             self.assertIn(
                 "source_file_inbox_available_columns:expected_ticker, intake_status, required_source_url",
                 source_item["source"],
@@ -956,6 +961,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("latest_sp500_current_membership_source_inbox_status.json", source_item["recommended_check"])
             self.assertIn("inbox_next_action=provide_valid_official_constituents_csv", source_item["recommended_check"])
+            self.assertIn("inbox_external_input_required=true", source_item["recommended_check"])
+            self.assertIn("inbox_blocking_reason=official_constituents_csv_missing", source_item["recommended_check"])
             self.assertIn("parsed_official_ticker_count=0", source_item["recommended_check"])
             self.assertIn("inbox_intake_missing_count=50", source_item["recommended_check"])
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
