@@ -1219,6 +1219,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return ["sp500_current_membership_source_official_csv_action_item_missing"]
         if _official_csv_action_item_inbox_commands_missing(recommended_check):
             return ["sp500_current_membership_source_official_csv_action_item_missing_commands"]
+        if _official_csv_action_item_inbox_status_details_missing(recommended_check):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_missing_inbox_status_details"
+            ]
         return []
     review_queue_file = str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
     if review_queue_file:
@@ -1236,6 +1240,18 @@ def _official_csv_action_item_inbox_commands_missing(recommended_check):
         or "-SourceFileInbox" not in text
         or "-DryRun" not in text
     )
+
+
+def _official_csv_action_item_inbox_status_details_missing(recommended_check):
+    text = str(recommended_check or "")
+    required_marker_groups = [
+        ["latest_sp500_current_membership_source_inbox_status.json"],
+        ["source_file_inbox_status", "inbox_status"],
+        ["source_file_inbox_next_action", "inbox_next_action"],
+        ["parsed_official_ticker_count"],
+        ["source_file_inbox_intake_missing_count", "inbox_intake_missing_count"],
+    ]
+    return any(not any(marker in text for marker in group) for group in required_marker_groups)
 
 
 def _has_action_item(action_items, action_code):
