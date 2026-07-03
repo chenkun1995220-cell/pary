@@ -112,6 +112,37 @@ class WeeklyAutomationTests(unittest.TestCase):
             self.assertIn("DryRun: no files or network requests were created.", output)
             self.assertFalse(output_root.exists())
 
+    def test_weekly_reporting_bundle_can_use_sp500_official_csv_inbox(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source_file = Path(tmp) / "official_constituents.csv"
+            source_file.write_text("Symbol,Security\nABT,Abbott Laboratories\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    "powershell.exe",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "scripts\\run_weekly_reporting_bundle.ps1",
+                    "-ProjectRoot",
+                    str(PROJECT_ROOT),
+                    "-Sp500CurrentMembershipSourceFile",
+                    str(source_file),
+                    "-DryRun",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            output = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, output)
+            self.assertIn("Sp500CurrentMembershipSourceFile: " + str(source_file), output)
+            self.assertIn("DryRun: would validate and import S&P 500 current membership source file", output)
+            self.assertIn("run_sp500_current_membership_sources", output)
+
     def test_task_registration_what_if_prints_schedule_and_orchestrator(self):
         result = subprocess.run(
             [
@@ -293,6 +324,8 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("Evidence next action", doc)
         self.assertIn("effective_date, added_ticker, removed_ticker", doc)
         self.assertIn("S&P Global", doc)
+        self.assertIn("inputs/sp500_current_membership/official_constituents.csv", doc)
+        self.assertIn("Sp500CurrentMembershipSourceFile", doc)
         self.assertIn("不得自动升级正式模型", doc)
 
     def test_self_analysis_docs_describe_summary_entrypoint(self):

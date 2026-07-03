@@ -3,7 +3,9 @@
   [int]$MaxAgeDays = 8,
   [switch]$DryRun,
   [switch]$Strict,
-  [switch]$IgnorePreSubmitFailure
+  [switch]$IgnorePreSubmitFailure,
+  [string]$Sp500CurrentMembershipSourceFile = "",
+  [string]$Sp500CurrentMembershipSourceInbox = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,6 +14,16 @@ $env:PYTHONIOENCODING = "utf-8"
 
 if (-not $ProjectRoot) {
   $ProjectRoot = Split-Path -Parent $PSScriptRoot
+}
+if (-not $Sp500CurrentMembershipSourceInbox) {
+  $Sp500CurrentMembershipSourceInbox = Join-Path $ProjectRoot "inputs\sp500_current_membership\official_constituents.csv"
+}
+$sp500SourceFileExplicit = -not [string]::IsNullOrWhiteSpace($Sp500CurrentMembershipSourceFile)
+if ((-not $sp500SourceFileExplicit) -and (Test-Path -LiteralPath $Sp500CurrentMembershipSourceInbox)) {
+  $Sp500CurrentMembershipSourceFile = $Sp500CurrentMembershipSourceInbox
+}
+if ((-not [string]::IsNullOrWhiteSpace($Sp500CurrentMembershipSourceFile)) -and (-not (Test-Path -LiteralPath $Sp500CurrentMembershipSourceFile))) {
+  throw "S&P 500 current membership source file not found: $Sp500CurrentMembershipSourceFile"
 }
 
 $PowerShell = (Get-Command powershell.exe).Source
@@ -42,6 +54,11 @@ $postSteps = @(
 )
 
 Write-Host "Starting weekly reporting closure bundle"
+Write-Host "Sp500CurrentMembershipSourceInbox: $Sp500CurrentMembershipSourceInbox"
+Write-Host "Sp500CurrentMembershipSourceFile: $Sp500CurrentMembershipSourceFile"
+if ($Sp500CurrentMembershipSourceFile) {
+  Write-Host "S&P 500 current membership source file detected: $Sp500CurrentMembershipSourceFile"
+}
 
 foreach ($step in $postSteps) {
   $scriptPath = Join-Path $ProjectRoot (Join-Path "scripts" $step.Script)
@@ -51,8 +68,12 @@ foreach ($step in $postSteps) {
 
   $label = $step.Label
   Write-Host "Running: $label"
+  $isSp500CurrentMembershipSourceStep = $step.Script -eq "run_sp500_current_membership_sources.ps1"
 
   if ($DryRun) {
+    if ($isSp500CurrentMembershipSourceStep -and $Sp500CurrentMembershipSourceFile) {
+      Write-Host "DryRun: would validate and import S&P 500 current membership source file: $Sp500CurrentMembershipSourceFile"
+    }
     Write-Host "DryRun: no script executed for $label"
     continue
   }
@@ -60,6 +81,24 @@ foreach ($step in $postSteps) {
   $args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath)
   if ($step.Script -eq "run_pre_submit_review.ps1") {
     $args += @("-MaxAgeDays", "$MaxAgeDays")
+  }
+  if ($isSp500CurrentMembershipSourceStep -and $Sp500CurrentMembershipSourceFile) {
+    Write-Host "Validating S&P 500 current membership source file before import: $Sp500CurrentMembershipSourceFile"
+    $validationArgs = @(
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      $scriptPath,
+      "-SourceFile",
+      $Sp500CurrentMembershipSourceFile,
+      "-DryRun"
+    )
+    & $PowerShell @validationArgs
+    if ($LASTEXITCODE -ne 0) {
+      throw "S&P 500 current membership source file validation failed with exit code $LASTEXITCODE."
+    }
+    $args += @("-SourceFile", $Sp500CurrentMembershipSourceFile)
   }
 
   & $PowerShell @args

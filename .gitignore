@@ -31,3 +31,7 @@ ai-hedge-fund/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Official source inbox: keep instructions, ignore downloaded constituents CSV files.
+inputs/sp500_current_membership/*.csv
+!inputs/sp500_current_membership/README.md
