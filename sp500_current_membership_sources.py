@@ -27,6 +27,16 @@ SOURCE_FILE_DRY_RUN_COMMAND = (
     "-ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>"
 )
 SOURCE_FILE_INBOX = "inputs/sp500_current_membership/official_constituents.csv"
+SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE = (
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+    "scripts\\run_sp500_current_membership_sources.ps1 "
+    "-ProjectRoot <project_root> -SourceFileInbox {source_file_inbox}"
+)
+SOURCE_FILE_INBOX_DRY_RUN_COMMAND_TEMPLATE = (
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+    "scripts\\run_sp500_current_membership_sources.ps1 "
+    "-ProjectRoot <project_root> -DryRun -SourceFileInbox {source_file_inbox}"
+)
 SOURCE_FILE_ACCEPTANCE_CRITERIA = [
     "has_symbol_or_ticker_column",
     "at_least_400_tickers",
@@ -384,6 +394,12 @@ def add_source_file_inbox_status(payload, source_file_inbox):
     inbox_path = Path(source_file_inbox)
     inbox_exists = inbox_path.exists()
     payload["source_file_inbox"] = source_file_inbox
+    payload["source_file_inbox_next_command"] = SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE.format(
+        source_file_inbox=source_file_inbox
+    )
+    payload["source_file_inbox_dry_run_command"] = SOURCE_FILE_INBOX_DRY_RUN_COMMAND_TEMPLATE.format(
+        source_file_inbox=source_file_inbox
+    )
     payload["source_file_inbox_exists"] = inbox_exists
     if not inbox_exists:
         payload["source_file_validation_status"] = "missing"
@@ -420,6 +436,10 @@ def render_report(payload):
         lines.append(f"- source_file_next_command: {payload.get('source_file_next_command', '')}")
     if payload.get("source_file_dry_run_command"):
         lines.append(f"- source_file_dry_run_command: {payload.get('source_file_dry_run_command', '')}")
+    if payload.get("source_file_inbox_next_command"):
+        lines.append(f"- source_file_inbox_next_command: {payload.get('source_file_inbox_next_command', '')}")
+    if payload.get("source_file_inbox_dry_run_command"):
+        lines.append(f"- source_file_inbox_dry_run_command: {payload.get('source_file_inbox_dry_run_command', '')}")
     if payload.get("source_file_request_file"):
         lines.append(f"- source_file_request_file: {payload.get('source_file_request_file', '')}")
     if payload.get("source_file_inbox"):
@@ -481,8 +501,10 @@ def render_source_file_request(payload, missing_limit=20):
         f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}",
         f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}",
         f"- dry_run_command: {payload.get('source_file_dry_run_command', '')}",
+        f"- inbox_dry_run_command: {payload.get('source_file_inbox_dry_run_command', '')}",
         "- validation_mode: --validate-source-file-only",
         f"- import_command: {payload.get('source_file_next_command', '')}",
+        f"- inbox_import_command: {payload.get('source_file_inbox_next_command', '')}",
         "",
         "## Acceptance criteria",
         "",

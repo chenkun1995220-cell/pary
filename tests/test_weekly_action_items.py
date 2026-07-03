@@ -452,6 +452,16 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     ),
                     "source_file_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
                     "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+                    "source_file_inbox_next_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 "
+                        "-ProjectRoot <project_root> -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                    "source_file_inbox_dry_run_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 "
+                        "-ProjectRoot <project_root> -DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
                     "source_file_inbox_exists": False,
                     "source_file_validation_status": "missing",
                     "source_file_acceptance_criteria": [
@@ -493,9 +503,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("inbox_status=missing", source_item["recommended_check"])
             self.assertIn("提供官方 S&P Global constituents CSV", source_item["recommended_check"])
             self.assertIn("Symbol, Ticker", source_item["recommended_check"])
-            self.assertIn("-DryRun -SourceFile <official_constituents.csv>", source_item["recommended_check"])
+            self.assertIn("-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("run_sp500_current_membership_sources.ps1", source_item["recommended_check"])
-            self.assertIn("-SourceFile <official_constituents.csv>", source_item["recommended_check"])
+            self.assertIn("-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
             self.assertIn("provide_official_constituents_csv", report)
 

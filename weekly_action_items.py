@@ -381,10 +381,14 @@ def _current_membership_source_action(source_status, review_status=None):
     ]
     source_file_required_text = ", ".join(source_file_required_columns) or "none"
     source_file_next_command = str(
-        source_status.get("source_file_next_command", "") or ""
+        source_status.get("source_file_inbox_next_command")
+        or source_status.get("source_file_next_command", "")
+        or ""
     ).strip()
     source_file_dry_run_command = str(
-        source_status.get("source_file_dry_run_command", "") or ""
+        source_status.get("source_file_inbox_dry_run_command")
+        or source_status.get("source_file_dry_run_command", "")
+        or ""
     ).strip()
     source_file_request_file = str(
         source_status.get("source_file_request_file", "") or ""
