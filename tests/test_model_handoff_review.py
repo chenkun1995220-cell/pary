@@ -164,6 +164,16 @@ class ModelHandoffReviewTests(unittest.TestCase):
         )
         self.assertIn("if ($GoalCode)", wrapper)
 
+    def test_wrapper_records_default_validation_commands_when_not_provided(self):
+        project_root = Path(__file__).resolve().parents[1]
+        wrapper = (project_root / "scripts" / "run_model_handoff_review.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("$ValidationCommand.Count -eq 0", wrapper)
+        self.assertIn("run_pre_submit_review.ps1 -MaxAgeDays 8", wrapper)
+        self.assertIn("tests.test_model_handoff_review", wrapper)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,6 +36,13 @@ if ($DryRun) {
   exit 0
 }
 
+if ($ValidationCommand.Count -eq 0) {
+  $ValidationCommand = @(
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\run_pre_submit_review.ps1 -MaxAgeDays 8",
+    "$Python -m unittest tests.test_model_handoff_review tests.test_pre_submit_review"
+  )
+}
+
 $Arguments = @(
   "-B",
   $Script,
