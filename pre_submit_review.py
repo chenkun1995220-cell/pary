@@ -1161,6 +1161,8 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
         request_name = Path(request_file).name if request_file else ""
         if request_name and request_name not in recommended_check:
             return ["sp500_current_membership_source_official_csv_action_item_missing"]
+        if _official_csv_action_item_inbox_commands_missing(recommended_check):
+            return ["sp500_current_membership_source_official_csv_action_item_missing_commands"]
         return []
     review_queue_file = str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
     if review_queue_file:
@@ -1168,6 +1170,16 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
         if queue_name and queue_name not in recommended_check:
             return ["sp500_current_membership_source_action_item_missing_review_queue_file"]
     return []
+
+
+def _official_csv_action_item_inbox_commands_missing(recommended_check):
+    text = str(recommended_check or "")
+    return (
+        "dry_run_command:" not in text
+        or "import_command:" not in text
+        or "-SourceFileInbox" not in text
+        or "-DryRun" not in text
+    )
 
 
 def _has_action_item(action_items, action_code):
