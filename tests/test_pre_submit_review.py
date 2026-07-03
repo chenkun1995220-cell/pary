@@ -671,6 +671,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
     if conclusion_path.exists() and action_items_path.exists():
         action_mtime = action_items_path.stat().st_mtime
         os.utime(conclusion_path, (action_mtime + 1, action_mtime + 1))
+        delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+        if delivery_path.exists():
+            os.utime(delivery_path, (action_mtime + 2, action_mtime + 2))
 
 
 class PreSubmitReviewTests(unittest.TestCase):
@@ -787,6 +790,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "weekly_conclusion_older_than_weekly_action_items",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_delivery_check_is_older_than_weekly_conclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            base_time = conclusion_path.stat().st_mtime
+            os.utime(delivery_path, (base_time - 20, base_time - 20))
+            os.utime(conclusion_path, (base_time, base_time))
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_delivery_check_older_than_weekly_conclusion",
                 result["attention_reasons"],
             )
 

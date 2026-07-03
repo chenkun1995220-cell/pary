@@ -764,13 +764,29 @@ def _weekly_conclusion_action_item_sync_reasons(weekly_conclusion, action_items)
 def _artifact_order_reasons(input_modified_times):
     if not isinstance(input_modified_times, dict):
         return []
+    reasons = []
     conclusion_mtime = input_modified_times.get("weekly_conclusion")
     action_items_mtime = input_modified_times.get("weekly_action_items")
-    if conclusion_mtime is None or action_items_mtime is None:
-        return []
-    if conclusion_mtime < action_items_mtime:
-        return ["weekly_conclusion_older_than_weekly_action_items"]
-    return []
+    delivery_mtime = input_modified_times.get("weekly_delivery_check")
+    if (
+        conclusion_mtime is not None
+        and action_items_mtime is not None
+        and conclusion_mtime < action_items_mtime
+    ):
+        reasons.append("weekly_conclusion_older_than_weekly_action_items")
+    if (
+        delivery_mtime is not None
+        and conclusion_mtime is not None
+        and delivery_mtime < conclusion_mtime
+    ):
+        reasons.append("weekly_delivery_check_older_than_weekly_conclusion")
+    if (
+        delivery_mtime is not None
+        and action_items_mtime is not None
+        and delivery_mtime < action_items_mtime
+    ):
+        reasons.append("weekly_delivery_check_older_than_weekly_action_items")
+    return reasons
 
 
 def _combined_priority_actions(automation_check, action_items):
