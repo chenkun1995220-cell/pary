@@ -14,6 +14,7 @@ DEFAULT_ACTION_ITEMS_JSON = "outputs/automation/latest_weekly_action_items.json"
 DEFAULT_ACTION_ITEMS_MARKDOWN = "outputs/automation/latest_weekly_action_items.md"
 DEFAULT_OUTPUT = "outputs/automation/latest_weekly_delivery_check.json"
 DEFAULT_HISTORY = "outputs/automation/weekly_delivery_check_history.jsonl"
+ARTIFACT_ORDER_TOLERANCE_SECONDS = 5
 REQUIRED_CONCLUSION_SIGNALS = (
     "automation.data_quality",
     "automation.data_quality_history",
@@ -84,10 +85,14 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         if missing_conclusion_signals:
             attention_reasons.append("missing_conclusion_signals")
 
-    for key, raw_path in _required_outputs(conclusion, conclusion_path).items():
+    required_outputs = _required_outputs(conclusion, conclusion_path)
+    for key, raw_path in required_outputs.items():
         path = _resolve_path(project_root, raw_path)
         if not path.exists():
             _add_missing(missing_outputs, missing_output_paths, key, path)
+    for reason in _required_output_order_reasons(project_root, required_outputs):
+        if reason not in attention_reasons:
+            attention_reasons.append(reason)
 
     merge_summary = conclusion.get("manual_review_merge_summary", {})
     if merge_summary.get("exists") and merge_summary.get("path"):
@@ -322,6 +327,24 @@ def _artifact_order_reasons(conclusion_path, action_items_json_path):
         return []
     if conclusion.stat().st_mtime < action_items.stat().st_mtime:
         return ["weekly_conclusion_older_than_weekly_action_items"]
+    return []
+
+
+def _required_output_order_reasons(project_root, required_outputs):
+    if not isinstance(required_outputs, dict):
+        return []
+    conclusion_json = _resolve_path(project_root, required_outputs.get("weekly_conclusion_json", ""))
+    conclusion_markdown = _resolve_path(
+        project_root,
+        required_outputs.get("weekly_conclusion_markdown", ""),
+    )
+    if (
+        conclusion_json.exists()
+        and conclusion_markdown.exists()
+        and conclusion_markdown.stat().st_mtime
+        < conclusion_json.stat().st_mtime - ARTIFACT_ORDER_TOLERANCE_SECONDS
+    ):
+        return ["weekly_conclusion_markdown_older_than_json"]
     return []
 
 

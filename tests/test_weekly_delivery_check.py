@@ -126,6 +126,11 @@ def write_ready_delivery_files(root, as_of_date="2026-06-28"):
             },
         },
     )
+    conclusion_json_path = Path(root) / "outputs" / "automation" / "latest_weekly_conclusion.json"
+    conclusion_markdown_path = Path(root) / "outputs" / "automation" / "latest_weekly_conclusion.md"
+    if conclusion_json_path.exists() and conclusion_markdown_path.exists():
+        json_mtime = conclusion_json_path.stat().st_mtime
+        os.utime(conclusion_markdown_path, (json_mtime + 1, json_mtime + 1))
 
 
 class WeeklyDeliveryCheckTests(unittest.TestCase):
@@ -319,6 +324,26 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "weekly_conclusion_older_than_weekly_action_items",
+                result["attention_reasons"],
+            )
+
+    def test_delivery_check_needs_attention_when_conclusion_markdown_is_older_than_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_json_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion_markdown_path = root / "outputs" / "automation" / "latest_weekly_conclusion.md"
+            base_time = conclusion_json_path.stat().st_mtime
+            os.utime(conclusion_markdown_path, (base_time - 20, base_time - 20))
+            os.utime(conclusion_json_path, (base_time, base_time))
+
+            from weekly_delivery_check import run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_markdown_older_than_json",
                 result["attention_reasons"],
             )
 
