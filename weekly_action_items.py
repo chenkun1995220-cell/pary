@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
     "outputs/automation/latest_sp500_current_membership_source_review_status.json"
 )
 DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
+DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 
 
 def load_manifest(manifest):
@@ -37,6 +39,41 @@ def load_optional_json(path):
     except (OSError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def load_optional_csv_rows(path):
+    if not path:
+        return []
+    csv_path = Path(path)
+    if not csv_path.exists():
+        return []
+    try:
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+            return [
+                {key.strip(): (value or "").strip() for key, value in row.items() if key}
+                for row in csv.DictReader(handle)
+            ]
+    except OSError:
+        return []
+
+
+def _top_manual_review_item(rows):
+    if not rows:
+        return {}
+    return sorted(rows, key=lambda row: _int_value(row.get("rank"), 999999))[0]
+
+
+def _manual_review_queue_text(manifest, rows):
+    count = manifest.get("manual_review_queue_count", 0)
+    item = _top_manual_review_item(rows)
+    if not item:
+        return f"按优先级处理 latest_manual_review_queue.csv 中的 {count} 条复核项。"
+    return (
+        f"按优先级处理 latest_manual_review_queue.csv 中的 {count} 条复核项；"
+        f"最高优先级：{item.get('market', 'unknown')} {item.get('ticker', '')} "
+        f"{item.get('company', '')} / {item.get('review_type', '')} / "
+        f"{item.get('review_detail', '')}。"
+    )
 
 
 def _delivery_history(manifest):
@@ -191,7 +228,10 @@ def _action_template(action_code, manifest):
             "title": "检查本周人工复核队列",
             "category": "manual_review",
             "source": f"manual_review_queue_count:{manifest.get('manual_review_queue_count', 0)}",
-            "recommended_check": f"按优先级处理 latest_manual_review_queue.csv 中的 {manifest.get('manual_review_queue_count', 0)} 条复核项。",
+            "recommended_check": _manual_review_queue_text(
+                manifest,
+                manifest.get("manual_review_queue_items", []),
+            ),
         },
         "review_manual_review_backlog": {
             "title": "处理人工复核积压",
@@ -632,6 +672,7 @@ def build_weekly_action_items(
     current_membership_sources=None,
     current_membership_source_review_status=None,
     forecast_performance=None,
+    manual_review_queue=None,
 ):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
@@ -639,6 +680,9 @@ def build_weekly_action_items(
     current_source_status = load_optional_json(current_membership_sources)
     current_source_review_status = load_optional_json(current_membership_source_review_status)
     forecast_performance_review = load_optional_json(forecast_performance)
+    manual_review_rows = load_optional_csv_rows(manual_review_queue)
+    if manual_review_rows:
+        source["manual_review_queue_items"] = manual_review_rows
     if forecast_performance_review:
         manifest_forecast = source.get("forecast_performance", {})
         if not isinstance(manifest_forecast, dict):
@@ -806,6 +850,7 @@ def main():
         default=DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS,
     )
     parser.add_argument("--forecast-performance", default=DEFAULT_FORECAST_PERFORMANCE)
+    parser.add_argument("--manual-review-queue", default=DEFAULT_MANUAL_REVIEW_QUEUE)
     args = parser.parse_args()
 
     payload = build_weekly_action_items(
@@ -814,6 +859,7 @@ def main():
         current_membership_sources=args.current_membership_sources,
         current_membership_source_review_status=args.current_membership_source_review_status,
         forecast_performance=args.forecast_performance,
+        manual_review_queue=args.manual_review_queue,
     )
     report = render_weekly_action_items(payload)
     if args.output:

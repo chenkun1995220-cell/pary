@@ -1,3 +1,4 @@
+import csv
 import json
 import subprocess
 import sys
@@ -253,15 +254,50 @@ def write_forecast_performance_review(
     )
 
 
+def write_manual_review_queue(path):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "as_of_date",
+                "rank",
+                "market",
+                "review_type",
+                "ticker",
+                "company",
+                "review_detail",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "as_of_date": "2026-06-28",
+                "rank": "1",
+                "market": "A股周筛",
+                "review_type": "估值口径",
+                "ticker": "300433.SZ",
+                "company": "蓝思科技",
+                "review_detail": "loss_making_or_negative_pe；pe=-457.21",
+            }
+        )
+
+
 class WeeklyActionItemsTests(unittest.TestCase):
     def test_builds_action_items_from_self_analysis_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            manual_queue_path = Path(tmp) / "latest_manual_review_queue.csv"
             write_manifest(manifest_path)
+            write_manual_review_queue(manual_queue_path)
 
             from weekly_action_items import build_weekly_action_items, render_weekly_action_items
 
-            payload = build_weekly_action_items(manifest_path)
+            payload = build_weekly_action_items(
+                manifest_path,
+                manual_review_queue=manual_queue_path,
+            )
             report = render_weekly_action_items(payload)
 
             self.assertEqual(payload["action_items_schema"], "weekly_action_items")
@@ -295,6 +331,15 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("latest_self_analysis_manifest.json", delivery["recommended_check"])
             self.assertIn("show_weekly_conclusion.ps1", delivery["recommended_check"])
             self.assertIn("needs_review", delivery["recommended_check"])
+
+            manual_queue = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_manual_queue"
+            )
+            self.assertIn("300433.SZ", manual_queue["recommended_check"])
+            self.assertIn("蓝思科技", manual_queue["recommended_check"])
+            self.assertIn("loss_making_or_negative_pe", manual_queue["recommended_check"])
 
             data_quality = next(
                 item
@@ -744,6 +789,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_sp500_current_membership_sources.json"),
                     "--forecast-performance",
                     str(root / "latest_forecast_performance_review.json"),
+                    "--manual-review-queue",
+                    str(root / "latest_manual_review_queue.csv"),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -780,6 +827,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("latest_sp500_current_membership_sources.json", script)
         self.assertIn("latest_sp500_current_membership_source_review_status.json", script)
         self.assertIn("latest_forecast_performance_review.json", script)
+        self.assertIn("latest_manual_review_queue.csv", script)
+        self.assertIn("--manual-review-queue", script)
         self.assertIn("codex-primary-runtime", script)
 
 
