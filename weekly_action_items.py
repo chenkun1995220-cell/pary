@@ -20,6 +20,7 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS = (
 DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
+DEFAULT_HK_QUOTE_RETRY_RESULTS = "outputs/hk_universe/quote_retry_results.json"
 DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
     "Symbol",
     "Ticker",
@@ -175,7 +176,29 @@ def _forecast_maturity_schedule_text(forecast_performance):
     return f"；下一批1周可评估日期 {one_week}，1个月可评估日期 {one_month}"
 
 
-def _data_health_refetch_gap_text(data_health):
+def _quote_retry_text(quote_retry_results):
+    if not isinstance(quote_retry_results, dict):
+        return ""
+    attempted = int(quote_retry_results.get("attempted", 0) or 0)
+    if attempted <= 0:
+        return ""
+    updated = int(quote_retry_results.get("updated", 0) or 0)
+    results = []
+    for item in quote_retry_results.get("results", []) or []:
+        if not isinstance(item, dict):
+            continue
+        ticker = item.get("ticker", "")
+        status = item.get("status", "")
+        if ticker and status:
+            results.append(f"{ticker} {status}")
+    detail = "；".join(results[:3])
+    suffix = "；需补充行情源或人工复核字段口径" if updated < attempted else ""
+    if detail:
+        return f"；最近已重抓{attempted}条，成功{updated}条：{detail}{suffix}"
+    return f"；最近已重抓{attempted}条，成功{updated}条{suffix}"
+
+
+def _data_health_refetch_gap_text(data_health, quote_retry_results=None):
     if not isinstance(data_health, dict):
         return ""
     gaps = []
@@ -195,8 +218,8 @@ def _data_health_refetch_gap_text(data_health):
             if detail:
                 gaps.append(detail)
     if not gaps:
-        return ""
-    return "；当前可重抓缺口：" + "；".join(gaps[:3])
+        return _quote_retry_text(quote_retry_results)
+    return "；当前可重抓缺口：" + "；".join(gaps[:3]) + _quote_retry_text(quote_retry_results)
 
 
 def _data_quality_text(manifest):
@@ -295,7 +318,7 @@ def _action_template(action_code, manifest):
             "source": f"data_health_status:{manifest.get('data_health_status', 'unknown')}",
             "recommended_check": (
                 "检查三市场 data_health_history.csv、quote_gaps.csv 和缺口分类，确认是否为可接受的数据缺口"
-                f"{_data_health_refetch_gap_text(data_health_review)}。"
+                f"{_data_health_refetch_gap_text(data_health_review, manifest.get('quote_retry_results'))}。"
             ),
         },
         "review_data_quality_score": {
@@ -778,6 +801,7 @@ def build_weekly_action_items(
     forecast_performance=None,
     manual_review_queue=None,
     data_health_review=None,
+    quote_retry_results=None,
 ):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
@@ -788,10 +812,13 @@ def build_weekly_action_items(
     forecast_performance_review = load_optional_json(forecast_performance)
     manual_review_rows = load_optional_csv_rows(manual_review_queue)
     data_health_payload = load_optional_json(data_health_review)
+    quote_retry_payload = load_optional_json(quote_retry_results)
     if manual_review_rows:
         source["manual_review_queue_items"] = manual_review_rows
     if data_health_payload:
         source["data_health_review"] = data_health_payload
+    if quote_retry_payload:
+        source["quote_retry_results"] = quote_retry_payload
     if forecast_performance_review:
         manifest_forecast = source.get("forecast_performance", {})
         if not isinstance(manifest_forecast, dict):
@@ -870,6 +897,7 @@ def build_weekly_action_items(
             current_source_inbox_status,
             forecast_performance_review,
             data_health_payload,
+            quote_retry_payload,
         ),
         "source_manifest": str(manifest_path),
         "automation_status": source.get("automation_status", "unknown"),
@@ -974,6 +1002,7 @@ def main():
     parser.add_argument("--forecast-performance", default=DEFAULT_FORECAST_PERFORMANCE)
     parser.add_argument("--manual-review-queue", default=DEFAULT_MANUAL_REVIEW_QUEUE)
     parser.add_argument("--data-health-review", default=DEFAULT_DATA_HEALTH_REVIEW)
+    parser.add_argument("--quote-retry-results", default=DEFAULT_HK_QUOTE_RETRY_RESULTS)
     args = parser.parse_args()
 
     payload = build_weekly_action_items(
@@ -985,6 +1014,7 @@ def main():
         forecast_performance=args.forecast_performance,
         manual_review_queue=args.manual_review_queue,
         data_health_review=args.data_health_review,
+        quote_retry_results=args.quote_retry_results,
     )
     report = render_weekly_action_items(payload)
     if args.output:

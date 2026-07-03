@@ -344,6 +344,33 @@ def write_data_health_review(path):
     )
 
 
+def write_quote_retry_results(path):
+    payload = {
+        "retry_schema": "regional_quote_retry",
+        "retry_version": 1,
+        "attempted": 2,
+        "updated": 0,
+        "errors": 0,
+        "results": [
+            {
+                "ticker": "00754.HK",
+                "status": "partial",
+                "message": "重抓后仍未达到 ready",
+            },
+            {
+                "ticker": "00823.HK",
+                "status": "partial",
+                "message": "重抓后仍未达到 ready",
+            },
+        ],
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 class WeeklyActionItemsTests(unittest.TestCase):
     def test_builds_action_items_from_self_analysis_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -466,6 +493,33 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("review_forecast_performance", report)
             self.assertIn("人工复核积压", report)
             self.assertIn("不抓取行情", report)
+
+    def test_data_health_action_includes_quote_retry_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            data_health_path = Path(tmp) / "latest_data_health_review.json"
+            quote_retry_path = Path(tmp) / "quote_retry_results.json"
+            write_manifest(manifest_path)
+            write_data_health_review(data_health_path)
+            write_quote_retry_results(quote_retry_path)
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                data_health_review=data_health_path,
+                quote_retry_results=quote_retry_path,
+            )
+
+            data_health = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_data_health"
+            )
+            self.assertIn("已重抓2条，成功0条", data_health["recommended_check"])
+            self.assertIn("00754.HK partial", data_health["recommended_check"])
+            self.assertIn("00823.HK partial", data_health["recommended_check"])
+            self.assertIn("补充行情源或人工复核字段口径", data_health["recommended_check"])
 
     def test_adds_apply_preview_action_when_membership_sources_are_ready_to_import(self):
         with tempfile.TemporaryDirectory() as tmp:
