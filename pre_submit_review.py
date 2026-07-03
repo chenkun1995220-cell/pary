@@ -529,6 +529,7 @@ def run_pre_submit_review(
             medium_term_goal_review,
             closeout_goal_code=closeout_goal_code,
         ),
+        "development_priority_actions": _medium_term_priority_actions(medium_term_goal_review),
         "priority_actions": _combined_priority_actions(automation_check, action_items),
         "missing_outputs": missing_outputs,
         "missing_output_paths": missing_output_paths,
@@ -566,6 +567,10 @@ def render_pre_submit_review(result):
     if result.get("priority_actions"):
         lines.extend(["", "## priority_actions"])
         for action in result.get("priority_actions", []):
+            lines.append(f"- {action}")
+    if result.get("development_priority_actions"):
+        lines.extend(["", "## development_priority_actions"])
+        for action in result.get("development_priority_actions", []):
             lines.append(f"- {action}")
     closeout = result.get("development_closeout", {}) or {}
     if closeout:
@@ -1508,6 +1513,13 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
             "unknown",
         ),
     }
+
+
+def _medium_term_priority_actions(medium_term_goal_review):
+    actions = medium_term_goal_review.get("priority_next_actions", [])
+    if not isinstance(actions, list):
+        return []
+    return _unique(str(action).strip() for action in actions if str(action).strip())
 
 
 def _input_status(name, payload):

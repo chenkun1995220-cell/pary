@@ -619,6 +619,10 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "strategy_title": "证据、预测与决策成熟化",
             "overall_completion_percent": 61,
             "current_target_total_completion_percent": 61,
+            "priority_next_actions": [
+                "continue_sample_accumulation",
+                "provide_official_constituents_csv_or_fix_network_permission",
+            ],
             "automatic_multi_model_collaboration_enabled": False,
             "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
             "collaboration_boundary_note": "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。",
@@ -676,6 +680,13 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["governance_status"], "ready")
             self.assertIn("review_data_health", result["priority_actions"])
             self.assertIn("continue_sample_accumulation", result["priority_actions"])
+            self.assertEqual(
+                result["development_priority_actions"],
+                [
+                    "continue_sample_accumulation",
+                    "provide_official_constituents_csv_or_fix_network_permission",
+                ],
+            )
             self.assertEqual(result["input_statuses"]["weekly_action_items"], "ready")
             self.assertEqual(result["input_statuses"]["data_health_review"], "acceptable_with_monitoring")
             self.assertEqual(result["input_statuses"]["backtest_evidence_review"], "evidence_review_needed")
@@ -718,7 +729,9 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertIn("开发收尾摘要", report)
             self.assertIn("current_module=S&P 500 成分证据补强", report)
             self.assertIn("priority_actions", report)
+            self.assertIn("development_priority_actions", report)
             self.assertIn("review_data_health", report)
+            self.assertIn("provide_official_constituents_csv_or_fix_network_permission", report)
             self.assertIn("medium_term_overall_completion_percent=61", report)
             self.assertIn("current_target_total_completion_percent=61", report)
             self.assertIn(
