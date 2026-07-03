@@ -500,7 +500,10 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         "\n## Acceptance criteria\n\n"
         "- has_symbol_or_ticker_column\n"
         "- at_least_400_tickers\n"
-        "- official_spglobal_constituents_export\n",
+        "- official_spglobal_constituents_export\n"
+        "\n## Boundary\n\n"
+        "- Use only the official S&P Global constituents export. Do not import the intake template as the source CSV.\n"
+        "- Run the dry-run command before the import command.\n",
         encoding="utf-8-sig",
     )
     write_csv(
@@ -1311,6 +1314,29 @@ class PreSubmitReviewTests(unittest.TestCase):
             result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
 
             self.assertEqual(result["status"], "ready")
+
+    def test_review_needs_attention_when_sp500_current_source_file_request_lacks_boundary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            request_text = request_path.read_text(encoding="utf-8-sig").split("## Boundary")[0]
+            request_path.write_text(request_text, encoding="utf-8-sig")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_request_boundary",
+                result["attention_reasons"],
+            )
 
     def test_review_needs_attention_when_official_csv_action_item_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:

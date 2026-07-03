@@ -907,6 +907,8 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         reasons.append("sp500_current_membership_sources_missing_source_file_request_inbox_commands")
     elif _source_file_request_acceptance_criteria_missing(request_path):
         reasons.append("sp500_current_membership_sources_missing_source_file_request_acceptance_criteria")
+    elif _source_file_request_boundary_missing(request_path):
+        reasons.append("sp500_current_membership_sources_missing_source_file_request_boundary")
     return reasons
 
 
@@ -937,6 +939,19 @@ def _source_file_request_acceptance_criteria_missing(path):
         "has_symbol_or_ticker_column",
         "at_least_400_tickers",
         "official_spglobal_constituents_export",
+    ]
+    return any(term not in text for term in required_terms)
+
+
+def _source_file_request_boundary_missing(path):
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig")
+    except OSError:
+        return True
+    required_terms = [
+        "Use only the official S&P Global constituents export",
+        "Do not import the intake template as the source CSV",
+        "Run the dry-run command before the import command",
     ]
     return any(term not in text for term in required_terms)
 
