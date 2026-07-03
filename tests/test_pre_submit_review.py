@@ -424,6 +424,16 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                 "scripts\\run_sp500_current_membership_sources.ps1 "
                 "-ProjectRoot <project_root> -SourceFile <official_constituents.csv>"
             ),
+            "source_file_inbox_next_command": (
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\run_sp500_current_membership_sources.ps1 "
+                "-ProjectRoot <project_root> -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+            ),
+            "source_file_inbox_dry_run_command": (
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\run_sp500_current_membership_sources.ps1 "
+                "-ProjectRoot <project_root> -DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+            ),
             "source_file_acceptance_criteria": [
                 "has_symbol_or_ticker_column",
                 "at_least_400_tickers",
@@ -1140,6 +1150,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_missing_source_file_inbox_status",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_inbox_commands_are_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            del source["source_file_inbox_next_command"]
+            del source["source_file_inbox_dry_run_command"]
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_inbox_commands",
                 result["attention_reasons"],
             )
 

@@ -869,6 +869,18 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         validation_status = str(payload.get("source_file_validation_status", "") or "").strip()
         if inbox_exists != recorded_exists or (inbox_exists and validation_status == "missing"):
             reasons.append("sp500_current_membership_sources_source_file_inbox_status_mismatch")
+    inbox_command = str(payload.get("source_file_inbox_next_command", "") or "").strip()
+    inbox_dry_run_command = str(
+        payload.get("source_file_inbox_dry_run_command", "") or ""
+    ).strip()
+    if (
+        "run_sp500_current_membership_sources.ps1" not in inbox_command
+        or "-SourceFileInbox" not in inbox_command
+        or "run_sp500_current_membership_sources.ps1" not in inbox_dry_run_command
+        or "-SourceFileInbox" not in inbox_dry_run_command
+        or "-DryRun" not in inbox_dry_run_command
+    ):
+        reasons.append("sp500_current_membership_sources_missing_source_file_inbox_commands")
 
     intake_file = str(payload.get("source_file_intake_template", "") or "").strip()
     expected_count = _int_value(payload.get("intake_expected_count"))
