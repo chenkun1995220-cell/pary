@@ -980,8 +980,14 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["status"], "missing")
             self.assertFalse(payload["source_file_inbox_exists"])
             self.assertEqual(payload["next_action"], "place_official_constituents_csv")
+            self.assertTrue(payload["external_input_required"])
+            self.assertEqual(payload["blocking_reason"], "official_constituents_csv_missing")
+            self.assertEqual(payload["blocking_input"], str(inbox))
             self.assertEqual(payload["requested_count"], 2)
-            self.assertIn("status: missing", report.read_text(encoding="utf-8-sig"))
+            report_text = report.read_text(encoding="utf-8-sig")
+            self.assertIn("status: missing", report_text)
+            self.assertIn("external_input_required: true", report_text)
+            self.assertIn("blocking_reason: official_constituents_csv_missing", report_text)
 
     def test_inbox_status_reports_ready_official_csv_with_intake_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -77,6 +77,9 @@ def build_inbox_status(
         "source_file_inbox_next_command": SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE.format(
             source_file_inbox=source_file_inbox
         ),
+        "external_input_required": False,
+        "blocking_reason": "",
+        "blocking_input": "",
         "formal_backtest_upgrade_allowed": False,
         "formal_model_change_allowed": False,
     }
@@ -86,6 +89,9 @@ def build_inbox_status(
                 "status": "missing",
                 "source_file_validation_status": "missing",
                 "next_action": "place_official_constituents_csv",
+                "external_input_required": True,
+                "blocking_reason": "official_constituents_csv_missing",
+                "blocking_input": str(source_file_inbox),
                 **_intake_coverage(set(), intake_template),
             }
         )
@@ -102,6 +108,9 @@ def build_inbox_status(
                 "source_file_available_columns": _source_file_available_columns(inbox_path),
                 "validation_error": str(exc),
                 "next_action": "provide_valid_official_constituents_csv",
+                "external_input_required": True,
+                "blocking_reason": "official_constituents_csv_invalid",
+                "blocking_input": str(source_file_inbox),
                 **_intake_coverage(set(), intake_template),
             }
         )
@@ -113,6 +122,9 @@ def build_inbox_status(
             "status": status,
             "source_file_validation_status": "ready" if status.startswith("ready") else "incomplete",
             "next_action": next_action,
+            "external_input_required": not status.startswith("ready"),
+            "blocking_reason": "" if status.startswith("ready") else "official_constituents_csv_incomplete",
+            "blocking_input": "" if status.startswith("ready") else str(source_file_inbox),
             "parsed_official_ticker_count": len(tickers),
             "source_file_ticker_columns": source_file_ticker_columns,
             "matched_requested_count": len([ticker for ticker in requested if ticker in tickers]),
@@ -141,6 +153,9 @@ def render_status(payload):
         f"- intake_expected_count: {payload.get('intake_expected_count', 0)}",
         f"- intake_matched_count: {payload.get('intake_matched_count', 0)}",
         f"- intake_missing_count: {payload.get('intake_missing_count', 0)}",
+        f"- external_input_required: {str(payload.get('external_input_required', False)).lower()}",
+        f"- blocking_reason: {payload.get('blocking_reason', '')}",
+        f"- blocking_input: {payload.get('blocking_input', '')}",
         f"- next_action: {payload.get('next_action', '')}",
         f"- dry_run_command: {payload.get('source_file_inbox_dry_run_command', '')}",
         f"- import_command: {payload.get('source_file_inbox_next_command', '')}",
