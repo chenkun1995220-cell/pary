@@ -28,6 +28,10 @@ DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
     "Constituent Ticker",
     "Constituent Symbol",
 ]
+DELIVERY_HEALTH_MIRRORED_REASONS = {
+    "automation_check:manual_review_needed",
+    "data_quality_history:manual_review_needed",
+}
 
 
 def load_manifest(manifest):
@@ -95,6 +99,45 @@ def _delivery_history(manifest):
 
 def _is_manual_review_pending_reason(reason):
     return str(reason or "").startswith("manual_review_pending:")
+
+
+def _has_missing_conclusion_signal(history):
+    return bool(
+        history.get("latest_missing_conclusion_signals")
+        or history.get("recurring_missing_conclusion_signals")
+        or history.get("latest_missing_conclusion_signal_fixes")
+        or history.get("recurring_missing_conclusion_signal_fixes")
+    )
+
+
+def _health_reasons(history):
+    latest_reasons = {
+        str(reason).strip()
+        for reason in history.get("latest_conclusion_health_reasons", []) or []
+        if str(reason).strip()
+    }
+    recurring_reasons = {
+        str(item.get("reason", "")).strip()
+        for item in history.get("recurring_health_reasons", []) or []
+        if isinstance(item, dict) and str(item.get("reason", "")).strip()
+    }
+    reasons = latest_reasons | recurring_reasons
+    if _manual_review_count({}, history) <= 0:
+        reasons = {
+            reason for reason in reasons if not _is_manual_review_pending_reason(reason)
+        }
+    return reasons
+
+
+def _delivery_health_issue_is_actionable(history):
+    if _manual_review_count({}, history) > 0:
+        return True
+    if _has_missing_conclusion_signal(history):
+        return True
+    return any(
+        reason not in DELIVERY_HEALTH_MIRRORED_REASONS
+        for reason in _health_reasons(history)
+    )
 
 
 def _health_reason_text(history):
@@ -847,6 +890,10 @@ def build_weekly_action_items(
         if action_code == "review_manual_review_backlog":
             history = _delivery_history(source)
             if _manual_review_count(source, history) <= 0:
+                continue
+        if action_code == "review_delivery_health_issues":
+            history = _delivery_history(source)
+            if not _delivery_health_issue_is_actionable(history):
                 continue
         template = _action_template(action_code, source)
         items.append(

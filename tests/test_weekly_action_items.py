@@ -393,6 +393,45 @@ def write_manifest_with_resolved_delivery_backlog(path):
             {"reason": "data_quality_history:manual_review_needed", "count": 4},
             {"reason": "manual_review_pending:1", "count": 2},
         ],
+        "latest_missing_conclusion_signals": ["weekly_report_path"],
+        "recurring_missing_conclusion_signals": [],
+        "latest_missing_conclusion_signal_fixes": {
+            "weekly_report_path": "refresh weekly conclusion report"
+        },
+        "recurring_missing_conclusion_signal_fixes": [],
+    }
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
+def write_manifest_with_duplicate_delivery_health_reason(path):
+    write_manifest(path)
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    payload["manual_review_queue_count"] = 0
+    payload["automation_priority_actions"] = [
+        "review_data_quality_score",
+        "review_data_quality_trend",
+        "review_delivery_health_issues",
+    ]
+    payload["weekly_delivery_history"] = {
+        "latest_manual_review_pending_count": 0,
+        "latest_conclusion_health_status": "needs_review",
+        "latest_conclusion_health_score": 80,
+        "latest_conclusion_health_reasons": [
+            "automation_check:manual_review_needed",
+            "data_quality_history:manual_review_needed",
+        ],
+        "recurring_health_reasons": [
+            {"reason": "automation_check:manual_review_needed", "count": 5},
+            {"reason": "data_quality_history:manual_review_needed", "count": 4},
+        ],
+        "latest_conclusion_signal_status": "ready",
+        "latest_missing_conclusion_signals": [],
+        "latest_missing_conclusion_signal_fixes": {},
+        "recurring_missing_conclusion_signals": [],
+        "recurring_missing_conclusion_signal_fixes": [],
     }
     Path(path).write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
@@ -573,6 +612,22 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             self.assertNotIn("manual_review_pending", delivery["source"])
             self.assertIn("data_quality_history:manual_review_needed", delivery["source"])
+
+    def test_skips_delivery_health_issue_when_it_only_duplicates_data_quality(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            write_manifest_with_duplicate_delivery_health_reason(manifest_path)
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(manifest_path)
+
+            actions = [item["action_code"] for item in payload["items"]]
+            self.assertEqual(
+                actions,
+                ["review_data_quality_score", "review_data_quality_trend"],
+            )
+            self.assertNotIn("review_delivery_health_issues", actions)
 
     def test_adds_apply_preview_action_when_membership_sources_are_ready_to_import(self):
         with tempfile.TemporaryDirectory() as tmp:
