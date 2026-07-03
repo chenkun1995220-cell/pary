@@ -311,15 +311,19 @@ def write_manual_review_queue(path):
         )
 
 
-def write_data_health_review(path):
+def write_data_health_review(path, refetch_gap_action_required_count=2):
     payload = {
         "review_schema": "data_health_review",
         "as_of_date": "2026-06-29",
         "status": "acceptable_with_monitoring",
+        "blocked_candidate_count": 0,
         "refetch_gap_count": 2,
+        "refetch_gap_action_required_count": refetch_gap_action_required_count,
         "markets": [
             {
                 "name": "港股周筛",
+                "blocked_candidate_count": 0,
+                "refetch_gap_action_required_count": refetch_gap_action_required_count,
                 "refetch_gaps": [
                     {
                         "ticker": "00754.HK",
@@ -614,6 +618,31 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("00754.HK partial", data_health["recommended_check"])
             self.assertIn("00823.HK partial", data_health["recommended_check"])
             self.assertIn("补充行情源或人工复核字段口径", data_health["recommended_check"])
+
+    def test_skips_data_health_action_when_review_only_requires_monitoring(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            data_health_path = Path(tmp) / "latest_data_health_review.json"
+            write_manifest(manifest_path)
+            write_data_health_review(
+                data_health_path,
+                refetch_gap_action_required_count=0,
+            )
+            payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            payload["automation_priority_actions"] = ["review_data_health"]
+            manifest_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            result = build_weekly_action_items(
+                manifest_path,
+                data_health_review=data_health_path,
+            )
+
+            self.assertEqual(result["items"], [])
 
     def test_skips_manual_review_backlog_when_latest_pending_is_zero(self):
         with tempfile.TemporaryDirectory() as tmp:

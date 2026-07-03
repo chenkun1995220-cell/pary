@@ -806,6 +806,26 @@ def _candidate_review_issue_is_actionable(candidate_findings):
     return _int_value(candidate_findings.get("risk_action_required_count"), 0) > 20
 
 
+def _data_health_issue_is_actionable(data_health):
+    if not isinstance(data_health, dict) or not data_health:
+        return True
+    status = str(data_health.get("status", "") or "").strip()
+    if status not in {"ready", "acceptable_with_monitoring"}:
+        return True
+    if _int_value(data_health.get("blocked_candidate_count"), 0) > 0:
+        return True
+    if _int_value(data_health.get("refetch_gap_action_required_count"), 0) > 0:
+        return True
+    for market in data_health.get("markets", []) or []:
+        if not isinstance(market, dict):
+            continue
+        if _int_value(market.get("blocked_candidate_count"), 0) > 0:
+            return True
+        if _int_value(market.get("refetch_gap_action_required_count"), 0) > 0:
+            return True
+    return False
+
+
 def _backlog_reduction_plan(items):
     grouped = {}
     for item in items:
@@ -918,6 +938,9 @@ def build_weekly_action_items(
             if not _candidate_review_issue_is_actionable(
                 source.get("candidate_findings_review", {})
             ):
+                continue
+        if action_code == "review_data_health":
+            if not _data_health_issue_is_actionable(source.get("data_health_review", {})):
                 continue
         template = _action_template(action_code, source)
         items.append(
