@@ -654,6 +654,13 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                     "module": "S&P 500 成分证据补强",
                     "completion_percent": 30,
                     "status": "needs_work",
+                    "current": {
+                        "sp500_current_source_inbox_external_input_required": True,
+                        "sp500_current_source_inbox_blocking_reason": "official_constituents_csv_missing",
+                        "sp500_current_source_inbox_blocking_input": (
+                            "inputs/sp500_current_membership/official_constituents.csv"
+                        ),
+                    },
                 }
             ],
         },
@@ -720,6 +727,19 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["development_closeout"]["collaboration_execution_mode"],
                 "single_codex_with_gpt55_review_checklist",
             )
+            self.assertTrue(
+                result["development_closeout"][
+                    "sp500_current_source_inbox_external_input_required"
+                ]
+            )
+            self.assertEqual(
+                result["development_closeout"]["sp500_current_source_inbox_blocking_reason"],
+                "official_constituents_csv_missing",
+            )
+            self.assertEqual(
+                result["development_closeout"]["sp500_current_source_inbox_blocking_input"],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
             self.assertEqual(result["attention_reasons"], [])
             self.assertEqual(result["missing_outputs"], [])
             self.assertIn("# 提交前复核结果", report)
@@ -736,6 +756,11 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertIn("current_target_total_completion_percent=61", report)
             self.assertIn(
                 "collaboration_execution_mode=single_codex_with_gpt55_review_checklist",
+                report,
+            )
+            self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+            self.assertIn(
+                "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,
             )
 

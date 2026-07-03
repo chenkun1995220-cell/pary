@@ -586,6 +586,9 @@ def render_pre_submit_review(result):
                 f"- medium_term_status={closeout.get('medium_term_status', 'unknown')}",
                 f"- automatic_multi_model_collaboration_enabled={closeout.get('automatic_multi_model_collaboration_enabled', False)}",
                 f"- collaboration_execution_mode={closeout.get('collaboration_execution_mode', 'unknown')}",
+                f"- sp500_current_source_inbox_external_input_required={closeout.get('sp500_current_source_inbox_external_input_required', False)}",
+                f"- sp500_current_source_inbox_blocking_reason={closeout.get('sp500_current_source_inbox_blocking_reason', '')}",
+                f"- sp500_current_source_inbox_blocking_input={closeout.get('sp500_current_source_inbox_blocking_input', '')}",
             ]
         )
     if result.get("missing_output_paths"):
@@ -1481,6 +1484,9 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
             ),
             {},
         )
+    current = goal.get("current", {}) if isinstance(goal, dict) else {}
+    if not isinstance(current, dict):
+        current = {}
     return {
         "goal_code": goal.get("goal_code", closeout_goal_code or "unknown"),
         "current_module": goal.get("module", snapshot.get("current_module", "unknown")),
@@ -1515,6 +1521,17 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
         "collaboration_boundary_note": medium_term_goal_review.get(
             "collaboration_boundary_note",
             "unknown",
+        ),
+        "sp500_current_source_inbox_external_input_required": bool(
+            current.get("sp500_current_source_inbox_external_input_required")
+        ),
+        "sp500_current_source_inbox_blocking_reason": current.get(
+            "sp500_current_source_inbox_blocking_reason",
+            "",
+        ),
+        "sp500_current_source_inbox_blocking_input": current.get(
+            "sp500_current_source_inbox_blocking_input",
+            "",
         ),
     }
 
