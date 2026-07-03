@@ -12,6 +12,7 @@ from sp500_current_membership_sources import (
     SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE,
     SOURCE_FILE_REQUIRED_COLUMNS,
     _intake_expected_tickers,
+    _source_file_available_columns,
     _source_file_ticker_columns,
     _template_tickers,
     parse_official_current_tickers_from_source_file,
@@ -98,6 +99,7 @@ def build_inbox_status(
             {
                 "status": "invalid",
                 "source_file_validation_status": "invalid",
+                "source_file_available_columns": _source_file_available_columns(inbox_path),
                 "validation_error": str(exc),
                 "next_action": "provide_valid_official_constituents_csv",
                 **_intake_coverage(set(), intake_template),
@@ -133,6 +135,7 @@ def render_status(payload):
         f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}",
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
         f"- source_file_ticker_columns: {', '.join(payload.get('source_file_ticker_columns') or [])}",
+        f"- source_file_available_columns: {', '.join(payload.get('source_file_available_columns') or [])}",
         f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
         f"- intake_coverage_status: {payload.get('intake_coverage_status', '')}",
         f"- intake_expected_count: {payload.get('intake_expected_count', 0)}",

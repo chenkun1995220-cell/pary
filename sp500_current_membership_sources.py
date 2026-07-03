@@ -165,6 +165,17 @@ def _source_file_ticker_columns(fieldnames):
     ]
 
 
+def _source_file_available_columns(source_file):
+    source = Path(source_file)
+    if not source.exists():
+        return []
+    try:
+        with source.open(encoding="utf-8-sig", newline="") as handle:
+            return [name for name in (csv.DictReader(handle).fieldnames or []) if name]
+    except OSError:
+        return []
+
+
 def parse_official_current_tickers_from_source_file(source_file):
     source = Path(source_file)
     if not source.exists():
@@ -323,6 +334,7 @@ def build_source_file_invalid_payload(template_path, source_url, source_file, er
         "as_of_date": as_of_date or date.today().isoformat(),
         "source_url": source_url,
         "source_file": str(source_file),
+        "source_file_available_columns": _source_file_available_columns(source_file),
         "requested_count": len(requested),
         "parsed_official_ticker_count": 0,
         "matched_count": 0,
@@ -477,6 +489,10 @@ def render_report(payload):
     if payload.get("source_file_ticker_columns"):
         lines.append(
             "- source_file_ticker_columns: " + ", ".join(payload.get("source_file_ticker_columns") or [])
+        )
+    if payload.get("source_file_available_columns"):
+        lines.append(
+            "- source_file_available_columns: " + ", ".join(payload.get("source_file_available_columns") or [])
         )
     if payload.get("error"):
         lines.append(f"- error: {payload.get('error', '')}")

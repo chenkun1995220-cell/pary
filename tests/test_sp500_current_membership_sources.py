@@ -738,6 +738,10 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("status: source_file_invalid", result.stdout)
             self.assertIn("validation_only: true", result.stdout)
             self.assertIn("source_file must contain a Symbol or Ticker column", result.stdout)
+            self.assertIn(
+                "source_file_available_columns: expected_ticker, intake_status, required_source_url, required_source_columns, notes",
+                result.stdout,
+            )
             self.assertNotIn("Traceback", result.stdout + result.stderr)
             self.assertFalse(output.exists())
             self.assertFalse(report.exists())
@@ -1022,6 +1026,57 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["source_file_ticker_columns"], ["Ticker Symbol"])
             self.assertIn(
                 "source_file_ticker_columns: Ticker Symbol",
+                report.read_text(encoding="utf-8-sig"),
+            )
+
+    def test_inbox_status_reports_invalid_source_file_available_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            inbox = root / "inputs" / "official_constituents.csv"
+            output = root / "latest_inbox_status.json"
+            report = root / "latest_inbox_status.md"
+            write_template(template)
+            write_intake_template(inbox)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_source_inbox_status.py"),
+                    "--template",
+                    str(template),
+                    "--source-file-inbox",
+                    str(inbox),
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--as-of-date",
+                    "2026-07-03",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "invalid")
+            self.assertEqual(
+                payload["source_file_available_columns"],
+                [
+                    "expected_ticker",
+                    "intake_status",
+                    "required_source_url",
+                    "required_source_columns",
+                    "notes",
+                ],
+            )
+            self.assertIn(
+                "source_file_available_columns: expected_ticker, intake_status, required_source_url, required_source_columns, notes",
                 report.read_text(encoding="utf-8-sig"),
             )
 
