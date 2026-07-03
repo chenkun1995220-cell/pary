@@ -509,6 +509,66 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
             self.assertIn("provide_official_constituents_csv", report)
 
+    def test_current_membership_source_action_defaults_to_inbox_commands(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            source_path = root / "latest_sp500_current_membership_sources.json"
+            write_manifest(manifest_path)
+            write_current_membership_sources(source_path)
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source.update(
+                {
+                    "status": "fetch_failed",
+                    "matched_count": 0,
+                    "missing_count": 50,
+                    "missing_tickers": ["ABT", "ADM"],
+                    "intake_missing_count": 50,
+                    "intake_missing_tickers": ["ABT", "ADM"],
+                    "next_action": "retry_official_source_or_provide_official_constituents_csv",
+                    "recommended_followup": "provide_official_constituents_csv",
+                    "source_file_required_columns": ["Symbol", "Ticker"],
+                    "source_file_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
+                    "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+                    "source_file_inbox_exists": False,
+                    "source_file_validation_status": "missing",
+                    "source_file_acceptance_criteria": [
+                        "has_symbol_or_ticker_column",
+                        "at_least_400_tickers",
+                    ],
+                }
+            )
+            source.pop("source_file_next_command", None)
+            source.pop("source_file_dry_run_command", None)
+            source.pop("source_file_inbox_next_command", None)
+            source.pop("source_file_inbox_dry_run_command", None)
+            source_path.write_text(
+                json.dumps(source, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                current_membership_sources=source_path,
+            )
+
+            source_item = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "provide_official_constituents_csv"
+            )
+            self.assertIn(
+                "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv",
+                source_item["recommended_check"],
+            )
+            self.assertIn(
+                "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv",
+                source_item["recommended_check"],
+            )
+            self.assertNotIn("-SourceFile <official_constituents.csv>", source_item["recommended_check"])
+
     def test_adds_backlog_reduction_action_when_weekly_action_items_are_increasing(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"

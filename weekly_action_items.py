@@ -394,6 +394,17 @@ def _current_membership_source_action(source_status, review_status=None):
         source_status.get("source_file_request_file", "") or ""
     ).strip()
     source_file_inbox = str(source_status.get("source_file_inbox", "") or "").strip()
+    source_file_inbox_default = (
+        source_file_inbox or "inputs/sp500_current_membership/official_constituents.csv"
+    )
+    source_file_next_command_default = (
+        "run_sp500_current_membership_sources.ps1 "
+        f"-SourceFileInbox {source_file_inbox_default}"
+    )
+    source_file_dry_run_command_default = (
+        "run_sp500_current_membership_sources.ps1 "
+        f"-DryRun -SourceFileInbox {source_file_inbox_default}"
+    )
     source_file_inbox_exists_value = source_status.get("source_file_inbox_exists")
     if source_file_inbox_exists_value is None:
         source_file_inbox_exists = "unknown"
@@ -422,10 +433,10 @@ def _current_membership_source_action(source_status, review_status=None):
     decision_pending_ticker_text = ", ".join(decision_pending_tickers[:10]) or "none"
     source_file_action_prefix = (
         f"source_file_request_file:{source_file_request_file or 'outputs/automation/sp500_current_membership_source_file_request.md'}; "
-        f"source_file_inbox:{source_file_inbox or 'inputs/sp500_current_membership/official_constituents.csv'}; "
+        f"source_file_inbox:{source_file_inbox_default}; "
         f"inbox_status={source_file_validation_status}; "
-        f"dry_run_command:{source_file_dry_run_command or 'run_sp500_current_membership_sources.ps1 -DryRun -SourceFile <official_constituents.csv>'}; "
-        f"import_command:{source_file_next_command or 'run_sp500_current_membership_sources.ps1 -SourceFile <official_constituents.csv>'}; "
+        f"dry_run_command:{source_file_dry_run_command or source_file_dry_run_command_default}; "
+        f"import_command:{source_file_next_command or source_file_next_command_default}; "
     )
     ticker_text = f"{ticker_text}; {source_file_action_prefix}"
     ticker_text = (
@@ -477,9 +488,9 @@ def _current_membership_source_action(source_status, review_status=None):
             "outputs/automation/sp500_current_membership_source_intake_template.csv 中的 "
             f"{ticker_text}；当前缺失复核队列 {missing_queue_count} 条；"
             f"若 recommended_followup={recommended_followup}，提供官方 S&P Global constituents CSV，"
-            f"默认投递入口：{source_file_inbox or 'inputs/sp500_current_membership/official_constituents.csv'}；"
+            f"默认投递入口：{source_file_inbox_default}；"
             f"要求列：{source_file_required_text}；验收条件：{source_file_criteria_text}；"
-            f"导入命令：{source_file_next_command or 'run_sp500_current_membership_sources.ps1 -SourceFile <official_constituents.csv>'}；"
+            f"导入命令：{source_file_next_command or source_file_next_command_default}；"
             "确认缺失 ticker 是官方导出不覆盖，还是人工来源文件仍不完整。"
             "该动作只做证据复核，不修改 historical_membership.csv 或正式模型参数。"
         ),
