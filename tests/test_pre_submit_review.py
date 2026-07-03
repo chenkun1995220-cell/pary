@@ -826,6 +826,52 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["priority_actions"],
             )
 
+    def test_review_priority_actions_follow_weekly_action_items_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            automation_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            automation = json.loads(automation_path.read_text(encoding="utf-8-sig"))
+            automation["priority_actions"] = [
+                "review_manual_review_backlog",
+                "review_delivery_health_issues",
+                "review_data_health",
+            ]
+            write_json(automation_path, automation)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["items"] = [
+                {
+                    "priority": 1,
+                    "status": "open",
+                    "action_code": "review_delivery_health_issues",
+                },
+                {
+                    "priority": 2,
+                    "status": "open",
+                    "action_code": "review_data_health",
+                },
+            ]
+            action_items["item_count"] = 2
+            write_json(action_items_path, action_items)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["priority_actions"] = [
+                "review_delivery_health_issues",
+                "review_data_health",
+            ]
+            write_json(conclusion_path, conclusion)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(
+                result["priority_actions"],
+                ["review_delivery_health_issues", "review_data_health"],
+            )
+            self.assertNotIn("review_manual_review_backlog", result["priority_actions"])
+
     def test_review_needs_attention_when_weekly_conclusion_misses_weekly_action_item_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

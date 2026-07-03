@@ -755,15 +755,19 @@ def _weekly_conclusion_action_item_sync_reasons(weekly_conclusion, action_items)
 
 
 def _combined_priority_actions(automation_check, action_items):
-    actions = []
-    for action in automation_check.get("priority_actions", []) or []:
-        action_code = str(action).strip()
-        if action_code and action_code not in actions:
-            actions.append(action_code)
+    weekly_actions = []
     for item in action_items.get("items", []) or [] if isinstance(action_items, dict) else []:
         if not isinstance(item, dict):
             continue
         action_code = str(item.get("action_code", "")).strip()
+        if action_code and action_code not in weekly_actions:
+            weekly_actions.append(action_code)
+    if weekly_actions:
+        return weekly_actions
+
+    actions = []
+    for action in automation_check.get("priority_actions", []) or []:
+        action_code = str(action).strip()
         if action_code and action_code not in actions:
             actions.append(action_code)
     return actions

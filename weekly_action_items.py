@@ -93,12 +93,23 @@ def _delivery_history(manifest):
     return history if isinstance(history, dict) else {}
 
 
+def _is_manual_review_pending_reason(reason):
+    return str(reason or "").startswith("manual_review_pending:")
+
+
 def _health_reason_text(history):
     reasons = list(history.get("latest_conclusion_health_reasons", []) or [])
+    latest_manual_pending = _int_value(history.get("latest_manual_review_pending_count"), 0)
+    if latest_manual_pending <= 0:
+        reasons = [reason for reason in reasons if not _is_manual_review_pending_reason(reason)]
     recurring = [
         f"{item.get('reason', 'unknown')} ({item.get('count', 0)})"
         for item in history.get("recurring_health_reasons", []) or []
         if isinstance(item, dict)
+        and not (
+            latest_manual_pending <= 0
+            and _is_manual_review_pending_reason(item.get("reason"))
+        )
     ]
     parts = []
     if reasons:
@@ -833,10 +844,14 @@ def build_weekly_action_items(
 
     items = []
     for index, action_code in enumerate(actions, start=1):
+        if action_code == "review_manual_review_backlog":
+            history = _delivery_history(source)
+            if _manual_review_count(source, history) <= 0:
+                continue
         template = _action_template(action_code, source)
         items.append(
             {
-                "priority": index,
+                "priority": len(items) + 1,
                 "status": "open",
                 "action_code": action_code,
                 "category": template["category"],

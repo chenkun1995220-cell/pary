@@ -1164,11 +1164,9 @@ def choose_priority_actions(status, automation, recommended_action):
         for item in weekly_items
         if isinstance(item, dict) and str(item.get("action_code", "")).strip()
     ]
-    merged = list(actions or weekly_actions or [recommended_action])
-    for action in weekly_actions:
-        if action not in merged:
-            merged.append(action)
-    return merged
+    if weekly_actions:
+        return list(weekly_actions)
+    return list(actions or [recommended_action])
 
 
 def describe_priority_actions(actions, weekly_action_items=None):

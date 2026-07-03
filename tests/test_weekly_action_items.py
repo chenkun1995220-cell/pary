@@ -371,6 +371,35 @@ def write_quote_retry_results(path):
     )
 
 
+def write_manifest_with_resolved_delivery_backlog(path):
+    write_manifest(path)
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    payload["manual_review_queue_count"] = 0
+    payload["automation_priority_actions"] = [
+        "review_manual_review_backlog",
+        "review_delivery_health_issues",
+        "review_data_health",
+    ]
+    payload["weekly_delivery_history"] = {
+        "latest_manual_review_pending_count": 0,
+        "latest_conclusion_health_status": "needs_review",
+        "latest_conclusion_health_score": 80,
+        "latest_conclusion_health_reasons": [
+            "automation_check:manual_review_needed",
+            "data_quality_history:manual_review_needed",
+        ],
+        "recurring_health_reasons": [
+            {"reason": "automation_check:manual_review_needed", "count": 5},
+            {"reason": "data_quality_history:manual_review_needed", "count": 4},
+            {"reason": "manual_review_pending:1", "count": 2},
+        ],
+    }
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 class WeeklyActionItemsTests(unittest.TestCase):
     def test_builds_action_items_from_self_analysis_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -520,6 +549,30 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("00754.HK partial", data_health["recommended_check"])
             self.assertIn("00823.HK partial", data_health["recommended_check"])
             self.assertIn("补充行情源或人工复核字段口径", data_health["recommended_check"])
+
+    def test_skips_manual_review_backlog_when_latest_pending_is_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            data_health_path = Path(tmp) / "latest_data_health_review.json"
+            write_manifest_with_resolved_delivery_backlog(manifest_path)
+            write_data_health_review(data_health_path)
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                data_health_review=data_health_path,
+            )
+
+            actions = [item["action_code"] for item in payload["items"]]
+            self.assertNotIn("review_manual_review_backlog", actions)
+            delivery = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_delivery_health_issues"
+            )
+            self.assertNotIn("manual_review_pending", delivery["source"])
+            self.assertIn("data_quality_history:manual_review_needed", delivery["source"])
 
     def test_adds_apply_preview_action_when_membership_sources_are_ready_to_import(self):
         with tempfile.TemporaryDirectory() as tmp:

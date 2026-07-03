@@ -484,6 +484,68 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("review_current_membership_source_status", markdown)
             self.assertIn("决策模板 status=ready", markdown)
 
+    def test_weekly_action_items_are_authoritative_for_priority_actions_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_automation_check.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "manual_review_needed",
+                    "recommended_action": "review_data_health",
+                    "priority_actions": [
+                        "review_manual_review_backlog",
+                        "review_delivery_health_issues",
+                        "review_data_health",
+                    ],
+                },
+            )
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_ops_check.json",
+                {"as_of_date": "2026-06-28", "status": "ready"},
+            )
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_ops_history_summary.json",
+                {"latest_as_of_date": "2026-06-28", "latest_status": "ready"},
+            )
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_delivery_history_summary.json",
+                {"latest_as_of_date": "2026-06-28", "latest_status": "ready"},
+            )
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_action_items.json",
+                {
+                    "action_items_schema": "weekly_action_items",
+                    "action_items_version": 1,
+                    "as_of_date": "2026-06-28",
+                    "item_count": 2,
+                    "backlog_reduction_plan": [],
+                    "items": [
+                        {
+                            "action_code": "review_delivery_health_issues",
+                            "title": "复查最终交付健康提示",
+                            "recommended_check": "复查数据质量导致的交付健康提示。",
+                        },
+                        {
+                            "action_code": "review_data_health",
+                            "title": "复查数据健康异常",
+                            "recommended_check": "复查当前数据健康缺口。",
+                        },
+                    ],
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(
+                payload["priority_actions"],
+                ["review_delivery_health_issues", "review_data_health"],
+            )
+            self.assertNotIn("review_manual_review_backlog", payload["priority_actions"])
+
     def test_data_quality_trend_signal_reaches_weekly_conclusion_health(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
