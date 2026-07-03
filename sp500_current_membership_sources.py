@@ -349,7 +349,7 @@ def build_fetch_failed_payload(template_path, source_url, error, as_of_date=None
             source_url,
             "fetch_failed",
         ),
-        "next_action": "retry_official_source_or_provide_official_constituents_csv",
+        "next_action": classification["fetch_error_next_action"],
         "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
         "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
         "source_quality_flags": source_quality_flags,

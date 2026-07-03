@@ -875,6 +875,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["fetch_error_type"], "official_source_access_denied")
             self.assertFalse(payload["fetch_retryable_without_environment_change"])
             self.assertEqual(payload["fetch_error_next_action"], "provide_official_constituents_csv")
+            self.assertEqual(payload["next_action"], "provide_official_constituents_csv")
             self.assertIn(
                 "official_source_fetch_blocked_by_remote_access_policy",
                 payload["source_quality_flags"],
