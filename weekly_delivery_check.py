@@ -294,6 +294,10 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
         if status == "ready":
             status = "needs_attention"
         attention_reasons.append("weekly_action_items_count_mismatch")
+    for reason in _action_items_output_order_reasons(json_path, markdown_path):
+        if status == "ready":
+            status = "needs_attention"
+        attention_reasons.append(reason)
     freshness_status, age_days = _freshness(
         payload.get("as_of_date", "unknown"),
         today=today,
@@ -327,6 +331,21 @@ def _artifact_order_reasons(conclusion_path, action_items_json_path):
         return []
     if conclusion.stat().st_mtime < action_items.stat().st_mtime:
         return ["weekly_conclusion_older_than_weekly_action_items"]
+    return []
+
+
+def _action_items_output_order_reasons(json_path, markdown_path):
+    if not json_path or not markdown_path:
+        return []
+    json_path = Path(json_path)
+    markdown_path = Path(markdown_path)
+    if (
+        json_path.exists()
+        and markdown_path.exists()
+        and markdown_path.stat().st_mtime
+        < json_path.stat().st_mtime - ARTIFACT_ORDER_TOLERANCE_SECONDS
+    ):
+        return ["weekly_action_items_markdown_older_than_json"]
     return []
 
 

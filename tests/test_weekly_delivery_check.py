@@ -347,6 +347,26 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_delivery_check_needs_attention_when_action_items_markdown_is_older_than_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            action_items_json_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items_markdown_path = root / "outputs" / "automation" / "latest_weekly_action_items.md"
+            base_time = action_items_json_path.stat().st_mtime
+            os.utime(action_items_markdown_path, (base_time - 20, base_time - 20))
+            os.utime(action_items_json_path, (base_time, base_time))
+
+            from weekly_delivery_check import run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_markdown_older_than_json",
+                result["attention_reasons"],
+            )
+
     def test_delivery_check_needs_attention_when_conclusion_json_is_stale(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
