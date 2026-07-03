@@ -900,9 +900,36 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
     ):
         reasons.append("sp500_current_membership_sources_intake_template_mismatch")
     request_file = str(payload.get("source_file_request_file", "") or "").strip()
-    if not request_file or not _resolve_path(project_root or ".", request_file).exists():
+    request_path = _resolve_path(project_root or ".", request_file) if request_file else None
+    if not request_path or not request_path.exists():
         reasons.append("sp500_current_membership_sources_missing_source_file_request")
+    elif _source_file_request_inbox_commands_missing(request_path):
+        reasons.append("sp500_current_membership_sources_missing_source_file_request_inbox_commands")
     return reasons
+
+
+def _source_file_request_inbox_commands_missing(path):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+
+    inbox_dry_run = _line_value(lines, "inbox_dry_run_command")
+    inbox_import = _line_value(lines, "inbox_import_command")
+    return (
+        "-SourceFileInbox" not in inbox_dry_run
+        or "-DryRun" not in inbox_dry_run
+        or "-SourceFileInbox" not in inbox_import
+    )
+
+
+def _line_value(lines, key):
+    prefix = f"- {key}:"
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(prefix):
+            return stripped[len(prefix):].strip()
+    return ""
 
 
 def _ticker_set_from_review_queue(review_queue):
