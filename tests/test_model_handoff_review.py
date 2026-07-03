@@ -110,14 +110,22 @@ class ModelHandoffReviewTests(unittest.TestCase):
                             "module": "S&P 500 成分证据补强",
                             "completion_percent": 30,
                             "status": "needs_work",
+                            "current": {
+                                "sp500_current_source_inbox_external_input_required": True,
+                                "sp500_current_source_inbox_blocking_reason": "official_constituents_csv_missing",
+                                "sp500_current_source_inbox_blocking_input": (
+                                    "inputs/sp500_current_membership/official_constituents.csv"
+                                ),
+                            },
                         },
                     ],
                 },
             )
 
-            from model_handoff_review import build_model_handoff_review
+            from model_handoff_review import build_model_handoff_review, render_model_handoff_review
 
             result = build_model_handoff_review(root, today="2026-07-02")
+            report = render_model_handoff_review(result)
 
             self.assertEqual(result["status"], "ready")
             self.assertEqual(result["goal_code"], "backtest_evidence_quality")
@@ -125,6 +133,20 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertEqual(result["module_completion_percent"], 30)
             self.assertEqual(result["medium_term_overall_completion_percent"], 61)
             self.assertEqual(result["current_target_total_completion_percent"], 61)
+            self.assertTrue(result["sp500_current_source_inbox_external_input_required"])
+            self.assertEqual(
+                result["sp500_current_source_inbox_blocking_reason"],
+                "official_constituents_csv_missing",
+            )
+            self.assertEqual(
+                result["sp500_current_source_inbox_blocking_input"],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
+            self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+            self.assertIn(
+                "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
+                report,
+            )
 
     def test_weekly_bundle_runs_handoff_before_pre_submit_review(self):
         project_root = Path(__file__).resolve().parents[1]

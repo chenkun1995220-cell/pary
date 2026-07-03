@@ -94,6 +94,9 @@ def build_model_handoff_review(
     if medium_term and "未启用自动多模型协作" not in collaboration_note:
         reasons.append("missing_no_auto_collaboration_boundary")
 
+    current = goal.get("current", {}) if isinstance(goal, dict) else {}
+    if not isinstance(current, dict):
+        current = {}
     status = "ready" if not reasons else "needs_attention"
     return {
         "handoff_schema": HANDOFF_SCHEMA,
@@ -119,6 +122,17 @@ def build_model_handoff_review(
         "development_priority_actions": _priority_actions(medium_term),
         "automatic_multi_model_collaboration_enabled": auto_collaboration,
         "collaboration_execution_mode": collaboration_mode,
+        "sp500_current_source_inbox_external_input_required": bool(
+            current.get("sp500_current_source_inbox_external_input_required")
+        ),
+        "sp500_current_source_inbox_blocking_reason": current.get(
+            "sp500_current_source_inbox_blocking_reason",
+            "",
+        ),
+        "sp500_current_source_inbox_blocking_input": current.get(
+            "sp500_current_source_inbox_blocking_input",
+            "",
+        ),
         "collaboration_boundary_note": collaboration_note,
         "spark_execution_summary": "单 Codex 按 gpt5.3-codex-spark 的小步实现习惯推进，并保留可回放证据。",
         "gpt55_review_checklist": [
@@ -180,6 +194,14 @@ def render_model_handoff_review(result):
         lines.extend(["", "## 需处理原因", ""])
         for reason in result["attention_reasons"]:
             lines.append(f"- {reason}")
+    lines.extend(
+        [
+            "",
+            f"- sp500_current_source_inbox_external_input_required={result.get('sp500_current_source_inbox_external_input_required', False)}",
+            f"- sp500_current_source_inbox_blocking_reason={result.get('sp500_current_source_inbox_blocking_reason', '')}",
+            f"- sp500_current_source_inbox_blocking_input={result.get('sp500_current_source_inbox_blocking_input', '')}",
+        ]
+    )
     lines.append("")
     return "\n".join(lines)
 
