@@ -564,6 +564,17 @@ def _backtest_goal(
             "sp500_current_source_inbox_intake_missing_count": _int_value(
                 current_membership_source_inbox_status.get("intake_missing_count")
             ),
+            "sp500_current_source_inbox_external_input_required": bool(
+                current_membership_source_inbox_status.get("external_input_required")
+            ),
+            "sp500_current_source_inbox_blocking_reason": current_membership_source_inbox_status.get(
+                "blocking_reason",
+                "",
+            ),
+            "sp500_current_source_inbox_blocking_input": current_membership_source_inbox_status.get(
+                "blocking_input",
+                "",
+            ),
             "sp500_current_source_review_queue_open_count": review_queue_counts["open"],
             "sp500_current_source_review_queue_resolved_count": review_queue_counts["resolved"],
             "sp500_current_source_review_status": current_membership_source_review_status.get(

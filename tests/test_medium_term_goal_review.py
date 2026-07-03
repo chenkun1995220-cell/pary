@@ -260,6 +260,9 @@ def write_review_fixtures(root):
             "intake_expected_count": 50,
             "intake_matched_count": 0,
             "intake_missing_count": 50,
+            "external_input_required": True,
+            "blocking_reason": "official_constituents_csv_missing",
+            "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
             "next_action": "place_official_constituents_csv",
             "formal_backtest_upgrade_allowed": False,
             "formal_model_change_allowed": False,
@@ -512,6 +515,23 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_intake_missing_count"],
                 50,
             )
+            self.assertTrue(
+                goals["backtest_evidence_quality"]["current"][
+                    "sp500_current_source_inbox_external_input_required"
+                ]
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"][
+                    "sp500_current_source_inbox_blocking_reason"
+                ],
+                "official_constituents_csv_missing",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"][
+                    "sp500_current_source_inbox_blocking_input"
+                ],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_queue_open_count"],
                 2,
@@ -637,6 +657,11 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("current_target_total_completion_percent=", report)
             self.assertIn("正式模型变更：不允许", report)
             self.assertIn("backtest_evidence_quality", report)
+            self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+            self.assertIn(
+                "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
+                report,
+            )
             self.assertNotIn("review_prediction_unavailable_signals", report)
             self.assertIn("weekly_action_backlog_reduction_plan_status=ready", report)
 
