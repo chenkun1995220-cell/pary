@@ -1474,7 +1474,10 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         reasons.append("model_handoff_review_missing_collaboration_boundary")
     if not isinstance(payload.get("gpt55_review_checklist"), list) or not payload.get("gpt55_review_checklist"):
         reasons.append("model_handoff_review_missing_gpt55_checklist")
-    if not isinstance(payload.get("validation_commands"), list):
+    if (
+        not isinstance(payload.get("validation_commands"), list)
+        or not payload.get("validation_commands")
+    ):
         reasons.append("model_handoff_review_invalid_validation_commands")
     if payload.get("formal_release_allowed") is not True:
         reasons.append("model_handoff_review_formal_release_not_allowed")

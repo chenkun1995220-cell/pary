@@ -2360,6 +2360,30 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_model_handoff_validation_commands_are_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            handoff["validation_commands"] = []
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_invalid_validation_commands",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_sp500_source_review_status_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
