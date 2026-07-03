@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -665,6 +666,11 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             ],
         },
     )
+    conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+    action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+    if conclusion_path.exists() and action_items_path.exists():
+        action_mtime = action_items_path.stat().st_mtime
+        os.utime(conclusion_path, (action_mtime + 1, action_mtime + 1))
 
 
 class PreSubmitReviewTests(unittest.TestCase):
@@ -762,6 +768,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,
+            )
+
+    def test_review_needs_attention_when_weekly_conclusion_is_older_than_action_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            base_time = action_items_path.stat().st_mtime
+            os.utime(conclusion_path, (base_time - 20, base_time - 20))
+            os.utime(action_items_path, (base_time, base_time))
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_older_than_weekly_action_items",
+                result["attention_reasons"],
             )
 
     def test_review_needs_attention_when_medium_term_closeout_snapshot_is_missing(self):

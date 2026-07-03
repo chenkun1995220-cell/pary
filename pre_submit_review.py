@@ -387,6 +387,7 @@ def run_pre_submit_review(
     input_dates = {}
     input_age_days = {}
     input_freshness = {}
+    input_modified_times = {}
     payloads = {}
 
     if not checklist_path.exists():
@@ -405,6 +406,7 @@ def run_pre_submit_review(
             _add_missing(missing_outputs, missing_output_paths, name, path)
             continue
         payloads[name] = payload
+        input_modified_times[name] = path.stat().st_mtime
         input_statuses[name] = _input_status(name, payload)
 
         input_date = str(payload.get("as_of_date", "unknown"))
@@ -437,6 +439,7 @@ def run_pre_submit_review(
             payloads.get("weekly_action_items", {}),
         )
     )
+    attention_reasons.extend(_artifact_order_reasons(input_modified_times))
     attention_reasons.extend(_data_health_review_reasons(payloads.get("data_health_review", {})))
     attention_reasons.extend(_backtest_evidence_review_reasons(payloads.get("backtest_evidence_review", {})))
     attention_reasons.extend(
@@ -510,6 +513,7 @@ def run_pre_submit_review(
         "input_dates": input_dates,
         "input_freshness": input_freshness,
         "input_age_days": input_age_days,
+        "input_modified_times": input_modified_times,
         "candidate_count_total": _int_value(
             automation_check.get("candidate_count_total"),
             _int_value(weekly_conclusion.get("candidate_count_total"), 0),
@@ -754,6 +758,18 @@ def _weekly_conclusion_action_item_sync_reasons(weekly_conclusion, action_items)
     }
     if action_item_codes and not action_item_codes.issubset(conclusion_actions):
         return ["weekly_conclusion_missing_weekly_action_item_codes"]
+    return []
+
+
+def _artifact_order_reasons(input_modified_times):
+    if not isinstance(input_modified_times, dict):
+        return []
+    conclusion_mtime = input_modified_times.get("weekly_conclusion")
+    action_items_mtime = input_modified_times.get("weekly_action_items")
+    if conclusion_mtime is None or action_items_mtime is None:
+        return []
+    if conclusion_mtime < action_items_mtime:
+        return ["weekly_conclusion_older_than_weekly_action_items"]
     return []
 
 
