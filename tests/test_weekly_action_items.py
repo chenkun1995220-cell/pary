@@ -365,7 +365,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
 
             self.assertEqual(payload["action_items_schema"], "weekly_action_items")
             self.assertEqual(payload["action_items_version"], 1)
-            self.assertEqual(payload["as_of_date"], "2026-06-28")
+            self.assertEqual(payload["as_of_date"], "2026-06-29")
             self.assertEqual(payload["source_manifest"], str(manifest_path))
             self.assertEqual(payload["automation_status"], "manual_review_needed")
             self.assertEqual(payload["item_count"], 8)
@@ -576,6 +576,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             source = json.loads(source_path.read_text(encoding="utf-8-sig"))
             source.update(
                 {
+                    "as_of_date": "2026-07-04",
                     "status": "fetch_failed",
                     "matched_count": 0,
                     "missing_count": 50,
@@ -635,6 +636,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             report = render_weekly_action_items(payload)
 
+            self.assertEqual(payload["as_of_date"], "2026-07-04")
             source_item = next(
                 item
                 for item in payload["items"]

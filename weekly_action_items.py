@@ -760,6 +760,15 @@ def _backlog_reduction_close_condition(category):
     return conditions.get(category, "Resolve, defer, or route every open action in this category.")
 
 
+def _latest_as_of_date(*payloads):
+    dates = [
+        str(payload.get("as_of_date", "") or "").strip()
+        for payload in payloads
+        if isinstance(payload, dict) and str(payload.get("as_of_date", "") or "").strip()
+    ]
+    return max(dates) if dates else "unknown"
+
+
 def build_weekly_action_items(
     manifest,
     membership_import_plan=None,
@@ -853,7 +862,15 @@ def build_weekly_action_items(
     return {
         "action_items_schema": ACTION_ITEMS_SCHEMA,
         "action_items_version": ACTION_ITEMS_VERSION,
-        "as_of_date": source.get("as_of_date", "unknown"),
+        "as_of_date": _latest_as_of_date(
+            source,
+            import_plan,
+            current_source_status,
+            current_source_review_status,
+            current_source_inbox_status,
+            forecast_performance_review,
+            data_health_payload,
+        ),
         "source_manifest": str(manifest_path),
         "automation_status": source.get("automation_status", "unknown"),
         "item_count": len(items),
