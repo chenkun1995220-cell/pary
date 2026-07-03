@@ -142,6 +142,22 @@ class WeeklyAutomationTests(unittest.TestCase):
             self.assertIn("Sp500CurrentMembershipSourceFile: " + str(source_file), output)
             self.assertIn("DryRun: would validate and import S&P 500 current membership source file", output)
             self.assertIn("run_sp500_current_membership_sources", output)
+            self.assertIn("check_sp500_current_membership_source_inbox", output)
+
+    def test_weekly_reporting_bundle_checks_sp500_inbox_before_pre_submit(self):
+        script = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("check_sp500_current_membership_source_inbox.ps1", script)
+        self.assertLess(
+            script.index("run_sp500_current_membership_sources.ps1"),
+            script.index("check_sp500_current_membership_source_inbox.ps1"),
+        )
+        self.assertLess(
+            script.index("check_sp500_current_membership_source_inbox.ps1"),
+            script.index("run_pre_submit_review.ps1"),
+        )
 
     def test_task_registration_what_if_prints_schedule_and_orchestrator(self):
         result = subprocess.run(

@@ -33,6 +33,7 @@ $postSteps = @(
   @{ Label = "run_data_health_review"; Script = "run_data_health_review.ps1"; Critical = $true },
   @{ Label = "run_backtest_evidence_review"; Script = "run_backtest_evidence_review.ps1"; Critical = $true },
   @{ Label = "run_sp500_current_membership_sources"; Script = "run_sp500_current_membership_sources.ps1"; Critical = $true },
+  @{ Label = "check_sp500_current_membership_source_inbox"; Script = "check_sp500_current_membership_source_inbox.ps1"; Critical = $true },
   @{ Label = "merge_sp500_current_membership_source_review_decisions"; Script = "merge_sp500_current_membership_source_review_decisions.ps1"; Critical = $true },
   @{ Label = "apply_sp500_current_membership_source_review_decisions"; Script = "apply_sp500_current_membership_source_review_decisions.ps1"; Critical = $true },
   @{ Label = "run_sp500_current_membership_source_review_status"; Script = "run_sp500_current_membership_source_review_status.ps1"; Critical = $true },

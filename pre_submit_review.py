@@ -114,6 +114,13 @@ INPUT_SPECS = {
         "version_field": "review_status_version",
         "version_value": 1,
     },
+    "sp500_current_membership_source_inbox_status": {
+        "path": "outputs/automation/latest_sp500_current_membership_source_inbox_status.json",
+        "schema_field": "status_schema",
+        "schema_value": "sp500_current_membership_source_inbox_status",
+        "version_field": "status_version",
+        "version_value": 1,
+    },
     "candidate_findings_review": {
         "path": "outputs/automation/latest_candidate_findings_review.json",
         "schema_field": "review_schema",

@@ -31,6 +31,7 @@ INPUT_FILES = {
     "membership_evidence_apply_preview": "latest_membership_evidence_apply_preview.json",
     "sp500_current_membership_sources": "latest_sp500_current_membership_sources.json",
     "sp500_current_membership_source_review_status": "latest_sp500_current_membership_source_review_status.json",
+    "sp500_current_membership_source_inbox_status": "latest_sp500_current_membership_source_inbox_status.json",
 }
 
 
@@ -432,11 +433,13 @@ def _backtest_goal(
     membership_apply_preview=None,
     current_membership_sources=None,
     current_membership_source_review_status=None,
+    current_membership_source_inbox_status=None,
 ):
     membership_import_plan = membership_import_plan or {}
     membership_apply_preview = membership_apply_preview or {}
     current_membership_sources = current_membership_sources or {}
     current_membership_source_review_status = current_membership_source_review_status or {}
+    current_membership_source_inbox_status = current_membership_source_inbox_status or {}
     ratio = _float_value(backtest_evidence.get("verified_membership_ratio"))
     weak_rows = _int_value(backtest_evidence.get("weak_evidence_rows"))
     status = "on_track" if ratio >= 0.5 and weak_rows == 0 else "needs_work"
@@ -531,6 +534,24 @@ def _backtest_goal(
             "sp500_current_source_file_validation_status": current_membership_sources.get(
                 "source_file_validation_status",
                 "unknown",
+            ),
+            "sp500_current_source_inbox_status": current_membership_source_inbox_status.get(
+                "status",
+                "missing",
+            ),
+            "sp500_current_source_inbox_next_action": current_membership_source_inbox_status.get(
+                "next_action",
+                "missing",
+            ),
+            "sp500_current_source_inbox_validation_status": current_membership_source_inbox_status.get(
+                "source_file_validation_status",
+                "unknown",
+            ),
+            "sp500_current_source_inbox_parsed_official_ticker_count": _int_value(
+                current_membership_source_inbox_status.get("parsed_official_ticker_count")
+            ),
+            "sp500_current_source_inbox_intake_missing_count": _int_value(
+                current_membership_source_inbox_status.get("intake_missing_count")
             ),
             "sp500_current_source_review_queue_open_count": review_queue_counts["open"],
             "sp500_current_source_review_queue_resolved_count": review_queue_counts["resolved"],
@@ -687,6 +708,9 @@ def build_medium_term_goal_review(project_root="."):
     current_membership_source_review_status = inputs[
         "sp500_current_membership_source_review_status"
     ]
+    current_membership_source_inbox_status = inputs[
+        "sp500_current_membership_source_inbox_status"
+    ]
 
     core_delivery_status = _status_for_core(pre_submit, weekly_ops, automation_check)
     goals = [
@@ -700,6 +724,7 @@ def build_medium_term_goal_review(project_root="."):
             membership_apply_preview,
             current_membership_sources,
             current_membership_source_review_status,
+            current_membership_source_inbox_status,
         ),
         _governance_goal(pre_submit),
     ]

@@ -134,6 +134,30 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "formal_backtest_upgrade_allowed": False,
         },
     )
+    write_json(
+        root
+        / "outputs"
+        / "automation"
+        / "latest_sp500_current_membership_source_inbox_status.json",
+        {
+            "status_schema": "sp500_current_membership_source_inbox_status",
+            "status_version": 1,
+            "as_of_date": as_of_date,
+            "status": "missing",
+            "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+            "source_file_inbox_exists": False,
+            "source_file_validation_status": "missing",
+            "parsed_official_ticker_count": 0,
+            "minimum_official_ticker_count": 400,
+            "intake_coverage_status": "none",
+            "intake_expected_count": 2,
+            "intake_matched_count": 0,
+            "intake_missing_count": 2,
+            "next_action": "place_official_constituents_csv",
+            "formal_backtest_upgrade_allowed": False,
+            "formal_model_change_allowed": False,
+        },
+    )
     write_csv(
         root / "outputs" / "automation" / "sp500_current_membership_source_review_decisions_template.csv",
         [
@@ -652,6 +676,7 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["input_statuses"]["membership_evidence_import_plan"], "ready")
             self.assertEqual(result["input_statuses"]["membership_evidence_apply_preview"], "ready")
             self.assertEqual(result["input_statuses"]["sp500_current_membership_sources"], "fetch_failed")
+            self.assertEqual(result["input_statuses"]["sp500_current_membership_source_inbox_status"], "missing")
             self.assertEqual(result["input_statuses"]["candidate_findings_review"], "manual_review_needed")
             self.assertEqual(result["input_statuses"]["forecast_performance_review"], "sample_accumulating")
             self.assertEqual(

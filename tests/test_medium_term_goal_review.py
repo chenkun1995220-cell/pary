@@ -241,6 +241,27 @@ def write_review_fixtures(root):
             "formal_backtest_upgrade_allowed": False,
         },
     )
+    write_json(
+        automation / "latest_sp500_current_membership_source_inbox_status.json",
+        {
+            "status_schema": "sp500_current_membership_source_inbox_status",
+            "status_version": 1,
+            "as_of_date": "2026-06-29",
+            "status": "missing",
+            "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+            "source_file_inbox_exists": False,
+            "source_file_validation_status": "missing",
+            "parsed_official_ticker_count": 0,
+            "minimum_official_ticker_count": 400,
+            "intake_coverage_status": "none",
+            "intake_expected_count": 50,
+            "intake_matched_count": 0,
+            "intake_missing_count": 50,
+            "next_action": "place_official_constituents_csv",
+            "formal_backtest_upgrade_allowed": False,
+            "formal_model_change_allowed": False,
+        },
+    )
     (automation / "sp500_current_membership_source_file_request.md").write_text(
         "# S&P 500 official constituents CSV request\n",
         encoding="utf-8-sig",
@@ -454,6 +475,26 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_validation_status"],
                 "missing",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_status"],
+                "missing",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_next_action"],
+                "place_official_constituents_csv",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_validation_status"],
+                "missing",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_parsed_official_ticker_count"],
+                0,
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_intake_missing_count"],
+                50,
             )
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_queue_open_count"],

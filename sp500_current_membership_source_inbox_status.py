@@ -1,0 +1,195 @@
+import argparse
+import json
+from datetime import date
+from pathlib import Path
+
+from sp500_current_membership_sources import (
+    MINIMUM_OFFICIAL_TICKER_COUNT,
+    SOURCE_FILE_ACCEPTANCE_CRITERIA,
+    SOURCE_FILE_INBOX,
+    SOURCE_FILE_INBOX_DRY_RUN_COMMAND_TEMPLATE,
+    SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE,
+    SOURCE_FILE_REQUIRED_COLUMNS,
+    _intake_expected_tickers,
+    _template_tickers,
+    parse_official_current_tickers_from_source_file,
+)
+
+
+STATUS_SCHEMA = "sp500_current_membership_source_inbox_status"
+STATUS_VERSION = 1
+
+
+def _status_for_source_file(tickers, intake_expected):
+    if len(tickers) < MINIMUM_OFFICIAL_TICKER_COUNT:
+        return "incomplete", "provide_complete_official_constituents_csv"
+    return "ready_for_import_preview", "run_source_file_inbox_dry_run_then_import"
+
+
+def _intake_coverage(tickers, intake_template):
+    expected = _intake_expected_tickers(intake_template) if Path(intake_template).exists() else []
+    missing = [ticker for ticker in expected if ticker not in tickers]
+    if not expected:
+        status = "not_available"
+    elif not missing:
+        status = "complete"
+    elif len(missing) == len(expected):
+        status = "none"
+    else:
+        status = "partial"
+    return {
+        "intake_template": str(intake_template),
+        "intake_coverage_status": status,
+        "intake_expected_count": len(expected),
+        "intake_matched_count": len(expected) - len(missing),
+        "intake_missing_count": len(missing),
+        "intake_missing_tickers": missing,
+    }
+
+
+def build_inbox_status(
+    template,
+    source_file_inbox=SOURCE_FILE_INBOX,
+    intake_template="outputs/automation/sp500_current_membership_source_intake_template.csv",
+    source_url="https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+    as_of_date=None,
+):
+    requested = _template_tickers(template)
+    inbox_path = Path(source_file_inbox)
+    payload = {
+        "status_schema": STATUS_SCHEMA,
+        "status_version": STATUS_VERSION,
+        "as_of_date": as_of_date or date.today().isoformat(),
+        "source_url": source_url,
+        "source_file_inbox": str(source_file_inbox),
+        "source_file_inbox_exists": inbox_path.exists(),
+        "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
+        "source_file_acceptance_criteria": SOURCE_FILE_ACCEPTANCE_CRITERIA,
+        "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "requested_count": len(requested),
+        "parsed_official_ticker_count": 0,
+        "source_file_inbox_dry_run_command": SOURCE_FILE_INBOX_DRY_RUN_COMMAND_TEMPLATE.format(
+            source_file_inbox=source_file_inbox
+        ),
+        "source_file_inbox_next_command": SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE.format(
+            source_file_inbox=source_file_inbox
+        ),
+        "formal_backtest_upgrade_allowed": False,
+        "formal_model_change_allowed": False,
+    }
+    if not inbox_path.exists():
+        payload.update(
+            {
+                "status": "missing",
+                "source_file_validation_status": "missing",
+                "next_action": "place_official_constituents_csv",
+                **_intake_coverage(set(), intake_template),
+            }
+        )
+        return payload
+    try:
+        tickers = parse_official_current_tickers_from_source_file(inbox_path)
+    except Exception as exc:
+        payload.update(
+            {
+                "status": "invalid",
+                "source_file_validation_status": "invalid",
+                "validation_error": str(exc),
+                "next_action": "provide_valid_official_constituents_csv",
+                **_intake_coverage(set(), intake_template),
+            }
+        )
+        return payload
+    coverage = _intake_coverage(tickers, intake_template)
+    status, next_action = _status_for_source_file(tickers, coverage["intake_missing_tickers"])
+    payload.update(
+        {
+            "status": status,
+            "source_file_validation_status": "ready" if status.startswith("ready") else "incomplete",
+            "next_action": next_action,
+            "parsed_official_ticker_count": len(tickers),
+            "matched_requested_count": len([ticker for ticker in requested if ticker in tickers]),
+            "missing_requested_count": len([ticker for ticker in requested if ticker not in tickers]),
+            "missing_requested_tickers": [ticker for ticker in requested if ticker not in tickers],
+            **coverage,
+        }
+    )
+    return payload
+
+
+def render_status(payload):
+    lines = [
+        "# S&P 500 official constituents inbox status",
+        "",
+        f"- as_of_date: {payload.get('as_of_date', '')}",
+        f"- status: {payload.get('status', 'unknown')}",
+        f"- source_file_inbox: {payload.get('source_file_inbox', '')}",
+        f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}",
+        f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}",
+        f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
+        f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
+        f"- intake_coverage_status: {payload.get('intake_coverage_status', '')}",
+        f"- intake_expected_count: {payload.get('intake_expected_count', 0)}",
+        f"- intake_matched_count: {payload.get('intake_matched_count', 0)}",
+        f"- intake_missing_count: {payload.get('intake_missing_count', 0)}",
+        f"- next_action: {payload.get('next_action', '')}",
+        f"- dry_run_command: {payload.get('source_file_inbox_dry_run_command', '')}",
+        f"- import_command: {payload.get('source_file_inbox_next_command', '')}",
+        "",
+        "## Boundary",
+        "",
+        "- This check is read-only and does not write current membership sources.",
+        "- Passing this check does not modify historical membership or formal model parameters.",
+        "",
+    ]
+    missing = payload.get("intake_missing_tickers", []) or []
+    if missing:
+        lines.extend(["## Intake Missing Tickers", "", ", ".join(missing[:20]), ""])
+    if payload.get("validation_error"):
+        lines.extend(["## Validation Error", "", str(payload.get("validation_error")), ""])
+    return "\n".join(lines)
+
+
+def write_json(payload, path):
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8-sig",
+    )
+
+
+def write_text(text, path):
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(text, encoding="utf-8-sig")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Check the S&P 500 official constituents CSV inbox.")
+    parser.add_argument("--template", default="outputs/automation/us_sp500_current_membership_sources_template.csv")
+    parser.add_argument("--source-file-inbox", default=SOURCE_FILE_INBOX)
+    parser.add_argument("--intake-template", default="outputs/automation/sp500_current_membership_source_intake_template.csv")
+    parser.add_argument("--source-url", default="https://www.spglobal.com/spdji/en/indices/equity/sp-500/")
+    parser.add_argument("--as-of-date", default="")
+    parser.add_argument("--output", default="outputs/automation/latest_sp500_current_membership_source_inbox_status.json")
+    parser.add_argument("--report", default="outputs/automation/latest_sp500_current_membership_source_inbox_status.md")
+    args = parser.parse_args()
+
+    payload = build_inbox_status(
+        args.template,
+        source_file_inbox=args.source_file_inbox,
+        intake_template=args.intake_template,
+        source_url=args.source_url,
+        as_of_date=args.as_of_date or None,
+    )
+    report = render_status(payload)
+    if args.output:
+        write_json(payload, args.output)
+    if args.report:
+        write_text(report, args.report)
+    print(report)
+
+
+if __name__ == "__main__":
+    main()
