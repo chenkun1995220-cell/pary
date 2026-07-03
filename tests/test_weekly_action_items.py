@@ -616,6 +616,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
                         "at_least_400_tickers",
                     ],
                     "source_quality_flags": ["official_ticker_count_below_minimum"],
+                    "fetch_error_type": "network_permission_denied",
+                    "fetch_retryable_without_environment_change": False,
+                    "fetch_error_next_action": "provide_official_constituents_csv_or_fix_network_permission",
                 }
             )
             source_path.write_text(
@@ -654,11 +657,23 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 "source_file_inbox_available_columns:expected_ticker, intake_status, required_source_url",
                 source_item["source"],
             )
+            self.assertIn("fetch_error_type:network_permission_denied", source_item["source"])
+            self.assertIn("fetch_retryable_without_environment_change:false", source_item["source"])
+            self.assertIn(
+                "fetch_error_next_action:provide_official_constituents_csv_or_fix_network_permission",
+                source_item["source"],
+            )
             self.assertIn("latest_sp500_current_membership_sources.json", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_intake_template.csv", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_file_request.md", source_item["recommended_check"])
             self.assertIn("inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("inbox_status=invalid", source_item["recommended_check"])
+            self.assertIn("fetch_error_type=network_permission_denied", source_item["recommended_check"])
+            self.assertIn("fetch_retryable_without_environment_change=false", source_item["recommended_check"])
+            self.assertIn(
+                "fetch_error_next_action=provide_official_constituents_csv_or_fix_network_permission",
+                source_item["recommended_check"],
+            )
             self.assertIn(
                 "inbox_available_columns=expected_ticker, intake_status, required_source_url",
                 source_item["recommended_check"],

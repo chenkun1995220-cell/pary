@@ -233,6 +233,9 @@ def write_review_fixtures(root):
             "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
             "source_file_inbox_exists": False,
             "source_file_validation_status": "missing",
+            "fetch_error_type": "network_permission_denied",
+            "fetch_retryable_without_environment_change": False,
+            "fetch_error_next_action": "provide_official_constituents_csv_or_fix_network_permission",
             "intake_coverage_status": "partial",
             "intake_expected_count": 50,
             "intake_matched_count": 0,
@@ -475,6 +478,19 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_file_validation_status"],
                 "missing",
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_fetch_error_type"],
+                "network_permission_denied",
+            )
+            self.assertFalse(
+                goals["backtest_evidence_quality"]["current"][
+                    "sp500_current_source_fetch_retryable_without_environment_change"
+                ]
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"]["sp500_current_source_fetch_error_next_action"],
+                "provide_official_constituents_csv_or_fix_network_permission",
             )
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_status"],

@@ -532,6 +532,15 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         if str(column).strip()
     ]
     source_file_inbox_available_columns_text = ", ".join(source_file_inbox_available_columns) or "none"
+    fetch_error_type = str(source_status.get("fetch_error_type", "unknown") or "unknown").strip()
+    fetch_retryable_value = source_status.get("fetch_retryable_without_environment_change")
+    if fetch_retryable_value is None:
+        fetch_retryable_without_environment_change = "unknown"
+    else:
+        fetch_retryable_without_environment_change = str(bool(fetch_retryable_value)).lower()
+    fetch_error_next_action = str(
+        source_status.get("fetch_error_next_action", "unknown") or "unknown"
+    ).strip()
     source_file_acceptance_criteria = [
         str(item).strip()
         for item in source_status.get("source_file_acceptance_criteria", []) or []
@@ -559,6 +568,9 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         f"parsed_official_ticker_count={source_file_inbox_parsed_count}; "
         f"inbox_intake_missing_count={source_file_inbox_intake_missing_count}; "
         f"inbox_available_columns={source_file_inbox_available_columns_text}; "
+        f"fetch_error_type={fetch_error_type}; "
+        f"fetch_retryable_without_environment_change={fetch_retryable_without_environment_change}; "
+        f"fetch_error_next_action={fetch_error_next_action}; "
         f"dry_run_command:{source_file_dry_run_command or source_file_dry_run_command_default}; "
         f"import_command:{source_file_next_command or source_file_next_command_default}; "
     )
@@ -600,6 +612,9 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"source_file_inbox_parsed_official_ticker_count:{source_file_inbox_parsed_count}; "
             f"source_file_inbox_intake_missing_count:{source_file_inbox_intake_missing_count}; "
             f"source_file_inbox_available_columns:{source_file_inbox_available_columns_text}; "
+            f"fetch_error_type:{fetch_error_type}; "
+            f"fetch_retryable_without_environment_change:{fetch_retryable_without_environment_change}; "
+            f"fetch_error_next_action:{fetch_error_next_action}; "
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "

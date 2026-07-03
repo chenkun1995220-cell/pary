@@ -535,6 +535,17 @@ def _backtest_goal(
                 "source_file_validation_status",
                 "unknown",
             ),
+            "sp500_current_source_fetch_error_type": current_membership_sources.get(
+                "fetch_error_type",
+                "unknown",
+            ),
+            "sp500_current_source_fetch_retryable_without_environment_change": current_membership_sources.get(
+                "fetch_retryable_without_environment_change"
+            ),
+            "sp500_current_source_fetch_error_next_action": current_membership_sources.get(
+                "fetch_error_next_action",
+                "unknown",
+            ),
             "sp500_current_source_inbox_status": current_membership_source_inbox_status.get(
                 "status",
                 "missing",

@@ -231,6 +231,31 @@ def _source_file_guidance(source_file_inbox=SOURCE_FILE_INBOX):
     }
 
 
+def _fetch_error_classification(error):
+    text = str(error or "")
+    lowered = text.lower()
+    if "winerror 10013" in lowered or "permission" in lowered:
+        return {
+            "fetch_error_type": "network_permission_denied",
+            "fetch_retryable_without_environment_change": False,
+            "fetch_error_next_action": "provide_official_constituents_csv_or_fix_network_permission",
+            "source_quality_flag": "official_source_fetch_blocked_by_permission",
+        }
+    if "timed out" in lowered or "timeout" in lowered:
+        return {
+            "fetch_error_type": "network_timeout",
+            "fetch_retryable_without_environment_change": True,
+            "fetch_error_next_action": "retry_official_source_or_provide_official_constituents_csv",
+            "source_quality_flag": "official_source_fetch_timeout",
+        }
+    return {
+        "fetch_error_type": "official_source_fetch_error",
+        "fetch_retryable_without_environment_change": True,
+        "fetch_error_next_action": "retry_official_source_or_provide_official_constituents_csv",
+        "source_quality_flag": "official_source_fetch_failed",
+    }
+
+
 def build_current_membership_sources_from_tickers(template_path, official_tickers, source_url, as_of_date=None):
     if not _is_official_spglobal_source(source_url):
         raise ValueError("source_url must be an official S&P Global HTTPS URL")
@@ -297,6 +322,10 @@ def build_current_membership_sources(template_path, html_text, source_url, as_of
 
 def build_fetch_failed_payload(template_path, source_url, error, as_of_date=None):
     requested = _template_tickers(template_path)
+    classification = _fetch_error_classification(error)
+    source_quality_flags = ["official_source_fetch_failed"]
+    if classification["source_quality_flag"] not in source_quality_flags:
+        source_quality_flags.append(classification["source_quality_flag"])
     return {
         "source_schema": SOURCE_SCHEMA,
         "source_version": SOURCE_VERSION,
@@ -316,7 +345,12 @@ def build_fetch_failed_payload(template_path, source_url, error, as_of_date=None
         "next_action": "retry_official_source_or_provide_official_constituents_csv",
         "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
         "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
-        "source_quality_flags": ["official_source_fetch_failed"],
+        "source_quality_flags": source_quality_flags,
+        "fetch_error_type": classification["fetch_error_type"],
+        "fetch_retryable_without_environment_change": classification[
+            "fetch_retryable_without_environment_change"
+        ],
+        "fetch_error_next_action": classification["fetch_error_next_action"],
         **_source_file_guidance(),
         "formal_backtest_upgrade_allowed": False,
         "rows": [],
@@ -494,6 +528,15 @@ def render_report(payload):
         lines.append(
             "- source_file_available_columns: " + ", ".join(payload.get("source_file_available_columns") or [])
         )
+    if payload.get("fetch_error_type"):
+        lines.append(f"- fetch_error_type: {payload.get('fetch_error_type', '')}")
+    if payload.get("fetch_retryable_without_environment_change") is not None:
+        lines.append(
+            "- fetch_retryable_without_environment_change: "
+            + str(payload.get("fetch_retryable_without_environment_change")).lower()
+        )
+    if payload.get("fetch_error_next_action"):
+        lines.append(f"- fetch_error_next_action: {payload.get('fetch_error_next_action', '')}")
     if payload.get("error"):
         lines.append(f"- error: {payload.get('error', '')}")
     lines.extend(["", "| ticker | evidence | source |", "|---|---|---|"])
@@ -542,6 +585,10 @@ def render_source_file_request(payload, missing_limit=20):
         f"- source_file_inbox: {payload.get('source_file_inbox', SOURCE_FILE_INBOX)}",
         f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}",
         f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}",
+        f"- fetch_error_type: {payload.get('fetch_error_type', '')}",
+        "- fetch_retryable_without_environment_change: "
+        + str(payload.get("fetch_retryable_without_environment_change")).lower(),
+        f"- fetch_error_next_action: {payload.get('fetch_error_next_action', '')}",
         f"- dry_run_command: {payload.get('source_file_dry_run_command', '')}",
         f"- inbox_dry_run_command: {payload.get('source_file_inbox_dry_run_command', '')}",
         "- validation_mode: --validate-source-file-only",
