@@ -1482,6 +1482,8 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         reasons.append("model_handoff_review_invalid_validation_commands")
     elif not any("run_pre_submit_review.ps1" in str(command) for command in validation_commands):
         reasons.append("model_handoff_review_missing_pre_submit_validation_command")
+    elif not any("unittest" in str(command) for command in validation_commands):
+        reasons.append("model_handoff_review_missing_test_validation_command")
     if payload.get("formal_release_allowed") is not True:
         reasons.append("model_handoff_review_formal_release_not_allowed")
     snapshot = medium_term_goal_review.get("task_closeout_snapshot", {})

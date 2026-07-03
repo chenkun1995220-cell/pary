@@ -2411,6 +2411,32 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_model_handoff_lacks_test_validation_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            handoff["validation_commands"] = [
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_pre_submit_review.ps1 -MaxAgeDays 8"
+            ]
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_missing_test_validation_command",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_sp500_source_review_status_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
