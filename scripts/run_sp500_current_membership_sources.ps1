@@ -10,6 +10,7 @@ param(
   [string]$IntakeTemplate = "",
   [string]$ReviewQueueOutput = "",
   [string]$SourceFileRequest = "",
+  [string]$SourceFileInbox = "",
   [string]$AsOfDate = "",
   [switch]$DryRun
 )
@@ -42,6 +43,9 @@ if (-not $ReviewQueueOutput) {
 if (-not $SourceFileRequest) {
   $SourceFileRequest = Join-Path $ProjectRoot "outputs\automation\sp500_current_membership_source_file_request.md"
 }
+if (-not $SourceFileInbox) {
+  $SourceFileInbox = Join-Path $ProjectRoot "inputs\sp500_current_membership\official_constituents.csv"
+}
 if (-not $AsOfDate) {
   $AsOfDate = Get-Date -Format "yyyy-MM-dd"
 }
@@ -61,6 +65,7 @@ Write-Host "JsonOutput: $JsonOutput"
 Write-Host "IntakeTemplate: $IntakeTemplate"
 Write-Host "ReviewQueueOutput: $ReviewQueueOutput"
 Write-Host "SourceFileRequest: $SourceFileRequest"
+Write-Host "SourceFileInbox: $SourceFileInbox"
 Write-Host "AsOfDate: $AsOfDate"
 Write-Host "Reads: us_sp500_current_membership_sources_template.csv, official S&P Global source"
 Write-Host "Writes: us_sp500_current_membership_sources.csv, latest_sp500_current_membership_sources.md, latest_sp500_current_membership_sources.json, sp500_current_membership_source_intake_template.csv, sp500_current_membership_source_review_queue.csv, sp500_current_membership_source_file_request.md"
@@ -74,6 +79,7 @@ if ($DryRun) {
       "--as-of-date", $AsOfDate,
       "--source-file", $SourceFile,
       "--intake-template", $IntakeTemplate,
+      "--source-file-inbox", $SourceFileInbox,
       "--validate-source-file-only"
     )
     & $Python @dryRunArgs
@@ -96,6 +102,7 @@ $args = @(
   "--intake-template", $IntakeTemplate,
   "--review-queue-output", $ReviewQueueOutput,
   "--source-file-request", $SourceFileRequest,
+  "--source-file-inbox", $SourceFileInbox,
   "--allow-empty-on-fetch-error"
 )
 if ($SourceHtml) {

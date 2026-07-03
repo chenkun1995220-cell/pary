@@ -26,6 +26,7 @@ SOURCE_FILE_DRY_RUN_COMMAND = (
     "scripts\\run_sp500_current_membership_sources.ps1 "
     "-ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>"
 )
+SOURCE_FILE_INBOX = "inputs/sp500_current_membership/official_constituents.csv"
 SOURCE_FILE_ACCEPTANCE_CRITERIA = [
     "has_symbol_or_ticker_column",
     "at_least_400_tickers",
@@ -179,8 +180,9 @@ def _missing_ticker_review_queue(missing_tickers, source_url, status):
     ]
 
 
-def _source_file_guidance():
+def _source_file_guidance(source_file_inbox=SOURCE_FILE_INBOX):
     return {
+        "source_file_inbox": source_file_inbox,
         "source_file_next_command": SOURCE_FILE_NEXT_COMMAND,
         "source_file_dry_run_command": SOURCE_FILE_DRY_RUN_COMMAND,
         "source_file_acceptance_criteria": SOURCE_FILE_ACCEPTANCE_CRITERIA,
@@ -404,6 +406,8 @@ def render_report(payload):
         lines.append(f"- source_file_dry_run_command: {payload.get('source_file_dry_run_command', '')}")
     if payload.get("source_file_request_file"):
         lines.append(f"- source_file_request_file: {payload.get('source_file_request_file', '')}")
+    if payload.get("source_file_inbox"):
+        lines.append(f"- source_file_inbox: {payload.get('source_file_inbox', '')}")
     if payload.get("source_file_acceptance_criteria"):
         lines.append(
             "- source_file_acceptance_criteria: "
@@ -453,6 +457,7 @@ def render_source_file_request(payload, missing_limit=20):
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",
         f"- intake_template: {payload.get('source_file_intake_template', '')}",
+        f"- source_file_inbox: {payload.get('source_file_inbox', SOURCE_FILE_INBOX)}",
         f"- dry_run_command: {payload.get('source_file_dry_run_command', '')}",
         "- validation_mode: --validate-source-file-only",
         f"- import_command: {payload.get('source_file_next_command', '')}",
@@ -528,6 +533,7 @@ def main():
     parser.add_argument("--intake-template", default="outputs/automation/sp500_current_membership_source_intake_template.csv")
     parser.add_argument("--review-queue-output", default="")
     parser.add_argument("--source-file-request", default="outputs/automation/sp500_current_membership_source_file_request.md")
+    parser.add_argument("--source-file-inbox", default=SOURCE_FILE_INBOX)
     parser.add_argument("--user-agent", default="")
     parser.add_argument("--allow-empty-on-fetch-error", action="store_true")
     parser.add_argument("--validate-source-file-only", action="store_true")
@@ -574,6 +580,8 @@ def main():
             exc,
             as_of_date=args.as_of_date or None,
         )
+    if args.source_file_inbox and should_write_source_file_request(payload):
+        payload["source_file_inbox"] = args.source_file_inbox
     if args.intake_template and not args.source_file and payload.get("status") in {
         "fetch_failed",
         "source_file_required",

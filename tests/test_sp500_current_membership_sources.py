@@ -345,6 +345,10 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("source_file_acceptance_criteria", payload)
             self.assertIn("has_symbol_or_ticker_column", payload["source_file_acceptance_criteria"])
             self.assertIn("at_least_400_tickers", payload["source_file_acceptance_criteria"])
+            self.assertEqual(
+                payload["source_file_inbox"],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
             self.assertIn("source_file_next_command:", report_text)
             self.assertIn("at_least_400_tickers", report_text)
             self.assertEqual(payload["source_file_intake_template"], str(intake))
@@ -663,6 +667,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("status: fetch_failed", request_text)
             self.assertIn("required_columns: Symbol or Ticker", request_text)
             self.assertIn("minimum_official_ticker_count: 400", request_text)
+            self.assertIn("source_file_inbox: inputs/sp500_current_membership/official_constituents.csv", request_text)
             self.assertIn("dry_run_command:", request_text)
             self.assertIn("--validate-source-file-only", request_text)
             self.assertIn("import_command:", request_text)
@@ -688,6 +693,9 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
         self.assertIn("sp500_current_membership_source_intake_template.csv", wrapper)
         self.assertIn("--source-url", wrapper)
         self.assertIn("SourceFile", wrapper)
+        self.assertIn("SourceFileInbox", wrapper)
+        self.assertIn("--source-file-inbox", wrapper)
+        self.assertIn("inputs\\sp500_current_membership\\official_constituents.csv", wrapper)
         self.assertIn("--validate-source-file-only", wrapper)
         self.assertIn("--source-file", wrapper)
         self.assertIn("--output", wrapper)
