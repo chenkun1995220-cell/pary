@@ -73,7 +73,10 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                 "确认未自动修改正式模型参数",
                 "确认输出不声称已启用自动双模型协作",
             ],
-            "validation_commands": ["python -m unittest discover -s tests"],
+            "validation_commands": [
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_pre_submit_review.ps1 -MaxAgeDays 8",
+                "python -m unittest discover -s tests",
+            ],
             "risk_notes": ["当前仍为单 Codex 执行加复核清单。"],
             "formal_release_allowed": True,
         },
@@ -2381,6 +2384,30 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "model_handoff_review_invalid_validation_commands",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_model_handoff_lacks_pre_submit_validation_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            handoff["validation_commands"] = ["python -m unittest tests.test_model_handoff_review"]
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_missing_pre_submit_validation_command",
                 result["attention_reasons"],
             )
 

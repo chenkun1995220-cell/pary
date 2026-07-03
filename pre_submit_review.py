@@ -1461,6 +1461,7 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         return []
     medium_term_goal_review = medium_term_goal_review or {}
     reasons = []
+    validation_commands = payload.get("validation_commands")
     if payload.get("status") != "ready":
         reasons.append("model_handoff_review_not_ready")
     if any(field not in payload for field in MODEL_HANDOFF_REQUIRED_FIELDS):
@@ -1475,10 +1476,12 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
     if not isinstance(payload.get("gpt55_review_checklist"), list) or not payload.get("gpt55_review_checklist"):
         reasons.append("model_handoff_review_missing_gpt55_checklist")
     if (
-        not isinstance(payload.get("validation_commands"), list)
-        or not payload.get("validation_commands")
+        not isinstance(validation_commands, list)
+        or not validation_commands
     ):
         reasons.append("model_handoff_review_invalid_validation_commands")
+    elif not any("run_pre_submit_review.ps1" in str(command) for command in validation_commands):
+        reasons.append("model_handoff_review_missing_pre_submit_validation_command")
     if payload.get("formal_release_allowed") is not True:
         reasons.append("model_handoff_review_formal_release_not_allowed")
     snapshot = medium_term_goal_review.get("task_closeout_snapshot", {})
