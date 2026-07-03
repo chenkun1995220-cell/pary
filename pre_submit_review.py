@@ -150,6 +150,8 @@ FORECAST_PERFORMANCE_REQUIRED_TRACKING_FIELDS = [
     "forecast_history_short_signal_missing_count",
     "latest_short_signal_missing_count",
     "legacy_short_signal_missing_count",
+    "next_one_week_evaluation_date",
+    "next_one_month_evaluation_date",
 ]
 
 MEDIUM_TERM_GOAL_REVIEW_REQUIRED_FIELDS = [

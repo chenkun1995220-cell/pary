@@ -172,6 +172,10 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertEqual(payload["markets"][0]["forecast_history"]["latest_generated_date"], "2026-06-29")
             self.assertEqual(payload["markets"][0]["forecast_history"]["latest_short_signal_missing_count"], 0)
             self.assertEqual(payload["markets"][0]["forecast_history"]["legacy_short_signal_missing_count"], 1)
+            self.assertEqual(payload["markets"][0]["forecast_history"]["latest_one_week_evaluation_date"], "2026-07-06")
+            self.assertEqual(payload["markets"][0]["forecast_history"]["latest_one_month_evaluation_date"], "2026-07-27")
+            self.assertEqual(payload["next_one_week_evaluation_date"], "2026-07-06")
+            self.assertEqual(payload["next_one_month_evaluation_date"], "2026-07-27")
             self.assertEqual(payload["markets"][0]["forecast_history"]["latest_missing_samples"], [])
             self.assertEqual(payload["markets"][0]["forecast_history"]["legacy_missing_samples"][0]["ticker"], "BBB")
             self.assertEqual(payload["missing_market_count"], 0)
@@ -190,6 +194,8 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertIn("legacy", report)
             self.assertIn("forecast_history.csv", report)
             self.assertIn("maturity_gap_reasons", report)
+            self.assertIn("next_one_week_evaluation_date", report)
+            self.assertIn("2026-07-06", report)
             self.assertIn("正式模型修改：不允许", report)
 
     def test_review_needs_attention_when_market_evaluation_file_is_missing(self):

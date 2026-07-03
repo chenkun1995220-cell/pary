@@ -571,6 +571,8 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "forecast_history_short_signal_missing_count": 240,
             "latest_short_signal_missing_count": 0,
             "legacy_short_signal_missing_count": 240,
+            "next_one_week_evaluation_date": "2026-07-07",
+            "next_one_month_evaluation_date": "2026-07-28",
             "missing_market_count": 0,
             "formal_model_change_allowed": False,
         },
@@ -1986,6 +1988,25 @@ class PreSubmitReviewTests(unittest.TestCase):
             review = json.loads(review_path.read_text(encoding="utf-8-sig"))
             del review["latest_prediction_unavailable_count"]
             del review["legacy_short_signal_missing_count"]
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "forecast_performance_review_missing_tracking_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_forecast_review_lacks_maturity_schedule_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_forecast_performance_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            del review["next_one_week_evaluation_date"]
             write_json(review_path, review)
 
             from pre_submit_review import run_pre_submit_review

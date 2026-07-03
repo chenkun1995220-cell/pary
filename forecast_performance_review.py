@@ -2,12 +2,13 @@ import argparse
 import csv
 import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 
 REVIEW_SCHEMA = "forecast_performance_review"
 REVIEW_VERSION = 1
+FORECAST_MATURITY_DAYS = {"one_week": 7, "one_month": 28}
 DEFAULT_MARKETS = [
     ("美股周筛", "outputs/us_universe/forecast_evaluations.csv"),
     ("A股周筛", "outputs/cn_universe/forecast_evaluations.csv"),
@@ -97,6 +98,18 @@ def _history_path(evaluation_path):
     return Path(evaluation_path).parent / "forecast_history.csv"
 
 
+def _date_after(value, days):
+    try:
+        return (date.fromisoformat(str(value)) + timedelta(days=days)).isoformat()
+    except (TypeError, ValueError):
+        return "unknown"
+
+
+def _earliest_known_date(values):
+    known = [value for value in values if value and value != "unknown"]
+    return min(known) if known else "unknown"
+
+
 def _has_short_signals(row):
     return bool(row.get("one_week_expected_direction")) and bool(row.get("one_month_expected_direction"))
 
@@ -115,6 +128,8 @@ def _forecast_history_review(path):
             "latest_forecast_count": 0,
             "latest_short_signal_missing_count": 0,
             "legacy_short_signal_missing_count": 0,
+            "latest_one_week_evaluation_date": "unknown",
+            "latest_one_month_evaluation_date": "unknown",
             "latest_missing_samples": [],
             "legacy_missing_samples": [],
         }
@@ -146,6 +161,8 @@ def _forecast_history_review(path):
         "latest_forecast_count": len(latest_rows),
         "latest_short_signal_missing_count": len(latest_missing),
         "legacy_short_signal_missing_count": len(legacy_missing),
+        "latest_one_week_evaluation_date": _date_after(latest, FORECAST_MATURITY_DAYS["one_week"]),
+        "latest_one_month_evaluation_date": _date_after(latest, FORECAST_MATURITY_DAYS["one_month"]),
         "latest_missing_samples": [sample(row) for row in latest_missing[:20]],
         "legacy_missing_samples": [sample(row) for row in legacy_missing[:5]],
     }
@@ -302,6 +319,12 @@ def build_forecast_performance_review(project_root=".", markets=None, today=None
         "legacy_short_signal_missing_count": sum(
             item.get("forecast_history", {}).get("legacy_short_signal_missing_count", 0) for item in reviewed
         ),
+        "next_one_week_evaluation_date": _earliest_known_date(
+            item.get("forecast_history", {}).get("latest_one_week_evaluation_date") for item in reviewed
+        ),
+        "next_one_month_evaluation_date": _earliest_known_date(
+            item.get("forecast_history", {}).get("latest_one_month_evaluation_date") for item in reviewed
+        ),
         "missing_market_count": missing_market_count,
         "direction_hits": hits,
         "direction_hit_rate": direction_hit_rate,
@@ -339,6 +362,8 @@ def render_forecast_performance_review(payload):
         f"- 成熟评估：{payload.get('mature_evaluations', 0)}",
         f"- 1周成熟评估：{payload.get('one_week_mature', 0)}",
         f"- 1个月成熟评估：{payload.get('one_month_mature', 0)}",
+        f"- next_one_week_evaluation_date: {payload.get('next_one_week_evaluation_date', 'unknown')}",
+        f"- next_one_month_evaluation_date: {payload.get('next_one_month_evaluation_date', 'unknown')}",
         f"- 预测字段缺失未评估：{payload.get('prediction_unavailable', 0)}",
         f"- 缺失市场文件：{payload.get('missing_market_count', 0)}",
         f"- 方向命中率：{_pct(payload.get('direction_hit_rate'))}",
@@ -457,8 +482,8 @@ def render_forecast_performance_review(payload):
             "",
             "## 短周期预测字段覆盖",
             "",
-            "| 市场 | 状态 | 历史预测 | 短周期字段缺失 | 最新批次日期 | 最新批次缺失 | legacy缺失 |",
-            "|---|---|---:|---:|---|---:|---:|",
+            "| 市场 | 状态 | 历史预测 | 短周期字段缺失 | 最新批次日期 | next_one_week_evaluation_date | next_one_month_evaluation_date | 最新批次缺失 | legacy缺失 |",
+            "|---|---|---:|---:|---|---|---|---:|---:|",
         ]
     )
     for market in payload.get("markets", []) or []:
@@ -467,6 +492,8 @@ def render_forecast_performance_review(payload):
             f"| {market.get('name', '')} | {history.get('status', 'unknown')} | "
             f"{history.get('total_forecasts', 0)} | {history.get('short_signal_missing_count', 0)} | "
             f"{history.get('latest_generated_date', 'unknown')} | "
+            f"{history.get('latest_one_week_evaluation_date', 'unknown')} | "
+            f"{history.get('latest_one_month_evaluation_date', 'unknown')} | "
             f"{history.get('latest_short_signal_missing_count', 0)} | "
             f"{history.get('legacy_short_signal_missing_count', 0)} |"
         )
