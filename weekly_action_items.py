@@ -14,6 +14,9 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCES = "outputs/automation/latest_sp500_current_me
 DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
     "outputs/automation/latest_sp500_current_membership_source_review_status.json"
 )
+DEFAULT_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS = (
+    "outputs/automation/latest_sp500_current_membership_source_inbox_status.json"
+)
 DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
@@ -406,8 +409,9 @@ def _membership_import_plan_action(import_plan):
     }
 
 
-def _current_membership_source_action(source_status, review_status=None):
+def _current_membership_source_action(source_status, review_status=None, inbox_status=None):
     review_status = review_status or {}
+    inbox_status = inbox_status or {}
     recommended_followup = str(
         source_status.get("recommended_followup", "") or ""
     ).strip()
@@ -496,6 +500,19 @@ def _current_membership_source_action(source_status, review_status=None):
     source_file_validation_status = str(
         source_status.get("source_file_validation_status", "unknown") or "unknown"
     ).strip()
+    source_file_inbox_status = str(inbox_status.get("status", "missing") or "missing").strip()
+    source_file_inbox_next_action = str(
+        inbox_status.get("next_action", "missing") or "missing"
+    ).strip()
+    source_file_inbox_validation_status = str(
+        inbox_status.get("source_file_validation_status", "unknown") or "unknown"
+    ).strip()
+    source_file_inbox_parsed_count = _int_value(
+        inbox_status.get("parsed_official_ticker_count"), 0
+    )
+    source_file_inbox_intake_missing_count = _int_value(
+        inbox_status.get("intake_missing_count"), 0
+    )
     source_file_acceptance_criteria = [
         str(item).strip()
         for item in source_status.get("source_file_acceptance_criteria", []) or []
@@ -518,6 +535,10 @@ def _current_membership_source_action(source_status, review_status=None):
         f"source_file_request_file:{source_file_request_file or 'outputs/automation/sp500_current_membership_source_file_request.md'}; "
         f"source_file_inbox:{source_file_inbox_default}; "
         f"inbox_status={source_file_validation_status}; "
+        "inbox_status_file:outputs/automation/latest_sp500_current_membership_source_inbox_status.json; "
+        f"inbox_next_action={source_file_inbox_next_action}; "
+        f"parsed_official_ticker_count={source_file_inbox_parsed_count}; "
+        f"inbox_intake_missing_count={source_file_inbox_intake_missing_count}; "
         f"dry_run_command:{source_file_dry_run_command or source_file_dry_run_command_default}; "
         f"import_command:{source_file_next_command or source_file_next_command_default}; "
     )
@@ -552,6 +573,11 @@ def _current_membership_source_action(source_status, review_status=None):
             f"source_file_inbox:{source_file_inbox or 'missing'}; "
             f"source_file_inbox_exists:{source_file_inbox_exists}; "
             f"source_file_validation_status:{source_file_validation_status}; "
+            f"source_file_inbox_status:{source_file_inbox_status}; "
+            f"source_file_inbox_next_action:{source_file_inbox_next_action}; "
+            f"source_file_inbox_validation_status:{source_file_inbox_validation_status}; "
+            f"source_file_inbox_parsed_official_ticker_count:{source_file_inbox_parsed_count}; "
+            f"source_file_inbox_intake_missing_count:{source_file_inbox_intake_missing_count}; "
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "
@@ -702,6 +728,7 @@ def build_weekly_action_items(
     membership_import_plan=None,
     current_membership_sources=None,
     current_membership_source_review_status=None,
+    current_membership_source_inbox_status=None,
     forecast_performance=None,
     manual_review_queue=None,
     data_health_review=None,
@@ -711,6 +738,7 @@ def build_weekly_action_items(
     import_plan = load_optional_json(membership_import_plan)
     current_source_status = load_optional_json(current_membership_sources)
     current_source_review_status = load_optional_json(current_membership_source_review_status)
+    current_source_inbox_status = load_optional_json(current_membership_source_inbox_status)
     forecast_performance_review = load_optional_json(forecast_performance)
     manual_review_rows = load_optional_csv_rows(manual_review_queue)
     data_health_payload = load_optional_json(data_health_review)
@@ -757,6 +785,7 @@ def build_weekly_action_items(
     current_source_action = _current_membership_source_action(
         current_source_status,
         current_source_review_status,
+        current_source_inbox_status,
     )
     if current_source_action and not any(
         item.get("action_code") == current_source_action["action_code"] for item in items
@@ -884,6 +913,10 @@ def main():
         "--current-membership-source-review-status",
         default=DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS,
     )
+    parser.add_argument(
+        "--current-membership-source-inbox-status",
+        default=DEFAULT_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS,
+    )
     parser.add_argument("--forecast-performance", default=DEFAULT_FORECAST_PERFORMANCE)
     parser.add_argument("--manual-review-queue", default=DEFAULT_MANUAL_REVIEW_QUEUE)
     parser.add_argument("--data-health-review", default=DEFAULT_DATA_HEALTH_REVIEW)
@@ -894,6 +927,7 @@ def main():
         membership_import_plan=args.membership_import_plan,
         current_membership_sources=args.current_membership_sources,
         current_membership_source_review_status=args.current_membership_source_review_status,
+        current_membership_source_inbox_status=args.current_membership_source_inbox_status,
         forecast_performance=args.forecast_performance,
         manual_review_queue=args.manual_review_queue,
         data_health_review=args.data_health_review,

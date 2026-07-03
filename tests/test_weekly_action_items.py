@@ -218,6 +218,32 @@ def write_current_membership_source_review_status(path):
     )
 
 
+def write_current_membership_source_inbox_status(path):
+    payload = {
+        "status_schema": "sp500_current_membership_source_inbox_status",
+        "status_version": 1,
+        "as_of_date": "2026-06-28",
+        "status": "missing",
+        "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+        "source_file_inbox_exists": False,
+        "source_file_validation_status": "missing",
+        "parsed_official_ticker_count": 0,
+        "minimum_official_ticker_count": 400,
+        "intake_coverage_status": "none",
+        "intake_expected_count": 50,
+        "intake_matched_count": 0,
+        "intake_missing_count": 50,
+        "next_action": "place_official_constituents_csv",
+        "formal_backtest_upgrade_allowed": False,
+        "formal_model_change_allowed": False,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_forecast_performance_review(
     path,
     prediction_unavailable=87,
@@ -526,8 +552,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
             root = Path(tmp)
             manifest_path = root / "latest_self_analysis_manifest.json"
             source_path = root / "latest_sp500_current_membership_sources.json"
+            inbox_status_path = root / "latest_sp500_current_membership_source_inbox_status.json"
             write_manifest(manifest_path)
             write_current_membership_sources(source_path)
+            write_current_membership_source_inbox_status(inbox_status_path)
             source = json.loads(source_path.read_text(encoding="utf-8-sig"))
             source.update(
                 {
@@ -583,6 +611,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             payload = build_weekly_action_items(
                 manifest_path,
                 current_membership_sources=source_path,
+                current_membership_source_inbox_status=inbox_status_path,
             )
             report = render_weekly_action_items(payload)
 
@@ -598,6 +627,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("source_file_inbox:inputs/sp500_current_membership/official_constituents.csv", source_item["source"])
             self.assertIn("source_file_inbox_exists:false", source_item["source"])
             self.assertIn("source_file_validation_status:missing", source_item["source"])
+            self.assertIn("source_file_inbox_status:missing", source_item["source"])
+            self.assertIn("source_file_inbox_next_action:place_official_constituents_csv", source_item["source"])
             self.assertIn("latest_sp500_current_membership_sources.json", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_intake_template.csv", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_file_request.md", source_item["recommended_check"])
@@ -608,6 +639,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("run_sp500_current_membership_sources.ps1", source_item["recommended_check"])
             self.assertIn("-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
+            self.assertIn("latest_sp500_current_membership_source_inbox_status.json", source_item["recommended_check"])
+            self.assertIn("inbox_next_action=place_official_constituents_csv", source_item["recommended_check"])
+            self.assertIn("parsed_official_ticker_count=0", source_item["recommended_check"])
+            self.assertIn("inbox_intake_missing_count=50", source_item["recommended_check"])
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
             self.assertIn("provide_official_constituents_csv", report)
 
@@ -822,6 +857,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
             report_path = root / "latest_weekly_action_items.md"
             write_manifest(manifest_path)
             write_data_health_review(root / "latest_data_health_review.json")
+            write_current_membership_source_inbox_status(
+                root / "latest_sp500_current_membership_source_inbox_status.json"
+            )
 
             result = subprocess.run(
                 [
@@ -843,6 +881,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_manual_review_queue.csv"),
                     "--data-health-review",
                     str(root / "latest_data_health_review.json"),
+                    "--current-membership-source-inbox-status",
+                    str(root / "latest_sp500_current_membership_source_inbox_status.json"),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -878,6 +918,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--forecast-performance", script)
         self.assertIn("latest_sp500_current_membership_sources.json", script)
         self.assertIn("latest_sp500_current_membership_source_review_status.json", script)
+        self.assertIn("latest_sp500_current_membership_source_inbox_status.json", script)
+        self.assertIn("--current-membership-source-inbox-status", script)
         self.assertIn("latest_forecast_performance_review.json", script)
         self.assertIn("latest_manual_review_queue.csv", script)
         self.assertIn("--manual-review-queue", script)
