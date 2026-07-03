@@ -51,6 +51,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_age_days = None
     action_items_count = 0
     action_items_actual_count = 0
+    action_items_json = ""
     conclusion_signal_status = "unknown"
     missing_conclusion_signals = []
     missing_conclusion_signal_fixes = {}
@@ -109,12 +110,16 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_age_days = action_items["age_days"]
     action_items_count = action_items["item_count"]
     action_items_actual_count = action_items["actual_item_count"]
+    action_items_json = action_items["json_path"]
     if action_items["attention_reasons"]:
         for reason in action_items["attention_reasons"]:
             if reason not in attention_reasons:
                 attention_reasons.append(reason)
     if action_items["missing"] and "missing_outputs" not in attention_reasons:
         attention_reasons.append("missing_outputs")
+    for reason in _artifact_order_reasons(conclusion_path, action_items.get("json_path")):
+        if reason not in attention_reasons:
+            attention_reasons.append(reason)
 
     return {
         "delivery_check_schema": DELIVERY_CHECK_SCHEMA,
@@ -142,6 +147,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "action_items_age_days": action_items_age_days,
         "action_items_count": action_items_count,
         "action_items_actual_count": action_items_actual_count,
+        "action_items_json": action_items_json,
         "missing_outputs": missing_outputs,
         "missing_output_paths": missing_output_paths,
         "attention_reasons": attention_reasons,
@@ -246,6 +252,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "age_days": None,
             "item_count": 0,
             "actual_item_count": 0,
+            "json_path": str(json_path),
             "attention_reasons": [],
             "missing": True,
         }
@@ -258,6 +265,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "age_days": None,
             "item_count": 0,
             "actual_item_count": 0,
+            "json_path": str(json_path),
             "attention_reasons": ["invalid_action_items_json"],
             "missing": False,
         }
@@ -299,9 +307,22 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
         "age_days": age_days,
         "item_count": item_count,
         "actual_item_count": actual_item_count,
+        "json_path": str(json_path),
         "attention_reasons": attention_reasons,
         "missing": False,
     }
+
+
+def _artifact_order_reasons(conclusion_path, action_items_json_path):
+    if not conclusion_path or not action_items_json_path:
+        return []
+    conclusion = Path(conclusion_path)
+    action_items = Path(action_items_json_path)
+    if not conclusion.exists() or not action_items.exists():
+        return []
+    if conclusion.stat().st_mtime < action_items.stat().st_mtime:
+        return ["weekly_conclusion_older_than_weekly_action_items"]
+    return []
 
 
 def _read_json(path):

@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -300,6 +301,26 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertEqual(result["action_items_count"], 9)
             self.assertEqual(result["action_items_actual_count"], 7)
             self.assertIn("weekly_action_items_count_mismatch", result["attention_reasons"])
+
+    def test_delivery_check_needs_attention_when_conclusion_is_older_than_action_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            base_time = action_items_path.stat().st_mtime
+            os.utime(conclusion_path, (base_time - 20, base_time - 20))
+            os.utime(action_items_path, (base_time, base_time))
+
+            from weekly_delivery_check import run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_older_than_weekly_action_items",
+                result["attention_reasons"],
+            )
 
     def test_delivery_check_needs_attention_when_conclusion_json_is_stale(self):
         with tempfile.TemporaryDirectory() as tmp:
