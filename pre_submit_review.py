@@ -862,6 +862,13 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         or not str(payload.get("source_file_validation_status", "") or "").strip()
     ):
         reasons.append("sp500_current_membership_sources_missing_source_file_inbox_status")
+    else:
+        inbox_path = _resolve_path(project_root or ".", payload.get("source_file_inbox", ""))
+        inbox_exists = inbox_path.exists()
+        recorded_exists = bool(payload.get("source_file_inbox_exists"))
+        validation_status = str(payload.get("source_file_validation_status", "") or "").strip()
+        if inbox_exists != recorded_exists or (inbox_exists and validation_status == "missing"):
+            reasons.append("sp500_current_membership_sources_source_file_inbox_status_mismatch")
 
     intake_file = str(payload.get("source_file_intake_template", "") or "").strip()
     expected_count = _int_value(payload.get("intake_expected_count"))

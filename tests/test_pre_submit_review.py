@@ -1143,6 +1143,27 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_current_source_inbox_status_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            inbox_path = root / source["source_file_inbox"]
+            inbox_path.parent.mkdir(parents=True, exist_ok=True)
+            inbox_path.write_text("Symbol,Security\nABT,Abbott Laboratories\n", encoding="utf-8-sig")
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_source_file_inbox_status_mismatch",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_sp500_current_source_file_request_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
