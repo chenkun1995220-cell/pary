@@ -371,6 +371,32 @@ def write_quote_retry_results(path):
     )
 
 
+def write_candidate_findings_review(path, risk_action_required_count=14):
+    payload = {
+        "review_schema": "candidate_findings_review",
+        "review_version": 1,
+        "as_of_date": "2026-06-29",
+        "status": "manual_review_needed",
+        "recommended_action": "review_candidate_findings",
+        "candidate_count": 64,
+        "field_complete_count": 64,
+        "missing_field_count": 0,
+        "risk_missing_count": 0,
+        "risk_review_count": 33,
+        "risk_classified_count": 33,
+        "risk_unclassified_count": 0,
+        "risk_action_required_count": risk_action_required_count,
+        "risk_action_queue_count": risk_action_required_count,
+        "risk_action_unqueued_count": 0,
+        "formal_model_change_allowed": False,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_manifest_with_resolved_delivery_backlog(path):
     write_manifest(path)
     payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
@@ -628,6 +654,28 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 ["review_data_quality_score", "review_data_quality_trend"],
             )
             self.assertNotIn("review_delivery_health_issues", actions)
+
+    def test_skips_candidate_findings_when_review_is_structured_and_below_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            candidate_findings_path = Path(tmp) / "latest_candidate_findings_review.json"
+            write_manifest(manifest_path)
+            write_candidate_findings_review(candidate_findings_path)
+            payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            payload["automation_priority_actions"] = ["review_candidate_findings"]
+            manifest_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            result = build_weekly_action_items(
+                manifest_path,
+                candidate_findings_review=candidate_findings_path,
+            )
+
+            self.assertEqual(result["items"], [])
 
     def test_adds_apply_preview_action_when_membership_sources_are_ready_to_import(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1066,6 +1114,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             report_path = root / "latest_weekly_action_items.md"
             write_manifest(manifest_path)
             write_data_health_review(root / "latest_data_health_review.json")
+            write_candidate_findings_review(root / "latest_candidate_findings_review.json")
             write_current_membership_source_inbox_status(
                 root / "latest_sp500_current_membership_source_inbox_status.json"
             )
@@ -1090,6 +1139,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_manual_review_queue.csv"),
                     "--data-health-review",
                     str(root / "latest_data_health_review.json"),
+                    "--candidate-findings-review",
+                    str(root / "latest_candidate_findings_review.json"),
                     "--current-membership-source-inbox-status",
                     str(root / "latest_sp500_current_membership_source_inbox_status.json"),
                 ],
@@ -1134,6 +1185,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--manual-review-queue", script)
         self.assertIn("latest_data_health_review.json", script)
         self.assertIn("--data-health-review", script)
+        self.assertIn("latest_candidate_findings_review.json", script)
+        self.assertIn("--candidate-findings-review", script)
         self.assertIn("codex-primary-runtime", script)
 
 

@@ -20,6 +20,7 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS = (
 DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
+DEFAULT_CANDIDATE_FINDINGS_REVIEW = "outputs/automation/latest_candidate_findings_review.json"
 DEFAULT_HK_QUOTE_RETRY_RESULTS = "outputs/hk_universe/quote_retry_results.json"
 DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
     "Symbol",
@@ -791,6 +792,20 @@ def _forecast_prediction_unavailable_action(forecast_performance):
     }
 
 
+def _candidate_review_issue_is_actionable(candidate_findings):
+    if not isinstance(candidate_findings, dict) or not candidate_findings:
+        return True
+    if _int_value(candidate_findings.get("missing_field_count"), 0) > 0:
+        return True
+    if _int_value(candidate_findings.get("risk_missing_count"), 0) > 0:
+        return True
+    if _int_value(candidate_findings.get("risk_unclassified_count"), 0) > 0:
+        return True
+    if _int_value(candidate_findings.get("risk_action_unqueued_count"), 0) > 0:
+        return True
+    return _int_value(candidate_findings.get("risk_action_required_count"), 0) > 20
+
+
 def _backlog_reduction_plan(items):
     grouped = {}
     for item in items:
@@ -855,6 +870,7 @@ def build_weekly_action_items(
     forecast_performance=None,
     manual_review_queue=None,
     data_health_review=None,
+    candidate_findings_review=None,
     quote_retry_results=None,
 ):
     manifest_path = Path(manifest)
@@ -866,11 +882,14 @@ def build_weekly_action_items(
     forecast_performance_review = load_optional_json(forecast_performance)
     manual_review_rows = load_optional_csv_rows(manual_review_queue)
     data_health_payload = load_optional_json(data_health_review)
+    candidate_findings_payload = load_optional_json(candidate_findings_review)
     quote_retry_payload = load_optional_json(quote_retry_results)
     if manual_review_rows:
         source["manual_review_queue_items"] = manual_review_rows
     if data_health_payload:
         source["data_health_review"] = data_health_payload
+    if candidate_findings_payload:
+        source["candidate_findings_review"] = candidate_findings_payload
     if quote_retry_payload:
         source["quote_retry_results"] = quote_retry_payload
     if forecast_performance_review:
@@ -894,6 +913,11 @@ def build_weekly_action_items(
         if action_code == "review_delivery_health_issues":
             history = _delivery_history(source)
             if not _delivery_health_issue_is_actionable(history):
+                continue
+        if action_code == "review_candidate_findings":
+            if not _candidate_review_issue_is_actionable(
+                source.get("candidate_findings_review", {})
+            ):
                 continue
         template = _action_template(action_code, source)
         items.append(
@@ -959,6 +983,7 @@ def build_weekly_action_items(
             current_source_inbox_status,
             forecast_performance_review,
             data_health_payload,
+            candidate_findings_payload,
             quote_retry_payload,
         ),
         "source_manifest": str(manifest_path),
@@ -1064,6 +1089,7 @@ def main():
     parser.add_argument("--forecast-performance", default=DEFAULT_FORECAST_PERFORMANCE)
     parser.add_argument("--manual-review-queue", default=DEFAULT_MANUAL_REVIEW_QUEUE)
     parser.add_argument("--data-health-review", default=DEFAULT_DATA_HEALTH_REVIEW)
+    parser.add_argument("--candidate-findings-review", default=DEFAULT_CANDIDATE_FINDINGS_REVIEW)
     parser.add_argument("--quote-retry-results", default=DEFAULT_HK_QUOTE_RETRY_RESULTS)
     args = parser.parse_args()
 
@@ -1076,6 +1102,7 @@ def main():
         forecast_performance=args.forecast_performance,
         manual_review_queue=args.manual_review_queue,
         data_health_review=args.data_health_review,
+        candidate_findings_review=args.candidate_findings_review,
         quote_retry_results=args.quote_retry_results,
     )
     report = render_weekly_action_items(payload)

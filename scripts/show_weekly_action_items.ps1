@@ -8,6 +8,7 @@ param(
   [string]$ForecastPerformance = "",
   [string]$ManualReviewQueue = "",
   [string]$DataHealthReview = "",
+  [string]$CandidateFindingsReview = "",
   [string]$Output = "",
   [string]$Report = ""
 )
@@ -41,6 +42,9 @@ if (-not $ManualReviewQueue) {
 if (-not $DataHealthReview) {
   $DataHealthReview = Join-Path $ProjectRoot "outputs\automation\latest_data_health_review.json"
 }
+if (-not $CandidateFindingsReview) {
+  $CandidateFindingsReview = Join-Path $ProjectRoot "outputs\automation\latest_candidate_findings_review.json"
+}
 if (-not $Output) {
   $Output = Join-Path $ProjectRoot "outputs\automation\latest_weekly_action_items.json"
 }
@@ -51,7 +55,7 @@ if (-not $Report) {
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 $Script = Join-Path $ProjectRoot "weekly_action_items.py"
 
-& $Python -B $Script --manifest $Manifest --membership-import-plan $MembershipImportPlan --current-membership-sources $CurrentMembershipSources --current-membership-source-review-status $CurrentMembershipSourceReviewStatus --current-membership-source-inbox-status $CurrentMembershipSourceInboxStatus --forecast-performance $ForecastPerformance --manual-review-queue $ManualReviewQueue --data-health-review $DataHealthReview --output $Output --report $Report
+& $Python -B $Script --manifest $Manifest --membership-import-plan $MembershipImportPlan --current-membership-sources $CurrentMembershipSources --current-membership-source-review-status $CurrentMembershipSourceReviewStatus --current-membership-source-inbox-status $CurrentMembershipSourceInboxStatus --forecast-performance $ForecastPerformance --manual-review-queue $ManualReviewQueue --data-health-review $DataHealthReview --candidate-findings-review $CandidateFindingsReview --output $Output --report $Report
 if ($LASTEXITCODE -ne 0) {
   throw "Weekly action items report failed with exit code $LASTEXITCODE."
 }
