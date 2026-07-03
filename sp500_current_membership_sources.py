@@ -16,6 +16,13 @@ SOURCE_SCHEMA = "sp500_current_membership_sources"
 SOURCE_VERSION = 1
 MINIMUM_OFFICIAL_TICKER_COUNT = 400
 SOURCE_FILE_REQUIRED_COLUMNS = ["Symbol", "Ticker"]
+SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
+    "Symbol",
+    "Ticker",
+    "Ticker Symbol",
+    "Constituent Ticker",
+    "Constituent Symbol",
+]
 SOURCE_FILE_NEXT_COMMAND = (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
     "scripts\\run_sp500_current_membership_sources.ps1 "
@@ -64,7 +71,13 @@ OUTPUT_FIELDS = [
     "source_as_of_date",
     "notes",
 ]
-SOURCE_FILE_TICKER_COLUMNS = {"symbol", "ticker"}
+SOURCE_FILE_TICKER_COLUMN_KEYS = {
+    "symbol",
+    "ticker",
+    "tickersymbol",
+    "constituentsymbol",
+    "constituentticker",
+}
 OFFICIAL_TABLE_LABELS = {
     "COMPANY",
     "DATE",
@@ -140,6 +153,18 @@ def parse_official_current_tickers(html_text):
     return tickers
 
 
+def _source_file_column_key(name):
+    return re.sub(r"[^a-z0-9]+", "", str(name or "").strip().lower())
+
+
+def _source_file_ticker_columns(fieldnames):
+    return [
+        name
+        for name in fieldnames or []
+        if name and _source_file_column_key(name) in SOURCE_FILE_TICKER_COLUMN_KEYS
+    ]
+
+
 def parse_official_current_tickers_from_source_file(source_file):
     source = Path(source_file)
     if not source.exists():
@@ -147,11 +172,7 @@ def parse_official_current_tickers_from_source_file(source_file):
     with source.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         fieldnames = reader.fieldnames or []
-        ticker_columns = [
-            name
-            for name in fieldnames
-            if name and name.strip().lower() in SOURCE_FILE_TICKER_COLUMNS
-        ]
+        ticker_columns = _source_file_ticker_columns(fieldnames)
         if not ticker_columns:
             raise ValueError("source_file must contain a Symbol or Ticker column")
         tickers = set()
@@ -453,6 +474,10 @@ def render_report(payload):
             "- source_file_acceptance_criteria: "
             + ", ".join(payload.get("source_file_acceptance_criteria") or [])
         )
+    if payload.get("source_file_ticker_columns"):
+        lines.append(
+            "- source_file_ticker_columns: " + ", ".join(payload.get("source_file_ticker_columns") or [])
+        )
     if payload.get("error"):
         lines.append(f"- error: {payload.get('error', '')}")
     lines.extend(["", "| ticker | evidence | source |", "|---|---|---|"])
@@ -493,6 +518,7 @@ def render_source_file_request(payload, missing_limit=20):
         f"- status: {payload.get('status', 'unknown')}",
         f"- source_url: {payload.get('source_url', '')}",
         f"- required_columns: {required_columns}",
+        "- accepted_ticker_columns: " + ", ".join(SOURCE_FILE_ACCEPTED_TICKER_COLUMNS),
         f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",
@@ -587,12 +613,15 @@ def main():
 
     try:
         if args.source_file:
+            with Path(args.source_file).open(encoding="utf-8-sig", newline="") as handle:
+                source_file_ticker_columns = _source_file_ticker_columns(csv.DictReader(handle).fieldnames or [])
             payload = build_current_membership_sources_from_tickers(
                 args.template,
                 parse_official_current_tickers_from_source_file(args.source_file),
                 args.source_url,
                 as_of_date=args.as_of_date or None,
             )
+            payload["source_file_ticker_columns"] = source_file_ticker_columns
         else:
             html_text = Path(args.source_html).read_text(encoding="utf-8-sig") if args.source_html else fetch_source_html(
                 args.source_url,

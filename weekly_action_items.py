@@ -20,6 +20,13 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS = (
 DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
+DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
+    "Symbol",
+    "Ticker",
+    "Ticker Symbol",
+    "Constituent Ticker",
+    "Constituent Symbol",
+]
 
 
 def load_manifest(manifest):
@@ -467,6 +474,12 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         if str(column).strip()
     ]
     source_file_required_text = ", ".join(source_file_required_columns) or "none"
+    source_file_accepted_ticker_columns = [
+        str(column).strip()
+        for column in source_status.get("source_file_accepted_ticker_columns", []) or []
+        if str(column).strip()
+    ] or DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS
+    source_file_accepted_ticker_columns_text = ", ".join(source_file_accepted_ticker_columns)
     source_file_next_command = str(
         source_status.get("source_file_inbox_next_command")
         or source_status.get("source_file_next_command", "")
@@ -569,6 +582,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"missing_ticker_review_queue_count:{missing_queue_count}; "
             f"recommended_followup:{recommended_followup}; "
             f"source_file_required_columns:{source_file_required_text}; "
+            f"source_file_accepted_ticker_columns:{source_file_accepted_ticker_columns_text}; "
             f"source_file_request_file:{source_file_request_file or 'missing'}; "
             f"source_file_inbox:{source_file_inbox or 'missing'}; "
             f"source_file_inbox_exists:{source_file_inbox_exists}; "
@@ -598,7 +612,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"{ticker_text}；当前缺失复核队列 {missing_queue_count} 条；"
             f"若 recommended_followup={recommended_followup}，提供官方 S&P Global constituents CSV，"
             f"默认投递入口：{source_file_inbox_default}；"
-            f"要求列：{source_file_required_text}；验收条件：{source_file_criteria_text}；"
+            f"要求列：{source_file_required_text}；可接受 ticker 列：{source_file_accepted_ticker_columns_text}；验收条件：{source_file_criteria_text}；"
             f"导入命令：{source_file_next_command or source_file_next_command_default}；"
             "确认缺失 ticker 是官方导出不覆盖，还是人工来源文件仍不完整。"
             "该动作只做证据复核，不修改 historical_membership.csv 或正式模型参数。"

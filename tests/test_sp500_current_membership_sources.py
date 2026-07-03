@@ -98,6 +98,17 @@ def write_official_csv(path):
             writer.writerow({"Symbol": f"T{index:03d}", "Security": f"Test Company {index}"})
 
 
+def write_official_csv_with_ticker_symbol_column(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["Ticker Symbol", "Security"])
+        writer.writeheader()
+        writer.writerow({"Ticker Symbol": "ABT", "Security": "Abbott Laboratories"})
+        writer.writerow({"Ticker Symbol": "ADM", "Security": "Archer Daniels Midland"})
+        for index in range(398):
+            writer.writerow({"Ticker Symbol": f"T{index:03d}", "Security": f"Test Company {index}"})
+
+
 def write_official_csv_for_project_template(path):
     tickers = [
         "ABT",
@@ -568,6 +579,57 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                 remaining_rows = list(csv.DictReader(handle))
             self.assertEqual([row["expected_ticker"] for row in remaining_rows], ["ZZZ"])
 
+    def test_cli_accepts_common_official_csv_ticker_symbol_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            source_file = root / "official_constituents.csv"
+            output = root / "sources.csv"
+            report = root / "sources.md"
+            metadata = root / "sources.json"
+            intake = root / "intake_template.csv"
+            write_template(template)
+            write_official_csv_with_ticker_symbol_column(source_file)
+            write_intake_template(intake)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_sources.py"),
+                    "--template",
+                    str(template),
+                    "--source-file",
+                    str(source_file),
+                    "--source-url",
+                    "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "--as-of-date",
+                    "2026-06-30",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--json-output",
+                    str(metadata),
+                    "--intake-template",
+                    str(intake),
+                    "--validate-source-file-only",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("status: ready", result.stdout)
+            self.assertIn("parsed_official_ticker_count: 400", result.stdout)
+            self.assertIn("source_file_ticker_columns: Ticker Symbol", result.stdout)
+            self.assertFalse(output.exists())
+            self.assertFalse(report.exists())
+            self.assertFalse(metadata.exists())
+
     def test_cli_validates_source_file_without_writing_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -747,6 +809,10 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("# S&P 500 official constituents CSV request", request_text)
             self.assertIn("status: fetch_failed", request_text)
             self.assertIn("required_columns: Symbol or Ticker", request_text)
+            self.assertIn(
+                "accepted_ticker_columns: Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol",
+                request_text,
+            )
             self.assertIn("minimum_official_ticker_count: 400", request_text)
             self.assertIn("source_file_inbox: inputs/sp500_current_membership/official_constituents.csv", request_text)
             self.assertIn("source_file_inbox_exists: false", request_text)
@@ -916,6 +982,48 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["intake_matched_count"], 1)
             self.assertEqual(payload["intake_missing_tickers"], ["ZZZ"])
             self.assertIn("status: ready_for_import_preview", report.read_text(encoding="utf-8-sig"))
+
+    def test_inbox_status_reports_common_official_csv_ticker_symbol_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            inbox = root / "inputs" / "official_constituents.csv"
+            output = root / "latest_inbox_status.json"
+            report = root / "latest_inbox_status.md"
+            write_template(template)
+            write_official_csv_with_ticker_symbol_column(inbox)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_source_inbox_status.py"),
+                    "--template",
+                    str(template),
+                    "--source-file-inbox",
+                    str(inbox),
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--as-of-date",
+                    "2026-07-03",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "ready_for_import_preview")
+            self.assertEqual(payload["source_file_ticker_columns"], ["Ticker Symbol"])
+            self.assertIn(
+                "source_file_ticker_columns: Ticker Symbol",
+                report.read_text(encoding="utf-8-sig"),
+            )
 
     def test_inbox_status_powershell_wrapper_static_contract(self):
         wrapper = (

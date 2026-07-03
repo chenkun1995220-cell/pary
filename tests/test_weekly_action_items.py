@@ -623,6 +623,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(source_item["category"], "backtest")
             self.assertIn("recommended_followup:provide_official_constituents_csv", source_item["source"])
             self.assertIn("source_file_required_columns:Symbol, Ticker", source_item["source"])
+            self.assertIn(
+                "source_file_accepted_ticker_columns:Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol",
+                source_item["source"],
+            )
             self.assertIn("source_file_request_file:outputs/automation/sp500_current_membership_source_file_request.md", source_item["source"])
             self.assertIn("source_file_inbox:inputs/sp500_current_membership/official_constituents.csv", source_item["source"])
             self.assertIn("source_file_inbox_exists:false", source_item["source"])
@@ -636,6 +640,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("inbox_status=missing", source_item["recommended_check"])
             self.assertIn("提供官方 S&P Global constituents CSV", source_item["recommended_check"])
             self.assertIn("Symbol, Ticker", source_item["recommended_check"])
+            self.assertIn("Ticker Symbol, Constituent Ticker, Constituent Symbol", source_item["recommended_check"])
             self.assertIn("-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("run_sp500_current_membership_sources.ps1", source_item["recommended_check"])
             self.assertIn("-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
