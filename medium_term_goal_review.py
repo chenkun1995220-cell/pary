@@ -401,7 +401,7 @@ def _backtest_next_action(membership_import_plan, current_membership_sources):
     if recommended_followup == "run_membership_evidence_import_plan_then_apply_preview":
         return recommended_followup
     if recommended_followup == "provide_official_constituents_csv":
-        return recommended_followup
+        return current_membership_sources.get("fetch_error_next_action") or recommended_followup
     if recommended_followup == "review_current_membership_source_status":
         return recommended_followup
     return "supplement_verified_membership_evidence"

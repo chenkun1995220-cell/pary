@@ -802,6 +802,9 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             source["next_action"] = "retry_official_source_or_provide_official_constituents_csv"
             source["recommended_followup"] = "provide_official_constituents_csv"
             source["source_file_required_columns"] = ["Symbol", "Ticker"]
+            source["fetch_error_type"] = "network_permission_denied"
+            source["fetch_retryable_without_environment_change"] = False
+            source["fetch_error_next_action"] = "provide_official_constituents_csv_or_fix_network_permission"
             write_json(source_path, source)
 
             from medium_term_goal_review import build_medium_term_goal_review
@@ -811,10 +814,10 @@ class MediumTermGoalReviewTests(unittest.TestCase):
 
             self.assertEqual(
                 goals["backtest_evidence_quality"]["next_action"],
-                "provide_official_constituents_csv",
+                "provide_official_constituents_csv_or_fix_network_permission",
             )
             self.assertIn(
-                "provide_official_constituents_csv",
+                "provide_official_constituents_csv_or_fix_network_permission",
                 payload["priority_next_actions"],
             )
 
