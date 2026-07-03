@@ -42,6 +42,20 @@ def _resolve_goal_code(payload, requested_goal_code):
     return "model_governance_handoff"
 
 
+def _priority_actions(payload):
+    actions = payload.get("priority_next_actions", [])
+    if not isinstance(actions, list):
+        return []
+    result = []
+    seen = set()
+    for action in actions:
+        text = str(action).strip()
+        if text and text not in seen:
+            seen.add(text)
+            result.append(text)
+    return result
+
+
 def build_model_handoff_review(
     project_root,
     today=None,
@@ -102,6 +116,7 @@ def build_model_handoff_review(
         ),
         "strategy_code": medium_term.get("strategy_code", "unknown"),
         "strategy_title": medium_term.get("strategy_title", "unknown"),
+        "development_priority_actions": _priority_actions(medium_term),
         "automatic_multi_model_collaboration_enabled": auto_collaboration,
         "collaboration_execution_mode": collaboration_mode,
         "collaboration_boundary_note": collaboration_note,
@@ -156,6 +171,11 @@ def render_model_handoff_review(result):
     lines.extend(["", "## 风险边界", ""])
     for note in result.get("risk_notes", []) or []:
         lines.append(f"- {note}")
+    lines.extend(["", "## development_priority_actions", ""])
+    for action in result.get("development_priority_actions", []) or []:
+        lines.append(f"- {action}")
+    if not result.get("development_priority_actions"):
+        lines.append("- none")
     if result.get("attention_reasons"):
         lines.extend(["", "## 需处理原因", ""])
         for reason in result["attention_reasons"]:

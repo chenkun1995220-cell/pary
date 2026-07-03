@@ -23,6 +23,10 @@ class ModelHandoffReviewTests(unittest.TestCase):
                     "strategy_code": "steady_delivery_evidence_first",
                     "strategy_title": "稳交付 + 补证据 + 等预测样本成熟",
                     "overall_completion_percent": 61,
+                    "priority_next_actions": [
+                        "continue_sample_accumulation",
+                        "provide_official_constituents_csv_or_fix_network_permission",
+                    ],
                     "automatic_multi_model_collaboration_enabled": False,
                     "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
                     "collaboration_boundary_note": (
@@ -56,12 +60,21 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertEqual(result["module_completion_percent"], 75)
             self.assertEqual(result["medium_term_overall_completion_percent"], 61)
             self.assertEqual(result["current_target_total_completion_percent"], 61)
+            self.assertEqual(
+                result["development_priority_actions"],
+                [
+                    "continue_sample_accumulation",
+                    "provide_official_constituents_csv_or_fix_network_permission",
+                ],
+            )
             self.assertFalse(result["automatic_multi_model_collaboration_enabled"])
             self.assertEqual(
                 result["collaboration_execution_mode"],
                 "single_codex_with_gpt55_review_checklist",
             )
             self.assertIn("gpt5.5", " ".join(result["gpt55_review_checklist"]))
+            self.assertIn("development_priority_actions", report)
+            self.assertIn("provide_official_constituents_csv_or_fix_network_permission", report)
             self.assertIn("未启用自动双模型协作", report)
 
     def test_defaults_to_medium_term_closeout_goal_when_goal_code_is_omitted(self):
