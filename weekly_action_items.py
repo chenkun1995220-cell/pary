@@ -383,6 +383,12 @@ def _current_membership_source_action(source_status, review_status=None):
     source_file_next_command = str(
         source_status.get("source_file_next_command", "") or ""
     ).strip()
+    source_file_dry_run_command = str(
+        source_status.get("source_file_dry_run_command", "") or ""
+    ).strip()
+    source_file_request_file = str(
+        source_status.get("source_file_request_file", "") or ""
+    ).strip()
     source_file_acceptance_criteria = [
         str(item).strip()
         for item in source_status.get("source_file_acceptance_criteria", []) or []
@@ -401,6 +407,12 @@ def _current_membership_source_action(source_status, review_status=None):
         if str(ticker).strip()
     ]
     decision_pending_ticker_text = ", ".join(decision_pending_tickers[:10]) or "none"
+    source_file_action_prefix = (
+        f"source_file_request_file:{source_file_request_file or 'outputs/automation/sp500_current_membership_source_file_request.md'}; "
+        f"dry_run_command:{source_file_dry_run_command or 'run_sp500_current_membership_sources.ps1 -DryRun -SourceFile <official_constituents.csv>'}; "
+        f"import_command:{source_file_next_command or 'run_sp500_current_membership_sources.ps1 -SourceFile <official_constituents.csv>'}; "
+    )
+    ticker_text = f"{ticker_text}; {source_file_action_prefix}"
     ticker_text = (
         f"{ticker_text}; {review_status_file}；"
         f"状态报告 open={review_open_count}, resolved={review_resolved_count}；"
@@ -413,7 +425,11 @@ def _current_membership_source_action(source_status, review_status=None):
     )
 
     return {
-        "action_code": "review_current_membership_source_status",
+        "action_code": (
+            "provide_official_constituents_csv"
+            if recommended_followup == "provide_official_constituents_csv"
+            else "review_current_membership_source_status"
+        ),
         "category": "backtest",
         "title": "核对当前 S&P 500 成分来源缺口",
         "source": (
@@ -423,6 +439,7 @@ def _current_membership_source_action(source_status, review_status=None):
             f"missing_ticker_review_queue_count:{missing_queue_count}; "
             f"recommended_followup:{recommended_followup}; "
             f"source_file_required_columns:{source_file_required_text}; "
+            f"source_file_request_file:{source_file_request_file or 'missing'}; "
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "

@@ -255,10 +255,15 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "as_of_date": as_of_date,
             "status": "ready",
             "recommended_action": "monitor_next_run",
-            "priority_actions": ["review_data_health", "continue_sample_accumulation"],
+            "priority_actions": [
+                "review_data_health",
+                "continue_sample_accumulation",
+                "provide_official_constituents_csv",
+            ],
             "priority_action_details": [
                 {"action": "review_data_health", "description": "review data health"},
                 {"action": "continue_sample_accumulation", "description": "keep tracking"},
+                {"action": "provide_official_constituents_csv", "description": "provide official S&P 500 CSV"},
             ],
             "candidate_count_total": 64,
             "candidate_action_summary": {"priority_research": 12, "watchlist": 52},
@@ -285,7 +290,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "action_items_schema": "weekly_action_items",
             "action_items_version": 1,
             "as_of_date": as_of_date,
-            "item_count": 2,
+            "item_count": 3,
             "items": [
                 {
                     "priority": 1,
@@ -302,6 +307,14 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                     "category": "model_tracking",
                     "title": "track",
                     "recommended_check": "keep tracking",
+                },
+                {
+                    "priority": 3,
+                    "status": "open",
+                    "action_code": "provide_official_constituents_csv",
+                    "category": "backtest",
+                    "title": "provide official csv",
+                    "recommended_check": "outputs/automation/sp500_current_membership_source_file_request.md",
                 }
             ],
         },
@@ -594,7 +607,7 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "ready")
             self.assertEqual(result["freshness_status"], "fresh")
             self.assertEqual(result["candidate_count_total"], 64)
-            self.assertEqual(result["manual_action_items_count"], 2)
+            self.assertEqual(result["manual_action_items_count"], 3)
             self.assertEqual(result["governance_status"], "ready")
             self.assertIn("review_data_health", result["priority_actions"])
             self.assertIn("continue_sample_accumulation", result["priority_actions"])
@@ -1124,6 +1137,30 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_missing_source_file_request",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_official_csv_action_item_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["items"] = [
+                item
+                for item in action_items["items"]
+                if item["action_code"] != "provide_official_constituents_csv"
+            ]
+            action_items["item_count"] = len(action_items["items"])
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_official_csv_action_item_missing",
                 result["attention_reasons"],
             )
 

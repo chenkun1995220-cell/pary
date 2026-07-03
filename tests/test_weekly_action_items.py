@@ -445,6 +445,12 @@ class WeeklyActionItemsTests(unittest.TestCase):
                         "scripts\\run_sp500_current_membership_sources.ps1 "
                         "-ProjectRoot <project_root> -SourceFile <official_constituents.csv>"
                     ),
+                    "source_file_dry_run_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 "
+                        "-ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>"
+                    ),
+                    "source_file_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
                     "source_file_acceptance_criteria": [
                         "has_symbol_or_ticker_column",
                         "at_least_400_tickers",
@@ -468,19 +474,22 @@ class WeeklyActionItemsTests(unittest.TestCase):
             source_item = next(
                 item
                 for item in payload["items"]
-                if item["action_code"] == "review_current_membership_source_status"
+                if item["action_code"] == "provide_official_constituents_csv"
             )
             self.assertEqual(source_item["category"], "backtest")
             self.assertIn("recommended_followup:provide_official_constituents_csv", source_item["source"])
             self.assertIn("source_file_required_columns:Symbol, Ticker", source_item["source"])
+            self.assertIn("source_file_request_file:outputs/automation/sp500_current_membership_source_file_request.md", source_item["source"])
             self.assertIn("latest_sp500_current_membership_sources.json", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_intake_template.csv", source_item["recommended_check"])
+            self.assertIn("sp500_current_membership_source_file_request.md", source_item["recommended_check"])
             self.assertIn("提供官方 S&P Global constituents CSV", source_item["recommended_check"])
             self.assertIn("Symbol, Ticker", source_item["recommended_check"])
+            self.assertIn("-DryRun -SourceFile <official_constituents.csv>", source_item["recommended_check"])
             self.assertIn("run_sp500_current_membership_sources.ps1", source_item["recommended_check"])
             self.assertIn("-SourceFile <official_constituents.csv>", source_item["recommended_check"])
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
-            self.assertIn("review_current_membership_source_status", report)
+            self.assertIn("provide_official_constituents_csv", report)
 
     def test_adds_backlog_reduction_action_when_weekly_action_items_are_increasing(self):
         with tempfile.TemporaryDirectory() as tmp:

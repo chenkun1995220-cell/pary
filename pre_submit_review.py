@@ -1083,19 +1083,36 @@ def _membership_action_item_link_reasons(import_plan, action_items):
 def _sp500_current_membership_source_action_item_link_reasons(source_status, action_items):
     if not source_status or not action_items:
         return []
-    if source_status.get("recommended_followup") != "review_current_membership_source_status":
+    recommended_followup = source_status.get("recommended_followup")
+    if recommended_followup not in {
+        "review_current_membership_source_status",
+        "provide_official_constituents_csv",
+    }:
         return []
     missing_count = _int_value(source_status.get("missing_count"), 0)
     intake_missing_count = _int_value(source_status.get("intake_missing_count"), 0)
     if missing_count <= 0 and intake_missing_count <= 0:
         return []
-    action_item = _find_action_item(action_items, "review_current_membership_source_status")
+    expected_action = (
+        "provide_official_constituents_csv"
+        if recommended_followup == "provide_official_constituents_csv"
+        else "review_current_membership_source_status"
+    )
+    action_item = _find_action_item(action_items, expected_action)
     if not action_item:
+        if expected_action == "provide_official_constituents_csv":
+            return ["sp500_current_membership_source_official_csv_action_item_missing"]
         return ["sp500_current_membership_source_action_item_missing"]
+    recommended_check = str(action_item.get("recommended_check", "") or "")
+    if expected_action == "provide_official_constituents_csv":
+        request_file = str(source_status.get("source_file_request_file", "") or "").strip()
+        request_name = Path(request_file).name if request_file else ""
+        if request_name and request_name not in recommended_check:
+            return ["sp500_current_membership_source_official_csv_action_item_missing"]
+        return []
     review_queue_file = str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
     if review_queue_file:
         queue_name = Path(review_queue_file).name
-        recommended_check = str(action_item.get("recommended_check", "") or "")
         if queue_name and queue_name not in recommended_check:
             return ["sp500_current_membership_source_action_item_missing_review_queue_file"]
     return []
