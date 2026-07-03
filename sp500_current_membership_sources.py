@@ -378,6 +378,22 @@ def add_intake_coverage(payload, intake_template):
     return payload
 
 
+def add_source_file_inbox_status(payload, source_file_inbox):
+    if not source_file_inbox:
+        return payload
+    inbox_path = Path(source_file_inbox)
+    inbox_exists = inbox_path.exists()
+    payload["source_file_inbox"] = source_file_inbox
+    payload["source_file_inbox_exists"] = inbox_exists
+    if not inbox_exists:
+        payload["source_file_validation_status"] = "missing"
+    elif payload.get("status") == "source_file_invalid":
+        payload["source_file_validation_status"] = "invalid"
+    else:
+        payload["source_file_validation_status"] = "present_unvalidated"
+    return payload
+
+
 def render_report(payload):
     lines = [
         "# sp500_current_membership_sources",
@@ -408,6 +424,10 @@ def render_report(payload):
         lines.append(f"- source_file_request_file: {payload.get('source_file_request_file', '')}")
     if payload.get("source_file_inbox"):
         lines.append(f"- source_file_inbox: {payload.get('source_file_inbox', '')}")
+    if payload.get("source_file_inbox_exists") is not None:
+        lines.append(f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}")
+    if payload.get("source_file_validation_status"):
+        lines.append(f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}")
     if payload.get("source_file_acceptance_criteria"):
         lines.append(
             "- source_file_acceptance_criteria: "
@@ -458,6 +478,8 @@ def render_source_file_request(payload, missing_limit=20):
         f"- missing_count: {payload.get('missing_count', 0)}",
         f"- intake_template: {payload.get('source_file_intake_template', '')}",
         f"- source_file_inbox: {payload.get('source_file_inbox', SOURCE_FILE_INBOX)}",
+        f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}",
+        f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}",
         f"- dry_run_command: {payload.get('source_file_dry_run_command', '')}",
         "- validation_mode: --validate-source-file-only",
         f"- import_command: {payload.get('source_file_next_command', '')}",
@@ -570,6 +592,8 @@ def main():
                 as_of_date=args.as_of_date or None,
             )
             payload["validation_only"] = True
+            if args.source_file_inbox and should_write_source_file_request(payload):
+                add_source_file_inbox_status(payload, args.source_file_inbox)
             print(render_report(payload))
             sys.exit(1)
         if not args.allow_empty_on_fetch_error:
@@ -581,7 +605,7 @@ def main():
             as_of_date=args.as_of_date or None,
         )
     if args.source_file_inbox and should_write_source_file_request(payload):
-        payload["source_file_inbox"] = args.source_file_inbox
+        add_source_file_inbox_status(payload, args.source_file_inbox)
     if args.intake_template and not args.source_file and payload.get("status") in {
         "fetch_failed",
         "source_file_required",

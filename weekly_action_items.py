@@ -390,6 +390,14 @@ def _current_membership_source_action(source_status, review_status=None):
         source_status.get("source_file_request_file", "") or ""
     ).strip()
     source_file_inbox = str(source_status.get("source_file_inbox", "") or "").strip()
+    source_file_inbox_exists_value = source_status.get("source_file_inbox_exists")
+    if source_file_inbox_exists_value is None:
+        source_file_inbox_exists = "unknown"
+    else:
+        source_file_inbox_exists = str(bool(source_file_inbox_exists_value)).lower()
+    source_file_validation_status = str(
+        source_status.get("source_file_validation_status", "unknown") or "unknown"
+    ).strip()
     source_file_acceptance_criteria = [
         str(item).strip()
         for item in source_status.get("source_file_acceptance_criteria", []) or []
@@ -411,6 +419,7 @@ def _current_membership_source_action(source_status, review_status=None):
     source_file_action_prefix = (
         f"source_file_request_file:{source_file_request_file or 'outputs/automation/sp500_current_membership_source_file_request.md'}; "
         f"source_file_inbox:{source_file_inbox or 'inputs/sp500_current_membership/official_constituents.csv'}; "
+        f"inbox_status={source_file_validation_status}; "
         f"dry_run_command:{source_file_dry_run_command or 'run_sp500_current_membership_sources.ps1 -DryRun -SourceFile <official_constituents.csv>'}; "
         f"import_command:{source_file_next_command or 'run_sp500_current_membership_sources.ps1 -SourceFile <official_constituents.csv>'}; "
     )
@@ -443,6 +452,8 @@ def _current_membership_source_action(source_status, review_status=None):
             f"source_file_required_columns:{source_file_required_text}; "
             f"source_file_request_file:{source_file_request_file or 'missing'}; "
             f"source_file_inbox:{source_file_inbox or 'missing'}; "
+            f"source_file_inbox_exists:{source_file_inbox_exists}; "
+            f"source_file_validation_status:{source_file_validation_status}; "
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "

@@ -349,7 +349,11 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                 payload["source_file_inbox"],
                 "inputs/sp500_current_membership/official_constituents.csv",
             )
+            self.assertFalse(payload["source_file_inbox_exists"])
+            self.assertEqual(payload["source_file_validation_status"], "missing")
             self.assertIn("source_file_next_command:", report_text)
+            self.assertIn("source_file_inbox_exists: false", report_text)
+            self.assertIn("source_file_validation_status: missing", report_text)
             self.assertIn("at_least_400_tickers", report_text)
             self.assertEqual(payload["source_file_intake_template"], str(intake))
             with intake.open(encoding="utf-8-sig", newline="") as handle:
@@ -668,6 +672,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("required_columns: Symbol or Ticker", request_text)
             self.assertIn("minimum_official_ticker_count: 400", request_text)
             self.assertIn("source_file_inbox: inputs/sp500_current_membership/official_constituents.csv", request_text)
+            self.assertIn("source_file_inbox_exists: false", request_text)
+            self.assertIn("source_file_validation_status: missing", request_text)
             self.assertIn("dry_run_command:", request_text)
             self.assertIn("--validate-source-file-only", request_text)
             self.assertIn("import_command:", request_text)
