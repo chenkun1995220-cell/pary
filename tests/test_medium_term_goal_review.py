@@ -942,11 +942,26 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 summary["collaboration_execution_mode"],
                 "single_codex_with_gpt55_review_checklist",
             )
+            self.assertTrue(summary["sp500_current_source_inbox_external_input_required"])
+            self.assertEqual(
+                summary["sp500_current_source_inbox_blocking_reason"],
+                "official_constituents_csv_missing",
+            )
+            self.assertEqual(
+                summary["sp500_current_source_inbox_blocking_input"],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
             self.assertIn("当前开发内容所属模块：S&P 500 成分证据补强", report)
             self.assertIn("该模块完成度：30%", report)
             self.assertIn("中期目标整体完成度：", report)
             self.assertIn("当前目标总完成度：", report)
             self.assertIn("真实执行模式：single_codex_with_gpt55_review_checklist", report)
+
+            self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+            self.assertIn(
+                "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
+                report,
+            )
 
     def test_development_closeout_wrapper_exists(self):
         wrapper = PROJECT_ROOT / "scripts" / "show_development_closeout.ps1"

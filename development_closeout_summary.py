@@ -36,6 +36,9 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
         "completion_percent",
         snapshot.get("module_completion_percent", 0),
     )
+    current = goal.get("current", {}) if isinstance(goal, dict) else {}
+    if not isinstance(current, dict):
+        current = {}
     return {
         "current_module": current_module,
         "goal_code": goal.get("goal_code", goal_code or "unknown"),
@@ -66,6 +69,17 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
         "collaboration_execution_mode": review.get(
             "collaboration_execution_mode",
             "unknown",
+        ),
+        "sp500_current_source_inbox_external_input_required": bool(
+            current.get("sp500_current_source_inbox_external_input_required")
+        ),
+        "sp500_current_source_inbox_blocking_reason": current.get(
+            "sp500_current_source_inbox_blocking_reason",
+            "",
+        ),
+        "sp500_current_source_inbox_blocking_input": current.get(
+            "sp500_current_source_inbox_blocking_input",
+            "",
         ),
         "collaboration_boundary_note": review.get(
             "collaboration_boundary_note",
@@ -98,6 +112,18 @@ def render_development_closeout_summary(summary):
         f"- {summary.get('boundary', '')}",
         "",
     ]
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_external_input_required={summary.get('sp500_current_source_inbox_external_input_required', False)}",
+    )
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_blocking_reason={summary.get('sp500_current_source_inbox_blocking_reason', '')}",
+    )
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_blocking_input={summary.get('sp500_current_source_inbox_blocking_input', '')}",
+    )
     return "\n".join(lines)
 
 
