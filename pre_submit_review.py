@@ -322,6 +322,7 @@ WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS = [
     "action_items_freshness_status",
     "action_items_count",
     "action_items_actual_count",
+    "action_items_json",
     "missing_outputs",
     "attention_reasons",
 ]
