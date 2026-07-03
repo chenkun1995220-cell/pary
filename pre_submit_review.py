@@ -905,6 +905,8 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         reasons.append("sp500_current_membership_sources_missing_source_file_request")
     elif _source_file_request_inbox_commands_missing(request_path):
         reasons.append("sp500_current_membership_sources_missing_source_file_request_inbox_commands")
+    elif _source_file_request_acceptance_criteria_missing(request_path):
+        reasons.append("sp500_current_membership_sources_missing_source_file_request_acceptance_criteria")
     return reasons
 
 
@@ -921,6 +923,22 @@ def _source_file_request_inbox_commands_missing(path):
         or "-DryRun" not in inbox_dry_run
         or "-SourceFileInbox" not in inbox_import
     )
+
+
+def _source_file_request_acceptance_criteria_missing(path):
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig")
+    except OSError:
+        return True
+    required_terms = [
+        "source_file_inbox:",
+        "official_constituents.csv",
+        "minimum_official_ticker_count: 400",
+        "has_symbol_or_ticker_column",
+        "at_least_400_tickers",
+        "official_spglobal_constituents_export",
+    ]
+    return any(term not in text for term in required_terms)
 
 
 def _line_value(lines, key):

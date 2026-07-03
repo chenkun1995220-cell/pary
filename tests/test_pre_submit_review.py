@@ -491,10 +491,16 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
     ).write_text(
         "# S&P 500 official constituents CSV request\n\n"
         "- required_columns: Symbol or Ticker\n"
+        "- minimum_official_ticker_count: 400\n"
+        "- source_file_inbox: inputs/sp500_current_membership/official_constituents.csv\n"
         "- dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>\n"
         "- import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFile <official_constituents.csv>\n"
         "- inbox_dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n"
-        "- inbox_import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n",
+        "- inbox_import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n"
+        "\n## Acceptance criteria\n\n"
+        "- has_symbol_or_ticker_column\n"
+        "- at_least_400_tickers\n"
+        "- official_spglobal_constituents_export\n",
         encoding="utf-8-sig",
     )
     write_csv(
@@ -1252,6 +1258,59 @@ class PreSubmitReviewTests(unittest.TestCase):
                 "sp500_current_membership_sources_missing_source_file_request_inbox_commands",
                 result["attention_reasons"],
             )
+
+    def test_review_needs_attention_when_sp500_current_source_file_request_lacks_acceptance_criteria(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            request_path.write_text(
+                "# S&P 500 official constituents CSV request\n\n"
+                "- required_columns: Symbol or Ticker\n"
+                "- dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>\n"
+                "- import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFile <official_constituents.csv>\n"
+                "- inbox_dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n"
+                "- inbox_import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_request_acceptance_criteria",
+                result["attention_reasons"],
+            )
+
+    def test_review_accepts_sp500_current_source_file_request_with_absolute_inbox_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            absolute_inbox = root / "inputs" / "sp500_current_membership" / "official_constituents.csv"
+            request_text = request_path.read_text(encoding="utf-8-sig").replace(
+                "inputs/sp500_current_membership/official_constituents.csv",
+                str(absolute_inbox),
+            )
+            request_path.write_text(request_text, encoding="utf-8-sig")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
 
     def test_review_needs_attention_when_official_csv_action_item_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
