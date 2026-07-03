@@ -909,6 +909,8 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         reasons.append("sp500_current_membership_sources_missing_source_file_request_acceptance_criteria")
     elif _source_file_request_boundary_missing(request_path):
         reasons.append("sp500_current_membership_sources_missing_source_file_request_boundary")
+    elif _source_file_request_stale(request_path, payload):
+        reasons.append("sp500_current_membership_sources_stale_source_file_request")
     return reasons
 
 
@@ -954,6 +956,18 @@ def _source_file_request_boundary_missing(path):
         "Run the dry-run command before the import command",
     ]
     return any(term not in text for term in required_terms)
+
+
+def _source_file_request_stale(path, payload):
+    expected_date = str(payload.get("as_of_date", "") or "").strip()
+    if not expected_date:
+        return False
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+    request_date = _line_value(lines, "as_of_date")
+    return request_date != expected_date
 
 
 def _line_value(lines, key):

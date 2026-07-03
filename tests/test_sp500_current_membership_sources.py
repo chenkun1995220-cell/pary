@@ -360,6 +360,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             report = root / "sources.md"
             metadata = root / "sources.json"
             intake = root / "intake_template.csv"
+            source_request = root / "source_file_request.md"
             write_template(template)
             html.write_text(OFFICIAL_SHELL_HTML, encoding="utf-8")
 
@@ -383,6 +384,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                     str(metadata),
                     "--intake-template",
                     str(intake),
+                    "--source-file-request",
+                    str(source_request),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -424,6 +427,12 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("source_file_validation_status: missing", report_text)
             self.assertIn("at_least_400_tickers", report_text)
             self.assertEqual(payload["source_file_intake_template"], str(intake))
+            self.assertEqual(payload["source_file_request_file"], str(source_request))
+            self.assertTrue(source_request.exists())
+            self.assertIn(
+                "status: source_file_required",
+                source_request.read_text(encoding="utf-8-sig"),
+            )
             with intake.open(encoding="utf-8-sig", newline="") as handle:
                 intake_rows = list(csv.DictReader(handle))
             self.assertEqual([row["expected_ticker"] for row in intake_rows], ["ABT", "ZZZ"])

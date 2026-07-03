@@ -490,6 +490,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         / "sp500_current_membership_source_file_request.md"
     ).write_text(
         "# S&P 500 official constituents CSV request\n\n"
+        f"- as_of_date: {as_of_date}\n"
         "- required_columns: Symbol or Ticker\n"
         "- minimum_official_ticker_count: 400\n"
         "- source_file_inbox: inputs/sp500_current_membership/official_constituents.csv\n"
@@ -1335,6 +1336,32 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_missing_source_file_request_boundary",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_file_request_is_stale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root, as_of_date="2026-06-28")
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            request_text = request_path.read_text(encoding="utf-8-sig").replace(
+                "- as_of_date: 2026-06-28",
+                "- as_of_date: 2026-06-20",
+            )
+            request_path.write_text(request_text, encoding="utf-8-sig")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_stale_source_file_request",
                 result["attention_reasons"],
             )
 
