@@ -142,6 +142,8 @@ def write_review_fixtures(root):
             "latest_short_signal_missing_count": 0,
             "latest_prediction_unavailable_count": 0,
             "legacy_prediction_unavailable_count": 65,
+            "next_one_week_evaluation_date": "2026-07-06",
+            "next_one_month_evaluation_date": "2026-07-27",
             "maturity_gap_reasons": {
                 "prediction_unavailable": 65,
                 "pending_maturity": 0,
@@ -361,6 +363,14 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(
                 goals["forecast_tracking_maturity"]["current"]["maturity_gap_pending_maturity"],
                 0,
+            )
+            self.assertEqual(
+                goals["forecast_tracking_maturity"]["current"]["next_one_week_evaluation_date"],
+                "2026-07-06",
+            )
+            self.assertEqual(
+                goals["forecast_tracking_maturity"]["current"]["next_one_month_evaluation_date"],
+                "2026-07-27",
             )
             self.assertEqual(
                 goals["forecast_tracking_maturity"]["next_action"],

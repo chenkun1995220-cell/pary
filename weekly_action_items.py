@@ -119,6 +119,14 @@ def _percent_value(value):
         return "unknown"
 
 
+def _forecast_maturity_schedule_text(forecast_performance):
+    one_week = forecast_performance.get("next_one_week_evaluation_date", "unknown")
+    one_month = forecast_performance.get("next_one_month_evaluation_date", "unknown")
+    if one_week == "unknown" and one_month == "unknown":
+        return ""
+    return f"；下一批1周可评估日期 {one_week}，1个月可评估日期 {one_month}"
+
+
 def _data_quality_text(manifest):
     summary = manifest.get("data_quality_summary", {})
     if not isinstance(summary, dict):
@@ -262,7 +270,11 @@ def _action_template(action_code, manifest):
             "title": "继续积累模型跟踪样本",
             "category": "model_tracking",
             "source": f"model_audit_status:{manifest.get('model_audit_status', 'unknown')}",
-            "recommended_check": f"当前模型审计为 {manifest.get('model_audit_status', 'unknown')}；继续保留跟踪，不自动升级正式参数。",
+            "recommended_check": (
+                f"当前模型审计为 {manifest.get('model_audit_status', 'unknown')}"
+                f"{_forecast_maturity_schedule_text(forecast_performance)}"
+                "；继续保留跟踪，不自动升级正式参数。"
+            ),
         },
         "continue_monitoring": {
             "title": "继续周度监控",
@@ -627,6 +639,14 @@ def build_weekly_action_items(
     current_source_status = load_optional_json(current_membership_sources)
     current_source_review_status = load_optional_json(current_membership_source_review_status)
     forecast_performance_review = load_optional_json(forecast_performance)
+    if forecast_performance_review:
+        manifest_forecast = source.get("forecast_performance", {})
+        if not isinstance(manifest_forecast, dict):
+            manifest_forecast = {}
+        source["forecast_performance"] = {
+            **manifest_forecast,
+            **forecast_performance_review,
+        }
     actions = list(source.get("automation_priority_actions", []) or [])
     if not actions:
         actions = [source.get("automation_recommended_action", "") or "continue_monitoring"]

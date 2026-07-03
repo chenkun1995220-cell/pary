@@ -376,6 +376,14 @@ def _forecast_goal(forecast_performance):
             "latest_short_signal_missing_count": latest_short_missing,
             "latest_prediction_unavailable_count": latest_prediction_unavailable,
             "legacy_prediction_unavailable_count": legacy_prediction_unavailable,
+            "next_one_week_evaluation_date": forecast_performance.get(
+                "next_one_week_evaluation_date",
+                "unknown",
+            ),
+            "next_one_month_evaluation_date": forecast_performance.get(
+                "next_one_month_evaluation_date",
+                "unknown",
+            ),
             "maturity_gap_prediction_unavailable": maturity_gap_prediction_unavailable,
             "maturity_gap_pending_maturity": maturity_gap_pending_maturity,
             "maturity_gap_other_not_evaluated": maturity_gap_other_not_evaluated,

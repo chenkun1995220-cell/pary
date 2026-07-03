@@ -100,6 +100,8 @@ def write_manifest(path):
             "mature_evaluations": 30,
             "direction_hit_rate": 0.32,
             "average_excess_return": -0.04,
+            "next_one_week_evaluation_date": "2026-07-07",
+            "next_one_month_evaluation_date": "2026-07-28",
         },
     }
     Path(path).write_text(
@@ -221,6 +223,8 @@ def write_forecast_performance_review(
     mature_evaluations=0,
     latest_prediction_unavailable=87,
     legacy_prediction_unavailable=0,
+    next_one_week_evaluation_date="2026-07-07",
+    next_one_month_evaluation_date="2026-07-28",
 ):
     payload = {
         "review_schema": "forecast_performance_review",
@@ -234,6 +238,8 @@ def write_forecast_performance_review(
         "latest_short_signal_missing_count": 0,
         "latest_prediction_unavailable_count": latest_prediction_unavailable,
         "legacy_prediction_unavailable_count": legacy_prediction_unavailable,
+        "next_one_week_evaluation_date": next_one_week_evaluation_date,
+        "next_one_month_evaluation_date": next_one_month_evaluation_date,
         "maturity_gap_reasons": {
             "prediction_unavailable": prediction_unavailable,
             "pending_maturity": pending_maturity,
@@ -318,6 +324,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             self.assertEqual(sample["category"], "model_tracking")
             self.assertIn("sample_accumulating", sample["recommended_check"])
+            self.assertIn("2026-07-07", sample["recommended_check"])
+            self.assertIn("2026-07-28", sample["recommended_check"])
 
             forecast = next(
                 item
