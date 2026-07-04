@@ -3938,6 +3938,71 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_source_review_decision_file_mismatches_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            )
+            review_status = json.loads(review_status_path.read_text(encoding="utf-8-sig"))
+            review_status["next_action"] = "apply_review_decisions_to_queue"
+            review_status["review_decision_status"] = "ready_to_apply"
+            review_status["decision_ready_to_apply_count"] = 1
+            review_status["decision_pending_count"] = 1
+            review_status["decision_total_count"] = 1
+            review_status["decision_matched_open_count"] = 1
+            review_status["decision_invalid_count"] = 0
+            review_status["decision_ready_to_apply_tickers"] = ["ABT"]
+            review_status["decision_pending_tickers"] = ["ADM"]
+            review_status["decision_file_exists"] = True
+            review_status["decision_file"] = "outputs/automation/sp500_current_membership_source_review_decisions.csv"
+            write_json(review_status_path, review_status)
+            write_csv(
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_review_decisions.csv",
+                [],
+                [
+                    "ticker",
+                    "review_decision",
+                    "official_source_checked",
+                    "required_source_url",
+                    "issue_type",
+                    "recommended_check",
+                    "decision_notes",
+                ],
+            )
+            write_json(
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_decision_apply.json",
+                {
+                    "apply_schema": "sp500_current_membership_source_review_decision_apply",
+                    "apply_version": 1,
+                    "status": "dry_run",
+                    "applied_count": 1,
+                    "skipped_pending_count": 0,
+                    "skipped_invalid_count": 0,
+                    "formal_backtest_upgrade_allowed": False,
+                },
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_status_decision_file_mismatch",
+                result["attention_reasons"],
+            )
+
     def test_review_is_ready_when_sp500_source_review_decisions_have_dry_run_apply_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

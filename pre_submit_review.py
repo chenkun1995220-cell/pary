@@ -1339,6 +1339,9 @@ REVIEW_QUEUE_CSV_REQUIRED_FIELDS = {
     "recommended_check",
 }
 REVIEW_QUEUE_RESOLVED_STATUSES = {"resolved", "closed", "done", "accepted", "ignored"}
+SOURCE_REVIEW_CLOSE_READY_DECISIONS = {"official_absent", "not_applicable", "ignored", "accepted"}
+SOURCE_REVIEW_PENDING_DECISIONS = {"", "pending", "needs_more_data", "source_refresh_required", "keep_open"}
+SOURCE_REVIEW_TRUE_VALUES = {"1", "true", "yes", "y", "checked"}
 
 
 def _review_queue_csv_status(path):
@@ -1405,6 +1408,87 @@ def _review_queue_csv_summary(path):
         }
 
 
+def _source_review_decision_file_summary(path, open_items):
+    try:
+        with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fields = set(reader.fieldnames or [])
+            if not SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_REQUIRED_FIELDS.issubset(
+                fields
+            ):
+                return {
+                    "total_count": 0,
+                    "matched_open_count": 0,
+                    "ready_to_apply_count": 0,
+                    "pending_count": 0,
+                    "invalid_count": 0,
+                    "ready_to_apply_tickers": set(),
+                    "pending_tickers": set(),
+                    "valid": False,
+                }
+            rows = list(reader)
+    except OSError:
+        return {
+            "total_count": 0,
+            "matched_open_count": 0,
+            "ready_to_apply_count": 0,
+            "pending_count": 0,
+            "invalid_count": 0,
+            "ready_to_apply_tickers": set(),
+            "pending_tickers": set(),
+            "valid": False,
+        }
+
+    open_tickers = _ticker_set_from_review_queue(open_items)
+    decisions_by_ticker = {}
+    invalid_count = 0
+    for row in rows:
+        normalized = _normalized_source_review_decision_row(row)
+        ticker = normalized["ticker"]
+        if not ticker:
+            invalid_count += 1
+            continue
+        decisions_by_ticker[ticker] = normalized
+
+    matched_open_count = 0
+    ready_to_apply_tickers = set()
+    pending_tickers = set()
+    for ticker in sorted(open_tickers):
+        decision = decisions_by_ticker.get(ticker)
+        if not decision:
+            pending_tickers.add(ticker)
+            continue
+        matched_open_count += 1
+        review_decision = decision["review_decision"]
+        checked = decision["official_source_checked"] in SOURCE_REVIEW_TRUE_VALUES
+        if review_decision in SOURCE_REVIEW_CLOSE_READY_DECISIONS and checked:
+            ready_to_apply_tickers.add(ticker)
+        elif review_decision in SOURCE_REVIEW_PENDING_DECISIONS:
+            pending_tickers.add(ticker)
+        else:
+            invalid_count += 1
+            pending_tickers.add(ticker)
+
+    return {
+        "total_count": len(rows),
+        "matched_open_count": matched_open_count,
+        "ready_to_apply_count": len(ready_to_apply_tickers),
+        "pending_count": len(pending_tickers),
+        "invalid_count": invalid_count,
+        "ready_to_apply_tickers": ready_to_apply_tickers,
+        "pending_tickers": pending_tickers,
+        "valid": True,
+    }
+
+
+def _normalized_source_review_decision_row(row):
+    return {
+        "ticker": str(row.get("ticker", "") or "").strip().upper(),
+        "review_decision": str(row.get("review_decision", "") or "").strip().lower(),
+        "official_source_checked": str(row.get("official_source_checked", "") or "").strip().lower(),
+    }
+
+
 SOURCE_FILE_INTAKE_TEMPLATE_REQUIRED_FIELDS = {
     "expected_ticker",
     "intake_status",
@@ -1456,10 +1540,11 @@ def _sp500_current_membership_source_review_status_reasons(payload, project_root
         reasons.append("sp500_current_membership_source_review_status_upgrade_gate_unsafe")
     open_count = _int_value(payload.get("open_count"), 0)
     open_items = payload.get("open_items", [])
+    normalized_open_items = open_items if isinstance(open_items, list) else []
     queue_file = str(payload.get("queue_file", "") or "").strip()
     if payload.get("queue_exists") is True and queue_file:
         queue_summary = _review_queue_csv_summary(_resolve_path(project_root or ".", queue_file))
-        expected_open_tickers = _ticker_set_from_review_queue(open_items if isinstance(open_items, list) else [])
+        expected_open_tickers = _ticker_set_from_review_queue(normalized_open_items)
         if not queue_summary["valid"]:
             reasons.append("sp500_current_membership_source_review_status_queue_file_invalid")
         elif (
@@ -1469,6 +1554,16 @@ def _sp500_current_membership_source_review_status_reasons(payload, project_root
             or queue_summary["open_tickers"] != expected_open_tickers
         ):
             reasons.append("sp500_current_membership_source_review_status_queue_file_mismatch")
+    decision_file = str(payload.get("decision_file", "") or "").strip()
+    if payload.get("decision_file_exists") is True and decision_file:
+        decision_summary = _source_review_decision_file_summary(
+            _resolve_path(project_root or ".", decision_file),
+            normalized_open_items,
+        )
+        if not decision_summary["valid"]:
+            reasons.append("sp500_current_membership_source_review_status_decision_file_invalid")
+        elif _source_review_decision_file_mismatch(payload, decision_summary):
+            reasons.append("sp500_current_membership_source_review_status_decision_file_mismatch")
     if open_count > 0 and not isinstance(open_items, list):
         reasons.append("sp500_current_membership_source_review_status_invalid_open_items")
     elif open_count > 0 and len(open_items or []) != open_count:
@@ -1503,6 +1598,18 @@ def _sp500_current_membership_source_review_status_report_reasons(payload, proje
     if _source_review_status_report_summary_mismatch(report_path, payload):
         return ["sp500_current_membership_source_review_status_stale_report_summary"]
     return []
+
+
+def _source_review_decision_file_mismatch(payload, summary):
+    return (
+        summary["total_count"] != _int_value(payload.get("decision_total_count"), 0)
+        or summary["matched_open_count"] != _int_value(payload.get("decision_matched_open_count"), 0)
+        or summary["ready_to_apply_count"] != _int_value(payload.get("decision_ready_to_apply_count"), 0)
+        or summary["pending_count"] != _int_value(payload.get("decision_pending_count"), 0)
+        or summary["invalid_count"] != _int_value(payload.get("decision_invalid_count"), 0)
+        or summary["ready_to_apply_tickers"] != _ticker_set(payload.get("decision_ready_to_apply_tickers", []) or [])
+        or summary["pending_tickers"] != _ticker_set(payload.get("decision_pending_tickers", []) or [])
+    )
 
 
 def _source_review_status_report_summary_mismatch(path, payload):
