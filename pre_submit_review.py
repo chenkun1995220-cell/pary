@@ -21,6 +21,9 @@ SP500_CURRENT_MEMBERSHIP_SOURCES_REPORT = "outputs/automation/latest_sp500_curre
 SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_REPORT = (
     "outputs/automation/latest_sp500_current_membership_source_inbox_status.md"
 )
+SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS_REPORT = (
+    "outputs/automation/latest_sp500_current_membership_source_review_status.md"
+)
 
 GOVERNANCE_REQUIRED_TERMS = [
     "gpt5.3-codex-spark",
@@ -1363,6 +1366,12 @@ def _sp500_current_membership_source_review_status_reasons(payload, project_root
     if not payload:
         return []
     reasons = []
+    reasons.extend(
+        _sp500_current_membership_source_review_status_report_reasons(
+            payload,
+            project_root=project_root,
+        )
+    )
     if payload.get("status") not in {"review_needed", "clear"}:
         reasons.append("sp500_current_membership_source_review_status_not_acceptable")
     if any(
@@ -1398,6 +1407,54 @@ def _sp500_current_membership_source_review_status_reasons(payload, project_root
         if _sp500_current_membership_source_review_decision_guidance_missing(payload):
             reasons.append("sp500_current_membership_source_review_missing_decision_guidance")
     return reasons
+
+
+def _sp500_current_membership_source_review_status_report_reasons(payload, project_root=None):
+    report_path = _resolve_path(
+        project_root or ".",
+        SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS_REPORT,
+    )
+    if not report_path.exists():
+        return []
+    if _source_review_status_report_summary_mismatch(report_path, payload):
+        return ["sp500_current_membership_source_review_status_stale_report_summary"]
+    return []
+
+
+def _source_review_status_report_summary_mismatch(path, payload):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+    for field in (
+        "queue_total_count",
+        "open_count",
+        "resolved_count",
+        "review_decision_status",
+        "manual_decision_next_step",
+        "decision_ready_to_apply_count",
+        "decisions_template_status",
+    ):
+        if field not in payload:
+            continue
+        if _equals_line_value(lines, field) != _text_value(payload.get(field)):
+            return True
+    return False
+
+
+def _text_value(value):
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _equals_line_value(lines, key):
+    prefix = f"- {key}="
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(prefix):
+            return stripped[len(prefix):].strip()
+    return ""
 
 
 def _review_decisions_template_csv_status(path):
