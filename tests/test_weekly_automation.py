@@ -350,6 +350,14 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("source_file_inbox_modified_at: 当前值或 none", doc)
         self.assertIn("不得自动升级正式模型", doc)
 
+        evidence_doc = (PROJECT_ROOT / "docs" / "回测成分证据补强队列.md").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertIn("sp500_current_membership_source_file_request.md", evidence_doc)
+        self.assertIn("source_file_inbox_size_bytes: 当前值", evidence_doc)
+        self.assertIn("source_file_inbox_sha256: 当前值或 none", evidence_doc)
+        self.assertIn("source_file_inbox_modified_at: 当前值或 none", evidence_doc)
+
     def test_self_analysis_docs_describe_summary_entrypoint(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
             encoding="utf-8-sig"
