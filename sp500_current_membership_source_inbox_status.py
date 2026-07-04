@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from sp500_current_membership_sources import (
+    INTAKE_TEMPLATE_FIELDS,
     MINIMUM_OFFICIAL_TICKER_COUNT,
     SOURCE_FILE_ACCEPTANCE_CRITERIA,
     SOURCE_FILE_INBOX,
@@ -47,6 +48,17 @@ def _intake_coverage(tickers, intake_template):
         "intake_matched_count": len(expected) - len(missing),
         "intake_missing_count": len(missing),
         "intake_missing_tickers": missing,
+    }
+
+
+def _source_file_rejection_metadata(available_columns):
+    available = {str(column or "").strip() for column in available_columns or []}
+    is_intake_template = set(INTAKE_TEMPLATE_FIELDS).issubset(available)
+    return {
+        "source_file_is_intake_template": is_intake_template,
+        "source_file_rejection_reason": "intake_template_submitted_as_official_csv"
+        if is_intake_template
+        else "missing_symbol_or_ticker_column",
     }
 
 
@@ -101,16 +113,18 @@ def build_inbox_status(
             source_file_ticker_columns = _source_file_ticker_columns(csv.DictReader(handle).fieldnames or [])
         tickers = parse_official_current_tickers_from_source_file(inbox_path)
     except Exception as exc:
+        available_columns = _source_file_available_columns(inbox_path)
         payload.update(
             {
                 "status": "invalid",
                 "source_file_validation_status": "invalid",
-                "source_file_available_columns": _source_file_available_columns(inbox_path),
+                "source_file_available_columns": available_columns,
                 "validation_error": str(exc),
                 "next_action": "provide_valid_official_constituents_csv",
                 "external_input_required": True,
                 "blocking_reason": "official_constituents_csv_invalid",
                 "blocking_input": str(source_file_inbox),
+                **_source_file_rejection_metadata(available_columns),
                 **_intake_coverage(set(), intake_template),
             }
         )
@@ -148,6 +162,7 @@ def render_status(payload):
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
         f"- source_file_ticker_columns: {', '.join(payload.get('source_file_ticker_columns') or [])}",
         f"- source_file_available_columns: {', '.join(payload.get('source_file_available_columns') or [])}",
+        f"- source_file_rejection_reason: {payload.get('source_file_rejection_reason', '')}",
         f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
         f"- intake_coverage_status: {payload.get('intake_coverage_status', '')}",
         f"- intake_expected_count: {payload.get('intake_expected_count', 0)}",

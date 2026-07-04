@@ -1115,6 +1115,11 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             payload = json.loads(output.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["status"], "invalid")
+            self.assertTrue(payload["source_file_is_intake_template"])
+            self.assertEqual(
+                payload["source_file_rejection_reason"],
+                "intake_template_submitted_as_official_csv",
+            )
             self.assertEqual(
                 payload["source_file_available_columns"],
                 [
@@ -1127,6 +1132,10 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             )
             self.assertIn(
                 "source_file_available_columns: expected_ticker, intake_status, required_source_url, required_source_columns, notes",
+                report.read_text(encoding="utf-8-sig"),
+            )
+            self.assertIn(
+                "source_file_rejection_reason: intake_template_submitted_as_official_csv",
                 report.read_text(encoding="utf-8-sig"),
             )
 
