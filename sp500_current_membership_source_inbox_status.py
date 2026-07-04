@@ -1,7 +1,8 @@
 import argparse
 import csv
+import hashlib
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from sp500_current_membership_sources import (
@@ -22,6 +23,25 @@ from sp500_current_membership_sources import (
 
 STATUS_SCHEMA = "sp500_current_membership_source_inbox_status"
 STATUS_VERSION = 1
+
+
+def _source_file_inbox_metadata(path):
+    source = Path(path)
+    if not source.exists():
+        return {
+            "source_file_inbox_size_bytes": 0,
+            "source_file_inbox_sha256": "",
+            "source_file_inbox_modified_at": "",
+        }
+    stat = source.stat()
+    return {
+        "source_file_inbox_size_bytes": stat.st_size,
+        "source_file_inbox_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "source_file_inbox_modified_at": datetime.fromtimestamp(
+            stat.st_mtime,
+            tz=timezone.utc,
+        ).isoformat(),
+    }
 
 
 def _status_for_source_file(tickers, intake_expected):
@@ -94,6 +114,7 @@ def build_inbox_status(
         "blocking_input": "",
         "formal_backtest_upgrade_allowed": False,
         "formal_model_change_allowed": False,
+        **_source_file_inbox_metadata(inbox_path),
     }
     if not inbox_path.exists():
         payload.update(
@@ -158,6 +179,9 @@ def render_status(payload):
         f"- status: {payload.get('status', 'unknown')}",
         f"- source_file_inbox: {payload.get('source_file_inbox', '')}",
         f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}",
+        f"- source_file_inbox_size_bytes: {payload.get('source_file_inbox_size_bytes', 0)}",
+        f"- source_file_inbox_sha256: {payload.get('source_file_inbox_sha256', '')}",
+        f"- source_file_inbox_modified_at: {payload.get('source_file_inbox_modified_at', '')}",
         f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}",
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
         f"- source_file_ticker_columns: {', '.join(payload.get('source_file_ticker_columns') or [])}",

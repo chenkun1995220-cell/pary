@@ -1446,6 +1446,46 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_existing_sp500_source_inbox_lacks_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_status.update(
+                {
+                    "status": "ready_for_import_preview",
+                    "source_file_inbox_exists": True,
+                    "source_file_validation_status": "ready",
+                    "parsed_official_ticker_count": 500,
+                    "external_input_required": False,
+                    "blocking_reason": "",
+                    "blocking_input": "",
+                }
+            )
+            for field in (
+                "source_file_inbox_size_bytes",
+                "source_file_inbox_sha256",
+                "source_file_inbox_modified_at",
+            ):
+                inbox_status.pop(field, None)
+            write_json(inbox_status_path, inbox_status)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_missing_fingerprint",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_invalid_sp500_source_inbox_lacks_rejection_reason(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

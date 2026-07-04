@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import json
 import subprocess
 import sys
@@ -1044,6 +1045,49 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["intake_matched_count"], 1)
             self.assertEqual(payload["intake_missing_tickers"], ["ZZZ"])
             self.assertIn("status: ready_for_import_preview", report.read_text(encoding="utf-8-sig"))
+
+    def test_inbox_status_records_source_file_fingerprint_when_csv_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            inbox = root / "inputs" / "official_constituents.csv"
+            output = root / "latest_inbox_status.json"
+            report = root / "latest_inbox_status.md"
+            write_template(template)
+            write_official_csv(inbox)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_source_inbox_status.py"),
+                    "--template",
+                    str(template),
+                    "--source-file-inbox",
+                    str(inbox),
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--as-of-date",
+                    "2026-07-03",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            expected_sha256 = hashlib.sha256(inbox.read_bytes()).hexdigest()
+            self.assertEqual(payload["source_file_inbox_size_bytes"], inbox.stat().st_size)
+            self.assertEqual(payload["source_file_inbox_sha256"], expected_sha256)
+            self.assertRegex(payload["source_file_inbox_modified_at"], r"^\d{4}-\d{2}-\d{2}T")
+            report_text = report.read_text(encoding="utf-8-sig")
+            self.assertIn(f"source_file_inbox_size_bytes: {inbox.stat().st_size}", report_text)
+            self.assertIn(f"source_file_inbox_sha256: {expected_sha256}", report_text)
 
     def test_inbox_status_reports_common_official_csv_ticker_symbol_column(self):
         with tempfile.TemporaryDirectory() as tmp:

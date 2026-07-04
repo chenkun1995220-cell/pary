@@ -1002,12 +1002,25 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
 def _sp500_current_membership_source_inbox_status_reasons(payload):
     if not payload:
         return []
+    reasons = []
+    if payload.get("source_file_inbox_exists") and _sp500_source_inbox_fingerprint_missing(payload):
+        reasons.append("sp500_current_membership_source_inbox_missing_fingerprint")
     if payload.get("status") != "invalid":
-        return []
+        return reasons
     reason = str(payload.get("source_file_rejection_reason", "") or "").strip()
     if not reason:
-        return ["sp500_current_membership_source_inbox_missing_rejection_reason"]
-    return []
+        reasons.append("sp500_current_membership_source_inbox_missing_rejection_reason")
+    return reasons
+
+
+def _sp500_source_inbox_fingerprint_missing(payload):
+    sha256 = str(payload.get("source_file_inbox_sha256", "") or "").strip()
+    modified_at = str(payload.get("source_file_inbox_modified_at", "") or "").strip()
+    return (
+        _int_value(payload.get("source_file_inbox_size_bytes")) <= 0
+        or len(sha256) != 64
+        or not modified_at
+    )
 
 
 def _sp500_current_membership_source_inbox_action_item_reasons(inbox_status, action_items):
