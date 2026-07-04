@@ -369,6 +369,8 @@ AUTOMATION_CHECK_REQUIRED_QUALITY_FIELDS = [
     "weekly_delivery_history_status",
     "model_audit_status",
     "forecast_performance_status",
+    "forecast_next_one_week_evaluation_date",
+    "forecast_next_one_month_evaluation_date",
     "backtest_status",
     "outputs",
 ]
