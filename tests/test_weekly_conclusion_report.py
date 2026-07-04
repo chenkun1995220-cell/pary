@@ -547,6 +547,46 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(payload["recommended_action"], "review_delivery_health_issues")
             self.assertNotIn("review_manual_review_backlog", payload["priority_actions"])
 
+    def test_weekly_action_items_surface_external_input_gaps_in_risk_section(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_action_items.json",
+                {
+                    "action_items_schema": "weekly_action_items",
+                    "action_items_version": 1,
+                    "as_of_date": "2026-06-28",
+                    "item_count": 1,
+                    "backlog_reduction_plan": [],
+                    "items": [
+                        {
+                            "action_code": "provide_official_constituents_csv",
+                            "category": "backtest",
+                            "title": "核对当前 S&P 500 成分来源缺口",
+                            "recommended_check": (
+                                "source_file_inbox:inputs/sp500_current_membership/official_constituents.csv; "
+                                "inbox_external_input_required=true; "
+                                "inbox_blocking_reason=official_constituents_csv_missing"
+                            ),
+                            "status": "open",
+                        },
+                    ],
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            self.assertIn("priority_input_gaps", payload)
+            self.assertEqual(payload["priority_input_gaps"][0]["action_code"], "provide_official_constituents_csv")
+            self.assertIn("official_constituents.csv", payload["priority_input_gaps"][0]["description"])
+            self.assertIn("official_constituents.csv", markdown)
+            self.assertNotIn("暂未发现需要优先人工复核的输入缺口", markdown)
+
     def test_data_quality_trend_signal_reaches_weekly_conclusion_health(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

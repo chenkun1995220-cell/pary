@@ -483,6 +483,7 @@ def build_payload(
         priority_actions,
         automation.get("weekly_action_items", {}).get("items", []),
     )
+    priority_input_gaps = summarize_priority_input_gaps(priority_action_details)
     health = summarize_health(status, automation, missing_inputs, warnings, manual_review_decisions)
     candidates = annotate_candidate_actions(candidates)
     candidate_action_summary = summarize_candidate_actions(candidates)
@@ -494,6 +495,7 @@ def build_payload(
         "recommended_action": recommended_action,
         "priority_actions": priority_actions,
         "priority_action_details": priority_action_details,
+        "priority_input_gaps": priority_input_gaps,
         "health": health,
         "automation": automation,
         "markets": markets,
@@ -801,6 +803,9 @@ def render_risk_section(payload):
         lines.append("- 缺失输入：" + "；".join(payload["missing_inputs"]))
     if payload["warnings"]:
         lines.append("- 警告：" + "；".join(payload["warnings"]))
+    priority_input_gaps = payload.get("priority_input_gaps", [])
+    for gap in priority_input_gaps:
+        lines.append(f"- 优先输入缺口：{gap.get('action_code')}；{gap.get('description')}")
     missing_risks = [
         f"{candidate['market']} {candidate['ticker']}"
         for candidate in payload["candidates"]
@@ -808,7 +813,7 @@ def render_risk_section(payload):
     ]
     if missing_risks:
         lines.append("- 风险理由缺口：" + "；".join(missing_risks[:20]))
-    if not payload["missing_inputs"] and not payload["warnings"] and not missing_risks:
+    if not payload["missing_inputs"] and not payload["warnings"] and not priority_input_gaps and not missing_risks:
         lines.append("- 暂未发现需要优先人工复核的输入缺口。")
     lines.append("")
     return lines
@@ -1203,6 +1208,34 @@ def describe_priority_actions(actions, weekly_action_items=None):
             }
         )
     return details
+
+
+def summarize_priority_input_gaps(priority_action_details):
+    gaps = []
+    external_input_actions = {"provide_official_constituents_csv"}
+    external_input_markers = (
+        "external_input_required=true",
+        "inbox_external_input_required=true",
+        "source_file_inbox",
+        "blocking_input=",
+        "official_constituents_csv_missing",
+    )
+    for detail in priority_action_details or []:
+        action = str(detail.get("action", "")).strip()
+        description = str(detail.get("description", "")).strip()
+        description_lower = description.lower()
+        if action not in external_input_actions and not any(
+            marker in description_lower for marker in external_input_markers
+        ):
+            continue
+        gaps.append(
+            {
+                "action_code": action,
+                "label": detail.get("label", ""),
+                "description": description,
+            }
+        )
+    return gaps
 
 
 def parse_iso_date(value):
