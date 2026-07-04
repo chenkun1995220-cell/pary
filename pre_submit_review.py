@@ -1336,6 +1336,12 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_column_rules"
             ]
+        if _official_csv_action_item_source_column_rule_values_mismatch(
+            source, source_status
+        ):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_source_column_rules_mismatch"
+            ]
         if _official_csv_action_item_source_inbox_status_details_missing(source):
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_inbox_status_details"
@@ -1452,6 +1458,34 @@ def _official_csv_action_item_source_column_rules_missing(source):
         "Constituent Symbol",
     ]
     return any(term not in text for term in required_terms)
+
+
+def _official_csv_action_item_source_column_rule_values_mismatch(source, source_status):
+    source_fields = _parse_action_item_source_fields(source)
+    expected_required = ", ".join(
+        str(column).strip()
+        for column in source_status.get("source_file_required_columns", []) or []
+        if str(column).strip()
+    )
+    default_accepted = [
+        "Symbol",
+        "Ticker",
+        "Ticker Symbol",
+        "Constituent Ticker",
+        "Constituent Symbol",
+    ]
+    expected_accepted = ", ".join(
+        str(column).strip()
+        for column in source_status.get("source_file_accepted_ticker_columns", [])
+        or default_accepted
+        if str(column).strip()
+    )
+    return (
+        bool(expected_required)
+        and source_fields.get("source_file_required_columns") != expected_required
+    ) or (
+        source_fields.get("source_file_accepted_ticker_columns") != expected_accepted
+    )
 
 
 def _official_csv_action_item_source_inbox_status_details_missing(source):
