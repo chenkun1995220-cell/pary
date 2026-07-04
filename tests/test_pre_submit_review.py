@@ -1709,6 +1709,41 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_incomplete_sp500_source_inbox_count_is_not_below_minimum(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_status["status"] = "incomplete"
+            inbox_status["source_file_validation_status"] = "incomplete"
+            inbox_status["source_file_inbox_exists"] = True
+            inbox_status["source_file_inbox_size_bytes"] = 12345
+            inbox_status["source_file_inbox_sha256"] = "a" * 64
+            inbox_status["source_file_inbox_modified_at"] = "2026-07-04T03:12:00+00:00"
+            inbox_status["parsed_official_ticker_count"] = 400
+            inbox_status["minimum_official_ticker_count"] = 400
+            inbox_status["source_file_rejection_reason"] = "official_ticker_count_below_minimum"
+            inbox_status["external_input_required"] = True
+            inbox_status["blocking_reason"] = "official_constituents_csv_incomplete"
+            inbox_status["blocking_input"] = "inputs/sp500_current_membership/official_constituents.csv"
+            write_json(inbox_status_path, inbox_status)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_incomplete_count_not_below_minimum",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_weekly_action_items_omit_sp500_inbox_rejection_reason(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

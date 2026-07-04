@@ -1125,6 +1125,12 @@ def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=
     reason = str(payload.get("source_file_rejection_reason", "") or "").strip()
     if not reason:
         reasons.append("sp500_current_membership_source_inbox_missing_rejection_reason")
+    if (
+        payload.get("status") == "incomplete"
+        and _int_value(payload.get("parsed_official_ticker_count"), 0)
+        >= _int_value(payload.get("minimum_official_ticker_count"), 0)
+    ):
+        reasons.append("sp500_current_membership_source_inbox_incomplete_count_not_below_minimum")
     return reasons
 
 
