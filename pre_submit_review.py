@@ -1806,6 +1806,8 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         reasons.append("model_handoff_review_missing_test_validation_command")
     if payload.get("formal_release_allowed") is not True:
         reasons.append("model_handoff_review_formal_release_not_allowed")
+    if _model_handoff_review_sp500_source_request_details_missing(payload):
+        reasons.append("model_handoff_review_missing_sp500_source_request_details")
     snapshot = medium_term_goal_review.get("task_closeout_snapshot", {})
     if isinstance(snapshot, dict) and snapshot:
         if (
@@ -1818,6 +1820,45 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         ):
             reasons.append("model_handoff_review_closeout_mismatch")
     return reasons
+
+
+def _model_handoff_review_sp500_source_request_details_missing(payload):
+    actions = {
+        str(action).strip()
+        for action in payload.get("development_priority_actions", []) or []
+        if str(action).strip()
+    }
+    requires_sp500_source_request = (
+        bool(payload.get("sp500_current_source_inbox_external_input_required"))
+        or "provide_official_constituents_csv" in actions
+        or "provide_official_constituents_csv_or_fix_network_permission" in actions
+    )
+    if not requires_sp500_source_request:
+        return False
+    criteria = {
+        str(item).strip()
+        for item in payload.get("sp500_current_source_acceptance_criteria", []) or []
+        if str(item).strip()
+    }
+    required_criteria = {
+        "has_symbol_or_ticker_column",
+        "at_least_400_tickers",
+        "official_spglobal_constituents_export",
+    }
+    dry_run = str(payload.get("sp500_current_source_inbox_dry_run_command", "") or "")
+    import_command = str(
+        payload.get("sp500_current_source_inbox_import_command", "") or ""
+    )
+    return (
+        not str(payload.get("sp500_current_source_request_file", "") or "").strip()
+        or payload.get("sp500_current_source_request_manifest_status") != "ready"
+        or "run_sp500_current_membership_sources.ps1" not in dry_run
+        or "-DryRun" not in dry_run
+        or "-SourceFileInbox" not in dry_run
+        or "run_sp500_current_membership_sources.ps1" not in import_command
+        or "-SourceFileInbox" not in import_command
+        or not required_criteria.issubset(criteria)
+    )
 
 
 def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""):

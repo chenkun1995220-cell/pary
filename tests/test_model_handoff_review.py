@@ -121,6 +121,48 @@ class ModelHandoffReviewTests(unittest.TestCase):
                     ],
                 },
             )
+            write_json(
+                root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json",
+                {
+                    "source_schema": "sp500_current_membership_sources",
+                    "source_version": 1,
+                    "as_of_date": "2026-07-02",
+                    "status": "fetch_failed",
+                    "recommended_followup": "provide_official_constituents_csv",
+                    "source_file_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
+                    "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+                    "source_file_inbox_dry_run_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                    "source_file_inbox_next_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                    "source_file_acceptance_criteria": [
+                        "has_symbol_or_ticker_column",
+                        "at_least_400_tickers",
+                        "official_spglobal_constituents_export",
+                    ],
+                    "fetch_error_type": "network_permission_denied",
+                },
+            )
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            ).write_text(
+                "# S&P 500 official constituents CSV request\n\n"
+                "- request_manifest_schema: sp500_current_membership_source_file_request\n"
+                "- request_manifest_version: 1\n"
+                "- acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export\n"
+                "- formal_backtest_upgrade_allowed: false\n"
+                "- formal_model_change_allowed: false\n",
+                encoding="utf-8-sig",
+            )
 
             from model_handoff_review import build_model_handoff_review, render_model_handoff_review
 
@@ -142,9 +184,38 @@ class ModelHandoffReviewTests(unittest.TestCase):
                 result["sp500_current_source_inbox_blocking_input"],
                 "inputs/sp500_current_membership/official_constituents.csv",
             )
+            self.assertEqual(
+                result["sp500_current_source_request_file"],
+                "outputs/automation/sp500_current_membership_source_file_request.md",
+            )
+            self.assertEqual(result["sp500_current_source_request_manifest_status"], "ready")
+            self.assertIn(
+                "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv",
+                result["sp500_current_source_inbox_dry_run_command"],
+            )
+            self.assertIn(
+                "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv",
+                result["sp500_current_source_inbox_import_command"],
+            )
+            self.assertEqual(
+                result["sp500_current_source_acceptance_criteria"],
+                [
+                    "has_symbol_or_ticker_column",
+                    "at_least_400_tickers",
+                    "official_spglobal_constituents_export",
+                ],
+            )
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
+                report,
+            )
+            self.assertIn(
+                "sp500_current_source_request_manifest_status=ready",
+                report,
+            )
+            self.assertIn(
+                "sp500_current_membership_source_file_request.md",
                 report,
             )
 

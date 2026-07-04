@@ -79,6 +79,26 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             ],
             "risk_notes": ["当前仍为单 Codex 执行加复核清单。"],
             "formal_release_allowed": True,
+            "sp500_current_source_inbox_external_input_required": True,
+            "sp500_current_source_inbox_blocking_reason": "official_constituents_csv_missing",
+            "sp500_current_source_inbox_blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+            "sp500_current_source_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
+            "sp500_current_source_request_manifest_status": "ready",
+            "sp500_current_source_inbox_dry_run_command": (
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+            ),
+            "sp500_current_source_inbox_import_command": (
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+            ),
+            "sp500_current_source_acceptance_criteria": [
+                "has_symbol_or_ticker_column",
+                "at_least_400_tickers",
+                "official_spglobal_constituents_export",
+            ],
         },
     )
     write_json(
@@ -2922,6 +2942,37 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "model_handoff_review_missing_test_validation_command",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_model_handoff_lacks_sp500_source_request_details(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            for field in [
+                "sp500_current_source_request_file",
+                "sp500_current_source_request_manifest_status",
+                "sp500_current_source_inbox_dry_run_command",
+                "sp500_current_source_inbox_import_command",
+                "sp500_current_source_acceptance_criteria",
+            ]:
+                handoff.pop(field, None)
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_missing_sp500_source_request_details",
                 result["attention_reasons"],
             )
 

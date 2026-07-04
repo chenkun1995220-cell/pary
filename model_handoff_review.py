@@ -8,6 +8,9 @@ HANDOFF_SCHEMA = "model_handoff_review"
 HANDOFF_VERSION = 1
 EXPECTED_COLLABORATION_EXECUTION_MODE = "single_codex_with_gpt55_review_checklist"
 DEFAULT_MEDIUM_TERM_REVIEW = "outputs/automation/latest_medium_term_goal_review.json"
+DEFAULT_SP500_CURRENT_MEMBERSHIP_SOURCES = (
+    "outputs/automation/latest_sp500_current_membership_sources.json"
+)
 DEFAULT_OUTPUT = "outputs/automation/latest_model_handoff_review.json"
 DEFAULT_REPORT = "outputs/automation/latest_model_handoff_review.md"
 
@@ -56,6 +59,40 @@ def _priority_actions(payload):
     return result
 
 
+def _resolve_project_path(project_root, value):
+    if not value:
+        return None
+    path = Path(value)
+    return path if path.is_absolute() else project_root / path
+
+
+def _relative_or_text(project_root, value):
+    if value and not Path(value).is_absolute():
+        return str(value)
+    path = _resolve_project_path(project_root, value)
+    if not path:
+        return ""
+    try:
+        return str(path.relative_to(project_root))
+    except ValueError:
+        return str(path)
+
+
+def _source_request_manifest_status(project_root, request_file):
+    path = _resolve_project_path(project_root, request_file)
+    if not path or not path.exists():
+        return "missing"
+    text = path.read_text(encoding="utf-8-sig")
+    required_terms = [
+        "request_manifest_schema: sp500_current_membership_source_file_request",
+        "request_manifest_version: 1",
+        "acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export",
+        "formal_backtest_upgrade_allowed: false",
+        "formal_model_change_allowed: false",
+    ]
+    return "ready" if all(term in text for term in required_terms) else "incomplete"
+
+
 def build_model_handoff_review(
     project_root,
     today=None,
@@ -66,6 +103,8 @@ def build_model_handoff_review(
     project_root = Path(project_root)
     review_path = project_root / (medium_term_review or DEFAULT_MEDIUM_TERM_REVIEW)
     medium_term = _load_json(review_path)
+    sp500_source_path = project_root / DEFAULT_SP500_CURRENT_MEMBERSHIP_SOURCES
+    sp500_source = _load_json(sp500_source_path)
     current_date = today or date.today().isoformat()
     validation_commands = list(validation_commands or [])
     reasons = []
@@ -97,6 +136,10 @@ def build_model_handoff_review(
     current = goal.get("current", {}) if isinstance(goal, dict) else {}
     if not isinstance(current, dict):
         current = {}
+    source_request_file = str(sp500_source.get("source_file_request_file", "") or "")
+    source_acceptance_criteria = sp500_source.get("source_file_acceptance_criteria", [])
+    if not isinstance(source_acceptance_criteria, list):
+        source_acceptance_criteria = []
     status = "ready" if not reasons else "needs_attention"
     return {
         "handoff_schema": HANDOFF_SCHEMA,
@@ -133,6 +176,26 @@ def build_model_handoff_review(
             "sp500_current_source_inbox_blocking_input",
             "",
         ),
+        "sp500_current_source_request_file": _relative_or_text(
+            project_root, source_request_file
+        ),
+        "sp500_current_source_request_manifest_status": _source_request_manifest_status(
+            project_root, source_request_file
+        ),
+        "sp500_current_source_inbox_dry_run_command": sp500_source.get(
+            "source_file_inbox_dry_run_command",
+            "",
+        ),
+        "sp500_current_source_inbox_import_command": sp500_source.get(
+            "source_file_inbox_next_command",
+            "",
+        ),
+        "sp500_current_source_acceptance_criteria": source_acceptance_criteria,
+        "sp500_current_source_recommended_followup": sp500_source.get(
+            "recommended_followup",
+            "",
+        ),
+        "sp500_current_source_fetch_error_type": sp500_source.get("fetch_error_type", ""),
         "collaboration_boundary_note": collaboration_note,
         "spark_execution_summary": "单 Codex 按 gpt5.3-codex-spark 的小步实现习惯推进，并保留可回放证据。",
         "gpt55_review_checklist": [
@@ -150,6 +213,11 @@ def build_model_handoff_review(
             "medium_term_goal_review": str(review_path.relative_to(project_root))
             if review_path.is_relative_to(project_root)
             else str(review_path),
+            "sp500_current_membership_sources": str(
+                sp500_source_path.relative_to(project_root)
+            )
+            if sp500_source_path.exists()
+            else "",
         },
         "boundary": "只读取现有中期目标看板，不抓取行情，不重新评分，不修改正式模型参数。",
     }
@@ -200,6 +268,12 @@ def render_model_handoff_review(result):
             f"- sp500_current_source_inbox_external_input_required={result.get('sp500_current_source_inbox_external_input_required', False)}",
             f"- sp500_current_source_inbox_blocking_reason={result.get('sp500_current_source_inbox_blocking_reason', '')}",
             f"- sp500_current_source_inbox_blocking_input={result.get('sp500_current_source_inbox_blocking_input', '')}",
+            f"- sp500_current_source_request_file={result.get('sp500_current_source_request_file', '')}",
+            f"- sp500_current_source_request_manifest_status={result.get('sp500_current_source_request_manifest_status', '')}",
+            f"- sp500_current_source_inbox_dry_run_command={result.get('sp500_current_source_inbox_dry_run_command', '')}",
+            f"- sp500_current_source_inbox_import_command={result.get('sp500_current_source_inbox_import_command', '')}",
+            "- sp500_current_source_acceptance_criteria="
+            + ", ".join(result.get("sp500_current_source_acceptance_criteria", []) or []),
         ]
     )
     lines.append("")
