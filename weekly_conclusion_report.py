@@ -1309,12 +1309,27 @@ def format_priority_input_gap_description(metadata, fallback):
         "blocking_reason",
     )
     next_action = first_present(metadata, "inbox_next_action", "source_file_inbox_next_action", "next_action")
+    dry_run_command = first_present(
+        metadata,
+        "dry_run_command",
+        "source_file_inbox_dry_run_command",
+    )
+    import_command = first_present(
+        metadata,
+        "import_command",
+        "source_file_inbox_import_command",
+        "source_file_inbox_next_command",
+    )
     if blocking_input:
         parts.append(f"投递入口={blocking_input}")
     if blocking_reason:
         parts.append(f"阻塞原因={blocking_reason}")
     if next_action:
         parts.append(f"下一步={next_action}")
+    if dry_run_command:
+        parts.append(f"校验命令={dry_run_command}")
+    if import_command:
+        parts.append(f"导入命令={import_command}")
     return "；".join(parts) or fallback
 
 

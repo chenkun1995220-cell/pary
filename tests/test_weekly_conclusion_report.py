@@ -602,6 +602,14 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 payload["priority_input_gaps"][0]["next_action"],
                 "place_official_constituents_csv",
             )
+            self.assertIn(
+                "校验命令=",
+                payload["priority_action_details"][0]["description"],
+            )
+            self.assertIn(
+                "导入命令=",
+                payload["priority_action_details"][0]["description"],
+            )
             self.assertIn("-DryRun -SourceFileInbox", payload["priority_input_gaps"][0]["dry_run_command"])
             self.assertIn("-SourceFileInbox", payload["priority_input_gaps"][0]["import_command"])
             self.assertIn("official_constituents.csv", markdown)
