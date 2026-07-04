@@ -507,6 +507,18 @@ def run_pre_submit_review(
     membership_import_plan = payloads.get("membership_evidence_import_plan", {})
     membership_apply_preview = payloads.get("membership_evidence_apply_preview", {})
     medium_term_goal_review = payloads.get("medium_term_goal_review", {})
+    forecast_performance_review = payloads.get("forecast_performance_review", {})
+    model_handoff_review = payloads.get("model_handoff_review", {})
+    forecast_next_one_week_evaluation_date = _first_non_empty(
+        forecast_performance_review.get("next_one_week_evaluation_date"),
+        automation_check.get("forecast_next_one_week_evaluation_date"),
+        model_handoff_review.get("forecast_next_one_week_evaluation_date"),
+    )
+    forecast_next_one_month_evaluation_date = _first_non_empty(
+        forecast_performance_review.get("next_one_month_evaluation_date"),
+        automation_check.get("forecast_next_one_month_evaluation_date"),
+        model_handoff_review.get("forecast_next_one_month_evaluation_date"),
+    )
 
     return {
         "pre_submit_review_schema": PRE_SUBMIT_REVIEW_SCHEMA,
@@ -537,6 +549,8 @@ def run_pre_submit_review(
         "membership_evidence_preview_row_count": _int_value(
             membership_apply_preview.get("preview_row_count"), 0
         ),
+        "forecast_next_one_week_evaluation_date": forecast_next_one_week_evaluation_date,
+        "forecast_next_one_month_evaluation_date": forecast_next_one_month_evaluation_date,
         "membership_evidence_preview_action_item_present": _has_action_item(
             action_items,
             "run_membership_evidence_apply_preview",
@@ -589,6 +603,18 @@ def render_pre_submit_review(result):
         lines.extend(["", "## development_priority_actions"])
         for action in result.get("development_priority_actions", []):
             lines.append(f"- {action}")
+    if (
+        result.get("forecast_next_one_week_evaluation_date")
+        or result.get("forecast_next_one_month_evaluation_date")
+    ):
+        lines.extend(
+            [
+                "",
+                "## forecast_evaluation_dates",
+                f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+                f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
+            ]
+        )
     closeout = result.get("development_closeout", {}) or {}
     if closeout:
         lines.extend(
@@ -2142,6 +2168,14 @@ def _medium_term_priority_actions(medium_term_goal_review):
     if not isinstance(actions, list):
         return []
     return _unique(str(action).strip() for action in actions if str(action).strip())
+
+
+def _first_non_empty(*values):
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _input_status(name, payload):
