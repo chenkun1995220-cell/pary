@@ -264,6 +264,8 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "manual_review_repeat_count": 0,
             "recommended_action": "review_data_health",
             "priority_actions": ["review_data_health", "continue_sample_accumulation"],
+            "forecast_next_one_week_evaluation_date": "2026-07-07",
+            "forecast_next_one_month_evaluation_date": "2026-07-28",
             "automation_issues": [],
             "missing_outputs": [],
             "missing_output_paths": {},
@@ -3649,6 +3651,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "weekly_delivery_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_ops_check_lacks_forecast_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            ops_path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
+            ops = json.loads(ops_path.read_text(encoding="utf-8-sig"))
+            del ops["forecast_next_one_week_evaluation_date"]
+            del ops["forecast_next_one_month_evaluation_date"]
+            write_json(ops_path, ops)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_ops_check_missing_quality_fields",
                 result["attention_reasons"],
             )
 

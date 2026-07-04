@@ -340,6 +340,8 @@ WEEKLY_OPS_REQUIRED_QUALITY_FIELDS = [
     "manual_review_repeat_count",
     "recommended_action",
     "priority_actions",
+    "forecast_next_one_week_evaluation_date",
+    "forecast_next_one_month_evaluation_date",
     "missing_outputs",
     "missing_output_paths",
     "automation_issues",
