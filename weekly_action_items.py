@@ -611,6 +611,9 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         if str(column).strip()
     ]
     source_file_inbox_available_columns_text = ", ".join(source_file_inbox_available_columns) or "none"
+    source_file_rejection_reason = str(
+        inbox_status.get("source_file_rejection_reason", "") or "none"
+    ).strip()
     source_file_inbox_external_input_required = str(
         bool(inbox_status.get("external_input_required", False))
     ).lower()
@@ -656,6 +659,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         f"parsed_official_ticker_count={source_file_inbox_parsed_count}; "
         f"inbox_intake_missing_count={source_file_inbox_intake_missing_count}; "
         f"inbox_available_columns={source_file_inbox_available_columns_text}; "
+        f"source_file_rejection_reason={source_file_rejection_reason}; "
         f"inbox_external_input_required={source_file_inbox_external_input_required}; "
         f"inbox_blocking_reason={source_file_inbox_blocking_reason}; "
         f"inbox_blocking_input={source_file_inbox_blocking_input}; "
@@ -703,6 +707,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"source_file_inbox_parsed_official_ticker_count:{source_file_inbox_parsed_count}; "
             f"source_file_inbox_intake_missing_count:{source_file_inbox_intake_missing_count}; "
             f"source_file_inbox_available_columns:{source_file_inbox_available_columns_text}; "
+            f"source_file_rejection_reason:{source_file_rejection_reason}; "
             f"source_file_inbox_external_input_required:{source_file_inbox_external_input_required}; "
             f"source_file_inbox_blocking_reason:{source_file_inbox_blocking_reason}; "
             f"source_file_inbox_blocking_input:{source_file_inbox_blocking_input}; "

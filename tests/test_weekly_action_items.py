@@ -832,6 +832,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 {
                     "status": "invalid",
                     "source_file_validation_status": "invalid",
+                    "source_file_rejection_reason": "intake_template_submitted_as_official_csv",
                     "source_file_available_columns": [
                         "expected_ticker",
                         "intake_status",
@@ -926,6 +927,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("source_file_validation_status:missing", source_item["source"])
             self.assertIn("source_file_inbox_status:invalid", source_item["source"])
             self.assertIn("source_file_inbox_next_action:provide_valid_official_constituents_csv", source_item["source"])
+            self.assertIn(
+                "source_file_rejection_reason:intake_template_submitted_as_official_csv",
+                source_item["source"],
+            )
             self.assertIn("source_file_inbox_external_input_required:true", source_item["source"])
             self.assertIn("source_file_inbox_blocking_reason:official_constituents_csv_missing", source_item["source"])
             self.assertIn(
@@ -945,6 +950,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("inbox_status=invalid", source_item["recommended_check"])
             self.assertIn("fetch_error_type=network_permission_denied", source_item["recommended_check"])
             self.assertIn("fetch_retryable_without_environment_change=false", source_item["recommended_check"])
+            self.assertIn(
+                "source_file_rejection_reason=intake_template_submitted_as_official_csv",
+                source_item["recommended_check"],
+            )
             self.assertIn(
                 "fetch_error_next_action=provide_official_constituents_csv_or_fix_network_permission",
                 source_item["recommended_check"],
