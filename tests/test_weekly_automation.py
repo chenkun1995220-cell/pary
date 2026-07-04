@@ -345,6 +345,9 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("source_file_inbox_size_bytes", doc)
         self.assertIn("source_file_inbox_sha256", doc)
         self.assertIn("source_file_inbox_modified_at", doc)
+        self.assertIn("source_file_inbox_size_bytes: 当前值", doc)
+        self.assertIn("source_file_inbox_sha256: 当前值或 none", doc)
+        self.assertIn("source_file_inbox_modified_at: 当前值或 none", doc)
         self.assertIn("不得自动升级正式模型", doc)
 
     def test_self_analysis_docs_describe_summary_entrypoint(self):
