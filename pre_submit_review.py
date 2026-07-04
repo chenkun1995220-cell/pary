@@ -18,6 +18,9 @@ DEFAULT_OUTPUT = "outputs/automation/latest_pre_submit_review.json"
 DEFAULT_REPORT = "outputs/automation/latest_pre_submit_review.md"
 DEFAULT_HISTORY = "outputs/automation/pre_submit_review_history.jsonl"
 SP500_CURRENT_MEMBERSHIP_SOURCES_REPORT = "outputs/automation/latest_sp500_current_membership_sources.md"
+SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_REPORT = (
+    "outputs/automation/latest_sp500_current_membership_source_inbox_status.md"
+)
 
 GOVERNANCE_REQUIRED_TERMS = [
     "gpt5.3-codex-spark",
@@ -464,7 +467,8 @@ def run_pre_submit_review(
     )
     attention_reasons.extend(
         _sp500_current_membership_source_inbox_status_reasons(
-            payloads.get("sp500_current_membership_source_inbox_status", {})
+            payloads.get("sp500_current_membership_source_inbox_status", {}),
+            project_root=project_root,
         )
     )
     attention_reasons.extend(
@@ -1075,10 +1079,16 @@ def _source_file_report_status_values_mismatch(path, payload):
     )
 
 
-def _sp500_current_membership_source_inbox_status_reasons(payload):
+def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=None):
     if not payload:
         return []
     reasons = []
+    reasons.extend(
+        _sp500_current_membership_source_inbox_status_report_reasons(
+            payload,
+            project_root=project_root,
+        )
+    )
     if payload.get("source_file_inbox_exists") and _sp500_source_inbox_fingerprint_missing(payload):
         reasons.append("sp500_current_membership_source_inbox_missing_fingerprint")
     if payload.get("status") != "invalid":
@@ -1087,6 +1097,35 @@ def _sp500_current_membership_source_inbox_status_reasons(payload):
     if not reason:
         reasons.append("sp500_current_membership_source_inbox_missing_rejection_reason")
     return reasons
+
+
+def _sp500_current_membership_source_inbox_status_report_reasons(payload, project_root=None):
+    report_path = _resolve_path(
+        project_root or ".",
+        SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_REPORT,
+    )
+    if not report_path.exists():
+        return []
+    if _source_file_report_status_values_mismatch(report_path, payload):
+        return ["sp500_current_membership_source_inbox_status_stale_report_status"]
+    if _source_file_report_fingerprint_values_mismatch(report_path, payload):
+        return ["sp500_current_membership_source_inbox_status_stale_report_fingerprint"]
+    return []
+
+
+def _source_file_report_fingerprint_values_mismatch(path, payload):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+    expected_size = str(_int_value(payload.get("source_file_inbox_size_bytes"), 0))
+    expected_sha256 = str(payload.get("source_file_inbox_sha256", "") or "")
+    expected_modified_at = str(payload.get("source_file_inbox_modified_at", "") or "")
+    return (
+        _line_value(lines, "source_file_inbox_size_bytes") != expected_size
+        or _line_value(lines, "source_file_inbox_sha256") != expected_sha256
+        or _line_value(lines, "source_file_inbox_modified_at") != expected_modified_at
+    )
 
 
 def _sp500_source_inbox_fingerprint_missing(payload):

@@ -2001,6 +2001,95 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_source_inbox_status_report_status_values_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            report_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.md"
+            )
+            report_path.write_text(
+                "# S&P 500 official constituents inbox status\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: ready_for_import_preview\n"
+                "- source_file_inbox_size_bytes: 0\n"
+                "- source_file_inbox_sha256: none\n"
+                "- source_file_inbox_modified_at: none\n"
+                "- source_file_validation_status: ready\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_status_stale_report_status",
+                result["attention_reasons"],
+            )
+
+    def test_review_accepts_sp500_source_inbox_status_report_empty_fingerprint_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            report_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.md"
+            )
+            report_path.write_text(
+                "# S&P 500 official constituents inbox status\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: missing\n"
+                "- source_file_inbox_size_bytes: 0\n"
+                "- source_file_inbox_sha256: \n"
+                "- source_file_inbox_modified_at: \n"
+                "- source_file_validation_status: missing\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
+
+    def test_review_needs_attention_when_sp500_source_inbox_status_report_fingerprint_values_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            report_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.md"
+            )
+            report_path.write_text(
+                "# S&P 500 official constituents inbox status\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: missing\n"
+                "- source_file_inbox_size_bytes: 12345\n"
+                "- source_file_inbox_sha256: none\n"
+                "- source_file_inbox_modified_at: none\n"
+                "- source_file_validation_status: missing\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_status_stale_report_fingerprint",
+                result["attention_reasons"],
+            )
+
     def test_review_accepts_sp500_current_source_file_request_with_absolute_inbox_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
