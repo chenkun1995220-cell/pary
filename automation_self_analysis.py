@@ -1039,7 +1039,27 @@ def _candidate_count_total(markets):
     return total
 
 
+def _automation_external_input_blockers(manifest):
+    if not manifest.get("sp500_current_source_inbox_external_input_required"):
+        return []
+    blocking_input = str(manifest.get("sp500_current_source_inbox_blocking_input", "") or "")
+    blocking_reason = str(manifest.get("sp500_current_source_inbox_blocking_reason", "") or "")
+    if not blocking_input and not blocking_reason:
+        return []
+    return [
+        {
+            "action_code": "provide_official_constituents_csv",
+            "blocking_input": blocking_input,
+            "blocking_reason": blocking_reason,
+            "next_action": "place_official_constituents_csv",
+            "dry_run_command": str(manifest.get("sp500_current_source_inbox_dry_run_command", "") or ""),
+            "import_command": str(manifest.get("sp500_current_source_inbox_import_command", "") or ""),
+        }
+    ]
+
+
 def _automation_check_payload(manifest, manifest_validation):
+    external_input_blockers = _automation_external_input_blockers(manifest)
     return {
         "check_schema": "weekly_automation_check",
         "check_version": 1,
@@ -1087,6 +1107,8 @@ def _automation_check_payload(manifest, manifest_validation):
         "forecast_next_one_month_evaluation_date": (
             manifest.get("forecast_performance", {}).get("next_one_month_evaluation_date", "")
         ),
+        "external_input_blocker_count": len(external_input_blockers),
+        "external_input_blockers": external_input_blockers,
         "backtest_status": manifest.get("backtest_status", "unknown"),
         "outputs": manifest.get("outputs", {}),
     }

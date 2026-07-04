@@ -26,6 +26,54 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_automation_check_payload_exposes_sp500_external_input_blocker(self):
+        from automation_self_analysis import _automation_check_payload
+
+        payload = _automation_check_payload(
+            {
+                "as_of_date": "2026-07-04",
+                "automation_status": "manual_review_needed",
+                "automation_recommended_action": "review_backtest_evidence",
+                "automation_priority_actions": ["review_backtest_evidence"],
+                "market_count": 3,
+                "markets": [],
+                "sp500_current_source_inbox_external_input_required": True,
+                "sp500_current_source_inbox_blocking_input": (
+                    "inputs/sp500_current_membership/official_constituents.csv"
+                ),
+                "sp500_current_source_inbox_blocking_reason": "official_constituents_csv_missing",
+                "sp500_current_source_inbox_dry_run_command": (
+                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                    "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                    "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                ),
+                "sp500_current_source_inbox_import_command": (
+                    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                    "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                    "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                ),
+            },
+            {"status": "valid", "markets_ready_count": 3, "errors": []},
+        )
+
+        self.assertEqual(payload["external_input_blocker_count"], 1)
+        self.assertEqual(
+            payload["external_input_blockers"][0]["action_code"],
+            "provide_official_constituents_csv",
+        )
+        self.assertEqual(
+            payload["external_input_blockers"][0]["blocking_reason"],
+            "official_constituents_csv_missing",
+        )
+        self.assertIn(
+            "official_constituents.csv",
+            payload["external_input_blockers"][0]["blocking_input"],
+        )
+        self.assertEqual(
+            payload["external_input_blockers"][0]["next_action"],
+            "place_official_constituents_csv",
+        )
+
     def test_prefers_us_universe_summary_over_legacy_automation_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
