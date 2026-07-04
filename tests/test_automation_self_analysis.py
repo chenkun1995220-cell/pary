@@ -689,6 +689,17 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                     }
                 ],
             )
+            write_text(
+                root / "outputs" / "automation" / "latest_forecast_performance_review.json",
+                json.dumps(
+                    {
+                        "next_one_week_evaluation_date": "2026-07-05",
+                        "next_one_month_evaluation_date": "2026-07-26",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+            )
 
             result = run_self_analysis(root, as_of_date="2026-06-28")
             report = Path(result["output"]).read_text(encoding="utf-8-sig")
@@ -703,9 +714,19 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(manifest["forecast_performance"]["prediction_unavailable"], 1)
             self.assertEqual(manifest["forecast_performance"]["missing_market_count"], 1)
             self.assertAlmostEqual(manifest["forecast_performance"]["direction_hit_rate"], 1.0)
+            self.assertEqual(
+                manifest["forecast_performance"]["next_one_week_evaluation_date"],
+                "2026-07-05",
+            )
+            self.assertEqual(
+                manifest["forecast_performance"]["next_one_month_evaluation_date"],
+                "2026-07-26",
+            )
             self.assertEqual(check["forecast_performance_status"], "partial_sample_accumulating")
             self.assertIn("## 预测表现", report)
             self.assertIn("partial_sample_accumulating", report)
+            self.assertIn("next_one_week_evaluation_date: 2026-07-05", report)
+            self.assertIn("next_one_month_evaluation_date: 2026-07-26", report)
             self.assertIn("1w", report)
             self.assertIn("prediction_unavailable", report)
 

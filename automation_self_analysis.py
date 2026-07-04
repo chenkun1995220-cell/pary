@@ -64,6 +64,16 @@ def _read_csv_rows(path):
         ]
 
 
+def _read_json(path):
+    json_path = Path(path)
+    if not json_path.exists():
+        return {}
+    try:
+        return json.loads(json_path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError:
+        return {}
+
+
 def _summary_fields(text):
     fields = {}
     for line in text.splitlines():
@@ -501,6 +511,7 @@ def _forecast_market_snapshot(project_root, config):
 
 def _forecast_performance_snapshot(project_root):
     markets = [_forecast_market_snapshot(project_root, config) for config in MARKETS]
+    review = _read_json(Path(project_root) / "outputs" / "automation" / "latest_forecast_performance_review.json")
     total = sum(item["total_evaluations"] for item in markets)
     mature = sum(item["mature_evaluations"] for item in markets)
     hits = sum(item["direction_hits"] for item in markets)
@@ -550,6 +561,8 @@ def _forecast_performance_snapshot(project_root):
         "direction_hit_rate": direction_hit_rate,
         "average_return": average_return,
         "average_excess_return": average_excess_return,
+        "next_one_week_evaluation_date": review.get("next_one_week_evaluation_date", ""),
+        "next_one_month_evaluation_date": review.get("next_one_month_evaluation_date", ""),
         "markets": markets,
     }
 
@@ -1656,6 +1669,8 @@ def _render(
             f"- prediction_unavailable: {forecast_performance.get('prediction_unavailable', 0)}",
             f"- missing_market_count: {forecast_performance.get('missing_market_count', 0)}",
             f"- direction_hit_rate: {_format_rate(forecast_performance.get('direction_hit_rate'))}",
+            f"- next_one_week_evaluation_date: {forecast_performance.get('next_one_week_evaluation_date', '') or 'unknown'}",
+            f"- next_one_month_evaluation_date: {forecast_performance.get('next_one_month_evaluation_date', '') or 'unknown'}",
             "",
             "| 模块 | 状态 | 总评估 | 成熟评估 | 1w | 1m | prediction_unavailable | 方向命中率 |",
             "|---|---|---:|---:|---:|---:|---:|---:|",
