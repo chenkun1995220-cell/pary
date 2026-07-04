@@ -927,10 +927,14 @@ def _backlog_reduction_plan(items):
                 "count": 0,
                 "actions": [],
                 "first_priority": _int_value(item.get("priority"), 9999),
+                "close_context": [],
             },
         )
         entry["count"] += 1
         entry["actions"].append(item.get("action_code", ""))
+        close_context = _backlog_reduction_close_context(item)
+        if close_context:
+            entry["close_context"].append(close_context)
         entry["first_priority"] = min(entry["first_priority"], _int_value(item.get("priority"), 9999))
     plan = sorted(
         grouped.values(),
@@ -940,9 +944,52 @@ def _backlog_reduction_plan(items):
         actions = [action for action in entry.get("actions", []) if action]
         entry["first_action"] = actions[0] if actions else ""
         entry["target_count_after_close"] = 0
-        entry["close_condition"] = _backlog_reduction_close_condition(entry["category"])
+        close_condition = _backlog_reduction_close_condition(entry["category"])
+        close_context = "; ".join(
+            context for context in entry.get("close_context", []) if context
+        )
+        if close_context:
+            close_condition = f"{close_condition} {close_context}"
+        entry["close_condition"] = close_condition
         entry.pop("first_priority", None)
+        entry.pop("close_context", None)
     return plan
+
+
+def _backlog_reduction_close_context(item):
+    if item.get("action_code") != "provide_official_constituents_csv":
+        return ""
+    text = f"{item.get('source', '')}; {item.get('recommended_check', '')}"
+    inbox = _extract_semicolon_field(
+        text, "source_file_inbox_blocking_input"
+    ) or _extract_semicolon_field(text, "source_file_inbox")
+    external_required = _extract_semicolon_field(
+        text, "source_file_inbox_external_input_required"
+    ) or _extract_equals_field(text, "inbox_external_input_required")
+    parts = []
+    if inbox:
+        parts.append(f"blocking_input={inbox}")
+    if external_required:
+        parts.append(f"external_input_required={external_required}")
+    return "; ".join(parts)
+
+
+def _extract_semicolon_field(text, key):
+    marker = f"{key}:"
+    for part in str(text or "").split(";"):
+        stripped = part.strip()
+        if stripped.startswith(marker):
+            return stripped[len(marker):].strip()
+    return ""
+
+
+def _extract_equals_field(text, key):
+    marker = f"{key}="
+    for part in str(text or "").split(";"):
+        stripped = part.strip()
+        if stripped.startswith(marker):
+            return stripped[len(marker):].strip()
+    return ""
 
 
 def _backlog_reduction_close_condition(category):

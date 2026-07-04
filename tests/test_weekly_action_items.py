@@ -1266,6 +1266,59 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertLess(report.index("## 待办压降分流"), report.index("## 处理事项"))
             self.assertLess(report.index("## 待办压降分流"), report.index("action_code"))
 
+    def test_backlog_reduction_plan_exposes_official_csv_blocking_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            source_path = root / "latest_sp500_current_membership_sources.json"
+            inbox_status_path = root / "latest_sp500_current_membership_source_inbox_status.json"
+            write_manifest(manifest_path)
+            write_current_membership_sources(source_path)
+            write_current_membership_source_inbox_status(inbox_status_path)
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source.update(
+                {
+                    "status": "fetch_failed",
+                    "matched_count": 0,
+                    "missing_count": 50,
+                    "missing_tickers": ["ABT", "ADM"],
+                    "intake_expected_count": 50,
+                    "intake_matched_count": 0,
+                    "intake_missing_count": 50,
+                    "intake_missing_tickers": ["ABT", "ADM"],
+                    "next_action": "provide_official_constituents_csv_or_fix_network_permission",
+                    "recommended_followup": "provide_official_constituents_csv",
+                    "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+                    "fetch_error_type": "network_permission_denied",
+                    "fetch_retryable_without_environment_change": False,
+                    "fetch_error_next_action": "provide_official_constituents_csv_or_fix_network_permission",
+                }
+            )
+            source_path.write_text(
+                json.dumps(source, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                current_membership_sources=source_path,
+                current_membership_source_inbox_status=inbox_status_path,
+            )
+
+            backtest_plan = next(
+                entry
+                for entry in payload["backlog_reduction_plan"]
+                if entry["category"] == "backtest"
+            )
+            self.assertEqual(backtest_plan["first_action"], "provide_official_constituents_csv")
+            self.assertIn(
+                "inputs/sp500_current_membership/official_constituents.csv",
+                backtest_plan["close_condition"],
+            )
+            self.assertIn("external_input_required=true", backtest_plan["close_condition"])
+
     def test_uses_backlog_reduction_template_when_action_comes_from_manifest_priority_actions(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
