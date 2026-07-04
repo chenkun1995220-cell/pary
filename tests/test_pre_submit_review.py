@@ -213,6 +213,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "intake_matched_count": 0,
             "intake_missing_count": 2,
             "next_action": "place_official_constituents_csv",
+            "external_input_required": True,
+            "blocking_reason": "official_constituents_csv_missing",
+            "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
             "formal_backtest_upgrade_allowed": False,
             "formal_model_change_allowed": False,
         },
@@ -1641,6 +1644,36 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_source_inbox_missing_fingerprint",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_missing_sp500_source_inbox_lacks_blocking_details(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_status["status"] = "missing"
+            inbox_status["source_file_validation_status"] = "missing"
+            inbox_status["source_file_inbox_exists"] = False
+            inbox_status["parsed_official_ticker_count"] = 0
+            inbox_status["external_input_required"] = False
+            inbox_status["blocking_reason"] = ""
+            inbox_status["blocking_input"] = ""
+            write_json(inbox_status_path, inbox_status)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_missing_status_inconsistent",
                 result["attention_reasons"],
             )
 

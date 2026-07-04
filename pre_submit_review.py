@@ -1120,6 +1120,8 @@ def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=
     )
     if payload.get("source_file_inbox_exists") and _sp500_source_inbox_fingerprint_missing(payload):
         reasons.append("sp500_current_membership_source_inbox_missing_fingerprint")
+    if payload.get("status") == "missing" and _sp500_source_inbox_missing_status_inconsistent(payload):
+        reasons.append("sp500_current_membership_source_inbox_missing_status_inconsistent")
     if payload.get("status") not in {"invalid", "incomplete"}:
         return reasons
     reason = str(payload.get("source_file_rejection_reason", "") or "").strip()
@@ -1132,6 +1134,17 @@ def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=
     ):
         reasons.append("sp500_current_membership_source_inbox_incomplete_count_not_below_minimum")
     return reasons
+
+
+def _sp500_source_inbox_missing_status_inconsistent(payload):
+    return (
+        payload.get("source_file_inbox_exists") is not False
+        or str(payload.get("source_file_validation_status", "") or "").strip() != "missing"
+        or _int_value(payload.get("parsed_official_ticker_count"), 0) != 0
+        or payload.get("external_input_required") is not True
+        or str(payload.get("blocking_reason", "") or "").strip() != "official_constituents_csv_missing"
+        or not str(payload.get("blocking_input", "") or "").strip()
+    )
 
 
 def _sp500_current_membership_source_inbox_status_report_reasons(payload, project_root=None):
