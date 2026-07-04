@@ -68,6 +68,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     conclusion_signal_status = "unknown"
     missing_conclusion_signals = []
     missing_conclusion_signal_fixes = {}
+    external_input_blockers = []
     forecast_next_one_week_evaluation_date = ""
     forecast_next_one_month_evaluation_date = ""
 
@@ -100,6 +101,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
             attention_reasons.append("missing_conclusion_signals")
         if _weekly_conclusion_official_csv_detail_missing_blocking_input(conclusion):
             attention_reasons.append("weekly_conclusion_official_csv_detail_missing_blocking_input")
+        external_input_blockers = _external_input_blockers(conclusion)
         forecast_performance = conclusion.get("automation", {}).get("forecast_performance", {})
         if isinstance(forecast_performance, dict):
             forecast_next_one_week_evaluation_date = str(
@@ -171,6 +173,8 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "conclusion_signal_status": conclusion_signal_status,
         "missing_conclusion_signals": missing_conclusion_signals,
         "missing_conclusion_signal_fixes": missing_conclusion_signal_fixes,
+        "external_input_blocker_count": len(external_input_blockers),
+        "external_input_blockers": external_input_blockers,
         "forecast_next_one_week_evaluation_date": forecast_next_one_week_evaluation_date,
         "forecast_next_one_month_evaluation_date": forecast_next_one_month_evaluation_date,
         "action_items_status": action_items_status,
@@ -199,6 +203,7 @@ def render_delivery_check(result):
         f"- 待处理复核：{result.get('manual_review_pending_count', 0)}",
         f"- 合并摘要存在：{result.get('manual_review_merge_summary_exists', False)}",
         f"- 周结论关键信号：{result.get('conclusion_signal_status', 'unknown')}",
+        f"- 外部输入阻塞：{result.get('external_input_blocker_count', 0)}",
         f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
         f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
         f"- 每周人工处理清单：{result.get('action_items_status', 'unknown')} / {result.get('action_items_count', 0)}",
@@ -217,6 +222,17 @@ def render_delivery_check(result):
         lines.extend(["", "## 周结论信号修复指向"])
         for signal, fix in result["missing_conclusion_signal_fixes"].items():
             lines.append(f"- {signal}: {fix}")
+    if result.get("external_input_blockers"):
+        lines.extend(["", "## 外部输入阻塞"])
+        for blocker in result["external_input_blockers"]:
+            lines.append(
+                "- {action_code}: {blocking_input}; reason={blocking_reason}; next_action={next_action}".format(
+                    action_code=blocker.get("action_code", "unknown"),
+                    blocking_input=blocker.get("blocking_input", ""),
+                    blocking_reason=blocker.get("blocking_reason", ""),
+                    next_action=blocker.get("next_action", ""),
+                )
+            )
     if result.get("missing_output_paths"):
         lines.extend(["", "## 缺失路径"])
         for key, path in result["missing_output_paths"].items():
@@ -437,6 +453,31 @@ def _conclusion_signal_fixes(missing_signals):
         signal: CONCLUSION_SIGNAL_FIXES.get(signal, "rerun_self_analysis_and_weekly_conclusion")
         for signal in missing_signals
     }
+
+
+def _external_input_blockers(conclusion):
+    blockers = []
+    gaps = conclusion.get("priority_input_gaps", []) if isinstance(conclusion, dict) else []
+    if not isinstance(gaps, list):
+        return blockers
+    for gap in gaps:
+        if not isinstance(gap, dict):
+            continue
+        blocking_input = str(gap.get("blocking_input", "") or "")
+        blocking_reason = str(gap.get("blocking_reason", "") or "")
+        if not blocking_input and not blocking_reason:
+            continue
+        blockers.append(
+            {
+                "action_code": str(gap.get("action_code", "") or ""),
+                "blocking_input": blocking_input,
+                "blocking_reason": blocking_reason,
+                "next_action": str(gap.get("next_action", "") or ""),
+                "dry_run_command": str(gap.get("dry_run_command", "") or ""),
+                "import_command": str(gap.get("import_command", "") or ""),
+            }
+        )
+    return blockers
 
 
 def _weekly_conclusion_official_csv_detail_missing_blocking_input(conclusion):

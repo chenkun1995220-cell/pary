@@ -176,6 +176,46 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
 
+    def test_delivery_check_reports_external_input_blockers_from_conclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["priority_input_gaps"] = [
+                {
+                    "action_code": "provide_official_constituents_csv",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                    "blocking_reason": "official_constituents_csv_missing",
+                    "next_action": "place_official_constituents_csv",
+                    "dry_run_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                    "import_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                }
+            ]
+            write_json(conclusion_path, conclusion)
+
+            from weekly_delivery_check import render_delivery_check, run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+            report = render_delivery_check(result)
+
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["external_input_blocker_count"], 1)
+            self.assertEqual(
+                result["external_input_blockers"][0]["blocking_reason"],
+                "official_constituents_csv_missing",
+            )
+            self.assertIn("official_constituents.csv", report)
+            self.assertIn("place_official_constituents_csv", report)
+
     def test_delivery_check_needs_attention_when_conclusion_key_signals_are_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
