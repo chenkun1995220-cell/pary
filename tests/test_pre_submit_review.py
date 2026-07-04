@@ -307,6 +307,15 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "forecast_next_one_week_evaluation_date": "2026-07-07",
             "forecast_next_one_month_evaluation_date": "2026-07-28",
             "automation_issues": [],
+            "external_input_blocker_count": 1,
+            "external_input_blockers": [
+                {
+                    "action_code": "provide_official_constituents_csv",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                    "blocking_reason": "official_constituents_csv_missing",
+                    "next_action": "place_official_constituents_csv",
+                }
+            ],
             "missing_outputs": [],
             "missing_output_paths": {},
             "attention_reasons": [],
@@ -345,6 +354,15 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "forecast_next_one_week_evaluation_date": "2026-07-07",
             "forecast_next_one_month_evaluation_date": "2026-07-28",
             "backtest_status": "evidence_review_needed",
+            "external_input_blocker_count": 1,
+            "external_input_blockers": [
+                {
+                    "action_code": "provide_official_constituents_csv",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                    "blocking_reason": "official_constituents_csv_missing",
+                    "next_action": "place_official_constituents_csv",
+                }
+            ],
             "outputs": {
                 "self_analysis": "outputs/automation/latest_self_analysis.md",
                 "manifest": "outputs/automation/latest_self_analysis_manifest.json",
@@ -5029,6 +5047,46 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "weekly_delivery_check_missing_external_input_blockers",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_automation_check_omits_sp500_external_input_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            automation_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            automation = json.loads(automation_path.read_text(encoding="utf-8-sig"))
+            automation["external_input_blocker_count"] = 0
+            automation["external_input_blockers"] = []
+            write_json(automation_path, automation)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "automation_check_missing_sp500_external_input_blocker",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_weekly_ops_check_omits_sp500_external_input_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            ops_path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
+            ops = json.loads(ops_path.read_text(encoding="utf-8-sig"))
+            ops["external_input_blocker_count"] = 0
+            ops["external_input_blockers"] = []
+            write_json(ops_path, ops)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_ops_check_missing_sp500_external_input_blocker",
                 result["attention_reasons"],
             )
 

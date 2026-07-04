@@ -504,6 +504,13 @@ def run_pre_submit_review(
         )
     )
     attention_reasons.extend(
+        _sp500_external_input_blocker_sync_reasons(
+            payloads.get("sp500_current_membership_source_inbox_status", {}),
+            payloads.get("automation_check", {}),
+            payloads.get("weekly_ops_check", {}),
+        )
+    )
+    attention_reasons.extend(
         _sp500_current_membership_source_inbox_action_item_reasons(
             payloads.get("sp500_current_membership_source_inbox_status", {}),
             payloads.get("weekly_action_items", {}),
@@ -836,6 +843,44 @@ def _has_matching_external_input_blocker(blockers, gap):
             continue
         return True
     return False
+
+
+def _sp500_external_input_blocker_sync_reasons(inbox_status, automation_check, weekly_ops_check):
+    expected = _sp500_external_input_blocker_from_inbox_status(inbox_status)
+    if not expected:
+        return []
+    reasons = []
+    if _external_input_blocker_missing(automation_check, expected):
+        reasons.append("automation_check_missing_sp500_external_input_blocker")
+    if _external_input_blocker_missing(weekly_ops_check, expected):
+        reasons.append("weekly_ops_check_missing_sp500_external_input_blocker")
+    return reasons
+
+
+def _sp500_external_input_blocker_from_inbox_status(payload):
+    if not isinstance(payload, dict) or payload.get("external_input_required") is not True:
+        return {}
+    blocking_input = str(payload.get("blocking_input", "") or "").strip()
+    blocking_reason = str(payload.get("blocking_reason", "") or "").strip()
+    if not blocking_input and not blocking_reason:
+        return {}
+    return {
+        "action_code": "provide_official_constituents_csv",
+        "blocking_input": blocking_input,
+        "blocking_reason": blocking_reason,
+        "next_action": str(payload.get("next_action", "") or "place_official_constituents_csv").strip(),
+    }
+
+
+def _external_input_blocker_missing(payload, expected):
+    if not isinstance(payload, dict):
+        return True
+    blockers = payload.get("external_input_blockers", [])
+    if not isinstance(blockers, list):
+        return True
+    if "external_input_blocker_count" in payload and _int_value(payload.get("external_input_blocker_count"), -1) != len(blockers):
+        return True
+    return not _has_matching_external_input_blocker(blockers, expected)
 
 
 def _ops_reasons(payload):
