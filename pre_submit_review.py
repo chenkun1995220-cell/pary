@@ -295,6 +295,9 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_REQUIRED_FIELDS = {
 SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY = (
     "outputs/automation/latest_sp500_current_membership_source_review_decision_apply.json"
 )
+SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REPORT = (
+    "outputs/automation/latest_sp500_current_membership_source_review_decision_apply.md"
+)
 
 SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REQUIRED_FIELDS = [
     "status",
@@ -1593,7 +1596,42 @@ def _sp500_current_membership_source_review_decision_apply_reasons(payload, proj
     applied = _int_value(apply_payload.get("applied_count"))
     if expected > 0 and applied < expected:
         reasons.append("sp500_current_membership_source_review_decision_apply_incomplete")
+    reasons.extend(
+        _sp500_current_membership_source_review_decision_apply_report_reasons(
+            apply_payload,
+            project_root=project_root,
+        )
+    )
     return reasons
+
+
+def _sp500_current_membership_source_review_decision_apply_report_reasons(apply_payload, project_root=None):
+    report_path = _resolve_path(
+        project_root or ".",
+        SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REPORT,
+    )
+    if not report_path.exists():
+        return []
+    if _source_review_decision_apply_report_summary_mismatch(report_path, apply_payload):
+        return ["sp500_current_membership_source_review_decision_apply_stale_report_summary"]
+    return []
+
+
+def _source_review_decision_apply_report_summary_mismatch(path, payload):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+    for field in (
+        "applied_count",
+        "skipped_pending_count",
+        "skipped_invalid_count",
+    ):
+        if field not in payload:
+            continue
+        if _equals_line_value(lines, field) != _text_value(payload.get(field)):
+            return True
+    return False
 
 
 def _membership_action_item_link_reasons(import_plan, action_items):

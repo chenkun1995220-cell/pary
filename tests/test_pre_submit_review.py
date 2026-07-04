@@ -3895,6 +3895,60 @@ class PreSubmitReviewTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "ready")
 
+    def test_review_needs_attention_when_sp500_source_review_decision_apply_report_mismatches_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            )
+            review_status = json.loads(review_status_path.read_text(encoding="utf-8-sig"))
+            review_status["next_action"] = "apply_review_decisions_to_queue"
+            review_status["review_decision_status"] = "ready_to_apply"
+            review_status["decision_ready_to_apply_count"] = 1
+            review_status["decision_file_exists"] = True
+            write_json(review_status_path, review_status)
+            write_json(
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_decision_apply.json",
+                {
+                    "apply_schema": "sp500_current_membership_source_review_decision_apply",
+                    "apply_version": 1,
+                    "status": "dry_run",
+                    "applied_count": 1,
+                    "skipped_pending_count": 0,
+                    "skipped_invalid_count": 0,
+                    "formal_backtest_upgrade_allowed": False,
+                },
+            )
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_decision_apply.md"
+            ).write_text(
+                "# S&P 500 current membership source review decision apply\n\n"
+                "- applied_count=0\n"
+                "- skipped_pending_count=1\n"
+                "- skipped_invalid_count=0\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_decision_apply_stale_report_summary",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_model_handoff_claims_auto_collaboration(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
