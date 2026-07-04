@@ -98,6 +98,8 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         missing_conclusion_signal_fixes = _conclusion_signal_fixes(missing_conclusion_signals)
         if missing_conclusion_signals:
             attention_reasons.append("missing_conclusion_signals")
+        if _weekly_conclusion_official_csv_detail_missing_blocking_input(conclusion):
+            attention_reasons.append("weekly_conclusion_official_csv_detail_missing_blocking_input")
         forecast_performance = conclusion.get("automation", {}).get("forecast_performance", {})
         if isinstance(forecast_performance, dict):
             forecast_next_one_week_evaluation_date = str(
@@ -435,6 +437,59 @@ def _conclusion_signal_fixes(missing_signals):
         signal: CONCLUSION_SIGNAL_FIXES.get(signal, "rerun_self_analysis_and_weekly_conclusion")
         for signal in missing_signals
     }
+
+
+def _weekly_conclusion_official_csv_detail_missing_blocking_input(conclusion):
+    priority_actions = conclusion.get("priority_actions", []) or []
+    if "provide_official_constituents_csv" not in priority_actions:
+        return False
+    if _official_csv_priority_input_gap_is_complete(conclusion.get("priority_input_gaps", [])):
+        return False
+    return _official_csv_priority_action_detail_is_incomplete(
+        conclusion.get("priority_action_details", []),
+    )
+
+
+def _official_csv_priority_input_gap_is_complete(priority_input_gaps):
+    if not isinstance(priority_input_gaps, list):
+        return False
+    for gap in priority_input_gaps:
+        if not isinstance(gap, dict):
+            continue
+        if gap.get("action_code") != "provide_official_constituents_csv":
+            continue
+        blocking_input = str(gap.get("blocking_input", "") or "")
+        blocking_reason = str(gap.get("blocking_reason", "") or "")
+        dry_run_command = str(gap.get("dry_run_command", "") or "")
+        import_command = str(gap.get("import_command", "") or "")
+        return (
+            "official_constituents.csv" in blocking_input
+            and blocking_reason == "official_constituents_csv_missing"
+            and "-DryRun" in dry_run_command
+            and "-SourceFileInbox" in dry_run_command
+            and "-SourceFileInbox" in import_command
+        )
+    return False
+
+
+def _official_csv_priority_action_detail_is_incomplete(priority_action_details):
+    if not isinstance(priority_action_details, list):
+        return True
+    for detail in priority_action_details:
+        if not isinstance(detail, dict):
+            continue
+        if detail.get("action") != "provide_official_constituents_csv":
+            continue
+        description = str(detail.get("description", "") or "")
+        raw_description = str(detail.get("raw_description", "") or "")
+        text = f"{description}; {raw_description}"
+        return (
+            "official_constituents.csv" not in text
+            or "official_constituents_csv_missing" not in text
+            or ("dry_run_command" not in text and "-DryRun" not in text)
+            or ("import_command" not in text and "-SourceFileInbox" not in text)
+        )
+    return True
 
 
 def _nested_value(payload, dotted_key):

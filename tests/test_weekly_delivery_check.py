@@ -245,6 +245,34 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertIn("next_one_week_evaluation_date", report)
             self.assertIn("next_one_month_evaluation_date", report)
 
+    def test_delivery_check_needs_attention_when_conclusion_official_csv_detail_omits_blocking_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["priority_actions"] = [
+                "review_data_health",
+                "continue_sample_accumulation",
+                "provide_official_constituents_csv",
+            ]
+            conclusion["priority_action_details"] = [
+                {"action": "review_data_health", "description": "review data health"},
+                {"action": "continue_sample_accumulation", "description": "keep tracking"},
+                {"action": "provide_official_constituents_csv", "description": "provide official S&P 500 CSV"},
+            ]
+            write_json(conclusion_path, conclusion)
+
+            from weekly_delivery_check import run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_official_csv_detail_missing_blocking_input",
+                result["attention_reasons"],
+            )
+
     def test_delivery_check_needs_attention_when_conclusion_health_needs_fix(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
