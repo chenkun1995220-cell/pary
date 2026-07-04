@@ -1120,7 +1120,7 @@ def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=
     )
     if payload.get("source_file_inbox_exists") and _sp500_source_inbox_fingerprint_missing(payload):
         reasons.append("sp500_current_membership_source_inbox_missing_fingerprint")
-    if payload.get("status") != "invalid":
+    if payload.get("status") not in {"invalid", "incomplete"}:
         return reasons
     reason = str(payload.get("source_file_rejection_reason", "") or "").strip()
     if not reason:
