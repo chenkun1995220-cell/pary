@@ -1139,6 +1139,9 @@ def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=
 def _sp500_source_inbox_missing_status_inconsistent(payload):
     return (
         payload.get("source_file_inbox_exists") is not False
+        or _int_value(payload.get("source_file_inbox_size_bytes"), 0) != 0
+        or str(payload.get("source_file_inbox_sha256", "") or "").strip() != ""
+        or str(payload.get("source_file_inbox_modified_at", "") or "").strip() != ""
         or str(payload.get("source_file_validation_status", "") or "").strip() != "missing"
         or _int_value(payload.get("parsed_official_ticker_count"), 0) != 0
         or payload.get("external_input_required") is not True
