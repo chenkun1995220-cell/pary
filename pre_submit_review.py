@@ -352,6 +352,8 @@ WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS = [
     "action_items_count",
     "action_items_actual_count",
     "action_items_json",
+    "external_input_blocker_count",
+    "external_input_blockers",
     "forecast_next_one_week_evaluation_date",
     "forecast_next_one_month_evaluation_date",
     "missing_outputs",
@@ -464,7 +466,12 @@ def run_pre_submit_review(
     if stale_or_future:
         attention_reasons.append("stale_inputs" if any(input_freshness[name] == "stale" for name in stale_or_future) else "future_inputs")
 
-    attention_reasons.extend(_delivery_reasons(payloads.get("weekly_delivery_check", {})))
+    attention_reasons.extend(
+        _delivery_reasons(
+            payloads.get("weekly_delivery_check", {}),
+            payloads.get("weekly_conclusion", {}),
+        )
+    )
     attention_reasons.extend(_ops_reasons(payloads.get("weekly_ops_check", {})))
     attention_reasons.extend(_automation_reasons(payloads.get("automation_check", {})))
     attention_reasons.extend(_conclusion_reasons(payloads.get("weekly_conclusion", {})))
@@ -745,7 +752,7 @@ def _governance_status(path):
     return ("ready" if not missing_terms else "needs_attention"), missing_terms
 
 
-def _delivery_reasons(payload):
+def _delivery_reasons(payload, weekly_conclusion=None):
     if not payload:
         return []
     reasons = []
@@ -759,7 +766,60 @@ def _delivery_reasons(payload):
         reasons.append("weekly_delivery_action_items_not_ready")
     for reason in payload.get("attention_reasons", []) or []:
         reasons.append(f"weekly_delivery_check:{reason}")
+    if _delivery_external_input_blockers_missing(payload, weekly_conclusion or {}):
+        reasons.append("weekly_delivery_check_missing_external_input_blockers")
     return reasons
+
+
+def _delivery_external_input_blockers_missing(delivery, weekly_conclusion):
+    expected = _weekly_conclusion_external_input_gaps(weekly_conclusion)
+    if not expected:
+        return False
+    blockers = delivery.get("external_input_blockers", [])
+    if not isinstance(blockers, list):
+        return True
+    blocker_count = _int_value(delivery.get("external_input_blocker_count"), -1)
+    if blocker_count != len(blockers):
+        return True
+    for gap in expected:
+        if not _has_matching_external_input_blocker(blockers, gap):
+            return True
+    return False
+
+
+def _weekly_conclusion_external_input_gaps(weekly_conclusion):
+    gaps = weekly_conclusion.get("priority_input_gaps", []) if isinstance(weekly_conclusion, dict) else []
+    if not isinstance(gaps, list):
+        return []
+    return [
+        gap
+        for gap in gaps
+        if isinstance(gap, dict)
+        and (
+            str(gap.get("blocking_input", "") or "")
+            or str(gap.get("blocking_reason", "") or "")
+        )
+    ]
+
+
+def _has_matching_external_input_blocker(blockers, gap):
+    expected_action = str(gap.get("action_code", "") or "")
+    expected_input = str(gap.get("blocking_input", "") or "")
+    expected_reason = str(gap.get("blocking_reason", "") or "")
+    expected_next_action = str(gap.get("next_action", "") or "")
+    for blocker in blockers:
+        if not isinstance(blocker, dict):
+            continue
+        if expected_action and str(blocker.get("action_code", "") or "") != expected_action:
+            continue
+        if expected_input and str(blocker.get("blocking_input", "") or "") != expected_input:
+            continue
+        if expected_reason and str(blocker.get("blocking_reason", "") or "") != expected_reason:
+            continue
+        if expected_next_action and str(blocker.get("next_action", "") or "") != expected_next_action:
+            continue
+        return True
+    return False
 
 
 def _ops_reasons(payload):
