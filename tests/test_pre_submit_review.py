@@ -1747,6 +1747,60 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_source_inbox_fingerprint_mismatches_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_file = root / "inputs" / "sp500_current_membership" / "official_constituents.csv"
+            inbox_file.parent.mkdir(parents=True, exist_ok=True)
+            inbox_file.write_text("Symbol,Security\nABT,Abbott Laboratories\n", encoding="utf-8-sig")
+            inbox_status["status"] = "ready_for_import_preview"
+            inbox_status["source_file_validation_status"] = "ready"
+            inbox_status["source_file_inbox"] = "inputs/sp500_current_membership/official_constituents.csv"
+            inbox_status["source_file_inbox_exists"] = True
+            inbox_status["source_file_inbox_size_bytes"] = 999999
+            inbox_status["source_file_inbox_sha256"] = "a" * 64
+            inbox_status["source_file_inbox_modified_at"] = "2026-07-04T03:12:00+00:00"
+            inbox_status["parsed_official_ticker_count"] = 400
+            inbox_status["external_input_required"] = False
+            inbox_status["blocking_reason"] = ""
+            inbox_status["blocking_input"] = ""
+            write_json(inbox_status_path, inbox_status)
+
+            report_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.md"
+            )
+            report_path.write_text(
+                "# S&P 500 official constituents inbox status\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: ready_for_import_preview\n"
+                "- source_file_inbox_size_bytes: 999999\n"
+                f"- source_file_inbox_sha256: {'a' * 64}\n"
+                "- source_file_inbox_modified_at: 2026-07-04T03:12:00+00:00\n"
+                "- source_file_validation_status: ready\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_fingerprint_mismatch",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_invalid_sp500_source_inbox_lacks_rejection_reason(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
