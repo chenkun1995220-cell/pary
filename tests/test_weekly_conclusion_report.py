@@ -567,8 +567,12 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                             "title": "核对当前 S&P 500 成分来源缺口",
                             "recommended_check": (
                                 "source_file_inbox:inputs/sp500_current_membership/official_constituents.csv; "
+                                "inbox_next_action=place_official_constituents_csv; "
                                 "inbox_external_input_required=true; "
-                                "inbox_blocking_reason=official_constituents_csv_missing"
+                                "inbox_blocking_reason=official_constituents_csv_missing; "
+                                "dry_run_command:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                                "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                                "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
                             ),
                             "status": "open",
                         },
@@ -583,8 +587,23 @@ class WeeklyConclusionReportTests(unittest.TestCase):
 
             self.assertIn("priority_input_gaps", payload)
             self.assertEqual(payload["priority_input_gaps"][0]["action_code"], "provide_official_constituents_csv")
-            self.assertIn("official_constituents.csv", payload["priority_input_gaps"][0]["description"])
+            self.assertEqual(
+                payload["priority_input_gaps"][0]["blocking_input"],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
+            self.assertEqual(
+                payload["priority_input_gaps"][0]["blocking_reason"],
+                "official_constituents_csv_missing",
+            )
+            self.assertEqual(
+                payload["priority_input_gaps"][0]["next_action"],
+                "place_official_constituents_csv",
+            )
+            self.assertIn("-DryRun -SourceFileInbox", payload["priority_input_gaps"][0]["dry_run_command"])
             self.assertIn("official_constituents.csv", markdown)
+            self.assertIn("投递入口", markdown)
+            self.assertIn("阻塞原因", markdown)
+            self.assertNotIn("dry_run_command:", markdown)
             self.assertNotIn("暂未发现需要优先人工复核的输入缺口", markdown)
 
     def test_data_quality_trend_signal_reaches_weekly_conclusion_health(self):

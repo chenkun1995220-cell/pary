@@ -805,7 +805,18 @@ def render_risk_section(payload):
         lines.append("- 警告：" + "；".join(payload["warnings"]))
     priority_input_gaps = payload.get("priority_input_gaps", [])
     for gap in priority_input_gaps:
-        lines.append(f"- 优先输入缺口：{gap.get('action_code')}；{gap.get('description')}")
+        parts = [f"- 优先输入缺口：{gap.get('label') or gap.get('action_code')}"]
+        if gap.get("blocking_input"):
+            parts.append(f"投递入口={gap.get('blocking_input')}")
+        if gap.get("blocking_reason"):
+            parts.append(f"阻塞原因={gap.get('blocking_reason')}")
+        if gap.get("next_action"):
+            parts.append(f"下一步={gap.get('next_action')}")
+        if gap.get("dry_run_command"):
+            parts.append(f"校验命令={gap.get('dry_run_command')}")
+        if len(parts) == 1:
+            parts.append(gap.get("description", ""))
+        lines.append("；".join(parts))
     missing_risks = [
         f"{candidate['market']} {candidate['ticker']}"
         for candidate in payload["candidates"]
@@ -1193,18 +1204,27 @@ def describe_priority_actions(actions, weekly_action_items=None):
             template = ACTION_DETAILS[action]
             label = template["label"]
             description = template["description"]
+            raw_description = description
         elif action in dynamic_templates:
             template = dynamic_templates[action]
             label = template.get("title") or "未分类动作"
             description = template.get("recommended_check") or "保留原始动作码，等待后续补充中文说明。"
+            raw_description = description
+            if is_external_input_action(action, description):
+                description = format_priority_input_gap_description(
+                    parse_inline_action_metadata(description),
+                    description,
+                )
         else:
             label = "未分类动作"
             description = "保留原始动作码，等待后续补充中文说明。"
+            raw_description = description
         details.append(
             {
                 "action": action,
                 "label": label,
                 "description": description,
+                "raw_description": raw_description,
             }
         )
     return details
@@ -1212,6 +1232,47 @@ def describe_priority_actions(actions, weekly_action_items=None):
 
 def summarize_priority_input_gaps(priority_action_details):
     gaps = []
+    for detail in priority_action_details or []:
+        action = str(detail.get("action", "")).strip()
+        description = str(detail.get("raw_description") or detail.get("description", "")).strip()
+        if not is_external_input_action(action, description):
+            continue
+        metadata = parse_inline_action_metadata(description)
+        gaps.append(
+            {
+                "action_code": action,
+                "label": detail.get("label", ""),
+                "description": description,
+                "blocking_input": first_present(
+                    metadata,
+                    "source_file_inbox",
+                    "inbox_blocking_input",
+                    "source_file_inbox_blocking_input",
+                    "blocking_input",
+                ),
+                "blocking_reason": first_present(
+                    metadata,
+                    "inbox_blocking_reason",
+                    "source_file_inbox_blocking_reason",
+                    "blocking_reason",
+                ),
+                "next_action": first_present(
+                    metadata,
+                    "inbox_next_action",
+                    "source_file_inbox_next_action",
+                    "next_action",
+                ),
+                "dry_run_command": first_present(
+                    metadata,
+                    "dry_run_command",
+                    "source_file_inbox_dry_run_command",
+                ),
+            }
+        )
+    return gaps
+
+
+def is_external_input_action(action, description):
     external_input_actions = {"provide_official_constituents_csv"}
     external_input_markers = (
         "external_input_required=true",
@@ -1220,22 +1281,60 @@ def summarize_priority_input_gaps(priority_action_details):
         "blocking_input=",
         "official_constituents_csv_missing",
     )
-    for detail in priority_action_details or []:
-        action = str(detail.get("action", "")).strip()
-        description = str(detail.get("description", "")).strip()
-        description_lower = description.lower()
-        if action not in external_input_actions and not any(
-            marker in description_lower for marker in external_input_markers
-        ):
+    description_lower = str(description or "").lower()
+    return action in external_input_actions or any(marker in description_lower for marker in external_input_markers)
+
+
+def format_priority_input_gap_description(metadata, fallback):
+    parts = []
+    blocking_input = first_present(
+        metadata,
+        "source_file_inbox",
+        "inbox_blocking_input",
+        "source_file_inbox_blocking_input",
+        "blocking_input",
+    )
+    blocking_reason = first_present(
+        metadata,
+        "inbox_blocking_reason",
+        "source_file_inbox_blocking_reason",
+        "blocking_reason",
+    )
+    next_action = first_present(metadata, "inbox_next_action", "source_file_inbox_next_action", "next_action")
+    if blocking_input:
+        parts.append(f"投递入口={blocking_input}")
+    if blocking_reason:
+        parts.append(f"阻塞原因={blocking_reason}")
+    if next_action:
+        parts.append(f"下一步={next_action}")
+    return "；".join(parts) or fallback
+
+
+def parse_inline_action_metadata(text):
+    metadata = {}
+    for raw_part in str(text or "").split(";"):
+        part = raw_part.strip()
+        if not part:
             continue
-        gaps.append(
-            {
-                "action_code": action,
-                "label": detail.get("label", ""),
-                "description": description,
-            }
-        )
-    return gaps
+        if "=" in part:
+            key, value = part.split("=", 1)
+        elif ":" in part:
+            key, value = part.split(":", 1)
+        else:
+            continue
+        key = key.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_]+", key):
+            continue
+        metadata[key] = value.strip()
+    return metadata
+
+
+def first_present(mapping, *keys):
+    for key in keys:
+        value = mapping.get(key)
+        if value not in (None, ""):
+            return value
+    return ""
 
 
 def parse_iso_date(value):
