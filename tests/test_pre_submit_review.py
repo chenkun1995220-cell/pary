@@ -5,6 +5,8 @@ import sys
 import tempfile
 import unittest
 import csv
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -1798,6 +1800,68 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_source_inbox_fingerprint_mismatch",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_ready_sp500_source_inbox_count_is_below_minimum(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_file = root / "inputs" / "sp500_current_membership" / "official_constituents.csv"
+            inbox_file.parent.mkdir(parents=True, exist_ok=True)
+            inbox_file.write_text(
+                "Symbol,Security\nABT,Abbott Laboratories\nADM,Archer-Daniels-Midland\n",
+                encoding="utf-8-sig",
+            )
+            stat = inbox_file.stat()
+            modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+            sha256 = hashlib.sha256(inbox_file.read_bytes()).hexdigest()
+            inbox_status["status"] = "ready_for_import_preview"
+            inbox_status["source_file_validation_status"] = "ready"
+            inbox_status["source_file_inbox"] = "inputs/sp500_current_membership/official_constituents.csv"
+            inbox_status["source_file_inbox_exists"] = True
+            inbox_status["source_file_inbox_size_bytes"] = stat.st_size
+            inbox_status["source_file_inbox_sha256"] = sha256
+            inbox_status["source_file_inbox_modified_at"] = modified_at
+            inbox_status["parsed_official_ticker_count"] = 2
+            inbox_status["minimum_official_ticker_count"] = 400
+            inbox_status["external_input_required"] = False
+            inbox_status["blocking_reason"] = ""
+            inbox_status["blocking_input"] = ""
+            inbox_status["source_file_rejection_reason"] = ""
+            write_json(inbox_status_path, inbox_status)
+
+            report_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.md"
+            )
+            report_path.write_text(
+                "# S&P 500 official constituents inbox status\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: ready_for_import_preview\n"
+                f"- source_file_inbox_size_bytes: {stat.st_size}\n"
+                f"- source_file_inbox_sha256: {sha256}\n"
+                f"- source_file_inbox_modified_at: {modified_at}\n"
+                "- source_file_validation_status: ready\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_ready_status_inconsistent",
                 result["attention_reasons"],
             )
 
