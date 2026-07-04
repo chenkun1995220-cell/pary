@@ -2038,6 +2038,20 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
     current = goal.get("current", {}) if isinstance(goal, dict) else {}
     if not isinstance(current, dict):
         current = {}
+    sp500_current = {}
+    if isinstance(goals, list):
+        sp500_goal = next(
+            (
+                item
+                for item in goals
+                if isinstance(item, dict)
+                and item.get("goal_code") == "backtest_evidence_quality"
+            ),
+            {},
+        )
+        sp500_current = sp500_goal.get("current", {}) if isinstance(sp500_goal, dict) else {}
+        if not isinstance(sp500_current, dict):
+            sp500_current = {}
     return {
         "goal_code": goal.get("goal_code", closeout_goal_code or "unknown"),
         "current_module": goal.get("module", snapshot.get("current_module", "unknown")),
@@ -2074,26 +2088,32 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
             "unknown",
         ),
         "sp500_current_source_inbox_external_input_required": bool(
-            current.get("sp500_current_source_inbox_external_input_required")
+            current.get(
+                "sp500_current_source_inbox_external_input_required",
+                sp500_current.get("sp500_current_source_inbox_external_input_required"),
+            )
         ),
         "sp500_current_source_inbox_size_bytes": _int_value(
-            current.get("sp500_current_source_inbox_size_bytes")
+            current.get(
+                "sp500_current_source_inbox_size_bytes",
+                sp500_current.get("sp500_current_source_inbox_size_bytes"),
+            )
         ),
         "sp500_current_source_inbox_sha256": current.get(
             "sp500_current_source_inbox_sha256",
-            "",
+            sp500_current.get("sp500_current_source_inbox_sha256", ""),
         ),
         "sp500_current_source_inbox_modified_at": current.get(
             "sp500_current_source_inbox_modified_at",
-            "",
+            sp500_current.get("sp500_current_source_inbox_modified_at", ""),
         ),
         "sp500_current_source_inbox_blocking_reason": current.get(
             "sp500_current_source_inbox_blocking_reason",
-            "",
+            sp500_current.get("sp500_current_source_inbox_blocking_reason", ""),
         ),
         "sp500_current_source_inbox_blocking_input": current.get(
             "sp500_current_source_inbox_blocking_input",
-            "",
+            sp500_current.get("sp500_current_source_inbox_blocking_input", ""),
         ),
     }
 

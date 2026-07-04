@@ -955,6 +955,39 @@ class PreSubmitReviewTests(unittest.TestCase):
                 61,
             )
 
+    def test_review_closeout_keeps_sp500_blocker_when_selecting_other_goal_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(
+                root,
+                today="2026-06-28",
+                max_age_days=8,
+                closeout_goal_code="model_governance_handoff",
+            )
+
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(
+                result["development_closeout"]["goal_code"],
+                "model_governance_handoff",
+            )
+            self.assertTrue(
+                result["development_closeout"][
+                    "sp500_current_source_inbox_external_input_required"
+                ]
+            )
+            self.assertEqual(
+                result["development_closeout"]["sp500_current_source_inbox_blocking_reason"],
+                "official_constituents_csv_missing",
+            )
+            self.assertEqual(
+                result["development_closeout"]["sp500_current_source_inbox_blocking_input"],
+                "inputs/sp500_current_membership/official_constituents.csv",
+            )
+
     def test_review_priority_actions_include_weekly_action_item_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
