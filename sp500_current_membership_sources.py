@@ -535,6 +535,12 @@ def render_report(payload):
         lines.append(f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}")
     if payload.get("source_file_validation_status"):
         lines.append(f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}")
+    if "source_file_inbox_size_bytes" in payload:
+        lines.append(f"- source_file_inbox_size_bytes: {payload.get('source_file_inbox_size_bytes', 0) or 0}")
+    if "source_file_inbox_sha256" in payload:
+        lines.append(f"- source_file_inbox_sha256: {payload.get('source_file_inbox_sha256') or 'none'}")
+    if "source_file_inbox_modified_at" in payload:
+        lines.append(f"- source_file_inbox_modified_at: {payload.get('source_file_inbox_modified_at') or 'none'}")
     if payload.get("source_file_acceptance_criteria"):
         lines.append(
             "- source_file_acceptance_criteria: "
