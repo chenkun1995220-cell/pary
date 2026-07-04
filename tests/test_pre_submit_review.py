@@ -1609,6 +1609,52 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_current_source_ready_inbox_keeps_provide_csv_followup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            inbox_path = root / source["source_file_inbox"]
+            inbox_path.parent.mkdir(parents=True, exist_ok=True)
+            rows = "Symbol,Security\n" + "\n".join(
+                f"T{index:03d},Test Company {index}" for index in range(400)
+            )
+            inbox_path.write_text(rows + "\n", encoding="utf-8-sig")
+            stat = inbox_path.stat()
+            source["source_file_inbox_exists"] = True
+            source["source_file_validation_status"] = "ready"
+            source["source_file_inbox_size_bytes"] = stat.st_size
+            source["source_file_inbox_sha256"] = hashlib.sha256(inbox_path.read_bytes()).hexdigest()
+            source["source_file_inbox_modified_at"] = datetime.fromtimestamp(
+                stat.st_mtime,
+                tz=timezone.utc,
+            ).isoformat()
+            source["parsed_official_ticker_count"] = 400
+            source["minimum_official_ticker_count"] = 400
+            source["recommended_followup"] = "provide_official_constituents_csv"
+            source["next_action"] = "provide_official_constituents_csv_or_fix_network_permission"
+            write_json(source_path, source)
+
+            source_report_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.md"
+            source_report_path.write_text(
+                "# S&P 500 current membership sources\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: fetch_failed\n"
+                "- source_file_validation_status: ready\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_stale_provide_csv_followup",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_existing_sp500_source_inbox_lacks_fingerprint(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

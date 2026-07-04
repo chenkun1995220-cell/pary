@@ -995,11 +995,28 @@ def _sp500_current_membership_source_reasons(payload, project_root=None):
                 if not csv_valid:
                     reasons.append("sp500_current_membership_source_review_queue_file_invalid")
     if payload.get("recommended_followup") == "provide_official_constituents_csv":
+        if _sp500_current_membership_source_ready_inbox_has_stale_followup(payload):
+            reasons.append("sp500_current_membership_sources_stale_provide_csv_followup")
         reasons.extend(_sp500_current_membership_source_file_guidance_reasons(payload, project_root))
         reasons.extend(_sp500_current_membership_source_report_reasons(payload, project_root))
     if payload.get("formal_backtest_upgrade_allowed"):
         reasons.append("sp500_current_membership_sources_upgrade_gate_unsafe")
     return reasons
+
+
+def _sp500_current_membership_source_ready_inbox_has_stale_followup(payload):
+    sha256 = str(payload.get("source_file_inbox_sha256", "") or "").strip()
+    modified_at = str(payload.get("source_file_inbox_modified_at", "") or "").strip()
+    minimum_count = _int_value(payload.get("minimum_official_ticker_count"), 0)
+    return (
+        payload.get("source_file_inbox_exists") is True
+        and str(payload.get("source_file_validation_status", "") or "").strip() == "ready"
+        and _int_value(payload.get("source_file_inbox_size_bytes"), 0) > 0
+        and len(sha256) == 64
+        and bool(modified_at)
+        and minimum_count > 0
+        and _int_value(payload.get("parsed_official_ticker_count"), 0) >= minimum_count
+    )
 
 
 def _sp500_current_membership_source_file_guidance_reasons(payload, project_root=None):
