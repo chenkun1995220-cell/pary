@@ -1186,7 +1186,7 @@ def _sp500_current_membership_source_inbox_action_item_reasons(inbox_status, act
         recommended_check,
     ):
         return ["weekly_action_items_missing_sp500_inbox_fingerprint"]
-    if inbox_status.get("status") != "invalid":
+    if inbox_status.get("status") not in {"invalid", "incomplete"}:
         return []
     reason = str(inbox_status.get("source_file_rejection_reason", "") or "").strip()
     if not reason:
