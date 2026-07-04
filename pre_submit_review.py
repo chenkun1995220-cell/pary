@@ -17,6 +17,7 @@ DEFAULT_GOVERNANCE_DOC = "docs/中期目标与模型协作规范.md"
 DEFAULT_OUTPUT = "outputs/automation/latest_pre_submit_review.json"
 DEFAULT_REPORT = "outputs/automation/latest_pre_submit_review.md"
 DEFAULT_HISTORY = "outputs/automation/pre_submit_review_history.jsonl"
+SP500_CURRENT_MEMBERSHIP_SOURCES_REPORT = "outputs/automation/latest_sp500_current_membership_sources.md"
 
 GOVERNANCE_REQUIRED_TERMS = [
     "gpt5.3-codex-spark",
@@ -961,6 +962,7 @@ def _sp500_current_membership_source_reasons(payload, project_root=None):
                     reasons.append("sp500_current_membership_source_review_queue_file_invalid")
     if payload.get("recommended_followup") == "provide_official_constituents_csv":
         reasons.extend(_sp500_current_membership_source_file_guidance_reasons(payload, project_root))
+        reasons.extend(_sp500_current_membership_source_report_reasons(payload, project_root))
     if payload.get("formal_backtest_upgrade_allowed"):
         reasons.append("sp500_current_membership_sources_upgrade_gate_unsafe")
     return reasons
@@ -1044,6 +1046,18 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
     elif _source_file_request_stale(request_path, payload):
         reasons.append("sp500_current_membership_sources_stale_source_file_request")
     return reasons
+
+
+def _sp500_current_membership_source_report_reasons(payload, project_root=None):
+    report_path = _resolve_path(
+        project_root or ".",
+        SP500_CURRENT_MEMBERSHIP_SOURCES_REPORT,
+    )
+    if not report_path.exists():
+        return []
+    if _source_file_request_fingerprint_values_mismatch(report_path, payload):
+        return ["sp500_current_membership_sources_stale_report_fingerprint"]
+    return []
 
 
 def _sp500_current_membership_source_inbox_status_reasons(payload):
