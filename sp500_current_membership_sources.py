@@ -1,9 +1,10 @@
 import argparse
 import csv
+import hashlib
 import json
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -475,6 +476,18 @@ def add_source_file_inbox_status(payload, source_file_inbox):
         source_file_inbox=source_file_inbox
     )
     payload["source_file_inbox_exists"] = inbox_exists
+    if inbox_exists:
+        stat = inbox_path.stat()
+        payload["source_file_inbox_size_bytes"] = stat.st_size
+        payload["source_file_inbox_sha256"] = hashlib.sha256(inbox_path.read_bytes()).hexdigest()
+        payload["source_file_inbox_modified_at"] = datetime.fromtimestamp(
+            stat.st_mtime,
+            tz=timezone.utc,
+        ).isoformat()
+    else:
+        payload["source_file_inbox_size_bytes"] = 0
+        payload["source_file_inbox_sha256"] = ""
+        payload["source_file_inbox_modified_at"] = ""
     if not inbox_exists:
         payload["source_file_validation_status"] = "missing"
     elif payload.get("status") == "source_file_invalid":

@@ -431,6 +431,9 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                 "inputs/sp500_current_membership/official_constituents.csv",
             )
             self.assertFalse(payload["source_file_inbox_exists"])
+            self.assertEqual(payload["source_file_inbox_size_bytes"], 0)
+            self.assertEqual(payload["source_file_inbox_sha256"], "")
+            self.assertEqual(payload["source_file_inbox_modified_at"], "")
             self.assertEqual(payload["source_file_validation_status"], "missing")
             self.assertIn("source_file_next_command:", report_text)
             self.assertIn("source_file_inbox_next_command:", report_text)
@@ -447,6 +450,9 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("status: source_file_required", source_request_text)
             self.assertIn("accepted_ticker_columns: Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol", source_request_text)
             self.assertIn("acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export", source_request_text)
+            self.assertIn("source_file_inbox_size_bytes: 0", source_request_text)
+            self.assertIn("source_file_inbox_sha256: none", source_request_text)
+            self.assertIn("source_file_inbox_modified_at: none", source_request_text)
             self.assertIn("formal_backtest_upgrade_allowed: false", source_request_text)
             self.assertIn("formal_model_change_allowed: false", source_request_text)
             with intake.open(encoding="utf-8-sig", newline="") as handle:

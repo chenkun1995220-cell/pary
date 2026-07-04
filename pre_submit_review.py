@@ -981,6 +981,9 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         "source_file_inbox" not in payload
         or "source_file_inbox_exists" not in payload
         or not str(payload.get("source_file_validation_status", "") or "").strip()
+        or "source_file_inbox_size_bytes" not in payload
+        or "source_file_inbox_sha256" not in payload
+        or "source_file_inbox_modified_at" not in payload
     ):
         reasons.append("sp500_current_membership_sources_missing_source_file_inbox_status")
     else:

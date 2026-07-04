@@ -551,6 +551,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "source_file_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
             "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
             "source_file_inbox_exists": False,
+            "source_file_inbox_size_bytes": 0,
+            "source_file_inbox_sha256": "",
+            "source_file_inbox_modified_at": "",
             "source_file_validation_status": "missing",
             "intake_coverage_status": "none",
             "intake_expected_count": 2,
@@ -1494,6 +1497,27 @@ class PreSubmitReviewTests(unittest.TestCase):
             del source["source_file_inbox"]
             del source["source_file_inbox_exists"]
             del source["source_file_validation_status"]
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_inbox_status",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_lacks_inbox_fingerprint_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            del source["source_file_inbox_size_bytes"]
+            del source["source_file_inbox_sha256"]
+            del source["source_file_inbox_modified_at"]
             write_json(source_path, source)
 
             from pre_submit_review import run_pre_submit_review
