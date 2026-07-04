@@ -1313,6 +1313,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_accepted_ticker_columns"
             ]
+        if _official_csv_action_item_acceptance_criteria_missing(recommended_check):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_missing_acceptance_criteria"
+            ]
         return []
     review_queue_file = str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
     if review_queue_file:
@@ -1352,6 +1356,16 @@ def _official_csv_action_item_accepted_ticker_columns_missing(recommended_check)
         "Constituent Symbol",
     ]
     return any(column not in text for column in required_columns)
+
+
+def _official_csv_action_item_acceptance_criteria_missing(recommended_check):
+    text = str(recommended_check or "")
+    required_criteria = [
+        "has_symbol_or_ticker_column",
+        "at_least_400_tickers",
+        "official_spglobal_constituents_export",
+    ]
+    return any(criterion not in text for criterion in required_criteria)
 
 
 def _has_action_item(action_items, action_code):
