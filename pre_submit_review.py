@@ -1037,6 +1037,8 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         reasons.append(
             "sp500_current_membership_sources_missing_source_file_request_fingerprint_guidance"
         )
+    elif _source_file_request_fingerprint_values_mismatch(request_path, payload):
+        reasons.append("sp500_current_membership_sources_stale_source_file_request_fingerprint")
     elif _source_file_request_boundary_missing(request_path):
         reasons.append("sp500_current_membership_sources_missing_source_file_request_boundary")
     elif _source_file_request_stale(request_path, payload):
@@ -1170,6 +1172,21 @@ def _source_file_request_fingerprint_guidance_missing(path):
         "source_file_inbox_modified_at:",
     ]
     return any(term not in text for term in required_terms)
+
+
+def _source_file_request_fingerprint_values_mismatch(path, payload):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+    expected_size = str(_int_value(payload.get("source_file_inbox_size_bytes"), 0))
+    expected_sha256 = str(payload.get("source_file_inbox_sha256", "") or "none")
+    expected_modified_at = str(payload.get("source_file_inbox_modified_at", "") or "none")
+    return (
+        _line_value(lines, "source_file_inbox_size_bytes") != expected_size
+        or _line_value(lines, "source_file_inbox_sha256") != expected_sha256
+        or _line_value(lines, "source_file_inbox_modified_at") != expected_modified_at
+    )
 
 
 def _source_file_request_boundary_missing(path):

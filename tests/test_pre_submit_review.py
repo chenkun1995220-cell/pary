@@ -1914,6 +1914,41 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_current_source_file_request_fingerprint_values_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            request_text = request_path.read_text(encoding="utf-8-sig")
+            request_text = request_text.replace(
+                "- source_file_inbox_size_bytes: 0",
+                "- source_file_inbox_size_bytes: 12345",
+            )
+            request_text = request_text.replace(
+                "- source_file_inbox_sha256: none",
+                "- source_file_inbox_sha256: " + "a" * 64,
+            )
+            request_text = request_text.replace(
+                "- source_file_inbox_modified_at: none",
+                "- source_file_inbox_modified_at: 2026-07-04T03:12:00+00:00",
+            )
+            request_path.write_text(request_text, encoding="utf-8-sig")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_stale_source_file_request_fingerprint",
+                result["attention_reasons"],
+            )
+
     def test_review_accepts_sp500_current_source_file_request_with_absolute_inbox_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
