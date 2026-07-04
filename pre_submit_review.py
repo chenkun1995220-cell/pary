@@ -825,9 +825,44 @@ def _action_item_reasons(payload):
         "reduce_weekly_action_backlog",
     ):
         reasons.append("weekly_action_items_missing_backlog_reduction_plan")
+    if _official_csv_backlog_plan_blocking_input_missing(payload):
+        reasons.append("weekly_action_items_missing_official_csv_backlog_blocking_input")
     if _sample_accumulation_action_forecast_maturity_fields_missing(payload):
         reasons.append("weekly_action_items_missing_forecast_maturity_fields")
     return reasons
+
+
+def _official_csv_backlog_plan_blocking_input_missing(payload):
+    action_item = _find_action_item(payload, "provide_official_constituents_csv")
+    if not action_item:
+        return False
+    plan = payload.get("backlog_reduction_plan", []) if isinstance(payload, dict) else []
+    if not isinstance(plan, list):
+        return False
+    expected_input = _official_csv_action_item_blocking_input(action_item)
+    for entry in plan:
+        if not isinstance(entry, dict):
+            continue
+        actions = entry.get("actions", [])
+        if entry.get("category") != "backtest" or not isinstance(actions, list):
+            continue
+        if "provide_official_constituents_csv" not in actions:
+            continue
+        close_condition = str(entry.get("close_condition", "") or "")
+        if "external_input_required=true" not in close_condition:
+            return True
+        if expected_input and expected_input not in close_condition:
+            return True
+        return "blocking_input=" not in close_condition
+    return False
+
+
+def _official_csv_action_item_blocking_input(action_item):
+    text = f"{action_item.get('source', '')}; {action_item.get('recommended_check', '')}"
+    return _parse_action_item_source_fields(text).get(
+        "source_file_inbox_blocking_input",
+        "",
+    ) or _parse_action_item_source_fields(text).get("source_file_inbox", "")
 
 
 def _sample_accumulation_action_forecast_maturity_fields_missing(payload):

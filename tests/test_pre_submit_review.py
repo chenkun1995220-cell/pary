@@ -1317,6 +1317,35 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_official_csv_backlog_plan_omits_blocking_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            action_items["backlog_reduction_plan"] = [
+                {
+                    "category": "backtest",
+                    "count": 1,
+                    "actions": ["provide_official_constituents_csv"],
+                    "first_action": "provide_official_constituents_csv",
+                    "target_count_after_close": 0,
+                    "close_condition": "Attach verified source evidence or keep the item open.",
+                }
+            ]
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["input_statuses"]["weekly_action_items"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_missing_official_csv_backlog_blocking_input",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_checklist_or_required_output_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
