@@ -681,6 +681,34 @@ class WeeklyActionItemsTests(unittest.TestCase):
 
             self.assertEqual(result["items"], [])
 
+    def test_skips_data_quality_actions_when_data_health_review_only_requires_monitoring(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            data_health_path = Path(tmp) / "latest_data_health_review.json"
+            write_manifest(manifest_path)
+            write_data_health_review(
+                data_health_path,
+                refetch_gap_action_required_count=0,
+            )
+            payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            payload["automation_priority_actions"] = [
+                "review_data_quality_score",
+                "review_data_quality_trend",
+            ]
+            manifest_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            result = build_weekly_action_items(
+                manifest_path,
+                data_health_review=data_health_path,
+            )
+
+            self.assertEqual(result["items"], [])
+
     def test_skips_manual_review_backlog_when_latest_pending_is_zero(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"

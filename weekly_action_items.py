@@ -1033,6 +1033,9 @@ def build_weekly_action_items(
         if action_code == "review_data_health":
             if not _data_health_issue_is_actionable(source.get("data_health_review", {})):
                 continue
+        if action_code in {"review_data_quality_score", "review_data_quality_trend"}:
+            if not _data_health_issue_is_actionable(source.get("data_health_review", {})):
+                continue
         if action_code == "review_backtest_evidence":
             if not _backtest_evidence_issue_is_actionable(
                 source.get("backtest_evidence_review", {}),
