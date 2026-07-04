@@ -1247,6 +1247,8 @@ def _sp500_current_membership_source_inbox_action_item_reasons(inbox_status, act
         return []
     source = str(action_item.get("source", "") or "")
     recommended_check = str(action_item.get("recommended_check", "") or "")
+    if inbox_status.get("status") == "ready_for_import_preview":
+        return ["weekly_action_items_stale_sp500_inbox_provide_action"]
     if inbox_status.get("source_file_inbox_exists") and _official_csv_action_item_inbox_fingerprint_missing(
         source,
         recommended_check,

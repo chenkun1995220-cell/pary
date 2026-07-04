@@ -2065,16 +2065,18 @@ class PreSubmitReviewTests(unittest.TestCase):
             inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
             inbox_status.update(
                 {
-                    "status": "ready_for_import_preview",
+                    "status": "incomplete",
                     "source_file_inbox_exists": True,
-                    "source_file_validation_status": "ready",
-                    "parsed_official_ticker_count": 500,
+                    "source_file_validation_status": "incomplete",
+                    "parsed_official_ticker_count": 2,
+                    "minimum_official_ticker_count": 400,
                     "source_file_inbox_size_bytes": 12345,
                     "source_file_inbox_sha256": "a" * 64,
                     "source_file_inbox_modified_at": "2026-07-04T03:12:00+00:00",
-                    "external_input_required": False,
-                    "blocking_reason": "",
-                    "blocking_input": "",
+                    "source_file_rejection_reason": "official_ticker_count_below_minimum",
+                    "external_input_required": True,
+                    "blocking_reason": "official_constituents_csv_incomplete",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
                 }
             )
             write_json(inbox_status_path, inbox_status)
@@ -2085,14 +2087,16 @@ class PreSubmitReviewTests(unittest.TestCase):
                 if item.get("action_code") == "provide_official_constituents_csv":
                     item["source"] = (
                         item.get("source", "")
-                        + "; source_file_inbox_status:ready_for_import_preview"
-                        + "; source_file_inbox_next_action:run_source_file_inbox_dry_run_then_import"
-                        + "; source_file_inbox_parsed_official_ticker_count:500"
-                        + "; source_file_inbox_intake_missing_count:0"
+                        + "; source_file_inbox_status:incomplete"
+                        + "; source_file_inbox_next_action:place_official_constituents_csv"
+                        + "; source_file_inbox_parsed_official_ticker_count:2"
+                        + "; source_file_inbox_intake_missing_count:50"
+                        + "; source_file_rejection_reason:official_ticker_count_below_minimum"
                     )
                     item["recommended_check"] = (
                         item.get("recommended_check", "")
-                        + "; inbox_status=ready_for_import_preview"
+                        + "; inbox_status=incomplete"
+                        + "; source_file_rejection_reason=official_ticker_count_below_minimum"
                     )
             write_json(action_items_path, action_items)
 
@@ -2103,6 +2107,68 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "weekly_action_items_missing_sp500_inbox_fingerprint",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_ready_sp500_source_inbox_keeps_provide_csv_action_item(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_file = root / "inputs" / "sp500_current_membership" / "official_constituents.csv"
+            inbox_file.parent.mkdir(parents=True, exist_ok=True)
+            rows = "Symbol,Security\n" + "\n".join(
+                f"T{index:03d},Test Company {index}" for index in range(400)
+            )
+            inbox_file.write_text(rows + "\n", encoding="utf-8-sig")
+            stat = inbox_file.stat()
+            modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+            sha256 = hashlib.sha256(inbox_file.read_bytes()).hexdigest()
+            inbox_status["status"] = "ready_for_import_preview"
+            inbox_status["source_file_validation_status"] = "ready"
+            inbox_status["source_file_inbox"] = "inputs/sp500_current_membership/official_constituents.csv"
+            inbox_status["source_file_inbox_exists"] = True
+            inbox_status["source_file_inbox_size_bytes"] = stat.st_size
+            inbox_status["source_file_inbox_sha256"] = sha256
+            inbox_status["source_file_inbox_modified_at"] = modified_at
+            inbox_status["parsed_official_ticker_count"] = 400
+            inbox_status["minimum_official_ticker_count"] = 400
+            inbox_status["external_input_required"] = False
+            inbox_status["blocking_reason"] = ""
+            inbox_status["blocking_input"] = ""
+            inbox_status["source_file_rejection_reason"] = ""
+            write_json(inbox_status_path, inbox_status)
+
+            report_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.md"
+            )
+            report_path.write_text(
+                "# S&P 500 official constituents inbox status\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: ready_for_import_preview\n"
+                f"- source_file_inbox_size_bytes: {stat.st_size}\n"
+                f"- source_file_inbox_sha256: {sha256}\n"
+                f"- source_file_inbox_modified_at: {modified_at}\n"
+                "- source_file_validation_status: ready\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_stale_sp500_inbox_provide_action",
                 result["attention_reasons"],
             )
 
