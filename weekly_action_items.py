@@ -429,7 +429,15 @@ def _action_template(action_code, manifest):
         "continue_sample_accumulation": {
             "title": "继续积累模型跟踪样本",
             "category": "model_tracking",
-            "source": f"model_audit_status:{manifest.get('model_audit_status', 'unknown')}",
+            "source": (
+                f"model_audit_status:{manifest.get('model_audit_status', 'unknown')}; "
+                f"forecast_mature_evaluations:{_int_value(forecast_performance.get('mature_evaluations'), 0)}; "
+                f"forecast_one_week_mature:{_int_value(forecast_performance.get('one_week_mature'), 0)}; "
+                f"forecast_one_month_mature:{_int_value(forecast_performance.get('one_month_mature'), 0)}; "
+                f"forecast_next_one_week_evaluation_date:{forecast_performance.get('next_one_week_evaluation_date', 'unknown')}; "
+                f"forecast_next_one_month_evaluation_date:{forecast_performance.get('next_one_month_evaluation_date', 'unknown')}; "
+                "forecast_formal_model_change_allowed:false"
+            ),
             "recommended_check": (
                 f"当前模型审计为 {manifest.get('model_audit_status', 'unknown')}"
                 f"{_forecast_maturity_schedule_text(forecast_performance)}"

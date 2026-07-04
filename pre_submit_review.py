@@ -752,7 +752,25 @@ def _action_item_reasons(payload):
         "reduce_weekly_action_backlog",
     ):
         reasons.append("weekly_action_items_missing_backlog_reduction_plan")
+    if _sample_accumulation_action_forecast_maturity_fields_missing(payload):
+        reasons.append("weekly_action_items_missing_forecast_maturity_fields")
     return reasons
+
+
+def _sample_accumulation_action_forecast_maturity_fields_missing(payload):
+    action_item = _find_action_item(payload, "continue_sample_accumulation")
+    if not action_item:
+        return False
+    source = str(action_item.get("source", "") or "")
+    required_markers = [
+        "forecast_mature_evaluations:",
+        "forecast_one_week_mature:",
+        "forecast_one_month_mature:",
+        "forecast_next_one_week_evaluation_date:",
+        "forecast_next_one_month_evaluation_date:",
+        "forecast_formal_model_change_allowed:false",
+    ]
+    return any(marker not in source for marker in required_markers)
 
 
 def _weekly_conclusion_action_item_sync_reasons(weekly_conclusion, action_items):

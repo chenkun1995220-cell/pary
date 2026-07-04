@@ -600,6 +600,11 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 if item["action_code"] == "continue_sample_accumulation"
             )
             self.assertEqual(sample["category"], "model_tracking")
+            self.assertIn("forecast_mature_evaluations:30", sample["source"])
+            self.assertIn("forecast_one_week_mature:0", sample["source"])
+            self.assertIn("forecast_one_month_mature:0", sample["source"])
+            self.assertIn("forecast_next_one_week_evaluation_date:2026-07-07", sample["source"])
+            self.assertIn("forecast_next_one_month_evaluation_date:2026-07-28", sample["source"])
             self.assertIn("sample_accumulating", sample["recommended_check"])
             self.assertIn("2026-07-07", sample["recommended_check"])
             self.assertIn("2026-07-28", sample["recommended_check"])

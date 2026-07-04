@@ -363,6 +363,15 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                     "action_code": "continue_sample_accumulation",
                     "category": "model_tracking",
                     "title": "track",
+                    "source": (
+                        "model_audit_status:sample_accumulating; "
+                        "forecast_mature_evaluations:0; "
+                        "forecast_one_week_mature:0; "
+                        "forecast_one_month_mature:0; "
+                        "forecast_next_one_week_evaluation_date:2026-07-07; "
+                        "forecast_next_one_month_evaluation_date:2026-07-28; "
+                        "forecast_formal_model_change_allowed:false"
+                    ),
                     "recommended_check": "keep tracking",
                 },
                 {
@@ -3015,6 +3024,27 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "model_handoff_review_missing_forecast_maturity_details",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sample_accumulation_action_lacks_forecast_maturity_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            for item in action_items["items"]:
+                if item["action_code"] == "continue_sample_accumulation":
+                    item["source"] = "model_audit_status:sample_accumulating"
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_missing_forecast_maturity_fields",
                 result["attention_reasons"],
             )
 
