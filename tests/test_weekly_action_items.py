@@ -974,6 +974,14 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("提供官方 S&P Global constituents CSV", source_item["recommended_check"])
             self.assertIn("Symbol, Ticker", source_item["recommended_check"])
             self.assertIn("Ticker Symbol, Constituent Ticker, Constituent Symbol", source_item["recommended_check"])
+            self.assertIn(
+                "accepted_ticker_columns:Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol",
+                source_item["recommended_check"],
+            )
+            self.assertIn(
+                "acceptance_criteria:has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export",
+                source_item["recommended_check"],
+            )
             self.assertIn("-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("run_sp500_current_membership_sources.ps1", source_item["recommended_check"])
             self.assertIn("-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])

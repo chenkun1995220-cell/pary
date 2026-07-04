@@ -1320,6 +1320,12 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_file_path_fields_mismatch"
             ]
+        if _official_csv_action_item_machine_readable_column_and_criteria_fields_missing(
+            recommended_check
+        ):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_missing_machine_readable_column_and_criteria_fields"
+            ]
         if _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_accepted_ticker_columns"
@@ -1426,6 +1432,13 @@ def _official_csv_action_item_source_file_path_field_values_mismatch(
         if expected and check_fields.get(key) != expected:
             return True
     return False
+
+
+def _official_csv_action_item_machine_readable_column_and_criteria_fields_missing(
+    recommended_check,
+):
+    text = str(recommended_check or "")
+    return "accepted_ticker_columns:" not in text and "acceptance_criteria:" not in text
 
 
 def _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):

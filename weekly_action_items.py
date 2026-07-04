@@ -653,6 +653,8 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
     source_file_action_prefix = (
         f"source_file_request_file:{source_file_request_file or 'outputs/automation/sp500_current_membership_source_file_request.md'}; "
         f"source_file_inbox:{source_file_inbox_default}; "
+        f"accepted_ticker_columns:{source_file_accepted_ticker_columns_text}; "
+        f"acceptance_criteria:{source_file_criteria_text}; "
         f"inbox_status={source_file_inbox_status}; "
         "inbox_status_file:outputs/automation/latest_sp500_current_membership_source_inbox_status.json; "
         f"inbox_next_action={source_file_inbox_next_action}; "
