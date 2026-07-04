@@ -92,6 +92,14 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
             "sp500_current_source_inbox_blocking_input",
             "",
         ),
+        "sp500_current_source_inbox_dry_run_command": current.get(
+            "sp500_current_source_inbox_dry_run_command",
+            "",
+        ),
+        "sp500_current_source_inbox_import_command": current.get(
+            "sp500_current_source_inbox_import_command",
+            "",
+        ),
         "collaboration_boundary_note": review.get(
             "collaboration_boundary_note",
             "unknown",
@@ -146,6 +154,14 @@ def render_development_closeout_summary(summary):
     lines.insert(
         -3,
         f"- sp500_current_source_inbox_blocking_input={summary.get('sp500_current_source_inbox_blocking_input', '')}",
+    )
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_dry_run_command={summary.get('sp500_current_source_inbox_dry_run_command', '')}",
+    )
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_import_command={summary.get('sp500_current_source_inbox_import_command', '')}",
     )
     return "\n".join(lines)
 

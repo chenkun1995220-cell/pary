@@ -233,6 +233,18 @@ def write_review_fixtures(root):
             "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
             "source_file_inbox_exists": False,
             "source_file_validation_status": "missing",
+            "source_file_inbox_dry_run_command": (
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\run_sp500_current_membership_sources.ps1 "
+                "-ProjectRoot <project_root> -DryRun -SourceFileInbox "
+                "inputs/sp500_current_membership/official_constituents.csv"
+            ),
+            "source_file_inbox_next_command": (
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\run_sp500_current_membership_sources.ps1 "
+                "-ProjectRoot <project_root> -SourceFileInbox "
+                "inputs/sp500_current_membership/official_constituents.csv"
+            ),
             "fetch_error_type": "network_permission_denied",
             "fetch_retryable_without_environment_change": False,
             "fetch_error_next_action": "provide_official_constituents_csv_or_fix_network_permission",
@@ -552,6 +564,20 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                     "sp500_current_source_inbox_blocking_input"
                 ],
                 "inputs/sp500_current_membership/official_constituents.csv",
+            )
+            self.assertIn(
+                "-DryRun -SourceFileInbox",
+                goals["backtest_evidence_quality"]["current"].get(
+                    "sp500_current_source_inbox_dry_run_command",
+                    "",
+                ),
+            )
+            self.assertIn(
+                "-SourceFileInbox",
+                goals["backtest_evidence_quality"]["current"].get(
+                    "sp500_current_source_inbox_import_command",
+                    "",
+                ),
             )
             self.assertEqual(
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_review_queue_open_count"],
@@ -984,6 +1010,14 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 summary["sp500_current_source_inbox_blocking_input"],
                 "inputs/sp500_current_membership/official_constituents.csv",
             )
+            self.assertIn(
+                "-DryRun -SourceFileInbox",
+                summary.get("sp500_current_source_inbox_dry_run_command", ""),
+            )
+            self.assertIn(
+                "-SourceFileInbox",
+                summary.get("sp500_current_source_inbox_import_command", ""),
+            )
             self.assertIn("当前开发内容所属模块：S&P 500 成分证据补强", report)
             self.assertIn("该模块完成度：30%", report)
             self.assertIn("中期目标整体完成度：", report)
@@ -1001,6 +1035,8 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,
             )
+            self.assertIn("sp500_current_source_inbox_dry_run_command=", report)
+            self.assertIn("sp500_current_source_inbox_import_command=", report)
 
     def test_development_closeout_wrapper_exists(self):
         wrapper = PROJECT_ROOT / "scripts" / "show_development_closeout.ps1"

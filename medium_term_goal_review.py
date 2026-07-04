@@ -586,6 +586,14 @@ def _backtest_goal(
                 "blocking_input",
                 "",
             ),
+            "sp500_current_source_inbox_dry_run_command": current_membership_sources.get(
+                "source_file_inbox_dry_run_command",
+                "",
+            ),
+            "sp500_current_source_inbox_import_command": current_membership_sources.get(
+                "source_file_inbox_next_command",
+                "",
+            ),
             "sp500_current_source_review_queue_open_count": review_queue_counts["open"],
             "sp500_current_source_review_queue_resolved_count": review_queue_counts["resolved"],
             "sp500_current_source_review_status": current_membership_source_review_status.get(
