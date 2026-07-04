@@ -887,6 +887,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     "source_file_acceptance_criteria": [
                         "has_symbol_or_ticker_column",
                         "at_least_400_tickers",
+                        "official_spglobal_constituents_export",
                     ],
                     "source_quality_flags": ["official_ticker_count_below_minimum"],
                     "fetch_error_type": "network_permission_denied",
@@ -919,6 +920,14 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("source_file_required_columns:Symbol, Ticker", source_item["source"])
             self.assertIn(
                 "source_file_accepted_ticker_columns:Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol",
+                source_item["source"],
+            )
+            self.assertIn(
+                "source_file_acceptance_criteria:has_symbol_or_ticker_column, at_least_400_tickers",
+                source_item["source"],
+            )
+            self.assertIn(
+                "official_spglobal_constituents_export",
                 source_item["source"],
             )
             self.assertIn("source_file_request_file:outputs/automation/sp500_current_membership_source_file_request.md", source_item["source"])

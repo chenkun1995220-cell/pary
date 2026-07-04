@@ -697,6 +697,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"recommended_followup:{recommended_followup}; "
             f"source_file_required_columns:{source_file_required_text}; "
             f"source_file_accepted_ticker_columns:{source_file_accepted_ticker_columns_text}; "
+            f"source_file_acceptance_criteria:{source_file_criteria_text}; "
             f"source_file_request_file:{source_file_request_file or 'missing'}; "
             f"source_file_inbox:{source_file_inbox or 'missing'}; "
             f"source_file_inbox_exists:{source_file_inbox_exists}; "
