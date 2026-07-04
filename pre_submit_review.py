@@ -461,6 +461,12 @@ def run_pre_submit_review(
         )
     )
     attention_reasons.extend(
+        _sp500_current_membership_source_inbox_action_item_reasons(
+            payloads.get("sp500_current_membership_source_inbox_status", {}),
+            payloads.get("weekly_action_items", {}),
+        )
+    )
+    attention_reasons.extend(
         _sp500_current_membership_source_review_status_reasons(
             payloads.get("sp500_current_membership_source_review_status", {}),
             project_root=project_root,
@@ -981,6 +987,25 @@ def _sp500_current_membership_source_inbox_status_reasons(payload):
     reason = str(payload.get("source_file_rejection_reason", "") or "").strip()
     if not reason:
         return ["sp500_current_membership_source_inbox_missing_rejection_reason"]
+    return []
+
+
+def _sp500_current_membership_source_inbox_action_item_reasons(inbox_status, action_items):
+    if not inbox_status or inbox_status.get("status") != "invalid":
+        return []
+    reason = str(inbox_status.get("source_file_rejection_reason", "") or "").strip()
+    if not reason:
+        return []
+    action_item = _find_action_item(action_items, "provide_official_constituents_csv")
+    if not action_item:
+        return []
+    source = str(action_item.get("source", "") or "")
+    recommended_check = str(action_item.get("recommended_check", "") or "")
+    if (
+        f"source_file_rejection_reason:{reason}" not in source
+        or f"source_file_rejection_reason={reason}" not in recommended_check
+    ):
+        return ["weekly_action_items_missing_sp500_inbox_rejection_reason"]
     return []
 
 

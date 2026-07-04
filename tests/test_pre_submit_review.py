@@ -1415,6 +1415,48 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_weekly_action_items_omit_sp500_inbox_rejection_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_status["status"] = "invalid"
+            inbox_status["source_file_validation_status"] = "invalid"
+            inbox_status["source_file_rejection_reason"] = (
+                "intake_template_submitted_as_official_csv"
+            )
+            write_json(inbox_status_path, inbox_status)
+
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            for item in action_items["items"]:
+                if item.get("action_code") == "provide_official_constituents_csv":
+                    item["source"] = item.get("source", "").replace(
+                        "source_file_rejection_reason:intake_template_submitted_as_official_csv",
+                        "source_file_rejection_reason:none",
+                    )
+                    item["recommended_check"] = item.get("recommended_check", "").replace(
+                        "source_file_rejection_reason=intake_template_submitted_as_official_csv",
+                        "source_file_rejection_reason=none",
+                    )
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_missing_sp500_inbox_rejection_reason",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_sp500_current_source_file_request_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
