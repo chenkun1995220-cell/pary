@@ -255,6 +255,9 @@ def write_review_fixtures(root):
             "source_file_inbox_exists": False,
             "source_file_validation_status": "missing",
             "parsed_official_ticker_count": 0,
+            "source_file_inbox_size_bytes": 12345,
+            "source_file_inbox_sha256": "a" * 64,
+            "source_file_inbox_modified_at": "2026-07-04T03:12:00+00:00",
             "minimum_official_ticker_count": 400,
             "intake_coverage_status": "none",
             "intake_expected_count": 50,
@@ -515,6 +518,24 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 goals["backtest_evidence_quality"]["current"]["sp500_current_source_inbox_intake_missing_count"],
                 50,
             )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"][
+                    "sp500_current_source_inbox_size_bytes"
+                ],
+                12345,
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"][
+                    "sp500_current_source_inbox_sha256"
+                ],
+                "a" * 64,
+            )
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["current"][
+                    "sp500_current_source_inbox_modified_at"
+                ],
+                "2026-07-04T03:12:00+00:00",
+            )
             self.assertTrue(
                 goals["backtest_evidence_quality"]["current"][
                     "sp500_current_source_inbox_external_input_required"
@@ -657,6 +678,12 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("current_target_total_completion_percent=", report)
             self.assertIn("正式模型变更：不允许", report)
             self.assertIn("backtest_evidence_quality", report)
+            self.assertIn("sp500_current_source_inbox_size_bytes=12345", report)
+            self.assertIn("sp500_current_source_inbox_sha256=" + "a" * 64, report)
+            self.assertIn(
+                "sp500_current_source_inbox_modified_at=2026-07-04T03:12:00+00:00",
+                report,
+            )
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",

@@ -564,6 +564,17 @@ def _backtest_goal(
             "sp500_current_source_inbox_intake_missing_count": _int_value(
                 current_membership_source_inbox_status.get("intake_missing_count")
             ),
+            "sp500_current_source_inbox_size_bytes": _int_value(
+                current_membership_source_inbox_status.get("source_file_inbox_size_bytes")
+            ),
+            "sp500_current_source_inbox_sha256": current_membership_source_inbox_status.get(
+                "source_file_inbox_sha256",
+                "",
+            ),
+            "sp500_current_source_inbox_modified_at": current_membership_source_inbox_status.get(
+                "source_file_inbox_modified_at",
+                "",
+            ),
             "sp500_current_source_inbox_external_input_required": bool(
                 current_membership_source_inbox_status.get("external_input_required")
             ),
