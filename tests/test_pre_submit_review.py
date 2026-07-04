@@ -603,9 +603,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         "- at_least_400_tickers\n"
         "- official_spglobal_constituents_export\n"
         "\n## Post-import fingerprint fields\n\n"
-        "- source_file_inbox_size_bytes\n"
-        "- source_file_inbox_sha256\n"
-        "- source_file_inbox_modified_at\n"
+        "- source_file_inbox_size_bytes: 0\n"
+        "- source_file_inbox_sha256: none\n"
+        "- source_file_inbox_modified_at: none\n"
         "\n## Boundary\n\n"
         "- Use only the official S&P Global constituents export. Do not import the intake template as the source CSV.\n"
         "- Run the dry-run command before the import command.\n",
@@ -1780,6 +1780,32 @@ class PreSubmitReviewTests(unittest.TestCase):
                 "- Run the dry-run command before the import command.\n",
                 encoding="utf-8-sig",
             )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_request_fingerprint_guidance",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_file_request_lacks_fingerprint_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            request_text = request_path.read_text(encoding="utf-8-sig")
+            request_text = request_text.replace("- source_file_inbox_size_bytes: 0", "- source_file_inbox_size_bytes")
+            request_text = request_text.replace("- source_file_inbox_sha256: none", "- source_file_inbox_sha256")
+            request_text = request_text.replace("- source_file_inbox_modified_at: none", "- source_file_inbox_modified_at")
+            request_path.write_text(request_text, encoding="utf-8-sig")
 
             from pre_submit_review import run_pre_submit_review
 

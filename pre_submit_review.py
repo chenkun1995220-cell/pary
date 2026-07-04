@@ -1127,9 +1127,9 @@ def _source_file_request_fingerprint_guidance_missing(path):
     except OSError:
         return True
     required_terms = [
-        "source_file_inbox_size_bytes",
-        "source_file_inbox_sha256",
-        "source_file_inbox_modified_at",
+        "source_file_inbox_size_bytes:",
+        "source_file_inbox_sha256:",
+        "source_file_inbox_modified_at:",
     ]
     return any(term not in text for term in required_terms)
 
