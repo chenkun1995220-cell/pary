@@ -1338,6 +1338,12 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_acceptance_criteria"
             ]
+        if _official_csv_action_item_source_acceptance_criteria_values_mismatch(
+            source, source_status
+        ):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_source_acceptance_criteria_mismatch"
+            ]
         if _official_csv_action_item_source_column_rules_missing(source):
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_column_rules"
@@ -1468,6 +1474,23 @@ def _official_csv_action_item_source_acceptance_criteria_missing(source):
     if "source_file_acceptance_criteria:" not in text:
         return True
     return _official_csv_action_item_acceptance_criteria_missing(text)
+
+
+def _official_csv_action_item_source_acceptance_criteria_values_mismatch(
+    source, source_status
+):
+    source_fields = _parse_action_item_source_fields(source)
+    actual = [
+        item.strip()
+        for item in source_fields.get("source_file_acceptance_criteria", "").split(",")
+        if item.strip()
+    ]
+    expected = [
+        str(item).strip()
+        for item in source_status.get("source_file_acceptance_criteria", []) or []
+        if str(item).strip()
+    ]
+    return bool(expected) and actual != expected
 
 
 def _official_csv_action_item_source_column_rules_missing(source):
