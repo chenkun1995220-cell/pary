@@ -495,7 +495,8 @@ def _membership_import_plan_action(import_plan):
             f"next_action:{next_action}"
         ),
         "recommended_check": (
-            "Run scripts/run_membership_evidence_apply_preview.ps1 for "
+            "Run scripts/run_membership_evidence_import_plan.ps1 first, then "
+            "scripts/run_membership_evidence_apply_preview.ps1 for "
             f"{ticker_text}; compare latest_membership_evidence_import_plan.md and "
             "latest_membership_evidence_apply_preview.md; keep this as preview only, "
             "without modifying historical_membership.csv or formal model parameters."

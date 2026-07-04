@@ -797,6 +797,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("ready_to_import_count:2", apply_item["source"])
             self.assertIn("weeks_affected:210", apply_item["source"])
             self.assertIn("HIGH", apply_item["recommended_check"])
+            self.assertIn("run_membership_evidence_import_plan.ps1", apply_item["recommended_check"])
             self.assertIn("run_membership_evidence_apply_preview.ps1", apply_item["recommended_check"])
             self.assertIn("run_membership_evidence_apply_preview", report)
 
