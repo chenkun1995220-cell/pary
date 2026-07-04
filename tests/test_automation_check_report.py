@@ -27,6 +27,8 @@ class AutomationCheckReportTests(unittest.TestCase):
                         "candidate_count_total": 64,
                         "manual_review_queue_count": 12,
                         "manual_review_repeat_count": 0,
+                        "forecast_next_one_week_evaluation_date": "2026-07-07",
+                        "forecast_next_one_month_evaluation_date": "2026-07-28",
                         "weekly_ops_history_status": "manual_review_needed",
                         "weekly_delivery_history_status": "manual_review_needed",
                         "weekly_delivery_action_items_actual_count": 8,
@@ -67,6 +69,8 @@ class AutomationCheckReportTests(unittest.TestCase):
             self.assertIn("weekly_delivery_action_items_actual_count: 8", report)
             self.assertIn("weekly_delivery_action_items_actual_count_delta: 2", report)
             self.assertIn("weekly_delivery_action_items_actual_count_trend: increasing", report)
+            self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
+            self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
 
     def test_cli_prints_report_from_check_json(self):
         with tempfile.TemporaryDirectory() as tmp:
