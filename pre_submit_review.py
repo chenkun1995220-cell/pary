@@ -44,6 +44,14 @@ GOVERNANCE_REQUIRED_TERMS = [
     "single_codex_with_gpt55_review_checklist",
 ]
 
+CHECKLIST_REQUIRED_EXTERNAL_INPUT_SYNC_TERMS = [
+    "sp500_current_membership_source_inbox_status",
+    "external_input_required",
+    "automation_check",
+    "weekly_ops_check",
+    "external_input_blockers",
+]
+
 INPUT_SPECS = {
     "weekly_delivery_check": {
         "path": "outputs/automation/latest_weekly_delivery_check.json",
@@ -430,6 +438,9 @@ def run_pre_submit_review(
 
     if not checklist_path.exists():
         attention_reasons.append("missing_checklist")
+    checklist_missing_terms = _checklist_missing_external_input_sync_terms(checklist_path)
+    if checklist_missing_terms:
+        attention_reasons.append("checklist_missing_external_input_blocker_sync_terms")
     governance_status, governance_missing_terms = _governance_status(governance_path)
     if governance_status == "missing":
         attention_reasons.append("missing_governance_doc")
@@ -585,6 +596,7 @@ def run_pre_submit_review(
         "max_age_days": max_age_days,
         "checklist": _relative_path(project_root, checklist_path),
         "checklist_exists": checklist_path.exists(),
+        "checklist_missing_terms": checklist_missing_terms,
         "governance_doc": _relative_path(project_root, governance_path),
         "governance_status": governance_status,
         "governance_missing_terms": governance_missing_terms,
@@ -649,6 +661,10 @@ def render_pre_submit_review(result):
         lines.extend(["", "## 需要处理"])
         for reason in result["attention_reasons"]:
             lines.append(f"- {reason}")
+    if result.get("checklist_missing_terms"):
+        lines.extend(["", "## checklist_missing_terms"])
+        for term in result.get("checklist_missing_terms", []):
+            lines.append(f"- {term}")
     if result.get("input_statuses"):
         lines.extend(["", "## 输入状态"])
         for name, status in result["input_statuses"].items():
@@ -773,6 +789,21 @@ def _governance_status(path):
         return "needs_attention", GOVERNANCE_REQUIRED_TERMS[:]
     missing_terms = [term for term in GOVERNANCE_REQUIRED_TERMS if term not in content]
     return ("ready" if not missing_terms else "needs_attention"), missing_terms
+
+
+def _checklist_missing_external_input_sync_terms(path):
+    path = Path(path)
+    if not path.exists():
+        return []
+    try:
+        content = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return CHECKLIST_REQUIRED_EXTERNAL_INPUT_SYNC_TERMS[:]
+    return [
+        term
+        for term in CHECKLIST_REQUIRED_EXTERNAL_INPUT_SYNC_TERMS
+        if term not in content
+    ]
 
 
 def _delivery_reasons(payload, weekly_conclusion=None):

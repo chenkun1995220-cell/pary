@@ -55,7 +55,19 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         )
         + "\n",
     )
-    write_text(root / "docs" / "提交前复核清单.md", "# checklist\n")
+    write_text(
+        root / "docs" / "提交前复核清单.md",
+        "\n".join(
+            [
+                "# checklist",
+                "",
+                "外部输入阻塞必须跨层同步。",
+                "当 sp500_current_membership_source_inbox_status 显示 external_input_required=true 时，",
+                "automation_check 和 weekly_ops_check 必须包含匹配的 external_input_blockers。",
+            ]
+        )
+        + "\n",
+    )
     write_json(
         root / "outputs" / "automation" / "latest_model_handoff_review.json",
         {
@@ -1424,6 +1436,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["missing_outputs"], ["weekly_ops_check"])
             self.assertIn("提交前复核清单", report)
             self.assertIn("weekly_ops_check", report)
+
+    def test_review_needs_attention_when_checklist_lacks_external_input_blocker_sync_terms(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_text(root / "docs" / "提交前复核清单.md", "# checklist\n")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "checklist_missing_external_input_blocker_sync_terms",
+                result["attention_reasons"],
+            )
+            self.assertIn(
+                "sp500_current_membership_source_inbox_status",
+                result["checklist_missing_terms"],
+            )
 
     def test_review_needs_attention_when_weekly_ops_lacks_quality_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
