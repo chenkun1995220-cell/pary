@@ -359,7 +359,8 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                         "source_file_acceptance_criteria:has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export"
                     ),
                     "recommended_check": (
-                        "outputs/automation/sp500_current_membership_source_file_request.md; "
+                        "source_file_request_file:outputs/automation/sp500_current_membership_source_file_request.md; "
+                        "source_file_inbox:inputs/sp500_current_membership/official_constituents.csv; "
                         "inbox_status_file:outputs/automation/latest_sp500_current_membership_source_inbox_status.json; "
                         "inbox_status:missing; "
                         "inbox_next_action:place_official_constituents_csv; "
@@ -1697,6 +1698,33 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_source_official_csv_action_item_missing_inbox_status_details",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_official_csv_action_item_lacks_source_file_path_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            for item in action_items["items"]:
+                if item["action_code"] == "provide_official_constituents_csv":
+                    item["recommended_check"] = item["recommended_check"].replace(
+                        "source_file_request_file:outputs/automation/sp500_current_membership_source_file_request.md",
+                        "outputs/automation/sp500_current_membership_source_file_request.md",
+                    ).replace(
+                        "source_file_inbox:inputs/sp500_current_membership/official_constituents.csv",
+                        "inputs/sp500_current_membership/official_constituents.csv",
+                    )
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_official_csv_action_item_missing_source_file_path_fields",
                 result["attention_reasons"],
             )
 

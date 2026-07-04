@@ -1310,6 +1310,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_inbox_status_details"
             ]
+        if _official_csv_action_item_source_file_path_fields_missing(recommended_check):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_missing_source_file_path_fields"
+            ]
         if _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_accepted_ticker_columns"
@@ -1367,6 +1371,15 @@ def _official_csv_action_item_inbox_status_details_missing(recommended_check):
         ["source_file_inbox_intake_missing_count", "inbox_intake_missing_count"],
     ]
     return any(not any(marker in text for marker in group) for group in required_marker_groups)
+
+
+def _official_csv_action_item_source_file_path_fields_missing(recommended_check):
+    text = str(recommended_check or "")
+    required_markers = [
+        "source_file_request_file:",
+        "source_file_inbox:",
+    ]
+    return any(marker not in text for marker in required_markers)
 
 
 def _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):
