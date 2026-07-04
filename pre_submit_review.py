@@ -306,6 +306,8 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE_REPORT = (
 )
 
 SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REQUIRED_FIELDS = [
+    "apply_schema",
+    "apply_version",
     "status",
     "applied_count",
     "skipped_pending_count",
@@ -1609,6 +1611,12 @@ def _sp500_current_membership_source_review_decision_apply_reasons(payload, proj
         for field in SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REQUIRED_FIELDS
     ):
         reasons.append("sp500_current_membership_source_review_decision_apply_missing_quality_fields")
+    if (
+        apply_payload.get("apply_schema")
+        != "sp500_current_membership_source_review_decision_apply"
+        or _int_value(apply_payload.get("apply_version")) != 1
+    ):
+        reasons.append("sp500_current_membership_source_review_decision_apply_invalid_schema")
     if apply_payload.get("status") not in {"applied", "dry_run"}:
         reasons.append("sp500_current_membership_source_review_decision_apply_not_acceptable")
     if apply_payload.get("formal_backtest_upgrade_allowed"):
