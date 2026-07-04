@@ -688,6 +688,8 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                         "prediction_unavailable": 3,
                         "direction_hit_rate": 0.41,
                         "average_excess_return": -0.025,
+                        "next_one_week_evaluation_date": "2026-07-05",
+                        "next_one_month_evaluation_date": "2026-07-26",
                     },
                 },
             )
@@ -708,12 +710,76 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             )
             self.assertEqual(payload["automation"]["forecast_performance"]["mature_evaluations"], 32)
             self.assertEqual(payload["automation"]["forecast_performance"]["direction_hit_rate"], 0.41)
+            self.assertEqual(
+                payload["automation"]["forecast_performance"]["next_one_week_evaluation_date"],
+                "2026-07-05",
+            )
+            self.assertEqual(
+                payload["automation"]["forecast_performance"]["next_one_month_evaluation_date"],
+                "2026-07-26",
+            )
             self.assertIn("forecast_performance:performance_review_needed", payload["health"]["reasons"])
+            self.assertIn("next 1w 2026-07-05", markdown)
+            self.assertIn("next 1m 2026-07-26", markdown)
             self.assertEqual(labels["review_forecast_performance"], "复核预测表现")
             self.assertEqual(labels["continue_sample_accumulation"], "继续积累样本")
             self.assertNotIn("未分类动作", markdown)
             self.assertIn("- forecast_performance：performance_review_needed / mature 32 / hit 41.0% / excess -2.5%", markdown)
             self.assertIn("| review_forecast_performance | 复核预测表现 |", markdown)
+
+    def test_forecast_performance_dates_fall_back_to_review_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            automation = root / "outputs" / "automation"
+            write_ready_automation(root)
+            write_json(
+                automation / "latest_self_analysis_manifest.json",
+                {
+                    "forecast_performance": {
+                        "status": "sample_accumulating",
+                        "total_evaluations": 80,
+                        "mature_evaluations": 0,
+                    }
+                },
+            )
+            write_json(
+                automation / "latest_forecast_performance_review.json",
+                {
+                    "status": "sample_accumulating",
+                    "total_evaluations": 80,
+                    "mature_evaluations": 0,
+                    "next_one_week_evaluation_date": "2026-07-07",
+                    "next_one_month_evaluation_date": "2026-07-28",
+                },
+            )
+            write_json(
+                automation / "latest_automation_check.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "manual_review_needed",
+                    "forecast_performance_status": "sample_accumulating",
+                    "outputs": {
+                        "manifest": str(automation / "latest_self_analysis_manifest.json"),
+                    },
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            self.assertEqual(
+                payload["automation"]["forecast_performance"]["next_one_week_evaluation_date"],
+                "2026-07-07",
+            )
+            self.assertEqual(
+                payload["automation"]["forecast_performance"]["next_one_month_evaluation_date"],
+                "2026-07-28",
+            )
+            self.assertIn("next 1w 2026-07-07", markdown)
+            self.assertIn("next 1m 2026-07-28", markdown)
 
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:

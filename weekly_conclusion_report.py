@@ -367,6 +367,12 @@ def read_forecast_performance_state(project_root, check_payload, check_path):
     if not isinstance(forecast, dict) and "forecast_performance_status" not in check_payload:
         return None
     forecast = forecast if isinstance(forecast, dict) else {}
+    fallback_review_path = Path(check_path).parent / "latest_forecast_performance_review.json"
+    fallback_forecast = read_json(fallback_review_path)
+    if isinstance(fallback_forecast, dict):
+        for key in ("next_one_week_evaluation_date", "next_one_month_evaluation_date"):
+            if not forecast.get(key) and fallback_forecast.get(key):
+                forecast[key] = fallback_forecast.get(key)
     return {
         "status": check_payload.get("forecast_performance_status") or forecast.get("status") or "unknown",
         "total_evaluations": forecast.get("total_evaluations", 0),
@@ -376,6 +382,8 @@ def read_forecast_performance_state(project_root, check_payload, check_path):
         "prediction_unavailable": forecast.get("prediction_unavailable", 0),
         "direction_hit_rate": forecast.get("direction_hit_rate"),
         "average_excess_return": forecast.get("average_excess_return"),
+        "next_one_week_evaluation_date": forecast.get("next_one_week_evaluation_date", ""),
+        "next_one_month_evaluation_date": forecast.get("next_one_month_evaluation_date", ""),
         "path": relative_path(project_root, source_path),
     }
 
@@ -397,11 +405,16 @@ def format_percent(value):
 
 
 def format_forecast_performance_status(entry):
-    return (
+    status = (
         f"{entry.get('status', 'missing')} / mature {entry.get('mature_evaluations', 0)}"
         f" / hit {format_percent(entry.get('direction_hit_rate'))}"
         f" / excess {format_percent(entry.get('average_excess_return'))}"
     )
+    if entry.get("next_one_week_evaluation_date"):
+        status += f" / next 1w {entry.get('next_one_week_evaluation_date')}"
+    if entry.get("next_one_month_evaluation_date"):
+        status += f" / next 1m {entry.get('next_one_month_evaluation_date')}"
+    return status
 
 
 def classify_candidate_action(candidate):
