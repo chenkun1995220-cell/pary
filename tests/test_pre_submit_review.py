@@ -1728,6 +1728,30 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_official_csv_action_item_source_file_path_fields_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            for item in action_items["items"]:
+                if item["action_code"] == "provide_official_constituents_csv":
+                    item["recommended_check"] = item["recommended_check"].replace(
+                        "source_file_inbox:inputs/sp500_current_membership/official_constituents.csv; ",
+                        "source_file_inbox:inputs/sp500_current_membership/wrong_constituents.csv; ",
+                    )
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_official_csv_action_item_source_file_path_fields_mismatch",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_official_csv_action_item_lacks_accepted_ticker_columns(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

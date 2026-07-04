@@ -1314,6 +1314,12 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_source_file_path_fields"
             ]
+        if _official_csv_action_item_source_file_path_field_values_mismatch(
+            recommended_check, source_status
+        ):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_source_file_path_fields_mismatch"
+            ]
         if _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_accepted_ticker_columns"
@@ -1380,6 +1386,24 @@ def _official_csv_action_item_source_file_path_fields_missing(recommended_check)
         "source_file_inbox:",
     ]
     return any(marker not in text for marker in required_markers)
+
+
+def _official_csv_action_item_source_file_path_field_values_mismatch(
+    recommended_check, source_status
+):
+    check_fields = _parse_action_item_source_fields(recommended_check)
+    expected_fields = {
+        "source_file_request_file": str(
+            source_status.get("source_file_request_file", "") or ""
+        ).strip(),
+        "source_file_inbox": str(
+            source_status.get("source_file_inbox", "") or ""
+        ).strip(),
+    }
+    for key, expected in expected_fields.items():
+        if expected and check_fields.get(key) != expected:
+            return True
+    return False
 
 
 def _official_csv_action_item_accepted_ticker_columns_missing(recommended_check):
