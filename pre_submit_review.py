@@ -456,6 +456,11 @@ def run_pre_submit_review(
         )
     )
     attention_reasons.extend(
+        _sp500_current_membership_source_inbox_status_reasons(
+            payloads.get("sp500_current_membership_source_inbox_status", {})
+        )
+    )
+    attention_reasons.extend(
         _sp500_current_membership_source_review_status_reasons(
             payloads.get("sp500_current_membership_source_review_status", {}),
             project_root=project_root,
@@ -966,6 +971,17 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
     elif _source_file_request_stale(request_path, payload):
         reasons.append("sp500_current_membership_sources_stale_source_file_request")
     return reasons
+
+
+def _sp500_current_membership_source_inbox_status_reasons(payload):
+    if not payload:
+        return []
+    if payload.get("status") != "invalid":
+        return []
+    reason = str(payload.get("source_file_rejection_reason", "") or "").strip()
+    if not reason:
+        return ["sp500_current_membership_source_inbox_missing_rejection_reason"]
+    return []
 
 
 def _source_file_request_inbox_commands_missing(path):
