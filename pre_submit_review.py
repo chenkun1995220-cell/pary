@@ -1956,6 +1956,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
     if not source_status or not action_items:
         return []
     recommended_followup = source_status.get("recommended_followup")
+    if recommended_followup == "run_membership_evidence_import_plan_then_apply_preview":
+        if _has_action_item(action_items, "run_membership_evidence_apply_preview"):
+            return []
+        return ["sp500_current_membership_source_import_preview_action_item_missing"]
     if recommended_followup not in {
         "review_current_membership_source_status",
         "provide_official_constituents_csv",

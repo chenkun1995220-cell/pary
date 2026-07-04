@@ -3305,6 +3305,32 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_current_source_import_preview_action_item_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["status"] = "ready"
+            source["matched_count"] = 1
+            source["missing_count"] = 1
+            source["intake_coverage_status"] = "partial"
+            source["intake_matched_count"] = 1
+            source["intake_missing_count"] = 1
+            source["recommended_followup"] = "run_membership_evidence_import_plan_then_apply_preview"
+            source["next_action"] = "run_membership_evidence_import_plan_then_apply_preview"
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_import_preview_action_item_missing",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_current_source_review_action_item_omits_queue_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
