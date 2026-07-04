@@ -1055,9 +1055,24 @@ def _sp500_current_membership_source_report_reasons(payload, project_root=None):
     )
     if not report_path.exists():
         return []
+    if _source_file_report_status_values_mismatch(report_path, payload):
+        return ["sp500_current_membership_sources_stale_report_status"]
     if _source_file_request_fingerprint_values_mismatch(report_path, payload):
         return ["sp500_current_membership_sources_stale_report_fingerprint"]
     return []
+
+
+def _source_file_report_status_values_mismatch(path, payload):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+    return (
+        _line_value(lines, "as_of_date") != str(payload.get("as_of_date", "") or "")
+        or _line_value(lines, "status") != str(payload.get("status", "") or "")
+        or _line_value(lines, "source_file_validation_status")
+        != str(payload.get("source_file_validation_status", "") or "")
+    )
 
 
 def _sp500_current_membership_source_inbox_status_reasons(payload):

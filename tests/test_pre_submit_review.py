@@ -1956,6 +1956,9 @@ class PreSubmitReviewTests(unittest.TestCase):
             report_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.md"
             report_path.write_text(
                 "# sp500_current_membership_sources\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: fetch_failed\n"
+                "- source_file_validation_status: missing\n"
                 "- source_file_inbox_size_bytes: 12345\n"
                 "- source_file_inbox_sha256: none\n"
                 "- source_file_inbox_modified_at: none\n",
@@ -1969,6 +1972,32 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_stale_report_fingerprint",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_report_status_values_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            report_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.md"
+            report_path.write_text(
+                "# sp500_current_membership_sources\n\n"
+                "- as_of_date: 2026-06-28\n"
+                "- status: ready\n"
+                "- source_file_validation_status: ready\n"
+                "- source_file_inbox_size_bytes: 0\n"
+                "- source_file_inbox_sha256: none\n"
+                "- source_file_inbox_modified_at: none\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_stale_report_status",
                 result["attention_reasons"],
             )
 
