@@ -826,6 +826,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("source_file_inbox: inputs/sp500_current_membership/official_constituents.csv", request_text)
             self.assertIn("source_file_inbox_exists: false", request_text)
             self.assertIn("source_file_validation_status: missing", request_text)
+            self.assertIn("## Current source file inbox fingerprint", request_text)
+            self.assertNotIn("## Post-import fingerprint fields", request_text)
             self.assertIn("source_file_inbox_size_bytes: 0", request_text)
             self.assertIn("source_file_inbox_sha256: none", request_text)
             self.assertIn("source_file_inbox_modified_at: none", request_text)

@@ -602,7 +602,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         "- has_symbol_or_ticker_column\n"
         "- at_least_400_tickers\n"
         "- official_spglobal_constituents_export\n"
-        "\n## Post-import fingerprint fields\n\n"
+        "\n## Current source file inbox fingerprint\n\n"
         "- source_file_inbox_size_bytes: 0\n"
         "- source_file_inbox_sha256: none\n"
         "- source_file_inbox_modified_at: none\n"

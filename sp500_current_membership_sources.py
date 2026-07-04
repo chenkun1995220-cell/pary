@@ -615,7 +615,7 @@ def render_source_file_request(payload, missing_limit=20):
     lines.extend(
         [
             "",
-            "## Post-import fingerprint fields",
+            "## Current source file inbox fingerprint",
             "",
             f"- source_file_inbox_size_bytes: {payload.get('source_file_inbox_size_bytes', 0) or 0}",
             f"- source_file_inbox_sha256: {payload.get('source_file_inbox_sha256') or 'none'}",
