@@ -173,6 +173,17 @@ def build_model_handoff_review(
         "sp500_current_source_inbox_external_input_required": bool(
             current.get("sp500_current_source_inbox_external_input_required")
         ),
+        "sp500_current_source_inbox_size_bytes": _int_value(
+            current.get("sp500_current_source_inbox_size_bytes")
+        ),
+        "sp500_current_source_inbox_sha256": current.get(
+            "sp500_current_source_inbox_sha256",
+            "",
+        ),
+        "sp500_current_source_inbox_modified_at": current.get(
+            "sp500_current_source_inbox_modified_at",
+            "",
+        ),
         "sp500_current_source_inbox_blocking_reason": current.get(
             "sp500_current_source_inbox_blocking_reason",
             "",
@@ -313,6 +324,9 @@ def render_model_handoff_review(result):
         [
             "",
             f"- sp500_current_source_inbox_external_input_required={result.get('sp500_current_source_inbox_external_input_required', False)}",
+            f"- sp500_current_source_inbox_size_bytes={result.get('sp500_current_source_inbox_size_bytes', 0)}",
+            f"- sp500_current_source_inbox_sha256={result.get('sp500_current_source_inbox_sha256', '')}",
+            f"- sp500_current_source_inbox_modified_at={result.get('sp500_current_source_inbox_modified_at', '')}",
             f"- sp500_current_source_inbox_blocking_reason={result.get('sp500_current_source_inbox_blocking_reason', '')}",
             f"- sp500_current_source_inbox_blocking_input={result.get('sp500_current_source_inbox_blocking_input', '')}",
             f"- sp500_current_source_request_file={result.get('sp500_current_source_request_file', '')}",

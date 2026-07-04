@@ -112,6 +112,9 @@ class ModelHandoffReviewTests(unittest.TestCase):
                             "status": "needs_work",
                             "current": {
                                 "sp500_current_source_inbox_external_input_required": True,
+                                "sp500_current_source_inbox_size_bytes": 12345,
+                                "sp500_current_source_inbox_sha256": "a" * 64,
+                                "sp500_current_source_inbox_modified_at": "2026-07-04T03:12:00+00:00",
                                 "sp500_current_source_inbox_blocking_reason": "official_constituents_csv_missing",
                                 "sp500_current_source_inbox_blocking_input": (
                                     "inputs/sp500_current_membership/official_constituents.csv"
@@ -197,6 +200,12 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertEqual(result["medium_term_overall_completion_percent"], 61)
             self.assertEqual(result["current_target_total_completion_percent"], 61)
             self.assertTrue(result["sp500_current_source_inbox_external_input_required"])
+            self.assertEqual(result["sp500_current_source_inbox_size_bytes"], 12345)
+            self.assertEqual(result["sp500_current_source_inbox_sha256"], "a" * 64)
+            self.assertEqual(
+                result["sp500_current_source_inbox_modified_at"],
+                "2026-07-04T03:12:00+00:00",
+            )
             self.assertEqual(
                 result["sp500_current_source_inbox_blocking_reason"],
                 "official_constituents_csv_missing",
@@ -235,6 +244,12 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertEqual(result["forecast_next_one_month_evaluation_date"], "2026-07-28")
             self.assertFalse(result["forecast_formal_model_change_allowed"])
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+            self.assertIn("sp500_current_source_inbox_size_bytes=12345", report)
+            self.assertIn("sp500_current_source_inbox_sha256=" + "a" * 64, report)
+            self.assertIn(
+                "sp500_current_source_inbox_modified_at=2026-07-04T03:12:00+00:00",
+                report,
+            )
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,

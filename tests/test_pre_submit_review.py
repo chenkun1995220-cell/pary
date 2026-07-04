@@ -80,6 +80,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "risk_notes": ["当前仍为单 Codex 执行加复核清单。"],
             "formal_release_allowed": True,
             "sp500_current_source_inbox_external_input_required": True,
+            "sp500_current_source_inbox_size_bytes": 12345,
+            "sp500_current_source_inbox_sha256": "a" * 64,
+            "sp500_current_source_inbox_modified_at": "2026-07-04T03:12:00+00:00",
             "sp500_current_source_inbox_blocking_reason": "official_constituents_csv_missing",
             "sp500_current_source_inbox_blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
             "sp500_current_source_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
@@ -3127,6 +3130,35 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "model_handoff_review_missing_sp500_source_request_details",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_model_handoff_lacks_sp500_source_inbox_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            for field in [
+                "sp500_current_source_inbox_size_bytes",
+                "sp500_current_source_inbox_sha256",
+                "sp500_current_source_inbox_modified_at",
+            ]:
+                handoff.pop(field, None)
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_missing_sp500_source_inbox_fingerprint",
                 result["attention_reasons"],
             )
 

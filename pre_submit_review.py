@@ -1881,6 +1881,8 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         reasons.append("model_handoff_review_formal_release_not_allowed")
     if _model_handoff_review_sp500_source_request_details_missing(payload):
         reasons.append("model_handoff_review_missing_sp500_source_request_details")
+    if _model_handoff_review_sp500_source_inbox_fingerprint_missing(payload):
+        reasons.append("model_handoff_review_missing_sp500_source_inbox_fingerprint")
     if _model_handoff_review_forecast_maturity_details_missing(
         payload, medium_term_goal_review
     ):
@@ -1936,6 +1938,27 @@ def _model_handoff_review_sp500_source_request_details_missing(payload):
         or "-SourceFileInbox" not in import_command
         or not required_criteria.issubset(criteria)
     )
+
+
+def _model_handoff_review_sp500_source_inbox_fingerprint_missing(payload):
+    actions = {
+        str(action).strip()
+        for action in payload.get("development_priority_actions", []) or []
+        if str(action).strip()
+    }
+    requires_sp500_source_request = (
+        bool(payload.get("sp500_current_source_inbox_external_input_required"))
+        or "provide_official_constituents_csv" in actions
+        or "provide_official_constituents_csv_or_fix_network_permission" in actions
+    )
+    if not requires_sp500_source_request:
+        return False
+    required_fields = {
+        "sp500_current_source_inbox_size_bytes",
+        "sp500_current_source_inbox_sha256",
+        "sp500_current_source_inbox_modified_at",
+    }
+    return any(field not in payload for field in required_fields)
 
 
 def _model_handoff_review_forecast_maturity_details_missing(
