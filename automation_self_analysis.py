@@ -1081,6 +1081,12 @@ def _automation_check_payload(manifest, manifest_validation):
         ),
         "model_audit_status": manifest.get("model_audit_status", "unknown"),
         "forecast_performance_status": manifest.get("forecast_performance_status", "unknown"),
+        "forecast_next_one_week_evaluation_date": (
+            manifest.get("forecast_performance", {}).get("next_one_week_evaluation_date", "")
+        ),
+        "forecast_next_one_month_evaluation_date": (
+            manifest.get("forecast_performance", {}).get("next_one_month_evaluation_date", "")
+        ),
         "backtest_status": manifest.get("backtest_status", "unknown"),
         "outputs": manifest.get("outputs", {}),
     }
