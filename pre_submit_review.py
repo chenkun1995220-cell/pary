@@ -313,6 +313,16 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REQUIRED_FIELDS = [
     "formal_backtest_upgrade_allowed",
 ]
 
+SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE_REQUIRED_FIELDS = [
+    "merge_schema",
+    "merge_version",
+    "merged",
+    "skipped_pending",
+    "skipped_invalid",
+    "row_count",
+    "formal_backtest_upgrade_allowed",
+]
+
 WEEKLY_CONCLUSION_REQUIRED_SUMMARY_FIELDS = [
     "candidate_count_total",
     "candidate_action_summary",
@@ -1653,15 +1663,29 @@ def _sp500_current_membership_source_review_decision_merge_report_reasons(projec
     merge_payload = _read_json(merge_path)
     if merge_payload is None:
         return []
+    reasons = []
+    if any(
+        field not in merge_payload
+        for field in SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE_REQUIRED_FIELDS
+    ):
+        reasons.append("sp500_current_membership_source_review_decision_merge_missing_quality_fields")
+    if (
+        merge_payload.get("merge_schema")
+        != "sp500_current_membership_source_review_decision_merge"
+        or _int_value(merge_payload.get("merge_version")) != 1
+    ):
+        reasons.append("sp500_current_membership_source_review_decision_merge_invalid_schema")
+    if merge_payload.get("formal_backtest_upgrade_allowed"):
+        reasons.append("sp500_current_membership_source_review_decision_merge_upgrade_gate_unsafe")
     report_path = _resolve_path(
         project_root or ".",
         SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE_REPORT,
     )
     if not report_path.exists():
-        return []
+        return reasons
     if _source_review_decision_merge_report_summary_mismatch(report_path, merge_payload):
-        return ["sp500_current_membership_source_review_decision_merge_stale_report_summary"]
-    return []
+        reasons.append("sp500_current_membership_source_review_decision_merge_stale_report_summary")
+    return reasons
 
 
 def _source_review_decision_merge_report_summary_mismatch(path, payload):
