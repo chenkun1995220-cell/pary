@@ -1710,6 +1710,43 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_source_inbox_file_state_mismatches_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            inbox_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_inbox_status.json"
+            )
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_file = root / "inputs" / "sp500_current_membership" / "official_constituents.csv"
+            inbox_file.parent.mkdir(parents=True, exist_ok=True)
+            inbox_file.write_text("Symbol,Security\nABT,Abbott Laboratories\n", encoding="utf-8-sig")
+            inbox_status["status"] = "missing"
+            inbox_status["source_file_validation_status"] = "missing"
+            inbox_status["source_file_inbox"] = "inputs/sp500_current_membership/official_constituents.csv"
+            inbox_status["source_file_inbox_exists"] = False
+            inbox_status["source_file_inbox_size_bytes"] = 0
+            inbox_status["source_file_inbox_sha256"] = ""
+            inbox_status["source_file_inbox_modified_at"] = ""
+            inbox_status["parsed_official_ticker_count"] = 0
+            inbox_status["external_input_required"] = True
+            inbox_status["blocking_reason"] = "official_constituents_csv_missing"
+            inbox_status["blocking_input"] = "inputs/sp500_current_membership/official_constituents.csv"
+            write_json(inbox_status_path, inbox_status)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_inbox_file_state_mismatch",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_invalid_sp500_source_inbox_lacks_rejection_reason(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

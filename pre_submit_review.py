@@ -1120,6 +1120,8 @@ def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=
     )
     if payload.get("source_file_inbox_exists") and _sp500_source_inbox_fingerprint_missing(payload):
         reasons.append("sp500_current_membership_source_inbox_missing_fingerprint")
+    if _sp500_source_inbox_file_state_mismatch(payload, project_root):
+        reasons.append("sp500_current_membership_source_inbox_file_state_mismatch")
     if payload.get("status") == "missing" and _sp500_source_inbox_missing_status_inconsistent(payload):
         reasons.append("sp500_current_membership_source_inbox_missing_status_inconsistent")
     if payload.get("status") not in {"invalid", "incomplete"}:
@@ -1134,6 +1136,15 @@ def _sp500_current_membership_source_inbox_status_reasons(payload, project_root=
     ):
         reasons.append("sp500_current_membership_source_inbox_incomplete_count_not_below_minimum")
     return reasons
+
+
+def _sp500_source_inbox_file_state_mismatch(payload, project_root=None):
+    inbox_file = str(payload.get("source_file_inbox", "") or "").strip()
+    if not inbox_file:
+        return False
+    inbox_path = _resolve_path(project_root or ".", inbox_file)
+    recorded_exists = bool(payload.get("source_file_inbox_exists"))
+    return inbox_path.exists() != recorded_exists
 
 
 def _sp500_source_inbox_missing_status_inconsistent(payload):
