@@ -1312,6 +1312,7 @@ REVIEW_QUEUE_CSV_REQUIRED_FIELDS = {
     "issue_type",
     "recommended_check",
 }
+REVIEW_QUEUE_RESOLVED_STATUSES = {"resolved", "closed", "done", "accepted", "ignored"}
 
 
 def _review_queue_csv_status(path):
@@ -1332,6 +1333,50 @@ def _review_queue_csv_status(path):
             return tickers, valid
     except OSError:
         return set(), False
+
+
+def _review_queue_csv_summary(path):
+    try:
+        with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fields = set(reader.fieldnames or [])
+            if not REVIEW_QUEUE_CSV_REQUIRED_FIELDS.issubset(fields):
+                return {
+                    "total_count": 0,
+                    "open_count": 0,
+                    "resolved_count": 0,
+                    "open_tickers": set(),
+                    "valid": False,
+                }
+            total_count = 0
+            open_tickers = set()
+            resolved_count = 0
+            valid = True
+            for row in reader:
+                total_count += 1
+                if any(not str(row.get(field, "")).strip() for field in REVIEW_QUEUE_CSV_REQUIRED_FIELDS):
+                    valid = False
+                ticker = str(row.get("ticker", "")).strip().upper()
+                review_status = str(row.get("review_status", "")).strip().lower()
+                if review_status in REVIEW_QUEUE_RESOLVED_STATUSES:
+                    resolved_count += 1
+                elif ticker:
+                    open_tickers.add(ticker)
+            return {
+                "total_count": total_count,
+                "open_count": len(open_tickers),
+                "resolved_count": resolved_count,
+                "open_tickers": open_tickers,
+                "valid": valid,
+            }
+    except OSError:
+        return {
+            "total_count": 0,
+            "open_count": 0,
+            "resolved_count": 0,
+            "open_tickers": set(),
+            "valid": False,
+        }
 
 
 SOURCE_FILE_INTAKE_TEMPLATE_REQUIRED_FIELDS = {
@@ -1385,6 +1430,19 @@ def _sp500_current_membership_source_review_status_reasons(payload, project_root
         reasons.append("sp500_current_membership_source_review_status_upgrade_gate_unsafe")
     open_count = _int_value(payload.get("open_count"), 0)
     open_items = payload.get("open_items", [])
+    queue_file = str(payload.get("queue_file", "") or "").strip()
+    if payload.get("queue_exists") is True and queue_file:
+        queue_summary = _review_queue_csv_summary(_resolve_path(project_root or ".", queue_file))
+        expected_open_tickers = _ticker_set_from_review_queue(open_items if isinstance(open_items, list) else [])
+        if not queue_summary["valid"]:
+            reasons.append("sp500_current_membership_source_review_status_queue_file_invalid")
+        elif (
+            queue_summary["total_count"] != _int_value(payload.get("queue_total_count"), 0)
+            or queue_summary["open_count"] != open_count
+            or queue_summary["resolved_count"] != _int_value(payload.get("resolved_count"), 0)
+            or queue_summary["open_tickers"] != expected_open_tickers
+        ):
+            reasons.append("sp500_current_membership_source_review_status_queue_file_mismatch")
     if open_count > 0 and not isinstance(open_items, list):
         reasons.append("sp500_current_membership_source_review_status_invalid_open_items")
     elif open_count > 0 and len(open_items or []) != open_count:

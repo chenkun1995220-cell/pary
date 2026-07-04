@@ -125,10 +125,27 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "queue_file": "outputs/automation/sp500_current_membership_source_review_queue.csv",
             "decisions_template_file": "outputs/automation/sp500_current_membership_source_review_decisions_template.csv",
             "queue_exists": True,
-            "queue_total_count": 1,
-            "open_count": 1,
+            "queue_total_count": 2,
+            "open_count": 2,
             "resolved_count": 0,
-            "open_items": [{"ticker": "ZZZ", "review_status": "open"}],
+            "open_items": [
+                {
+                    "ticker": "ABT",
+                    "review_status": "open",
+                    "issue_type": "missing_from_official_current_source",
+                    "recommended_check": "Confirm official coverage.",
+                    "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "source_status": "fetch_failed",
+                },
+                {
+                    "ticker": "ADM",
+                    "review_status": "open",
+                    "issue_type": "missing_from_official_current_source",
+                    "recommended_check": "Confirm official coverage.",
+                    "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "source_status": "fetch_failed",
+                },
+            ],
             "resolved_items": [],
             "decision_options": [
                 {
@@ -197,7 +214,16 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         root / "outputs" / "automation" / "sp500_current_membership_source_review_decisions_template.csv",
         [
             {
-                "ticker": "ZZZ",
+                "ticker": "ABT",
+                "review_decision": "",
+                "official_source_checked": "",
+                "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                "issue_type": "missing_from_official_current_source",
+                "recommended_check": "Confirm official coverage.",
+                "decision_notes": "",
+            },
+            {
+                "ticker": "ADM",
                 "review_decision": "",
                 "official_source_checked": "",
                 "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
@@ -3559,6 +3585,59 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["missing_outputs"],
             )
 
+    def test_review_needs_attention_when_sp500_source_review_status_queue_file_mismatches_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_status_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.json"
+            )
+            review_status = json.loads(review_status_path.read_text(encoding="utf-8-sig"))
+            review_status["queue_total_count"] = 1
+            review_status["open_count"] = 1
+            review_status["resolved_count"] = 0
+            review_status["open_items"] = [{"ticker": "ZZZ", "review_status": "open"}]
+            write_json(review_status_path, review_status)
+            write_csv(
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_review_decisions_template.csv",
+                [
+                    {
+                        "ticker": "ZZZ",
+                        "review_decision": "",
+                        "official_source_checked": "",
+                        "required_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "issue_type": "missing_from_official_current_source",
+                        "recommended_check": "Confirm official coverage.",
+                        "decision_notes": "",
+                    }
+                ],
+                [
+                    "ticker",
+                    "review_decision",
+                    "official_source_checked",
+                    "required_source_url",
+                    "issue_type",
+                    "recommended_check",
+                    "decision_notes",
+                ],
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_status_queue_file_mismatch",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_sp500_source_review_status_report_summary_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -3603,8 +3682,8 @@ class PreSubmitReviewTests(unittest.TestCase):
             )
             report_path.write_text(
                 "# S&P 500 current membership source review status\n\n"
-                "- queue_total_count=1\n"
-                "- open_count=1\n"
+                "- queue_total_count=2\n"
+                "- open_count=2\n"
                 "- resolved_count=0\n"
                 "- review_decision_status=missing\n"
                 "- manual_decision_next_step=fill_decisions_template\n"
