@@ -115,6 +115,51 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
 
+    def test_ops_check_reports_external_input_blockers_from_weekly_check(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
+            root = Path(tmp)
+            output_files = {
+                "self_analysis": "outputs/automation/latest_self_analysis.md",
+                "manifest": "outputs/automation/latest_self_analysis_manifest.json",
+                "manual_review_queue": "outputs/automation/latest_manual_review_queue.csv",
+                "automation_check": "outputs/automation/latest_automation_check.json",
+            }
+            for relative_path in output_files.values():
+                path = root / relative_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("ok\n", encoding="utf-8-sig")
+            check_path = write_weekly_check(root, output_files)
+            check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            check["external_input_blocker_count"] = 1
+            check["external_input_blockers"] = [
+                {
+                    "action_code": "provide_official_constituents_csv",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                    "blocking_reason": "official_constituents_csv_missing",
+                    "next_action": "place_official_constituents_csv",
+                }
+            ]
+            check_path.write_text(json.dumps(check, ensure_ascii=False, indent=2), encoding="utf-8-sig")
+            write_expected_automations(automation_tmp)
+
+            from weekly_ops_check import render_weekly_ops_check, run_weekly_ops_check
+
+            result = run_weekly_ops_check(
+                root,
+                automation_tmp,
+                check_path,
+                today="2026-06-28",
+                max_age_days=8,
+            )
+            report = render_weekly_ops_check(result)
+
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["external_input_blocker_count"], 1)
+            self.assertIn("provide_official_constituents_csv", report)
+            self.assertIn("official_constituents.csv", report)
+            self.assertIn("official_constituents_csv_missing", report)
+            self.assertIn("place_official_constituents_csv", report)
+
     def test_ops_check_needs_attention_when_outputs_or_automations_drift(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
             root = Path(tmp)

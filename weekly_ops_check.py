@@ -99,6 +99,9 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
         attention_reasons.append("market_summary_not_ready")
     if missing:
         attention_reasons.append("missing_outputs")
+    external_input_blockers = weekly_check.get("external_input_blockers", [])
+    if not isinstance(external_input_blockers, list):
+        external_input_blockers = []
 
     return {
         "ops_check_schema": OPS_CHECK_SCHEMA,
@@ -125,6 +128,8 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
         "forecast_next_one_month_evaluation_date": str(
             weekly_check.get("forecast_next_one_month_evaluation_date", "") or ""
         ),
+        "external_input_blocker_count": len(external_input_blockers),
+        "external_input_blockers": external_input_blockers,
         "recommended_action": weekly_check.get("recommended_action", "unknown"),
         "priority_actions": weekly_check.get("priority_actions", []),
         "missing_outputs": missing,
@@ -156,10 +161,22 @@ def render_weekly_ops_check(result):
         f"- 历史重复复核：{result.get('manual_review_repeat_count', 0)}",
         f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
         f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
+        f"- external_input_blocker_count={result.get('external_input_blocker_count', 0)}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
         f"- 建议动作：{result.get('recommended_action', 'unknown')}",
         f"- 重点动作：{_join_or_none(result.get('priority_actions', []))}",
     ]
+    if result.get("external_input_blockers"):
+        lines.extend(["", "## 外部输入阻塞"])
+        for blocker in result["external_input_blockers"]:
+            lines.append(
+                "- {action_code}: {blocking_input}; reason={blocking_reason}; next_action={next_action}".format(
+                    action_code=blocker.get("action_code", "unknown"),
+                    blocking_input=blocker.get("blocking_input", ""),
+                    blocking_reason=blocker.get("blocking_reason", ""),
+                    next_action=blocker.get("next_action", ""),
+                )
+            )
     if result.get("automation_issues"):
         lines.extend(["", "## 自动任务问题"])
         for issue in result["automation_issues"]:
