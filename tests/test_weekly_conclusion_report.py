@@ -572,7 +572,10 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                                 "inbox_blocking_reason=official_constituents_csv_missing; "
                                 "dry_run_command:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
                                 "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
-                                "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                                "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv; "
+                                "import_command:powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                                "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                                "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
                             ),
                             "status": "open",
                         },
@@ -600,10 +603,13 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 "place_official_constituents_csv",
             )
             self.assertIn("-DryRun -SourceFileInbox", payload["priority_input_gaps"][0]["dry_run_command"])
+            self.assertIn("-SourceFileInbox", payload["priority_input_gaps"][0]["import_command"])
             self.assertIn("official_constituents.csv", markdown)
             self.assertIn("投递入口", markdown)
             self.assertIn("阻塞原因", markdown)
+            self.assertIn("导入命令", markdown)
             self.assertNotIn("dry_run_command:", markdown)
+            self.assertNotIn("import_command:", markdown)
             self.assertNotIn("暂未发现需要优先人工复核的输入缺口", markdown)
 
     def test_data_quality_trend_signal_reaches_weekly_conclusion_health(self):

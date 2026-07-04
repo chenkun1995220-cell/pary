@@ -814,6 +814,8 @@ def render_risk_section(payload):
             parts.append(f"下一步={gap.get('next_action')}")
         if gap.get("dry_run_command"):
             parts.append(f"校验命令={gap.get('dry_run_command')}")
+        if gap.get("import_command"):
+            parts.append(f"导入命令={gap.get('import_command')}")
         if len(parts) == 1:
             parts.append(gap.get("description", ""))
         lines.append("；".join(parts))
@@ -1266,6 +1268,12 @@ def summarize_priority_input_gaps(priority_action_details):
                     metadata,
                     "dry_run_command",
                     "source_file_inbox_dry_run_command",
+                ),
+                "import_command": first_present(
+                    metadata,
+                    "import_command",
+                    "source_file_inbox_import_command",
+                    "source_file_inbox_next_command",
                 ),
             }
         )
