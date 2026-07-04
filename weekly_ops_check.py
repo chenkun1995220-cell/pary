@@ -119,6 +119,12 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
         "candidate_count_total": int(weekly_check.get("candidate_count_total", 0) or 0),
         "manual_review_queue_count": int(weekly_check.get("manual_review_queue_count", 0) or 0),
         "manual_review_repeat_count": int(weekly_check.get("manual_review_repeat_count", 0) or 0),
+        "forecast_next_one_week_evaluation_date": str(
+            weekly_check.get("forecast_next_one_week_evaluation_date", "") or ""
+        ),
+        "forecast_next_one_month_evaluation_date": str(
+            weekly_check.get("forecast_next_one_month_evaluation_date", "") or ""
+        ),
         "recommended_action": weekly_check.get("recommended_action", "unknown"),
         "priority_actions": weekly_check.get("priority_actions", []),
         "missing_outputs": missing,
@@ -148,6 +154,8 @@ def render_weekly_ops_check(result):
         f"- 候选总数：{result.get('candidate_count_total', 0)}",
         f"- 人工复核队列：{result.get('manual_review_queue_count', 0)}",
         f"- 历史重复复核：{result.get('manual_review_repeat_count', 0)}",
+        f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+        f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
         f"- 建议动作：{result.get('recommended_action', 'unknown')}",
         f"- 重点动作：{_join_or_none(result.get('priority_actions', []))}",
