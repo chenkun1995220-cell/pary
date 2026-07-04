@@ -19,6 +19,8 @@ REQUIRED_CONCLUSION_SIGNALS = (
     "automation.data_quality",
     "automation.data_quality_history",
     "automation.forecast_performance",
+    "automation.forecast_performance.next_one_week_evaluation_date",
+    "automation.forecast_performance.next_one_month_evaluation_date",
 )
 CONCLUSION_SIGNAL_FIXES = {
     "automation.data_quality": (
@@ -32,6 +34,16 @@ CONCLUSION_SIGNAL_FIXES = {
     "automation.forecast_performance": (
         "rerun_self_analysis_and_weekly_conclusion: ensure latest_self_analysis_manifest.json "
         "contains forecast_performance before show_weekly_conclusion.ps1"
+    ),
+    "automation.forecast_performance.next_one_week_evaluation_date": (
+        "rerun_forecast_performance_review_self_analysis_and_weekly_conclusion: ensure "
+        "latest_forecast_performance_review.json contains next_one_week_evaluation_date "
+        "before show_weekly_conclusion.ps1"
+    ),
+    "automation.forecast_performance.next_one_month_evaluation_date": (
+        "rerun_forecast_performance_review_self_analysis_and_weekly_conclusion: ensure "
+        "latest_forecast_performance_review.json contains next_one_month_evaluation_date "
+        "before show_weekly_conclusion.ps1"
     ),
 }
 
@@ -397,6 +409,8 @@ def _conclusion_health(conclusion):
 def _check_conclusion_signals(conclusion):
     missing = []
     for signal in REQUIRED_CONCLUSION_SIGNALS:
+        if any(signal.startswith(f"{parent}.") for parent in missing):
+            continue
         if _nested_value(conclusion, signal) in (None, ""):
             missing.append(signal)
     return ("ready" if not missing else "missing"), missing

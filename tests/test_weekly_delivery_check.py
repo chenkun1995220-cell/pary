@@ -116,6 +116,8 @@ def write_ready_delivery_files(root, as_of_date="2026-06-28"):
                     "mature_evaluations": 0,
                     "direction_hit_rate": None,
                     "average_excess_return": None,
+                    "next_one_week_evaluation_date": "2026-07-07",
+                    "next_one_month_evaluation_date": "2026-07-28",
                     "path": "outputs/automation/latest_self_analysis_manifest.json",
                 },
             },
@@ -208,6 +210,35 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertIn("automation.forecast_performance", report)
             self.assertIn("latest_self_analysis_manifest.json", report)
             self.assertIn("show_weekly_conclusion.ps1", report)
+
+    def test_delivery_check_needs_attention_when_forecast_dates_are_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            forecast = conclusion["automation"]["forecast_performance"]
+            forecast.pop("next_one_week_evaluation_date")
+            forecast.pop("next_one_month_evaluation_date")
+            write_json(conclusion_path, conclusion)
+
+            from weekly_delivery_check import render_delivery_check, run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28", max_age_days=8)
+            report = render_delivery_check(result)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["conclusion_signal_status"], "missing")
+            self.assertEqual(
+                result["missing_conclusion_signals"],
+                [
+                    "automation.forecast_performance.next_one_week_evaluation_date",
+                    "automation.forecast_performance.next_one_month_evaluation_date",
+                ],
+            )
+            self.assertIn("missing_conclusion_signals", result["attention_reasons"])
+            self.assertIn("next_one_week_evaluation_date", report)
+            self.assertIn("next_one_month_evaluation_date", report)
 
     def test_delivery_check_needs_attention_when_conclusion_health_needs_fix(self):
         with tempfile.TemporaryDirectory() as tmp:
