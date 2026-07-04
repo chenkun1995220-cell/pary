@@ -1322,6 +1322,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_acceptance_criteria"
             ]
+        if _official_csv_action_item_source_inbox_status_details_missing(source):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_source_missing_inbox_status_details"
+            ]
         return []
     review_queue_file = str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
     if review_queue_file:
@@ -1378,6 +1382,17 @@ def _official_csv_action_item_source_acceptance_criteria_missing(source):
     if "source_file_acceptance_criteria:" not in text:
         return True
     return _official_csv_action_item_acceptance_criteria_missing(text)
+
+
+def _official_csv_action_item_source_inbox_status_details_missing(source):
+    text = str(source or "")
+    required_markers = [
+        "source_file_inbox_status:",
+        "source_file_inbox_next_action:",
+        "source_file_inbox_parsed_official_ticker_count:",
+        "source_file_inbox_intake_missing_count:",
+    ]
+    return any(marker not in text for marker in required_markers)
 
 
 def _has_action_item(action_items, action_code):
