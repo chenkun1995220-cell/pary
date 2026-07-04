@@ -811,7 +811,41 @@ def _conclusion_reasons(payload):
     for key in ("data_quality", "data_quality_history", "forecast_performance"):
         if key not in automation:
             reasons.append(f"weekly_conclusion_missing_{key}")
+    if _weekly_conclusion_official_csv_detail_missing_blocking_input(payload):
+        reasons.append("weekly_conclusion_official_csv_detail_missing_blocking_input")
     return reasons
+
+
+def _weekly_conclusion_official_csv_detail_missing_blocking_input(payload):
+    priority_actions = payload.get("priority_actions", []) or []
+    if "provide_official_constituents_csv" not in priority_actions:
+        return False
+    details = payload.get("priority_action_details", []) or []
+    if not isinstance(details, list):
+        return True
+    for detail in details:
+        if not isinstance(detail, dict):
+            continue
+        if detail.get("action") != "provide_official_constituents_csv":
+            continue
+        description = str(detail.get("description", "") or "")
+        raw_description = str(detail.get("raw_description", "") or "")
+        text = f"{description}; {raw_description}"
+        return (
+            "official_constituents.csv" not in text
+            or "official_constituents_csv_missing" not in text
+            or (
+                "dry_run_command" not in text
+                and "校验命令" not in text
+                and "鏍￠獙鍛戒护" not in text
+            )
+            or (
+                "import_command" not in text
+                and "导入命令" not in text
+                and "瀵煎叆鍛戒护" not in text
+            )
+        )
+    return True
 
 
 def _action_item_reasons(payload):

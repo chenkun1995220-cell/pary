@@ -367,7 +367,19 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "priority_action_details": [
                 {"action": "review_data_health", "description": "review data health"},
                 {"action": "continue_sample_accumulation", "description": "keep tracking"},
-                {"action": "provide_official_constituents_csv", "description": "provide official S&P 500 CSV"},
+                {
+                    "action": "provide_official_constituents_csv",
+                    "description": (
+                        "投递入口=inputs/sp500_current_membership/official_constituents.csv；"
+                        "阻塞原因=official_constituents_csv_missing；"
+                        "校验命令=powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv；"
+                        "导入命令=powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                },
             ],
             "candidate_count_total": 64,
             "candidate_action_summary": {"priority_research": 12, "watchlist": 52},
@@ -1160,6 +1172,34 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "weekly_conclusion_missing_weekly_action_item_codes",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_weekly_conclusion_official_csv_detail_omits_blocking_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["priority_actions"] = [
+                "review_data_health",
+                "continue_sample_accumulation",
+                "provide_official_constituents_csv",
+            ]
+            conclusion["priority_action_details"] = [
+                {"action": "review_data_health", "description": "review data health"},
+                {"action": "continue_sample_accumulation", "description": "keep tracking"},
+                {"action": "provide_official_constituents_csv", "description": "provide official S&P 500 CSV"},
+            ]
+            write_json(conclusion_path, conclusion)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_official_csv_detail_missing_blocking_input",
                 result["attention_reasons"],
             )
 
