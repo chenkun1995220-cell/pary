@@ -1330,6 +1330,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_source_file_paths"
             ]
+        if _official_csv_action_item_source_file_path_values_mismatch(source, source_status):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_source_file_paths_mismatch"
+            ]
         if _official_csv_action_item_source_fetch_error_details_missing(source):
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_fetch_error_details"
@@ -1412,6 +1416,38 @@ def _official_csv_action_item_source_file_paths_missing(source):
         "source_file_validation_status:",
     ]
     return any(marker not in text for marker in required_markers)
+
+
+def _official_csv_action_item_source_file_path_values_mismatch(source, source_status):
+    source_fields = _parse_action_item_source_fields(source)
+    expected_fields = {
+        "source_file_request_file": str(
+            source_status.get("source_file_request_file", "") or ""
+        ).strip(),
+        "source_file_inbox": str(
+            source_status.get("source_file_inbox", "") or ""
+        ).strip(),
+        "source_file_inbox_exists": str(
+            source_status.get("source_file_inbox_exists", "")
+        ).lower(),
+        "source_file_validation_status": str(
+            source_status.get("source_file_validation_status", "") or ""
+        ).strip(),
+    }
+    for key, expected in expected_fields.items():
+        if expected and source_fields.get(key) != expected:
+            return True
+    return False
+
+
+def _parse_action_item_source_fields(source):
+    fields = {}
+    for part in str(source or "").split(";"):
+        if ":" not in part:
+            continue
+        key, value = part.split(":", 1)
+        fields[key.strip()] = value.strip()
+    return fields
 
 
 def _official_csv_action_item_source_fetch_error_details_missing(source):
