@@ -290,8 +290,15 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "action_items_count": 2,
             "action_items_actual_count": 2,
             "action_items_json": "outputs/automation/latest_weekly_action_items.json",
-            "external_input_blocker_count": 0,
-            "external_input_blockers": [],
+            "external_input_blocker_count": 1,
+            "external_input_blockers": [
+                {
+                    "action_code": "provide_official_constituents_csv",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                    "blocking_reason": "official_constituents_csv_missing",
+                    "next_action": "place_official_constituents_csv",
+                }
+            ],
             "forecast_next_one_week_evaluation_date": "2026-07-07",
             "forecast_next_one_month_evaluation_date": "2026-07-28",
             "missing_outputs": [],
@@ -412,6 +419,24 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                         "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
                     ),
                 },
+            ],
+            "priority_input_gaps": [
+                {
+                    "action_code": "provide_official_constituents_csv",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                    "blocking_reason": "official_constituents_csv_missing",
+                    "next_action": "place_official_constituents_csv",
+                    "dry_run_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                    "import_command": (
+                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                        "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                    ),
+                }
             ],
             "candidate_count_total": 64,
             "candidate_action_summary": {"priority_research": 12, "watchlist": 52},
@@ -5090,27 +5115,11 @@ class PreSubmitReviewTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_ready_review_inputs(root)
-            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
-            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
-            conclusion["priority_input_gaps"] = [
-                {
-                    "action_code": "provide_official_constituents_csv",
-                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
-                    "blocking_reason": "official_constituents_csv_missing",
-                    "next_action": "place_official_constituents_csv",
-                    "dry_run_command": (
-                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
-                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
-                        "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
-                    ),
-                    "import_command": (
-                        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
-                        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
-                        "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
-                    ),
-                }
-            ]
-            write_json(conclusion_path, conclusion)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            delivery["external_input_blocker_count"] = 0
+            delivery["external_input_blockers"] = []
+            write_json(delivery_path, delivery)
 
             from pre_submit_review import run_pre_submit_review
 
@@ -5119,6 +5128,25 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "weekly_delivery_check_missing_external_input_blockers",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_weekly_conclusion_omits_sp500_external_input_gap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            conclusion["priority_input_gaps"] = []
+            write_json(conclusion_path, conclusion)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_conclusion_missing_sp500_external_input_gap",
                 result["attention_reasons"],
             )
 

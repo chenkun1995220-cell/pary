@@ -526,6 +526,12 @@ def run_pre_submit_review(
         )
     )
     attention_reasons.extend(
+        _sp500_external_input_gap_sync_reasons(
+            payloads.get("sp500_current_membership_source_inbox_status", {}),
+            payloads.get("weekly_conclusion", {}),
+        )
+    )
+    attention_reasons.extend(
         _sp500_current_membership_source_inbox_action_item_reasons(
             payloads.get("sp500_current_membership_source_inbox_status", {}),
             payloads.get("weekly_action_items", {}),
@@ -890,6 +896,16 @@ def _sp500_external_input_blocker_sync_reasons(inbox_status, automation_check, w
     if _external_input_blocker_missing(weekly_ops_check, expected):
         reasons.append("weekly_ops_check_missing_sp500_external_input_blocker")
     return reasons
+
+
+def _sp500_external_input_gap_sync_reasons(inbox_status, weekly_conclusion):
+    expected = _sp500_external_input_blocker_from_inbox_status(inbox_status)
+    if not expected:
+        return []
+    gaps = _weekly_conclusion_external_input_gaps(weekly_conclusion)
+    if _has_matching_external_input_blocker(gaps, expected):
+        return []
+    return ["weekly_conclusion_missing_sp500_external_input_gap"]
 
 
 def _sp500_external_input_blocker_from_inbox_status(payload):
