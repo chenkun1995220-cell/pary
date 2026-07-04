@@ -74,6 +74,64 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             "place_official_constituents_csv",
         )
 
+    def test_self_analysis_manifest_reads_sp500_inbox_external_input_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for universe, title in (
+                ("us_universe", "US Weekly Screening Run Summary"),
+                ("cn_universe", "CN Weekly Data Summary"),
+                ("hk_universe", "HK Weekly Data Summary"),
+            ):
+                write_text(root / "outputs" / universe / "latest_run_summary.md", f"# {title}\n")
+                write_text(root / "outputs" / universe / "model_audit.md", "- audit status: sample_accumulating\n")
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_text(
+                root / "outputs" / "automation" / "latest_sp500_current_membership_source_inbox_status.json",
+                json.dumps(
+                    {
+                        "status_schema": "sp500_current_membership_source_inbox_status",
+                        "status_version": 1,
+                        "external_input_required": True,
+                        "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                        "blocking_reason": "official_constituents_csv_missing",
+                        "source_file_inbox_size_bytes": 0,
+                        "source_file_inbox_sha256": "",
+                        "source_file_inbox_modified_at": "",
+                        "source_file_inbox_dry_run_command": (
+                            "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                            "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                            "-DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                        ),
+                        "source_file_inbox_next_command": (
+                            "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+                            "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+                            "-SourceFileInbox inputs/sp500_current_membership/official_constituents.csv"
+                        ),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-07-04")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertTrue(manifest["sp500_current_source_inbox_external_input_required"])
+            self.assertEqual(
+                manifest["sp500_current_source_inbox_blocking_reason"],
+                "official_constituents_csv_missing",
+            )
+            self.assertIn(
+                "official_constituents.csv",
+                manifest["sp500_current_source_inbox_blocking_input"],
+            )
+            self.assertEqual(check["external_input_blocker_count"], 1)
+            self.assertEqual(
+                check["external_input_blockers"][0]["action_code"],
+                "provide_official_constituents_csv",
+            )
+
     def test_prefers_us_universe_summary_over_legacy_automation_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

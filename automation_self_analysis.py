@@ -44,6 +44,9 @@ MARKETS = [
 
 MANUAL_REVIEW_DECISIONS_PATH = Path("outputs/automation/manual_review_decisions.csv")
 CLOSED_MANUAL_REVIEW_STATUSES = {"accepted", "rejected"}
+SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_PATH = Path(
+    "outputs/automation/latest_sp500_current_membership_source_inbox_status.json"
+)
 
 
 def _read_text(path):
@@ -1058,6 +1061,32 @@ def _automation_external_input_blockers(manifest):
     ]
 
 
+def _sp500_current_source_inbox_status_summary(project_root):
+    status = _read_json(Path(project_root) / SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_PATH)
+    if not status:
+        return {}
+    return {
+        "sp500_current_source_inbox_external_input_required": bool(
+            status.get("external_input_required")
+        ),
+        "sp500_current_source_inbox_size_bytes": int(
+            status.get("source_file_inbox_size_bytes") or 0
+        ),
+        "sp500_current_source_inbox_sha256": status.get("source_file_inbox_sha256", ""),
+        "sp500_current_source_inbox_modified_at": status.get("source_file_inbox_modified_at", ""),
+        "sp500_current_source_inbox_blocking_reason": status.get("blocking_reason", ""),
+        "sp500_current_source_inbox_blocking_input": status.get("blocking_input", ""),
+        "sp500_current_source_inbox_dry_run_command": status.get(
+            "source_file_inbox_dry_run_command",
+            "",
+        ),
+        "sp500_current_source_inbox_import_command": status.get(
+            "source_file_inbox_next_command",
+            "",
+        ),
+    }
+
+
 def _automation_check_payload(manifest, manifest_validation):
     external_input_blockers = _automation_external_input_blockers(manifest)
     return {
@@ -1852,6 +1881,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
     forecast_performance = _forecast_performance_snapshot(project_root)
+    sp500_current_source_inbox_status = _sp500_current_source_inbox_status_summary(project_root)
     data_quality_summary = _data_quality_summary(health)
     weekly_ops_history = _weekly_ops_history_snapshot(project_root)
     weekly_delivery_history = _weekly_delivery_history_snapshot(project_root)
@@ -1929,6 +1959,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "data_quality_history_status": data_quality_history.get("status", "unknown"),
         "data_quality_history_recommended_action": data_quality_history.get("recommended_action", "unknown"),
         **candidate_review_status,
+        **sp500_current_source_inbox_status,
         "weekly_ops_history": weekly_ops_history,
         **weekly_ops_history_status,
         "weekly_delivery_history": weekly_delivery_history,
