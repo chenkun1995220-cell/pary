@@ -1328,6 +1328,12 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_acceptance_criteria"
             ]
+        if _official_csv_action_item_acceptance_criteria_values_mismatch(
+            recommended_check, source_status
+        ):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_acceptance_criteria_mismatch"
+            ]
         if _official_csv_action_item_source_acceptance_criteria_missing(source):
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_acceptance_criteria"
@@ -1434,6 +1440,27 @@ def _official_csv_action_item_acceptance_criteria_missing(recommended_check):
         "official_spglobal_constituents_export",
     ]
     return any(criterion not in text for criterion in required_criteria)
+
+
+def _official_csv_action_item_acceptance_criteria_values_mismatch(
+    recommended_check, source_status
+):
+    actual = _official_csv_action_item_acceptance_criteria_values(recommended_check)
+    expected = [
+        str(item).strip()
+        for item in source_status.get("source_file_acceptance_criteria", []) or []
+        if str(item).strip()
+    ]
+    return bool(expected) and actual != expected
+
+
+def _official_csv_action_item_acceptance_criteria_values(recommended_check):
+    text = str(recommended_check or "")
+    check_fields = _parse_action_item_source_fields(text)
+    value = check_fields.get("acceptance_criteria", "")
+    if not value and "验收条件：" in text:
+        value = text.split("验收条件：", 1)[1].split("；", 1)[0]
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def _official_csv_action_item_source_acceptance_criteria_missing(source):
