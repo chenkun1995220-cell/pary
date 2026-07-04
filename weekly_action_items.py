@@ -631,6 +631,15 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
     source_file_inbox_blocking_input = str(
         inbox_status.get("blocking_input", "") or "none"
     ).strip()
+    source_file_inbox_size_bytes = _int_value(
+        inbox_status.get("source_file_inbox_size_bytes"), 0
+    )
+    source_file_inbox_sha256 = str(
+        inbox_status.get("source_file_inbox_sha256", "") or "none"
+    ).strip()
+    source_file_inbox_modified_at = str(
+        inbox_status.get("source_file_inbox_modified_at", "") or "none"
+    ).strip()
     fetch_error_type = str(source_status.get("fetch_error_type", "unknown") or "unknown").strip()
     fetch_retryable_value = source_status.get("fetch_retryable_without_environment_change")
     if fetch_retryable_value is None:
@@ -673,6 +682,9 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         f"inbox_external_input_required={source_file_inbox_external_input_required}; "
         f"inbox_blocking_reason={source_file_inbox_blocking_reason}; "
         f"inbox_blocking_input={source_file_inbox_blocking_input}; "
+        f"inbox_size_bytes={source_file_inbox_size_bytes}; "
+        f"inbox_sha256={source_file_inbox_sha256}; "
+        f"inbox_modified_at={source_file_inbox_modified_at}; "
         f"fetch_error_type={fetch_error_type}; "
         f"fetch_retryable_without_environment_change={fetch_retryable_without_environment_change}; "
         f"fetch_error_next_action={fetch_error_next_action}; "
@@ -722,6 +734,9 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"source_file_inbox_external_input_required:{source_file_inbox_external_input_required}; "
             f"source_file_inbox_blocking_reason:{source_file_inbox_blocking_reason}; "
             f"source_file_inbox_blocking_input:{source_file_inbox_blocking_input}; "
+            f"source_file_inbox_size_bytes:{source_file_inbox_size_bytes}; "
+            f"source_file_inbox_sha256:{source_file_inbox_sha256}; "
+            f"source_file_inbox_modified_at:{source_file_inbox_modified_at}; "
             f"fetch_error_type:{fetch_error_type}; "
             f"fetch_retryable_without_environment_change:{fetch_retryable_without_environment_change}; "
             f"fetch_error_next_action:{fetch_error_next_action}; "

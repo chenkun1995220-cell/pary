@@ -1048,6 +1048,79 @@ class WeeklyActionItemsTests(unittest.TestCase):
             actions = [item["action_code"] for item in payload["items"]]
             self.assertEqual(actions, ["provide_official_constituents_csv"])
 
+    def test_official_csv_action_includes_source_file_inbox_fingerprint_when_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            source_path = root / "latest_sp500_current_membership_sources.json"
+            inbox_status_path = root / "latest_sp500_current_membership_source_inbox_status.json"
+            write_manifest(manifest_path)
+            write_current_membership_sources(source_path)
+            write_current_membership_source_inbox_status(inbox_status_path)
+
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source.update(
+                {
+                    "status": "source_file_required",
+                    "recommended_followup": "provide_official_constituents_csv",
+                    "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+                    "source_file_inbox_exists": True,
+                    "source_file_validation_status": "ready",
+                    "source_file_request_file": "outputs/automation/sp500_current_membership_source_file_request.md",
+                }
+            )
+            source_path.write_text(
+                json.dumps(source, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            inbox_status = json.loads(inbox_status_path.read_text(encoding="utf-8-sig"))
+            inbox_status.update(
+                {
+                    "status": "ready_for_import_preview",
+                    "source_file_inbox_exists": True,
+                    "source_file_validation_status": "ready",
+                    "parsed_official_ticker_count": 500,
+                    "source_file_inbox_size_bytes": 12345,
+                    "source_file_inbox_sha256": "a" * 64,
+                    "source_file_inbox_modified_at": "2026-07-04T03:12:00+00:00",
+                    "external_input_required": False,
+                    "blocking_reason": "",
+                    "blocking_input": "",
+                    "next_action": "run_source_file_inbox_dry_run_then_import",
+                }
+            )
+            inbox_status_path.write_text(
+                json.dumps(inbox_status, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                current_membership_sources=source_path,
+                current_membership_source_inbox_status=inbox_status_path,
+            )
+
+            source_item = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "provide_official_constituents_csv"
+            )
+            self.assertIn("source_file_inbox_size_bytes:12345", source_item["source"])
+            self.assertIn("source_file_inbox_sha256:" + "a" * 64, source_item["source"])
+            self.assertIn(
+                "source_file_inbox_modified_at:2026-07-04T03:12:00+00:00",
+                source_item["source"],
+            )
+            self.assertIn("inbox_size_bytes=12345", source_item["recommended_check"])
+            self.assertIn("inbox_sha256=" + "a" * 64, source_item["recommended_check"])
+            self.assertIn(
+                "inbox_modified_at=2026-07-04T03:12:00+00:00",
+                source_item["recommended_check"],
+            )
+
     def test_current_membership_source_action_defaults_to_inbox_commands(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

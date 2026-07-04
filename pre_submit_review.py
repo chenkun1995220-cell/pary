@@ -1024,22 +1024,47 @@ def _sp500_source_inbox_fingerprint_missing(payload):
 
 
 def _sp500_current_membership_source_inbox_action_item_reasons(inbox_status, action_items):
-    if not inbox_status or inbox_status.get("status") != "invalid":
-        return []
-    reason = str(inbox_status.get("source_file_rejection_reason", "") or "").strip()
-    if not reason:
+    if not inbox_status:
         return []
     action_item = _find_action_item(action_items, "provide_official_constituents_csv")
     if not action_item:
         return []
     source = str(action_item.get("source", "") or "")
     recommended_check = str(action_item.get("recommended_check", "") or "")
+    if inbox_status.get("source_file_inbox_exists") and _official_csv_action_item_inbox_fingerprint_missing(
+        source,
+        recommended_check,
+    ):
+        return ["weekly_action_items_missing_sp500_inbox_fingerprint"]
+    if inbox_status.get("status") != "invalid":
+        return []
+    reason = str(inbox_status.get("source_file_rejection_reason", "") or "").strip()
+    if not reason:
+        return []
     if (
         f"source_file_rejection_reason:{reason}" not in source
         or f"source_file_rejection_reason={reason}" not in recommended_check
     ):
         return ["weekly_action_items_missing_sp500_inbox_rejection_reason"]
     return []
+
+
+def _official_csv_action_item_inbox_fingerprint_missing(source, recommended_check):
+    source_text = str(source or "")
+    check_text = str(recommended_check or "")
+    source_markers = [
+        "source_file_inbox_size_bytes:",
+        "source_file_inbox_sha256:",
+        "source_file_inbox_modified_at:",
+    ]
+    check_markers = [
+        "inbox_size_bytes=",
+        "inbox_sha256=",
+        "inbox_modified_at=",
+    ]
+    return any(marker not in source_text for marker in source_markers) or any(
+        marker not in check_text for marker in check_markers
+    )
 
 
 def _source_file_request_inbox_commands_missing(path):
