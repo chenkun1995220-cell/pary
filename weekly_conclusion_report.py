@@ -1150,6 +1150,13 @@ def is_acceptable_status(status):
 def choose_recommended_action(status, automation):
     if status != "ready":
         return "review_inputs"
+    weekly_items = automation.get("weekly_action_items", {}).get("items", []) or []
+    for item in weekly_items:
+        if not isinstance(item, dict):
+            continue
+        action_code = str(item.get("action_code", "")).strip()
+        if action_code:
+            return action_code
     automation_action = automation.get("automation_check", {}).get("recommended_action")
     return automation_action or "monitor_next_run"
 

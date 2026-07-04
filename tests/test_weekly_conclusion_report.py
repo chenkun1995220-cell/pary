@@ -544,6 +544,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 payload["priority_actions"],
                 ["review_delivery_health_issues", "review_data_health"],
             )
+            self.assertEqual(payload["recommended_action"], "review_delivery_health_issues")
             self.assertNotIn("review_manual_review_backlog", payload["priority_actions"])
 
     def test_data_quality_trend_signal_reaches_weekly_conclusion_health(self):
