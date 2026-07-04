@@ -163,6 +163,27 @@ class ModelHandoffReviewTests(unittest.TestCase):
                 "- formal_model_change_allowed: false\n",
                 encoding="utf-8-sig",
             )
+            write_json(
+                root / "outputs" / "automation" / "latest_forecast_performance_review.json",
+                {
+                    "review_schema": "forecast_performance_review",
+                    "review_version": 1,
+                    "as_of_date": "2026-07-02",
+                    "status": "sample_accumulating",
+                    "recommended_action": "continue_sample_accumulation",
+                    "total_evaluations": 87,
+                    "mature_evaluations": 0,
+                    "one_week_mature": 0,
+                    "one_month_mature": 0,
+                    "prediction_unavailable": 87,
+                    "latest_prediction_unavailable_count": 0,
+                    "legacy_prediction_unavailable_count": 87,
+                    "latest_short_signal_missing_count": 0,
+                    "next_one_week_evaluation_date": "2026-07-07",
+                    "next_one_month_evaluation_date": "2026-07-28",
+                    "formal_model_change_allowed": False,
+                },
+            )
 
             from model_handoff_review import build_model_handoff_review, render_model_handoff_review
 
@@ -205,6 +226,14 @@ class ModelHandoffReviewTests(unittest.TestCase):
                     "official_spglobal_constituents_export",
                 ],
             )
+            self.assertEqual(result["forecast_performance_status"], "sample_accumulating")
+            self.assertEqual(result["forecast_performance_recommended_action"], "continue_sample_accumulation")
+            self.assertEqual(result["forecast_mature_evaluations"], 0)
+            self.assertEqual(result["forecast_one_week_mature"], 0)
+            self.assertEqual(result["forecast_one_month_mature"], 0)
+            self.assertEqual(result["forecast_next_one_week_evaluation_date"], "2026-07-07")
+            self.assertEqual(result["forecast_next_one_month_evaluation_date"], "2026-07-28")
+            self.assertFalse(result["forecast_formal_model_change_allowed"])
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
@@ -218,6 +247,9 @@ class ModelHandoffReviewTests(unittest.TestCase):
                 "sp500_current_membership_source_file_request.md",
                 report,
             )
+            self.assertIn("forecast_performance_status=sample_accumulating", report)
+            self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
+            self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
 
     def test_weekly_bundle_runs_handoff_before_pre_submit_review(self):
         project_root = Path(__file__).resolve().parents[1]

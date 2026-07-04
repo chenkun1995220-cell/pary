@@ -11,6 +11,9 @@ DEFAULT_MEDIUM_TERM_REVIEW = "outputs/automation/latest_medium_term_goal_review.
 DEFAULT_SP500_CURRENT_MEMBERSHIP_SOURCES = (
     "outputs/automation/latest_sp500_current_membership_sources.json"
 )
+DEFAULT_FORECAST_PERFORMANCE_REVIEW = (
+    "outputs/automation/latest_forecast_performance_review.json"
+)
 DEFAULT_OUTPUT = "outputs/automation/latest_model_handoff_review.json"
 DEFAULT_REPORT = "outputs/automation/latest_model_handoff_review.md"
 
@@ -105,6 +108,8 @@ def build_model_handoff_review(
     medium_term = _load_json(review_path)
     sp500_source_path = project_root / DEFAULT_SP500_CURRENT_MEMBERSHIP_SOURCES
     sp500_source = _load_json(sp500_source_path)
+    forecast_path = project_root / DEFAULT_FORECAST_PERFORMANCE_REVIEW
+    forecast = _load_json(forecast_path)
     current_date = today or date.today().isoformat()
     validation_commands = list(validation_commands or [])
     reasons = []
@@ -196,6 +201,45 @@ def build_model_handoff_review(
             "",
         ),
         "sp500_current_source_fetch_error_type": sp500_source.get("fetch_error_type", ""),
+        "forecast_performance_status": forecast.get("status", ""),
+        "forecast_performance_recommended_action": forecast.get(
+            "recommended_action",
+            "",
+        ),
+        "forecast_total_evaluations": _int_value(forecast.get("total_evaluations"), 0),
+        "forecast_mature_evaluations": _int_value(
+            forecast.get("mature_evaluations"),
+            0,
+        ),
+        "forecast_one_week_mature": _int_value(forecast.get("one_week_mature"), 0),
+        "forecast_one_month_mature": _int_value(forecast.get("one_month_mature"), 0),
+        "forecast_prediction_unavailable": _int_value(
+            forecast.get("prediction_unavailable"),
+            0,
+        ),
+        "forecast_latest_prediction_unavailable_count": _int_value(
+            forecast.get("latest_prediction_unavailable_count"),
+            0,
+        ),
+        "forecast_legacy_prediction_unavailable_count": _int_value(
+            forecast.get("legacy_prediction_unavailable_count"),
+            0,
+        ),
+        "forecast_latest_short_signal_missing_count": _int_value(
+            forecast.get("latest_short_signal_missing_count"),
+            0,
+        ),
+        "forecast_next_one_week_evaluation_date": forecast.get(
+            "next_one_week_evaluation_date",
+            "",
+        ),
+        "forecast_next_one_month_evaluation_date": forecast.get(
+            "next_one_month_evaluation_date",
+            "",
+        ),
+        "forecast_formal_model_change_allowed": bool(
+            forecast.get("formal_model_change_allowed", False)
+        ),
         "collaboration_boundary_note": collaboration_note,
         "spark_execution_summary": "单 Codex 按 gpt5.3-codex-spark 的小步实现习惯推进，并保留可回放证据。",
         "gpt55_review_checklist": [
@@ -217,6 +261,9 @@ def build_model_handoff_review(
                 sp500_source_path.relative_to(project_root)
             )
             if sp500_source_path.exists()
+            else "",
+            "forecast_performance_review": str(forecast_path.relative_to(project_root))
+            if forecast_path.exists()
             else "",
         },
         "boundary": "只读取现有中期目标看板，不抓取行情，不重新评分，不修改正式模型参数。",
@@ -274,6 +321,14 @@ def render_model_handoff_review(result):
             f"- sp500_current_source_inbox_import_command={result.get('sp500_current_source_inbox_import_command', '')}",
             "- sp500_current_source_acceptance_criteria="
             + ", ".join(result.get("sp500_current_source_acceptance_criteria", []) or []),
+            f"- forecast_performance_status={result.get('forecast_performance_status', '')}",
+            f"- forecast_performance_recommended_action={result.get('forecast_performance_recommended_action', '')}",
+            f"- forecast_mature_evaluations={result.get('forecast_mature_evaluations', 0)}",
+            f"- forecast_one_week_mature={result.get('forecast_one_week_mature', 0)}",
+            f"- forecast_one_month_mature={result.get('forecast_one_month_mature', 0)}",
+            f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+            f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
+            f"- forecast_formal_model_change_allowed={result.get('forecast_formal_model_change_allowed', False)}",
         ]
     )
     lines.append("")

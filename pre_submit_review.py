@@ -1808,6 +1808,10 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         reasons.append("model_handoff_review_formal_release_not_allowed")
     if _model_handoff_review_sp500_source_request_details_missing(payload):
         reasons.append("model_handoff_review_missing_sp500_source_request_details")
+    if _model_handoff_review_forecast_maturity_details_missing(
+        payload, medium_term_goal_review
+    ):
+        reasons.append("model_handoff_review_missing_forecast_maturity_details")
     snapshot = medium_term_goal_review.get("task_closeout_snapshot", {})
     if isinstance(snapshot, dict) and snapshot:
         if (
@@ -1859,6 +1863,52 @@ def _model_handoff_review_sp500_source_request_details_missing(payload):
         or "-SourceFileInbox" not in import_command
         or not required_criteria.issubset(criteria)
     )
+
+
+def _model_handoff_review_forecast_maturity_details_missing(
+    payload, medium_term_goal_review=None
+):
+    medium_term_goal_review = medium_term_goal_review or {}
+    actions = {
+        str(action).strip()
+        for action in payload.get("development_priority_actions", []) or []
+        if str(action).strip()
+    }
+    actions.update(
+        str(action).strip()
+        for action in medium_term_goal_review.get("priority_next_actions", []) or []
+        if str(action).strip()
+    )
+    requires_forecast_maturity = (
+        "continue_sample_accumulation" in actions
+        or payload.get("forecast_performance_recommended_action")
+        == "continue_sample_accumulation"
+    )
+    if not requires_forecast_maturity:
+        return False
+    required_fields = [
+        "forecast_performance_status",
+        "forecast_performance_recommended_action",
+        "forecast_mature_evaluations",
+        "forecast_one_week_mature",
+        "forecast_one_month_mature",
+        "forecast_next_one_week_evaluation_date",
+        "forecast_next_one_month_evaluation_date",
+        "forecast_formal_model_change_allowed",
+    ]
+    if any(field not in payload for field in required_fields):
+        return True
+    if payload.get("forecast_performance_status") not in {
+        "sample_accumulating",
+        "partial_sample_accumulating",
+        "performance_review_needed",
+    }:
+        return True
+    if not str(payload.get("forecast_next_one_week_evaluation_date", "") or "").strip():
+        return True
+    if not str(payload.get("forecast_next_one_month_evaluation_date", "") or "").strip():
+        return True
+    return payload.get("forecast_formal_model_change_allowed") is not False
 
 
 def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""):

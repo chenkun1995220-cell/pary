@@ -99,6 +99,14 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                 "at_least_400_tickers",
                 "official_spglobal_constituents_export",
             ],
+            "forecast_performance_status": "sample_accumulating",
+            "forecast_performance_recommended_action": "continue_sample_accumulation",
+            "forecast_mature_evaluations": 0,
+            "forecast_one_week_mature": 0,
+            "forecast_one_month_mature": 0,
+            "forecast_next_one_week_evaluation_date": "2026-07-07",
+            "forecast_next_one_month_evaluation_date": "2026-07-28",
+            "forecast_formal_model_change_allowed": False,
         },
     )
     write_json(
@@ -2973,6 +2981,40 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "model_handoff_review_missing_sp500_source_request_details",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_model_handoff_lacks_forecast_maturity_details(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_model_handoff_review.json"
+            )
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            for field in [
+                "forecast_performance_status",
+                "forecast_performance_recommended_action",
+                "forecast_mature_evaluations",
+                "forecast_one_week_mature",
+                "forecast_one_month_mature",
+                "forecast_next_one_week_evaluation_date",
+                "forecast_next_one_month_evaluation_date",
+                "forecast_formal_model_change_allowed",
+            ]:
+                handoff.pop(field, None)
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_missing_forecast_maturity_details",
                 result["attention_reasons"],
             )
 
