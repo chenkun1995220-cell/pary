@@ -549,6 +549,7 @@ def run_pre_submit_review(
     )
     attention_reasons = _unique(attention_reasons)
 
+    weekly_delivery_check = payloads.get("weekly_delivery_check", {})
     automation_check = payloads.get("automation_check", {})
     weekly_conclusion = payloads.get("weekly_conclusion", {})
     action_items = payloads.get("weekly_action_items", {})
@@ -610,6 +611,10 @@ def run_pre_submit_review(
         ),
         "development_priority_actions": _medium_term_priority_actions(medium_term_goal_review),
         "priority_actions": _combined_priority_actions(automation_check, action_items),
+        "external_input_blocker_count": _int_value(weekly_delivery_check.get("external_input_blocker_count"), 0),
+        "external_input_blockers": weekly_delivery_check.get("external_input_blockers", [])
+        if isinstance(weekly_delivery_check.get("external_input_blockers", []), list)
+        else [],
         "missing_outputs": missing_outputs,
         "missing_output_paths": missing_output_paths,
         "invalid_inputs": invalid_inputs,
@@ -651,6 +656,17 @@ def render_pre_submit_review(result):
         lines.extend(["", "## development_priority_actions"])
         for action in result.get("development_priority_actions", []):
             lines.append(f"- {action}")
+    if result.get("external_input_blockers"):
+        lines.extend(["", "## external_input_blockers"])
+        for blocker in result.get("external_input_blockers", []):
+            lines.append(
+                "- {action_code}: {blocking_input}; reason={blocking_reason}; next_action={next_action}".format(
+                    action_code=blocker.get("action_code", "unknown"),
+                    blocking_input=blocker.get("blocking_input", ""),
+                    blocking_reason=blocker.get("blocking_reason", ""),
+                    next_action=blocker.get("next_action", ""),
+                )
+            )
     if (
         result.get("forecast_next_one_week_evaluation_date")
         or result.get("forecast_next_one_month_evaluation_date")

@@ -5032,6 +5032,34 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_report_includes_delivery_external_input_blockers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            delivery["external_input_blocker_count"] = 1
+            delivery["external_input_blockers"] = [
+                {
+                    "action_code": "provide_official_constituents_csv",
+                    "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
+                    "blocking_reason": "official_constituents_csv_missing",
+                    "next_action": "place_official_constituents_csv",
+                }
+            ]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import render_pre_submit_review, run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+            report = render_pre_submit_review(result)
+
+            self.assertEqual(result["external_input_blocker_count"], 1)
+            self.assertIn("provide_official_constituents_csv", report)
+            self.assertIn("official_constituents.csv", report)
+            self.assertIn("official_constituents_csv_missing", report)
+            self.assertIn("place_official_constituents_csv", report)
+
     def test_review_needs_attention_when_ops_check_lacks_forecast_dates(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
