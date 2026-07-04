@@ -615,6 +615,12 @@ def render_source_file_request(payload, missing_limit=20):
     lines.extend(
         [
             "",
+            "## Post-import fingerprint fields",
+            "",
+            "- source_file_inbox_size_bytes",
+            "- source_file_inbox_sha256",
+            "- source_file_inbox_modified_at",
+            "",
             "## Missing ticker sample",
             "",
             "| ticker |",

@@ -992,6 +992,10 @@ def _sp500_current_membership_source_file_guidance_reasons(payload, project_root
         reasons.append("sp500_current_membership_sources_missing_source_file_request_acceptance_criteria")
     elif _source_file_request_manifest_fields_missing(request_path):
         reasons.append("sp500_current_membership_sources_missing_source_file_request_manifest_fields")
+    elif _source_file_request_fingerprint_guidance_missing(request_path):
+        reasons.append(
+            "sp500_current_membership_sources_missing_source_file_request_fingerprint_guidance"
+        )
     elif _source_file_request_boundary_missing(request_path):
         reasons.append("sp500_current_membership_sources_missing_source_file_request_boundary")
     elif _source_file_request_stale(request_path, payload):
@@ -1110,6 +1114,19 @@ def _source_file_request_manifest_fields_missing(path):
         "acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export",
         "formal_backtest_upgrade_allowed: false",
         "formal_model_change_allowed: false",
+    ]
+    return any(term not in text for term in required_terms)
+
+
+def _source_file_request_fingerprint_guidance_missing(path):
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig")
+    except OSError:
+        return True
+    required_terms = [
+        "source_file_inbox_size_bytes",
+        "source_file_inbox_sha256",
+        "source_file_inbox_modified_at",
     ]
     return any(term not in text for term in required_terms)
 

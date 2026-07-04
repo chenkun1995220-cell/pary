@@ -599,6 +599,10 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         "- has_symbol_or_ticker_column\n"
         "- at_least_400_tickers\n"
         "- official_spglobal_constituents_export\n"
+        "\n## Post-import fingerprint fields\n\n"
+        "- source_file_inbox_size_bytes\n"
+        "- source_file_inbox_sha256\n"
+        "- source_file_inbox_modified_at\n"
         "\n## Boundary\n\n"
         "- Use only the official S&P Global constituents export. Do not import the intake template as the source CSV.\n"
         "- Run the dry-run command before the import command.\n",
@@ -1721,6 +1725,45 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_missing_source_file_request_manifest_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_file_request_lacks_fingerprint_guidance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            request_path.write_text(
+                "- request_manifest_schema: sp500_current_membership_source_file_request\n"
+                "- request_manifest_version: 1\n"
+                "- as_of_date: 2026-06-28\n"
+                "- source_file_inbox: inputs/sp500_current_membership/official_constituents.csv\n"
+                "- accepted_ticker_columns: Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol\n"
+                "- acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export\n"
+                "- minimum_official_ticker_count: 400\n"
+                "- inbox_dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n"
+                "- inbox_import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n"
+                "- formal_backtest_upgrade_allowed: false\n"
+                "- formal_model_change_allowed: false\n"
+                "\n"
+                "## Boundary\n"
+                "- Use only the official S&P Global constituents export. Do not import the intake template as the source CSV.\n"
+                "- Run the dry-run command before the import command.\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_request_fingerprint_guidance",
                 result["attention_reasons"],
             )
 
