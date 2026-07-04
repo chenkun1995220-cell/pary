@@ -1298,6 +1298,7 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return ["sp500_current_membership_source_official_csv_action_item_missing"]
         return ["sp500_current_membership_source_action_item_missing"]
     recommended_check = str(action_item.get("recommended_check", "") or "")
+    source = str(action_item.get("source", "") or "")
     if expected_action == "provide_official_constituents_csv":
         request_file = str(source_status.get("source_file_request_file", "") or "").strip()
         request_name = Path(request_file).name if request_file else ""
@@ -1316,6 +1317,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
         if _official_csv_action_item_acceptance_criteria_missing(recommended_check):
             return [
                 "sp500_current_membership_source_official_csv_action_item_missing_acceptance_criteria"
+            ]
+        if _official_csv_action_item_source_acceptance_criteria_missing(source):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_source_missing_acceptance_criteria"
             ]
         return []
     review_queue_file = str(source_status.get("missing_ticker_review_queue_file", "") or "").strip()
@@ -1366,6 +1371,13 @@ def _official_csv_action_item_acceptance_criteria_missing(recommended_check):
         "official_spglobal_constituents_export",
     ]
     return any(criterion not in text for criterion in required_criteria)
+
+
+def _official_csv_action_item_source_acceptance_criteria_missing(source):
+    text = str(source or "")
+    if "source_file_acceptance_criteria:" not in text:
+        return True
+    return _official_csv_action_item_acceptance_criteria_missing(text)
 
 
 def _has_action_item(action_items, action_code):
