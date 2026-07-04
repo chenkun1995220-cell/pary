@@ -298,6 +298,12 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY = (
 SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REPORT = (
     "outputs/automation/latest_sp500_current_membership_source_review_decision_apply.md"
 )
+SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE = (
+    "outputs/automation/latest_sp500_current_membership_source_review_decision_merge.json"
+)
+SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE_REPORT = (
+    "outputs/automation/latest_sp500_current_membership_source_review_decision_merge.md"
+)
 
 SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_APPLY_REQUIRED_FIELDS = [
     "status",
@@ -492,6 +498,11 @@ def run_pre_submit_review(
     attention_reasons.extend(
         _sp500_current_membership_source_review_decision_apply_reasons(
             payloads.get("sp500_current_membership_source_review_status", {}),
+            project_root=project_root,
+        )
+    )
+    attention_reasons.extend(
+        _sp500_current_membership_source_review_decision_merge_report_reasons(
             project_root=project_root,
         )
     )
@@ -1632,6 +1643,53 @@ def _source_review_decision_apply_report_summary_mismatch(path, payload):
         if _equals_line_value(lines, field) != _text_value(payload.get(field)):
             return True
     return False
+
+
+def _sp500_current_membership_source_review_decision_merge_report_reasons(project_root=None):
+    merge_path = _resolve_path(
+        project_root or ".",
+        SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE,
+    )
+    merge_payload = _read_json(merge_path)
+    if merge_payload is None:
+        return []
+    report_path = _resolve_path(
+        project_root or ".",
+        SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE_REPORT,
+    )
+    if not report_path.exists():
+        return []
+    if _source_review_decision_merge_report_summary_mismatch(report_path, merge_payload):
+        return ["sp500_current_membership_source_review_decision_merge_stale_report_summary"]
+    return []
+
+
+def _source_review_decision_merge_report_summary_mismatch(path, payload):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return True
+    field_labels = {
+        "merged": "合并/更新",
+        "skipped_pending": "跳过 pending",
+        "skipped_invalid": "跳过无效",
+        "row_count": "当前正式决策行数",
+    }
+    for field, label in field_labels.items():
+        if field not in payload:
+            continue
+        if _localized_colon_line_value(lines, label) != _text_value(payload.get(field)):
+            return True
+    return False
+
+
+def _localized_colon_line_value(lines, label):
+    prefix = f"- {label}："
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(prefix):
+            return stripped[len(prefix):].strip()
+    return ""
 
 
 def _membership_action_item_link_reasons(import_plan, action_items):

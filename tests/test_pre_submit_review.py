@@ -3949,6 +3949,49 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_source_review_decision_merge_report_mismatches_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            write_json(
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_decision_merge.json",
+                {
+                    "merge_schema": "sp500_current_membership_source_review_decision_merge",
+                    "merge_version": 1,
+                    "merged": 1,
+                    "skipped_pending": 0,
+                    "skipped_invalid": 0,
+                    "row_count": 1,
+                    "formal_backtest_upgrade_allowed": False,
+                },
+            )
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_decision_merge.md"
+            ).write_text(
+                "# S&P 500 current membership source review decision merge\n\n"
+                "- 合并/更新：0\n"
+                "- 跳过 pending：1\n"
+                "- 跳过无效：0\n"
+                "- 当前正式决策行数：0\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_decision_merge_stale_report_summary",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_model_handoff_claims_auto_collaboration(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
