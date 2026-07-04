@@ -128,6 +128,13 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "queue_total_count": 2,
             "open_count": 2,
             "resolved_count": 0,
+            "review_decision_status": "missing",
+            "manual_decision_next_step": "fill_decisions_template",
+            "decision_ready_to_apply_count": 0,
+            "decision_ready_to_apply_tickers": [],
+            "decision_pending_tickers": ["ABT", "ADM"],
+            "decision_pending_count": 2,
+            "decisions_template_status": "ready",
             "open_items": [
                 {
                     "ticker": "ABT",
@@ -3704,6 +3711,42 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_sp500_source_review_status_report_pending_tickers_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            report_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_sp500_current_membership_source_review_status.md"
+            )
+            report_path.write_text(
+                "# S&P 500 current membership source review status\n\n"
+                "- 状态：review_needed\n"
+                "- queue_total_count=2\n"
+                "- open_count=2\n"
+                "- resolved_count=0\n"
+                "- review_decision_status=missing\n"
+                "- manual_decision_next_step=fill_decisions_template\n"
+                "- decision_ready_to_apply_count=0\n"
+                "- decision_ready_to_apply_tickers=\n"
+                "- decision_pending_tickers=ZZZ\n"
+                "- decisions_template_status=ready\n"
+                "- 下一步：review_open_queue_items\n",
+                encoding="utf-8-sig",
+            )
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_review_status_stale_report_summary",
+                result["attention_reasons"],
+            )
+
     def test_review_accepts_sp500_source_review_status_report_zero_summary_values(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -3723,6 +3766,8 @@ class PreSubmitReviewTests(unittest.TestCase):
                 "- review_decision_status=missing\n"
                 "- manual_decision_next_step=fill_decisions_template\n"
                 "- decision_ready_to_apply_count=0\n"
+                "- decision_ready_to_apply_tickers=\n"
+                "- decision_pending_tickers=ABT, ADM\n"
                 "- decisions_template_status=ready\n"
                 "- 下一步：review_open_queue_items\n",
                 encoding="utf-8-sig",

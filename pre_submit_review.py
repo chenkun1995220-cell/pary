@@ -1527,6 +1527,16 @@ def _source_review_status_report_summary_mismatch(path, payload):
             continue
         if _equals_line_value(lines, field) != _text_value(payload.get(field)):
             return True
+    for field in (
+        "decision_ready_to_apply_tickers",
+        "decision_pending_tickers",
+    ):
+        if field not in payload:
+            continue
+        if _ticker_set_from_comma_text(_equals_line_value(lines, field)) != _ticker_set(
+            payload.get(field, []) or []
+        ):
+            return True
     return False
 
 
@@ -1534,6 +1544,10 @@ def _text_value(value):
     if value is None:
         return ""
     return str(value)
+
+
+def _ticker_set_from_comma_text(value):
+    return _ticker_set(str(value or "").split(","))
 
 
 def _equals_line_value(lines, key):
