@@ -544,10 +544,16 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         / "sp500_current_membership_source_file_request.md"
     ).write_text(
         "# S&P 500 official constituents CSV request\n\n"
+        "- request_manifest_schema: sp500_current_membership_source_file_request\n"
+        "- request_manifest_version: 1\n"
         f"- as_of_date: {as_of_date}\n"
         "- required_columns: Symbol or Ticker\n"
+        "- accepted_ticker_columns: Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol\n"
+        "- acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export\n"
         "- minimum_official_ticker_count: 400\n"
         "- source_file_inbox: inputs/sp500_current_membership/official_constituents.csv\n"
+        "- formal_backtest_upgrade_allowed: false\n"
+        "- formal_model_change_allowed: false\n"
         "- dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>\n"
         "- import_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -SourceFile <official_constituents.csv>\n"
         "- inbox_dry_run_command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> -DryRun -SourceFileInbox inputs/sp500_current_membership/official_constituents.csv\n"
@@ -1552,6 +1558,38 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "sp500_current_membership_sources_missing_source_file_request_acceptance_criteria",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sp500_current_source_file_request_lacks_manifest_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            request_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "sp500_current_membership_source_file_request.md"
+            )
+            request_text = request_path.read_text(encoding="utf-8-sig")
+            for line in [
+                "- request_manifest_schema: sp500_current_membership_source_file_request\n",
+                "- request_manifest_version: 1\n",
+                "- accepted_ticker_columns: Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol\n",
+                "- acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export\n",
+                "- formal_backtest_upgrade_allowed: false\n",
+                "- formal_model_change_allowed: false\n",
+            ]:
+                request_text = request_text.replace(line, "")
+            request_path.write_text(request_text, encoding="utf-8-sig")
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_sources_missing_source_file_request_manifest_fields",
                 result["attention_reasons"],
             )
 

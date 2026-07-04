@@ -440,10 +440,14 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["source_file_intake_template"], str(intake))
             self.assertEqual(payload["source_file_request_file"], str(source_request))
             self.assertTrue(source_request.exists())
-            self.assertIn(
-                "status: source_file_required",
-                source_request.read_text(encoding="utf-8-sig"),
-            )
+            source_request_text = source_request.read_text(encoding="utf-8-sig")
+            self.assertIn("request_manifest_schema: sp500_current_membership_source_file_request", source_request_text)
+            self.assertIn("request_manifest_version: 1", source_request_text)
+            self.assertIn("status: source_file_required", source_request_text)
+            self.assertIn("accepted_ticker_columns: Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol", source_request_text)
+            self.assertIn("acceptance_criteria: has_symbol_or_ticker_column, at_least_400_tickers, official_spglobal_constituents_export", source_request_text)
+            self.assertIn("formal_backtest_upgrade_allowed: false", source_request_text)
+            self.assertIn("formal_model_change_allowed: false", source_request_text)
             with intake.open(encoding="utf-8-sig", newline="") as handle:
                 intake_rows = list(csv.DictReader(handle))
             self.assertEqual([row["expected_ticker"] for row in intake_rows], ["ABT", "ZZZ"])
@@ -843,7 +847,10 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             template = root / "template.csv"
             write_template(template)
 
-            from sp500_current_membership_sources import build_fetch_failed_payload
+            from sp500_current_membership_sources import (
+                build_fetch_failed_payload,
+                should_write_source_file_request,
+            )
 
             payload = build_fetch_failed_payload(
                 template,
@@ -856,6 +863,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertFalse(payload["fetch_retryable_without_environment_change"])
             self.assertEqual(payload["fetch_error_next_action"], "provide_official_constituents_csv_or_fix_network_permission")
             self.assertIn("official_source_fetch_blocked_by_permission", payload["source_quality_flags"])
+            self.assertTrue(should_write_source_file_request(payload))
 
     def test_fetch_failed_payload_classifies_official_access_denied_error(self):
         with tempfile.TemporaryDirectory() as tmp:

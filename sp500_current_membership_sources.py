@@ -580,11 +580,14 @@ def render_source_file_request(payload, missing_limit=20):
     lines = [
         "# S&P 500 official constituents CSV request",
         "",
+        "- request_manifest_schema: sp500_current_membership_source_file_request",
+        "- request_manifest_version: 1",
         f"- as_of_date: {payload.get('as_of_date', '')}",
         f"- status: {payload.get('status', 'unknown')}",
         f"- source_url: {payload.get('source_url', '')}",
         f"- required_columns: {required_columns}",
         "- accepted_ticker_columns: " + ", ".join(SOURCE_FILE_ACCEPTED_TICKER_COLUMNS),
+        "- acceptance_criteria: " + ", ".join(payload.get("source_file_acceptance_criteria") or []),
         f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",
@@ -601,6 +604,8 @@ def render_source_file_request(payload, missing_limit=20):
         "- validation_mode: --validate-source-file-only",
         f"- import_command: {payload.get('source_file_next_command', '')}",
         f"- inbox_import_command: {payload.get('source_file_inbox_next_command', '')}",
+        "- formal_backtest_upgrade_allowed: false",
+        "- formal_model_change_allowed: false",
         "",
         "## Acceptance criteria",
         "",
@@ -639,6 +644,7 @@ def should_write_source_file_request(payload):
     return payload.get("recommended_followup") == "provide_official_constituents_csv" or payload.get("next_action") in {
         "provide_official_constituents_csv",
         "retry_official_source_or_provide_official_constituents_csv",
+        "provide_official_constituents_csv_or_fix_network_permission",
         "provide_valid_official_constituents_csv",
     }
 
