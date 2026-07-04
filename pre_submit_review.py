@@ -381,6 +381,8 @@ WEEKLY_OPS_REQUIRED_QUALITY_FIELDS = [
     "priority_actions",
     "forecast_next_one_week_evaluation_date",
     "forecast_next_one_month_evaluation_date",
+    "external_input_blocker_count",
+    "external_input_blockers",
     "missing_outputs",
     "missing_output_paths",
     "automation_issues",
@@ -411,6 +413,8 @@ AUTOMATION_CHECK_REQUIRED_QUALITY_FIELDS = [
     "forecast_next_one_week_evaluation_date",
     "forecast_next_one_month_evaluation_date",
     "backtest_status",
+    "external_input_blocker_count",
+    "external_input_blockers",
     "outputs",
 ]
 

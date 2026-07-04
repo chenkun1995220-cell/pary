@@ -1477,6 +1477,26 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_weekly_ops_lacks_external_input_blocker_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            ops_path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
+            ops = json.loads(ops_path.read_text(encoding="utf-8-sig"))
+            del ops["external_input_blocker_count"]
+            del ops["external_input_blockers"]
+            write_json(ops_path, ops)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_ops_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_automation_check_lacks_quality_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1485,6 +1505,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             check = json.loads(check_path.read_text(encoding="utf-8-sig"))
             del check["recommended_action"]
             del check["market_candidate_counts"]
+            write_json(check_path, check)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "automation_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_automation_check_lacks_external_input_blocker_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            check_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            del check["external_input_blocker_count"]
+            del check["external_input_blockers"]
             write_json(check_path, check)
 
             from pre_submit_review import run_pre_submit_review
