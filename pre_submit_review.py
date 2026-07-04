@@ -544,6 +544,7 @@ def run_pre_submit_review(
         "development_closeout": _development_closeout_summary(
             medium_term_goal_review,
             closeout_goal_code=closeout_goal_code,
+            sp500_current_sources=payloads.get("sp500_current_membership_sources", {}),
         ),
         "development_priority_actions": _medium_term_priority_actions(medium_term_goal_review),
         "priority_actions": _combined_priority_actions(automation_check, action_items),
@@ -608,6 +609,8 @@ def render_pre_submit_review(result):
                 f"- sp500_current_source_inbox_modified_at={closeout.get('sp500_current_source_inbox_modified_at', '')}",
                 f"- sp500_current_source_inbox_blocking_reason={closeout.get('sp500_current_source_inbox_blocking_reason', '')}",
                 f"- sp500_current_source_inbox_blocking_input={closeout.get('sp500_current_source_inbox_blocking_input', '')}",
+                f"- sp500_current_source_inbox_dry_run_command={closeout.get('sp500_current_source_inbox_dry_run_command', '')}",
+                f"- sp500_current_source_inbox_import_command={closeout.get('sp500_current_source_inbox_import_command', '')}",
             ]
         )
     if result.get("missing_output_paths"):
@@ -2010,7 +2013,9 @@ def _model_handoff_review_forecast_maturity_details_missing(
     return payload.get("forecast_formal_model_change_allowed") is not False
 
 
-def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""):
+def _development_closeout_summary(medium_term_goal_review, closeout_goal_code="", sp500_current_sources=None):
+    if not isinstance(sp500_current_sources, dict):
+        sp500_current_sources = {}
     snapshot = medium_term_goal_review.get("task_closeout_snapshot", {})
     if not isinstance(snapshot, dict):
         snapshot = {}
@@ -2114,6 +2119,20 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
         "sp500_current_source_inbox_blocking_input": current.get(
             "sp500_current_source_inbox_blocking_input",
             sp500_current.get("sp500_current_source_inbox_blocking_input", ""),
+        ),
+        "sp500_current_source_inbox_dry_run_command": current.get(
+            "sp500_current_source_inbox_dry_run_command",
+            sp500_current.get(
+                "sp500_current_source_inbox_dry_run_command",
+                sp500_current_sources.get("source_file_inbox_dry_run_command", ""),
+            ),
+        ),
+        "sp500_current_source_inbox_import_command": current.get(
+            "sp500_current_source_inbox_import_command",
+            sp500_current.get(
+                "sp500_current_source_inbox_import_command",
+                sp500_current_sources.get("source_file_inbox_next_command", ""),
+            ),
         ),
     }
 

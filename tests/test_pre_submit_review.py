@@ -837,6 +837,14 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["development_closeout"]["sp500_current_source_inbox_blocking_input"],
                 "inputs/sp500_current_membership/official_constituents.csv",
             )
+            self.assertIn(
+                "-DryRun -SourceFileInbox",
+                result["development_closeout"]["sp500_current_source_inbox_dry_run_command"],
+            )
+            self.assertIn(
+                "-SourceFileInbox",
+                result["development_closeout"]["sp500_current_source_inbox_import_command"],
+            )
             self.assertEqual(result["attention_reasons"], [])
             self.assertEqual(result["missing_outputs"], [])
             self.assertIn("# 提交前复核结果", report)
@@ -866,6 +874,8 @@ class PreSubmitReviewTests(unittest.TestCase):
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,
             )
+            self.assertIn("sp500_current_source_inbox_dry_run_command=", report)
+            self.assertIn("sp500_current_source_inbox_import_command=", report)
 
     def test_review_needs_attention_when_weekly_conclusion_is_older_than_action_items(self):
         with tempfile.TemporaryDirectory() as tmp:
