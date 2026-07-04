@@ -73,6 +73,17 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
         "sp500_current_source_inbox_external_input_required": bool(
             current.get("sp500_current_source_inbox_external_input_required")
         ),
+        "sp500_current_source_inbox_size_bytes": int(
+            current.get("sp500_current_source_inbox_size_bytes") or 0
+        ),
+        "sp500_current_source_inbox_sha256": current.get(
+            "sp500_current_source_inbox_sha256",
+            "",
+        ),
+        "sp500_current_source_inbox_modified_at": current.get(
+            "sp500_current_source_inbox_modified_at",
+            "",
+        ),
         "sp500_current_source_inbox_blocking_reason": current.get(
             "sp500_current_source_inbox_blocking_reason",
             "",
@@ -115,6 +126,18 @@ def render_development_closeout_summary(summary):
     lines.insert(
         -3,
         f"- sp500_current_source_inbox_external_input_required={summary.get('sp500_current_source_inbox_external_input_required', False)}",
+    )
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_size_bytes={summary.get('sp500_current_source_inbox_size_bytes', 0)}",
+    )
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_sha256={summary.get('sp500_current_source_inbox_sha256', '')}",
+    )
+    lines.insert(
+        -3,
+        f"- sp500_current_source_inbox_modified_at={summary.get('sp500_current_source_inbox_modified_at', '')}",
     )
     lines.insert(
         -3,

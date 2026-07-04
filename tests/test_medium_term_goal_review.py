@@ -970,6 +970,12 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 "single_codex_with_gpt55_review_checklist",
             )
             self.assertTrue(summary["sp500_current_source_inbox_external_input_required"])
+            self.assertEqual(summary["sp500_current_source_inbox_size_bytes"], 12345)
+            self.assertEqual(summary["sp500_current_source_inbox_sha256"], "a" * 64)
+            self.assertEqual(
+                summary["sp500_current_source_inbox_modified_at"],
+                "2026-07-04T03:12:00+00:00",
+            )
             self.assertEqual(
                 summary["sp500_current_source_inbox_blocking_reason"],
                 "official_constituents_csv_missing",
@@ -985,6 +991,12 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("真实执行模式：single_codex_with_gpt55_review_checklist", report)
 
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+            self.assertIn("sp500_current_source_inbox_size_bytes=12345", report)
+            self.assertIn("sp500_current_source_inbox_sha256=" + "a" * 64, report)
+            self.assertIn(
+                "sp500_current_source_inbox_modified_at=2026-07-04T03:12:00+00:00",
+                report,
+            )
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,
