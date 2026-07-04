@@ -603,6 +603,9 @@ def render_pre_submit_review(result):
                 f"- automatic_multi_model_collaboration_enabled={closeout.get('automatic_multi_model_collaboration_enabled', False)}",
                 f"- collaboration_execution_mode={closeout.get('collaboration_execution_mode', 'unknown')}",
                 f"- sp500_current_source_inbox_external_input_required={closeout.get('sp500_current_source_inbox_external_input_required', False)}",
+                f"- sp500_current_source_inbox_size_bytes={closeout.get('sp500_current_source_inbox_size_bytes', 0)}",
+                f"- sp500_current_source_inbox_sha256={closeout.get('sp500_current_source_inbox_sha256', '')}",
+                f"- sp500_current_source_inbox_modified_at={closeout.get('sp500_current_source_inbox_modified_at', '')}",
                 f"- sp500_current_source_inbox_blocking_reason={closeout.get('sp500_current_source_inbox_blocking_reason', '')}",
                 f"- sp500_current_source_inbox_blocking_input={closeout.get('sp500_current_source_inbox_blocking_input', '')}",
             ]
@@ -2072,6 +2075,17 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
         ),
         "sp500_current_source_inbox_external_input_required": bool(
             current.get("sp500_current_source_inbox_external_input_required")
+        ),
+        "sp500_current_source_inbox_size_bytes": _int_value(
+            current.get("sp500_current_source_inbox_size_bytes")
+        ),
+        "sp500_current_source_inbox_sha256": current.get(
+            "sp500_current_source_inbox_sha256",
+            "",
+        ),
+        "sp500_current_source_inbox_modified_at": current.get(
+            "sp500_current_source_inbox_modified_at",
+            "",
         ),
         "sp500_current_source_inbox_blocking_reason": current.get(
             "sp500_current_source_inbox_blocking_reason",

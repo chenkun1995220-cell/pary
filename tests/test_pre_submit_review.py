@@ -730,6 +730,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                     "status": "needs_work",
                     "current": {
                         "sp500_current_source_inbox_external_input_required": True,
+                        "sp500_current_source_inbox_size_bytes": 12345,
+                        "sp500_current_source_inbox_sha256": "a" * 64,
+                        "sp500_current_source_inbox_modified_at": "2026-07-04T03:12:00+00:00",
                         "sp500_current_source_inbox_blocking_reason": "official_constituents_csv_missing",
                         "sp500_current_source_inbox_blocking_input": (
                             "inputs/sp500_current_membership/official_constituents.csv"
@@ -815,6 +818,18 @@ class PreSubmitReviewTests(unittest.TestCase):
                 ]
             )
             self.assertEqual(
+                result["development_closeout"]["sp500_current_source_inbox_size_bytes"],
+                12345,
+            )
+            self.assertEqual(
+                result["development_closeout"]["sp500_current_source_inbox_sha256"],
+                "a" * 64,
+            )
+            self.assertEqual(
+                result["development_closeout"]["sp500_current_source_inbox_modified_at"],
+                "2026-07-04T03:12:00+00:00",
+            )
+            self.assertEqual(
                 result["development_closeout"]["sp500_current_source_inbox_blocking_reason"],
                 "official_constituents_csv_missing",
             )
@@ -841,6 +856,12 @@ class PreSubmitReviewTests(unittest.TestCase):
                 report,
             )
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+            self.assertIn("sp500_current_source_inbox_size_bytes=12345", report)
+            self.assertIn("sp500_current_source_inbox_sha256=" + "a" * 64, report)
+            self.assertIn(
+                "sp500_current_source_inbox_modified_at=2026-07-04T03:12:00+00:00",
+                report,
+            )
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,
