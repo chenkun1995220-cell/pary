@@ -240,6 +240,8 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "action_items_count": 2,
             "action_items_actual_count": 2,
             "action_items_json": "outputs/automation/latest_weekly_action_items.json",
+            "forecast_next_one_week_evaluation_date": "2026-07-07",
+            "forecast_next_one_month_evaluation_date": "2026-07-28",
             "missing_outputs": [],
             "attention_reasons": [],
         },
@@ -3618,6 +3620,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
             delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
             del delivery["action_items_json"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_delivery_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_delivery_check_lacks_forecast_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            del delivery["forecast_next_one_week_evaluation_date"]
+            del delivery["forecast_next_one_month_evaluation_date"]
             write_json(delivery_path, delivery)
 
             from pre_submit_review import run_pre_submit_review

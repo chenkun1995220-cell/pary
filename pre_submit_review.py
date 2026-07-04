@@ -323,6 +323,8 @@ WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS = [
     "action_items_count",
     "action_items_actual_count",
     "action_items_json",
+    "forecast_next_one_week_evaluation_date",
+    "forecast_next_one_month_evaluation_date",
     "missing_outputs",
     "attention_reasons",
 ]
