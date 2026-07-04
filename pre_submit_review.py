@@ -1510,6 +1510,10 @@ def _source_review_status_report_summary_mismatch(path, payload):
         lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
     except OSError:
         return True
+    if _localized_colon_line_value(lines, "状态") != _text_value(payload.get("status")):
+        return True
+    if _localized_colon_line_value(lines, "下一步") != _text_value(payload.get("next_action")):
+        return True
     for field in (
         "queue_total_count",
         "open_count",
