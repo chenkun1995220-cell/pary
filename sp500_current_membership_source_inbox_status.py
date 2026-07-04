@@ -160,6 +160,9 @@ def build_inbox_status(
             "external_input_required": not status.startswith("ready"),
             "blocking_reason": "" if status.startswith("ready") else "official_constituents_csv_incomplete",
             "blocking_input": "" if status.startswith("ready") else str(source_file_inbox),
+            "source_file_rejection_reason": ""
+            if status.startswith("ready")
+            else "official_ticker_count_below_minimum",
             "parsed_official_ticker_count": len(tickers),
             "source_file_ticker_columns": source_file_ticker_columns,
             "matched_requested_count": len([ticker for ticker in requested if ticker in tickers]),

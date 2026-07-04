@@ -110,6 +110,15 @@ def write_official_csv_with_ticker_symbol_column(path):
             writer.writerow({"Ticker Symbol": f"T{index:03d}", "Security": f"Test Company {index}"})
 
 
+def write_incomplete_official_csv(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["Symbol", "Security"])
+        writer.writeheader()
+        writer.writerow({"Symbol": "ABT", "Security": "Abbott Laboratories"})
+        writer.writerow({"Symbol": "ADM", "Security": "Archer Daniels Midland"})
+
+
 def write_official_csv_for_project_template(path):
     tickers = [
         "ABT",
@@ -1142,6 +1151,56 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["source_file_ticker_columns"], ["Ticker Symbol"])
             self.assertIn(
                 "source_file_ticker_columns: Ticker Symbol",
+                report.read_text(encoding="utf-8-sig"),
+            )
+
+    def test_inbox_status_rejects_incomplete_official_csv_with_machine_readable_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            inbox = root / "inputs" / "official_constituents.csv"
+            output = root / "latest_inbox_status.json"
+            report = root / "latest_inbox_status.md"
+            write_template(template)
+            write_incomplete_official_csv(inbox)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_source_inbox_status.py"),
+                    "--template",
+                    str(template),
+                    "--source-file-inbox",
+                    str(inbox),
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--as-of-date",
+                    "2026-07-03",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "incomplete")
+            self.assertEqual(payload["source_file_validation_status"], "incomplete")
+            self.assertTrue(payload["external_input_required"])
+            self.assertEqual(payload["blocking_reason"], "official_constituents_csv_incomplete")
+            self.assertEqual(
+                payload["source_file_rejection_reason"],
+                "official_ticker_count_below_minimum",
+            )
+            self.assertEqual(payload["parsed_official_ticker_count"], 2)
+            self.assertEqual(payload["minimum_official_ticker_count"], 400)
+            self.assertIn(
+                "source_file_rejection_reason: official_ticker_count_below_minimum",
                 report.read_text(encoding="utf-8-sig"),
             )
 
