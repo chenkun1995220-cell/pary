@@ -1332,6 +1332,10 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_acceptance_criteria"
             ]
+        if _official_csv_action_item_source_column_rules_missing(source):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_source_missing_column_rules"
+            ]
         if _official_csv_action_item_source_inbox_status_details_missing(source):
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_inbox_status_details"
@@ -1431,6 +1435,23 @@ def _official_csv_action_item_source_acceptance_criteria_missing(source):
     if "source_file_acceptance_criteria:" not in text:
         return True
     return _official_csv_action_item_acceptance_criteria_missing(text)
+
+
+def _official_csv_action_item_source_column_rules_missing(source):
+    text = str(source or "")
+    if (
+        "source_file_required_columns:" not in text
+        or "source_file_accepted_ticker_columns:" not in text
+    ):
+        return True
+    required_terms = [
+        "Symbol",
+        "Ticker",
+        "Ticker Symbol",
+        "Constituent Ticker",
+        "Constituent Symbol",
+    ]
+    return any(term not in text for term in required_terms)
 
 
 def _official_csv_action_item_source_inbox_status_details_missing(source):
