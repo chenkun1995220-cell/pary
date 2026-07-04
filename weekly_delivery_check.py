@@ -68,6 +68,8 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     conclusion_signal_status = "unknown"
     missing_conclusion_signals = []
     missing_conclusion_signal_fixes = {}
+    forecast_next_one_week_evaluation_date = ""
+    forecast_next_one_month_evaluation_date = ""
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -96,6 +98,14 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         missing_conclusion_signal_fixes = _conclusion_signal_fixes(missing_conclusion_signals)
         if missing_conclusion_signals:
             attention_reasons.append("missing_conclusion_signals")
+        forecast_performance = conclusion.get("automation", {}).get("forecast_performance", {})
+        if isinstance(forecast_performance, dict):
+            forecast_next_one_week_evaluation_date = str(
+                forecast_performance.get("next_one_week_evaluation_date", "") or ""
+            )
+            forecast_next_one_month_evaluation_date = str(
+                forecast_performance.get("next_one_month_evaluation_date", "") or ""
+            )
 
     required_outputs = _required_outputs(conclusion, conclusion_path)
     for key, raw_path in required_outputs.items():
@@ -159,6 +169,8 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "conclusion_signal_status": conclusion_signal_status,
         "missing_conclusion_signals": missing_conclusion_signals,
         "missing_conclusion_signal_fixes": missing_conclusion_signal_fixes,
+        "forecast_next_one_week_evaluation_date": forecast_next_one_week_evaluation_date,
+        "forecast_next_one_month_evaluation_date": forecast_next_one_month_evaluation_date,
         "action_items_status": action_items_status,
         "action_items_freshness_status": action_items_freshness_status,
         "action_items_age_days": action_items_age_days,
@@ -185,6 +197,8 @@ def render_delivery_check(result):
         f"- 待处理复核：{result.get('manual_review_pending_count', 0)}",
         f"- 合并摘要存在：{result.get('manual_review_merge_summary_exists', False)}",
         f"- 周结论关键信号：{result.get('conclusion_signal_status', 'unknown')}",
+        f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+        f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
         f"- 每周人工处理清单：{result.get('action_items_status', 'unknown')} / {result.get('action_items_count', 0)}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
     ]
