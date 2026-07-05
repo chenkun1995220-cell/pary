@@ -117,6 +117,10 @@ def _manual_review_is_classified(row):
     return bool(_manual_review_categories(row))
 
 
+def _manual_review_is_active(row):
+    return row.get("in_candidate_pool") or not _manual_review_is_classified(row)
+
+
 def _manual_review_category_counts(rows):
     counts = {}
     for row in rows:
@@ -174,6 +178,8 @@ def _market_review(health_row, candidate_tickers):
     candidate_manual = [row for row in manual_financial if row["in_candidate_pool"]]
     classified_manual = [row for row in manual_financial if _manual_review_is_classified(row)]
     unclassified_manual = [row for row in manual_financial if not _manual_review_is_classified(row)]
+    active_manual = [row for row in manual_financial if _manual_review_is_active(row)]
+    closed_manual = [row for row in manual_financial if not _manual_review_is_active(row)]
     blocked_count = len(candidate_refetch)
     return {
         "name": health_row.get("name", "unknown"),
@@ -187,6 +193,8 @@ def _market_review(health_row, candidate_tickers):
         "refetch_gap_action_required_count": len(action_required_refetch),
         "refetch_gap_unresolved_non_candidate_count": len(unresolved_non_candidate_refetch),
         "manual_financial_review_count": len(manual_financial),
+        "active_manual_financial_review_count": len(active_manual),
+        "closed_manual_financial_review_count": len(closed_manual),
         "candidate_manual_financial_review_count": len(candidate_manual),
         "manual_financial_review_classified_count": len(classified_manual),
         "manual_financial_review_unclassified_count": len(unclassified_manual),
@@ -235,6 +243,12 @@ def build_data_health_review(manifest):
         item["refetch_gap_unresolved_non_candidate_count"] for item in markets
     )
     manual_financial_review_count = sum(item["manual_financial_review_count"] for item in markets)
+    active_manual_financial_review_count = sum(
+        item["active_manual_financial_review_count"] for item in markets
+    )
+    closed_manual_financial_review_count = sum(
+        item["closed_manual_financial_review_count"] for item in markets
+    )
     candidate_manual_financial_review_count = sum(
         item["candidate_manual_financial_review_count"] for item in markets
     )
@@ -261,6 +275,8 @@ def build_data_health_review(manifest):
         "refetch_gap_action_required_count": refetch_gap_action_required_count,
         "refetch_gap_unresolved_non_candidate_count": refetch_gap_unresolved_non_candidate_count,
         "manual_financial_review_count": manual_financial_review_count,
+        "active_manual_financial_review_count": active_manual_financial_review_count,
+        "closed_manual_financial_review_count": closed_manual_financial_review_count,
         "candidate_manual_financial_review_count": candidate_manual_financial_review_count,
         "manual_financial_review_classified_count": manual_financial_review_classified_count,
         "manual_financial_review_unclassified_count": manual_financial_review_unclassified_count,
@@ -296,6 +312,8 @@ def render_data_health_review(payload):
         f"- refetch_gap_action_required_count：{payload.get('refetch_gap_action_required_count', payload.get('refetch_gap_count', 0))}",
         f"- refetch_gap_unresolved_non_candidate_count：{payload.get('refetch_gap_unresolved_non_candidate_count', 0)}",
         f"- 财务/估值口径复核：{payload.get('manual_financial_review_count', 0)}",
+        f"- active_manual_financial_review_count：{payload.get('active_manual_financial_review_count', payload.get('manual_financial_review_count', 0))}",
+        f"- closed_manual_financial_review_count：{payload.get('closed_manual_financial_review_count', 0)}",
         "",
         "## 市场概览",
         "",
@@ -307,7 +325,7 @@ def render_data_health_review(payload):
             f"| {market.get('name', '')} | {market.get('quote_coverage', 'unknown')} | "
             f"{market.get('financial_coverage', 'unknown')} | {market.get('refetch_gap_count', 0)} | "
             f"{market.get('candidate_refetch_gap_count', 0)} | "
-            f"{market.get('manual_financial_review_count', 0)} | "
+            f"{market.get('active_manual_financial_review_count', market.get('manual_financial_review_count', 0))} | "
             f"{market.get('blocked_candidate_count', 0)} |"
         )
     lines.extend(["", "## 可重抓缺口", "", "| 市场 | 股票 | 公司 | 缺失字段 | 候选池内 | 判断 |", "|---|---|---|---|---|---|"])

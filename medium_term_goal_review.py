@@ -392,9 +392,18 @@ def _data_quality_goal(data_health, automation_check):
     candidate_unclassified = _int_value(
         data_health.get("candidate_manual_financial_review_unclassified_count")
     )
-    manual_resolved = manual <= 40 or (manual > 0 and unclassified == 0)
+    inferred_active_manual = candidate_manual + unclassified
+    active_manual = _int_value(
+        data_health.get("active_manual_financial_review_count"),
+        inferred_active_manual,
+    )
+    closed_manual = _int_value(
+        data_health.get("closed_manual_financial_review_count"),
+        max(0, manual - active_manual),
+    )
+    manual_resolved = active_manual <= 40 and unclassified == 0
     status = "on_track" if blocked == 0 and refetch_action_required == 0 and manual_resolved else "needs_work"
-    if unclassified:
+    if active_manual > 40 or unclassified:
         next_action = "reduce_manual_financial_review_items"
     elif refetch_action_required:
         next_action = "resolve_refetch_gaps"
@@ -413,6 +422,8 @@ def _data_quality_goal(data_health, automation_check):
             "refetch_gap_action_required_count": refetch_action_required,
             "refetch_gap_unresolved_non_candidate_count": refetch_unresolved_non_candidate,
             "manual_financial_review_count": manual,
+            "active_manual_financial_review_count": active_manual,
+            "closed_manual_financial_review_count": closed_manual,
             "candidate_manual_financial_review_count": candidate_manual,
             "manual_financial_review_classified_count": classified,
             "manual_financial_review_unclassified_count": unclassified,

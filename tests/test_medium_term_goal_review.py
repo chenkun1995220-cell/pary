@@ -884,6 +884,8 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                     "refetch_gap_action_required_count": 0,
                     "refetch_gap_unresolved_non_candidate_count": 1,
                     "manual_financial_review_count": 73,
+                    "active_manual_financial_review_count": 0,
+                    "closed_manual_financial_review_count": 73,
                     "candidate_manual_financial_review_count": 0,
                     "manual_financial_review_classified_count": 73,
                     "manual_financial_review_unclassified_count": 0,
@@ -906,6 +908,14 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(
                 goals["data_quality_convergence"]["current"]["candidate_manual_financial_review_count"],
                 0,
+            )
+            self.assertEqual(
+                goals["data_quality_convergence"]["current"]["active_manual_financial_review_count"],
+                0,
+            )
+            self.assertEqual(
+                goals["data_quality_convergence"]["current"]["closed_manual_financial_review_count"],
+                73,
             )
             self.assertEqual(
                 goals["data_quality_convergence"]["current"][
