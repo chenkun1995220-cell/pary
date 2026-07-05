@@ -794,6 +794,37 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             )
             self.assertEqual(goals["model_governance_handoff"]["completion_percent"], 85)
 
+    def test_data_quality_reaches_target_when_refetch_is_clear_and_manual_reviews_classified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            review_path = automation / "latest_data_health_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            review.update(
+                {
+                    "refetch_gap_count": 0,
+                    "refetch_gap_attempted_count": 0,
+                    "refetch_gap_action_required_count": 0,
+                    "refetch_gap_unresolved_non_candidate_count": 1,
+                    "manual_financial_review_count": 73,
+                    "manual_financial_review_classified_count": 73,
+                    "manual_financial_review_unclassified_count": 0,
+                }
+            )
+            write_json(review_path, review)
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(
+                root,
+                closeout_goal_code="data_quality_convergence",
+            )
+            goals = {item["goal_code"]: item for item in payload["goals"]}
+
+            self.assertEqual(goals["data_quality_convergence"]["status"], "on_track")
+            self.assertEqual(goals["data_quality_convergence"]["completion_percent"], 85)
+            self.assertEqual(goals["data_quality_convergence"]["completion_gap_percent"], 0)
+
     def test_dashboard_blocks_when_core_delivery_is_not_ready(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

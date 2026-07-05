@@ -161,7 +161,6 @@ def _market_review(health_row, candidate_tickers):
         if _is_manual_financial_review(row) and not _is_refetch_gap(row)
     ]
     candidate_refetch = [row for row in refetch_gaps if row["in_candidate_pool"]]
-    attempted_refetch = [row for row in refetch_gaps if row["refetch_attempted"]]
     action_required_refetch = [
         row for row in refetch_gaps if row["in_candidate_pool"] or not row["refetch_attempted"]
     ]
@@ -170,6 +169,8 @@ def _market_review(health_row, candidate_tickers):
         for row in refetch_gaps
         if not row["in_candidate_pool"] and row["refetch_attempted"] and row.get("retry_status") != "updated"
     ]
+    current_refetch_gaps = action_required_refetch
+    attempted_refetch = [row for row in current_refetch_gaps if row["refetch_attempted"]]
     candidate_manual = [row for row in manual_financial if row["in_candidate_pool"]]
     classified_manual = [row for row in manual_financial if _manual_review_is_classified(row)]
     unclassified_manual = [row for row in manual_financial if not _manual_review_is_classified(row)]
@@ -180,7 +181,7 @@ def _market_review(health_row, candidate_tickers):
         "quote_coverage": health_row.get("quote_coverage", "unknown"),
         "financial_coverage": health_row.get("financial_coverage", "unknown"),
         "quote_gap_count": len(active_gaps),
-        "refetch_gap_count": len(refetch_gaps),
+        "refetch_gap_count": len(current_refetch_gaps),
         "candidate_refetch_gap_count": len(candidate_refetch),
         "refetch_gap_attempted_count": len(attempted_refetch),
         "refetch_gap_action_required_count": len(action_required_refetch),
@@ -194,7 +195,8 @@ def _market_review(health_row, candidate_tickers):
         ),
         "manual_financial_review_by_category": _manual_review_category_counts(manual_financial),
         "blocked_candidate_count": blocked_count,
-        "refetch_gaps": refetch_gaps,
+        "refetch_gaps": current_refetch_gaps,
+        "refetch_gap_unresolved_non_candidate_samples": unresolved_non_candidate_refetch[:5],
         "manual_financial_review_samples": manual_financial[:5],
         "quote_gaps_path": str(_quote_gaps_path(health_row) or ""),
         "quote_retry_results_path": str(_quote_retry_results_path(health_row) or ""),
@@ -340,6 +342,17 @@ def render_data_health_review(payload):
             "",
         ]
     )
+    lines.extend(["", "## 已重抓仍残留的非候选观察项", "", "| 市场 | 股票 | 公司 | 缺失字段 | 重抓状态 | 说明 |", "|---|---|---|---|---|---|"])
+    any_residual = False
+    for market in payload.get("markets", []) or []:
+        for gap in market.get("refetch_gap_unresolved_non_candidate_samples", []) or []:
+            any_residual = True
+            lines.append(
+                f"| {market.get('name', '')} | {gap.get('ticker', '')} | {gap.get('company', '')} | "
+                f"{gap.get('missing_fields', '')} | {gap.get('retry_status', '')} | {gap.get('retry_message', '')} |"
+            )
+    if not any_residual:
+        lines.append("| - | - | - | - | - | 无残留观察项 |")
     return "\n".join(lines)
 
 

@@ -204,27 +204,26 @@ class DataHealthReviewTests(unittest.TestCase):
             self.assertEqual(payload["as_of_date"], "2026-06-28")
             self.assertEqual(payload["status"], "acceptable_with_monitoring")
             self.assertEqual(payload["blocked_candidate_count"], 0)
-            self.assertEqual(payload["refetch_gap_count"], 2)
+            self.assertEqual(payload["refetch_gap_count"], 0)
             self.assertEqual(payload["manual_financial_review_count"], 1)
             self.assertEqual(payload["manual_financial_review_classified_count"], 1)
             self.assertEqual(payload["manual_financial_review_unclassified_count"], 0)
-            self.assertEqual(payload["refetch_gap_attempted_count"], 2)
+            self.assertEqual(payload["refetch_gap_attempted_count"], 0)
             self.assertEqual(payload["refetch_gap_action_required_count"], 0)
             self.assertEqual(payload["refetch_gap_unresolved_non_candidate_count"], 2)
             self.assertEqual(payload["recommended_action"], "monitor_next_run")
 
             hk = next(item for item in payload["markets"] if item["name"] == "港股周筛")
-            self.assertEqual(hk["refetch_gap_count"], 2)
+            self.assertEqual(hk["refetch_gap_count"], 0)
             self.assertEqual(hk["candidate_refetch_gap_count"], 0)
             self.assertEqual(hk["manual_financial_review_count"], 1)
             self.assertEqual(hk["manual_financial_review_classified_count"], 1)
             self.assertEqual(hk["manual_financial_review_unclassified_count"], 0)
             self.assertEqual(hk["manual_financial_review_by_category"]["loss_making_or_negative_pe"], 1)
-            self.assertEqual(hk["refetch_gap_attempted_count"], 2)
+            self.assertEqual(hk["refetch_gap_attempted_count"], 0)
             self.assertEqual(hk["refetch_gap_action_required_count"], 0)
             self.assertEqual(hk["refetch_gap_unresolved_non_candidate_count"], 2)
-            self.assertIn("00754.HK", [item["ticker"] for item in hk["refetch_gaps"]])
-            self.assertFalse(any(item["in_candidate_pool"] for item in hk["refetch_gaps"]))
+            self.assertEqual(hk["refetch_gaps"], [])
 
             self.assertIn("# 数据健康复核结论", report)
             self.assertIn("当前数据健康缺口不直接阻断本周候选", report)
@@ -235,6 +234,22 @@ class DataHealthReviewTests(unittest.TestCase):
             self.assertIn("不抓取行情", report)
             self.assertIn("不重新评分", report)
             self.assertIn("不修改正式模型参数", report)
+
+    def test_excludes_exhausted_non_candidate_retry_gaps_from_refetch_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = write_fixture(Path(tmp))
+
+            from data_health_review import build_data_health_review
+
+            payload = build_data_health_review(manifest_path)
+            hk = payload["markets"][2]
+
+            self.assertEqual(payload["refetch_gap_count"], 0)
+            self.assertEqual(payload["refetch_gap_attempted_count"], 0)
+            self.assertEqual(payload["refetch_gap_action_required_count"], 0)
+            self.assertEqual(payload["refetch_gap_unresolved_non_candidate_count"], 2)
+            self.assertEqual(hk["refetch_gap_count"], 0)
+            self.assertEqual(hk["refetch_gap_unresolved_non_candidate_count"], 2)
 
     def test_cli_writes_json_and_markdown_review(self):
         with tempfile.TemporaryDirectory() as tmp:

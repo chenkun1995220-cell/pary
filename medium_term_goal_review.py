@@ -178,6 +178,14 @@ def _goal_completion_percent(goal):
         one_week = _int_value(current.get("one_week_mature"))
         one_month = _int_value(current.get("one_month_mature"))
         percent = min(65, 35 + min(15, one_week // 2) + min(15, one_month // 2))
+    elif goal_code == "data_quality_convergence" and status == "on_track":
+        if (
+            _int_value(current.get("blocked_candidate_count")) == 0
+            and _int_value(current.get("refetch_gap_count")) == 0
+            and _int_value(current.get("refetch_gap_action_required_count")) == 0
+            and _int_value(current.get("manual_financial_review_unclassified_count")) == 0
+        ):
+            percent = max(percent, 85)
     elif goal_code == "candidate_review_convergence" and status == "on_track":
         candidate_count = _int_value(current.get("candidate_count"))
         complete = _int_value(current.get("field_complete_count"))
