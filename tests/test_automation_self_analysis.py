@@ -852,6 +852,95 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("1w", report)
             self.assertIn("prediction_unavailable", report)
 
+    def test_self_analysis_uses_structured_forecast_review_as_authoritative_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for universe, title in (
+                ("us_universe", "US Weekly Screening Run Summary"),
+                ("cn_universe", "CN Weekly Data Summary"),
+                ("hk_universe", "HK Weekly Data Summary"),
+            ):
+                write_text(root / "outputs" / universe / "latest_run_summary.md", f"# {title}\n")
+                write_text(root / "outputs" / universe / "model_audit.md", "- 瀹¤鐘舵€侊細sample_accumulating\n")
+                write_csv(
+                    root / "outputs" / universe / "forecast_evaluations.csv",
+                    [
+                        "market",
+                        "ticker",
+                        "generated_date",
+                        "prediction_horizon",
+                        "evaluation_status",
+                        "direction_hit",
+                        "actual_return",
+                        "excess_return",
+                    ],
+                    [
+                        {
+                            "market": universe,
+                            "ticker": "LEGACY",
+                            "generated_date": "2026-06-01",
+                            "prediction_horizon": "1w",
+                            "evaluation_status": "evaluated",
+                            "direction_hit": "True",
+                            "actual_return": "0.05",
+                            "excess_return": "0.01",
+                        }
+                    ],
+                )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_text(
+                root / "outputs" / "automation" / "latest_forecast_performance_review.json",
+                json.dumps(
+                    {
+                        "review_schema": "forecast_performance_review",
+                        "status": "sample_accumulating",
+                        "recommended_action": "continue_sample_accumulation",
+                        "total_evaluations": 87,
+                        "mature_evaluations": 0,
+                        "one_week_mature": 0,
+                        "one_month_mature": 0,
+                        "prediction_unavailable": 87,
+                        "latest_prediction_unavailable_count": 0,
+                        "legacy_prediction_unavailable_count": 87,
+                        "missing_market_count": 0,
+                        "direction_hits": 0,
+                        "direction_hit_rate": None,
+                        "average_return": None,
+                        "average_excess_return": None,
+                        "next_one_week_evaluation_date": "2026-07-07",
+                        "next_one_week_evaluation_count": 42,
+                        "next_one_month_evaluation_date": "2026-07-28",
+                        "next_one_month_evaluation_count": 42,
+                        "markets": [],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-07-05")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+            check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(manifest["forecast_performance_status"], "sample_accumulating")
+            self.assertEqual(
+                manifest["forecast_performance_recommended_action"],
+                "continue_sample_accumulation",
+            )
+            self.assertEqual(manifest["forecast_performance"]["total_evaluations"], 87)
+            self.assertEqual(manifest["forecast_performance"]["mature_evaluations"], 0)
+            self.assertEqual(manifest["forecast_performance"]["prediction_unavailable"], 87)
+            self.assertEqual(
+                manifest["forecast_performance"]["latest_prediction_unavailable_count"],
+                0,
+            )
+            self.assertEqual(
+                manifest["forecast_performance"]["legacy_prediction_unavailable_count"],
+                87,
+            )
+            self.assertEqual(check["forecast_performance_status"], "sample_accumulating")
+            self.assertEqual(check["forecast_next_one_week_evaluation_date"], "2026-07-07")
+
     def test_mature_weak_forecast_performance_requests_review_action(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

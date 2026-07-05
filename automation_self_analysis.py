@@ -527,6 +527,37 @@ def _forecast_performance_snapshot(project_root):
         item.get("average_excess_return") for item in markets if item.get("average_excess_return") is not None
     )
     direction_hit_rate = hits / mature if mature else None
+    if review.get("review_schema") == "forecast_performance_review":
+        review_markets = review.get("markets") if isinstance(review.get("markets"), list) else markets
+        return {
+            "forecast_performance_schema": "forecast_performance_summary",
+            "forecast_performance_version": 1,
+            "status": review.get("status", "unknown"),
+            "recommended_action": review.get("recommended_action", "review_forecast_performance"),
+            "total_evaluations": _as_int(review.get("total_evaluations")) or 0,
+            "mature_evaluations": _as_int(review.get("mature_evaluations")) or 0,
+            "one_week_mature": _as_int(review.get("one_week_mature")) or 0,
+            "one_month_mature": _as_int(review.get("one_month_mature")) or 0,
+            "prediction_unavailable": _as_int(review.get("prediction_unavailable")) or 0,
+            "latest_prediction_unavailable_count": _as_int(
+                review.get("latest_prediction_unavailable_count")
+            )
+            or 0,
+            "legacy_prediction_unavailable_count": _as_int(
+                review.get("legacy_prediction_unavailable_count")
+            )
+            or 0,
+            "missing_market_count": _as_int(review.get("missing_market_count")) or 0,
+            "direction_hits": _as_int(review.get("direction_hits")) or 0,
+            "direction_hit_rate": review.get("direction_hit_rate"),
+            "average_return": review.get("average_return"),
+            "average_excess_return": review.get("average_excess_return"),
+            "next_one_week_evaluation_date": review.get("next_one_week_evaluation_date", ""),
+            "next_one_week_evaluation_count": _as_int(review.get("next_one_week_evaluation_count")) or 0,
+            "next_one_month_evaluation_date": review.get("next_one_month_evaluation_date", ""),
+            "next_one_month_evaluation_count": _as_int(review.get("next_one_month_evaluation_count")) or 0,
+            "markets": review_markets,
+        }
     weak_performance = (
         mature >= 30
         and (
