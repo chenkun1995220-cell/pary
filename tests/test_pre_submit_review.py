@@ -958,6 +958,26 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_one_week_forecast_shadow_parameter_plan.json",
+        {
+            "plan_schema": "one_week_forecast_shadow_parameter_plan",
+            "plan_version": 1,
+            "as_of_date": as_of_date,
+            "status": "insufficient_samples",
+            "one_week_evaluated_count": 12,
+            "execution_mode": "shadow_only",
+            "candidate_shadow_changes": [],
+            "candidate_change_count": 0,
+            "acceptance_gates": [
+                "run_shadow_backtest_before_formal_change",
+                "compare_against_current_model",
+                "require_human_approval",
+                "keep_formal_model_unchanged_until_approved",
+            ],
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_medium_term_goal_review.json",
         {
             "review_schema": "medium_term_goal_review",
