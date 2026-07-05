@@ -1067,11 +1067,16 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertTrue(payload["external_input_required"])
             self.assertEqual(payload["blocking_reason"], "official_constituents_csv_missing")
             self.assertEqual(payload["blocking_input"], str(inbox))
+            self.assertEqual(
+                payload["source_file_user_agent_hint"],
+                "Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official S&P Global fetches through PowerShell entrypoints.",
+            )
             self.assertEqual(payload["requested_count"], 2)
             report_text = report.read_text(encoding="utf-8-sig")
             self.assertIn("status: missing", report_text)
             self.assertIn("external_input_required: true", report_text)
             self.assertIn("blocking_reason: official_constituents_csv_missing", report_text)
+            self.assertIn("source_file_user_agent_hint: Set SEC_USER_AGENT", report_text)
 
     def test_inbox_status_reports_ready_official_csv_with_intake_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:
