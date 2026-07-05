@@ -137,6 +137,13 @@ INPUT_SPECS = {
         "version_field": "queue_version",
         "version_value": 1,
     },
+    "membership_evidence_supplement_batch": {
+        "path": "outputs/automation/latest_membership_evidence_supplement_batch.json",
+        "schema_field": "batch_schema",
+        "schema_value": "membership_evidence_supplement_batch",
+        "version_field": "batch_version",
+        "version_value": 1,
+    },
     "membership_evidence_source_intake_status": {
         "path": "outputs/automation/latest_membership_evidence_source_intake_status.json",
         "schema_field": "status_schema",

@@ -637,6 +637,29 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_membership_evidence_supplement_batch.json",
+        {
+            "batch_schema": "membership_evidence_supplement_batch",
+            "batch_version": 1,
+            "as_of_date": as_of_date,
+            "status": "batch_ready",
+            "batch_id": f"{as_of_date}-p1",
+            "batch_size": 10,
+            "queue_count": 50,
+            "selected_count": 10,
+            "remaining_after_batch_count": 40,
+            "batch_tickers": ["ABT", "ADM"],
+            "batch_weeks_affected": 312,
+            "completion_condition": (
+                "Fill these tickers in inputs/sp500_membership_evidence/"
+                "verified_membership_evidence_intake.csv and rerun source intake status."
+            ),
+            "applied_to_historical_membership": False,
+            "formal_backtest_upgrade_allowed": False,
+            "items": [],
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_membership_evidence_source_intake_status.json",
         {
             "status_schema": "membership_evidence_source_intake_status",
