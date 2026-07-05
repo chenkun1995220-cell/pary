@@ -28,6 +28,8 @@ BATCH_FIELDS = [
     "evidence_kind",
     "notes",
     "reviewer",
+    "manual_entry_instruction",
+    "validation_command",
 ]
 
 
@@ -62,17 +64,20 @@ def _queue_items(payload):
 
 
 def _batch_item(item, batch_id, batch_rank):
+    ticker = item.get("ticker", "")
+    accepted_domains = item.get("accepted_source_domains", "spglobal.com,.spglobal.com")
+    validation_command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_membership_evidence_source_intake_status.ps1"
     return {
         "batch_id": batch_id,
         "batch_rank": batch_rank,
         "queue_priority": item.get("priority", 0),
-        "ticker": item.get("ticker", ""),
+        "ticker": ticker,
         "company_name": item.get("company_name", ""),
         "effective_date": item.get("effective_date", ""),
         "weeks_affected": _int_value(item.get("weeks_affected"), 0),
         "current_evidence": item.get("current_evidence", ""),
         "required_evidence_kind": item.get("required_evidence_kind", "official_spglobal_membership_evidence"),
-        "accepted_source_domains": item.get("accepted_source_domains", "spglobal.com,.spglobal.com"),
+        "accepted_source_domains": accepted_domains,
         "rejection_reason": item.get("rejection_reason", ""),
         "membership_evidence": "",
         "membership_source_url": "",
@@ -80,6 +85,11 @@ def _batch_item(item, batch_id, batch_rank):
         "evidence_kind": "current_constituents",
         "notes": "",
         "reviewer": "",
+        "manual_entry_instruction": (
+            f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
+            f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date."
+        ),
+        "validation_command": validation_command,
     }
 
 
@@ -108,6 +118,14 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
             "Fill these tickers in inputs/sp500_membership_evidence/verified_membership_evidence_intake.csv "
             "with verified S&P Global source URLs, then rerun run_membership_evidence_source_intake_status.ps1."
         ),
+        "manual_entry_rules": [
+            "membership_evidence must be verified.",
+            "membership_source_url must be an official S&P Global HTTPS URL under spglobal.com.",
+            "source_as_of_date must use YYYY-MM-DD and must not be later than the review date.",
+            "ETF holdings, Wikipedia, GitHub, Kaggle, crosscheck, or secondary sources remain reference-only.",
+        ],
+        "validation_command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_membership_evidence_source_intake_status.ps1",
+        "next_command_after_ready": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_membership_evidence_import_plan_from_verified_intake.ps1",
         "intake_draft_path": "",
         "applied_to_historical_membership": False,
         "formal_backtest_upgrade_allowed": False,
@@ -133,8 +151,17 @@ def render_markdown(payload):
         f"- batch_tickers: {', '.join(payload.get('batch_tickers') or [])}",
         f"- batch_weeks_affected: {payload.get('batch_weeks_affected', 0)}",
         f"- intake_draft_path: {payload.get('intake_draft_path', '')}",
+        f"- validation_command: {payload.get('validation_command', '')}",
+        f"- next_command_after_ready: {payload.get('next_command_after_ready', '')}",
         f"- applied_to_historical_membership: {str(payload.get('applied_to_historical_membership')).lower()}",
         f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
+        "",
+        "## manual_entry_rules",
+        "",
+    ]
+    for rule in payload.get("manual_entry_rules", []) or []:
+        lines.append(f"- {rule}")
+    lines.extend([
         "",
         "## completion_condition",
         "",
@@ -142,7 +169,7 @@ def render_markdown(payload):
         "",
         "| batch_rank | ticker | company | weeks | required_evidence | reason |",
         "|---:|---|---|---:|---|---|",
-    ]
+    ])
     for item in payload.get("items", []) or []:
         lines.append(
             "| {batch_rank} | {ticker} | {company_name} | {weeks_affected} | "

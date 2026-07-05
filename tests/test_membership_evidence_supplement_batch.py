@@ -82,6 +82,10 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertEqual(payload["items"][0]["batch_rank"], 1)
             self.assertEqual(payload["items"][0]["membership_evidence"], "")
             self.assertEqual(payload["items"][0]["evidence_kind"], "current_constituents")
+            self.assertIn("membership_evidence=verified", payload["items"][0]["manual_entry_instruction"])
+            self.assertIn("YYYY-MM-DD", payload["items"][0]["manual_entry_instruction"])
+            self.assertIn("run_membership_evidence_source_intake_status.ps1", payload["validation_command"])
+            self.assertIn("run_membership_evidence_import_plan_from_verified_intake.ps1", payload["next_command_after_ready"])
             self.assertIn("verified_membership_evidence_intake.csv", payload["completion_condition"])
 
     def test_cli_writes_batch_json_csv_and_markdown(self):
@@ -124,9 +128,14 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             with output_csv.open(encoding="utf-8-sig", newline="") as handle:
                 rows = list(csv.DictReader(handle))
             self.assertEqual([row["ticker"] for row in rows], ["ABT", "ADM"])
+            self.assertIn("membership_evidence=verified", rows[0]["manual_entry_instruction"])
+            self.assertIn("run_membership_evidence_source_intake_status.ps1", rows[0]["validation_command"])
             report = output_md.read_text(encoding="utf-8-sig")
             self.assertIn("membership_evidence_supplement_batch", report)
             self.assertIn("remaining_after_batch_count: 1", report)
+            self.assertIn("## manual_entry_rules", report)
+            self.assertIn("source_as_of_date must use YYYY-MM-DD", report)
+            self.assertIn("run_membership_evidence_source_intake_status.ps1", report)
 
     def test_cli_can_write_inputs_side_intake_draft(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -173,6 +182,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertEqual(rows[0]["membership_source_url"], "")
             self.assertEqual(rows[0]["source_as_of_date"], "")
             self.assertEqual(rows[0]["evidence_kind"], "current_constituents")
+            self.assertIn("membership_evidence=verified", rows[0]["manual_entry_instruction"])
             payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["intake_draft_path"], str(intake_draft))
 
