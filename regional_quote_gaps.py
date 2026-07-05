@@ -93,6 +93,30 @@ def _non_positive_review_fields(row, non_positive_values):
     return ";".join(categories), ";".join(details)
 
 
+def _is_special_industry(row):
+    industry = str(
+        row.get("industry")
+        or row.get("sector")
+        or row.get("industry_name")
+        or ""
+    ).strip()
+    company_name = str(row.get("company_name") or row.get("name") or "").strip()
+    industry_text = f"{industry} {company_name}".lower()
+    special_tokens = ["reit", "real estate", "property", "bank", "insurance", "financial"]
+    return any(token in industry_text for token in special_tokens)
+
+
+def _valuation_unavailable_review_fields(row, missing_values):
+    if not set(missing_values).issubset({"pe", "pb"}):
+        return "", ""
+    if not _is_special_industry(row):
+        return "", ""
+    category, detail = _non_positive_review_fields(row, [])
+    details = [item for item in detail.split(";") if item]
+    details.append("missing_valuation_fields=" + ";".join(missing_values))
+    return category, ";".join(details)
+
+
 def read_cache_status(cache_dir):
     metadata_path = Path(cache_dir) / "refresh_metadata.json"
     if not metadata_path.exists():
@@ -144,7 +168,22 @@ def build_quote_gap_rows(companies, snapshot_rows, market, cache_status):
         missing_fields = missing_values + non_positive_values
         status = snapshot.get("data_quality_status", "").strip().lower()
         if status != "ready" or missing_fields:
-            if missing_values:
+            valuation_review_category, valuation_review_detail = (
+                _valuation_unavailable_review_fields(snapshot, missing_values)
+                if missing_values
+                else ("", "")
+            )
+            if valuation_review_category:
+                issue_type = "valuation_metric_unavailable"
+                reason = "PE/PB valuation fields are unavailable for a special-industry company"
+                remediation_type = "manual_financial_review"
+                review_category = valuation_review_category
+                review_detail = valuation_review_detail
+                recommended_action = (
+                    "Do not repeatedly refetch quotes; review special-industry valuation metrics "
+                    "and supplement NAV, FFO, or manual valuation basis when needed"
+                )
+            elif missing_values:
                 issue_type = "partial_quote"
                 reason = "行情字段不完整或未达到 ready 状态"
                 remediation_type = "refetch_or_supplement_quote"

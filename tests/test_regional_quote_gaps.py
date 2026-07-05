@@ -241,6 +241,71 @@ class RegionalQuoteGapsTests(unittest.TestCase):
             self.assertIn("industry=REITs", rows[0]["review_detail"])
             self.assertIn("special_industry_valuation_review", text)
 
+    def test_classifies_special_industry_missing_valuation_metrics_as_review_not_refetch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            companies = root / "companies.csv"
+            snapshot = root / "market_snapshot.csv"
+            output = root / "quote_gaps.csv"
+            report = root / "quote_gaps.md"
+
+            write_csv(
+                companies,
+                ["market", "ticker", "company_name", "currency"],
+                [
+                    {
+                        "market": "HK",
+                        "ticker": "00823.HK",
+                        "company_name": "Link REIT",
+                        "currency": "HKD",
+                    }
+                ],
+            )
+            write_csv(
+                snapshot,
+                [
+                    "ticker",
+                    "company_name",
+                    "industry",
+                    "price",
+                    "market_cap",
+                    "pe",
+                    "pb",
+                    "data_quality_status",
+                ],
+                [
+                    {
+                        "ticker": "00823.HK",
+                        "company_name": "Link REIT",
+                        "industry": "REITs",
+                        "price": "36.4",
+                        "market_cap": "95500000000",
+                        "pe": "",
+                        "pb": "",
+                        "data_quality_status": "partial",
+                    }
+                ],
+            )
+
+            run_regional_quote_gaps(
+                companies_path=companies,
+                snapshot_path=snapshot,
+                output_path=output,
+                report_path=report,
+                market="HK",
+                cache_dir=root / "cache",
+            )
+
+            with output.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+
+            self.assertEqual(rows[0]["issue_type"], "valuation_metric_unavailable")
+            self.assertEqual(rows[0]["missing_fields"], "pe;pb")
+            self.assertEqual(rows[0]["remediation_type"], "manual_financial_review")
+            self.assertIn("special_industry_valuation_review", rows[0]["review_category"])
+            self.assertIn("industry=REITs", rows[0]["review_detail"])
+            self.assertNotIn("regional_market_snapshot.py", rows[0]["recommended_action"])
+
 
 if __name__ == "__main__":
     unittest.main()
