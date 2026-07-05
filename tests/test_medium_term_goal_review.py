@@ -717,10 +717,11 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 payload["overall_completion_percent"],
             )
 
-            self.assertIn(
-                "run_membership_evidence_import_plan_then_apply_preview",
-                payload["priority_next_actions"],
+            self.assertEqual(
+                payload["priority_next_actions"][0],
+                "provide_official_constituents_csv_or_fix_network_permission",
             )
+            self.assertIn("continue_sample_accumulation", payload["priority_next_actions"])
             self.assertNotIn("review_prediction_unavailable_signals", payload["priority_next_actions"])
 
             self.assertIn("中期目标进度看板", report)
@@ -1062,6 +1063,44 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn(
                 "provide_official_constituents_csv_or_fix_network_permission",
                 payload["priority_next_actions"],
+            )
+            self.assertEqual(
+                payload["priority_next_actions"][0],
+                "provide_official_constituents_csv_or_fix_network_permission",
+            )
+
+    def test_dashboard_does_not_skip_missing_official_csv_for_import_followup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            source_path = automation / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["status"] = "fetch_failed"
+            source["matched_count"] = 0
+            source["missing_count"] = 50
+            source["recommended_followup"] = "run_membership_evidence_import_plan_then_apply_preview"
+            source["fetch_error_next_action"] = "provide_official_constituents_csv_or_fix_network_permission"
+            write_json(source_path, source)
+
+            inbox_path = automation / "latest_sp500_current_membership_source_inbox_status.json"
+            inbox = json.loads(inbox_path.read_text(encoding="utf-8-sig"))
+            inbox["status"] = "missing"
+            inbox["external_input_required"] = True
+            inbox["blocking_reason"] = "official_constituents_csv_missing"
+            write_json(inbox_path, inbox)
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(root)
+            goals = {item["goal_code"]: item for item in payload["goals"]}
+
+            self.assertEqual(
+                goals["backtest_evidence_quality"]["next_action"],
+                "provide_official_constituents_csv_or_fix_network_permission",
+            )
+            self.assertEqual(
+                payload["priority_next_actions"][0],
+                "provide_official_constituents_csv_or_fix_network_permission",
             )
 
     def test_cli_writes_json_and_markdown(self):

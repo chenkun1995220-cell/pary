@@ -514,9 +514,27 @@ def _forecast_goal(forecast_performance):
     )
 
 
-def _backtest_next_action(membership_import_plan, current_membership_sources):
+def _requires_official_csv(current_membership_sources, current_membership_source_inbox_status):
+    if current_membership_sources.get("status") == "ready":
+        return False
+    if current_membership_source_inbox_status.get("external_input_required"):
+        return True
+    return current_membership_source_inbox_status.get("status") in {"missing", "invalid", "incomplete"}
+
+
+def _backtest_next_action(
+    membership_import_plan,
+    current_membership_sources,
+    current_membership_source_inbox_status=None,
+):
+    current_membership_source_inbox_status = current_membership_source_inbox_status or {}
     if _int_value(membership_import_plan.get("ready_to_import_count")) > 0:
         return "run_membership_evidence_apply_preview"
+    if _requires_official_csv(current_membership_sources, current_membership_source_inbox_status):
+        return (
+            current_membership_sources.get("fetch_error_next_action")
+            or "provide_official_constituents_csv"
+        )
     recommended_followup = current_membership_sources.get("recommended_followup", "")
     if recommended_followup == "run_membership_evidence_import_plan_then_apply_preview":
         return recommended_followup
@@ -563,7 +581,11 @@ def _backtest_goal(
     ratio = _float_value(backtest_evidence.get("verified_membership_ratio"))
     weak_rows = _int_value(backtest_evidence.get("weak_evidence_rows"))
     status = "on_track" if ratio >= 0.5 and weak_rows == 0 else "needs_work"
-    next_action = _backtest_next_action(membership_import_plan, current_membership_sources)
+    next_action = _backtest_next_action(
+        membership_import_plan,
+        current_membership_sources,
+        current_membership_source_inbox_status,
+    )
     review_queue = current_membership_sources.get("missing_ticker_review_queue", []) or []
     review_queue_counts = _review_queue_status_counts(review_queue)
     return _goal(
@@ -846,6 +868,17 @@ def _priority_actions(goals):
             action = goal.get("next_action", "")
             if action and action not in actions:
                 actions.append(action)
+    priority_order = {
+        "provide_official_constituents_csv_or_fix_network_permission": 0,
+        "provide_official_constituents_csv": 1,
+        "provide_valid_official_constituents_csv": 2,
+        "run_membership_evidence_apply_preview": 3,
+        "run_membership_evidence_import_plan_then_apply_preview": 4,
+        "review_current_membership_source_status": 5,
+        "review_prediction_unavailable_signals": 6,
+        "continue_sample_accumulation": 7,
+    }
+    actions.sort(key=lambda action: priority_order.get(action, 100))
     return actions or ["continue_medium_term_monitoring"]
 
 
