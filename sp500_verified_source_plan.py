@@ -107,7 +107,7 @@ def _source_matrix(official_export_url):
     ]
 
 
-def _next_actions(ready_to_import_count, verified_candidate_count, source_file_inbox):
+def _next_actions(ready_to_import_count, verified_candidate_count, source_file_inbox, crosscheck_active=False):
     if ready_to_import_count > 0:
         return [
             {
@@ -116,6 +116,32 @@ def _next_actions(ready_to_import_count, verified_candidate_count, source_file_i
                 "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_membership_evidence_apply_preview.ps1 -ProjectRoot <project_root>",
             }
         ]
+    if crosscheck_active:
+        actions = [
+            {
+                "action": "refresh_crosscheck_substitute_weekly",
+                "reason": "official_full_file_abandoned_for_weekly_current_screening",
+                "command": "build latest outputs\\sp500_crosscheck_*\\sp500_full_constituents_crosscheck_*.xlsx from approved crosscheck inputs",
+            },
+            {
+                "action": "rerun_us_weekly_screening_with_crosscheck_substitute",
+                "reason": "crosscheck_substitute_ready_for_current_weekly_screening",
+                "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root>",
+            },
+            {
+                "action": "keep_formal_backtest_upgrade_blocked",
+                "reason": "crosscheck_substitute_is_not_official_index_membership_evidence",
+            },
+        ]
+        if verified_candidate_count > 0:
+            actions.insert(
+                0,
+                {
+                    "action": "review_verified_candidates_blocked_by_policy",
+                    "reason": "verified_candidates_present_but_not_ready_to_import",
+                },
+            )
+        return actions
     actions = [
         {
             "action": "obtain_official_spglobal_full_constituents_file",
@@ -189,7 +215,13 @@ def build_sp500_verified_source_plan(
     verified_ratio = _float_value(backtest_payload.get("verified_membership_ratio"))
     weak_rows = _int_value(backtest_payload.get("weak_evidence_rows"))
     source_matrix = _source_matrix(official_export_url)
-    status = "verified_source_required" if ready_to_import == 0 else "ready_for_apply_preview"
+    crosscheck_active = current_payload.get("status") == "crosscheck_substitute_ready"
+    if ready_to_import > 0:
+        status = "ready_for_apply_preview"
+    elif crosscheck_active:
+        status = "crosscheck_substitute_active"
+    else:
+        status = "verified_source_required"
     return {
         "review_schema": REVIEW_SCHEMA,
         "review_version": REVIEW_VERSION,
@@ -209,12 +241,20 @@ def build_sp500_verified_source_plan(
         "weak_evidence_rows": weak_rows,
         "current_source_status": current_payload.get("status", "missing"),
         "current_source_recommended_followup": current_payload.get("recommended_followup", ""),
+        "crosscheck_constituents_file": current_payload.get("crosscheck_constituents_file", ""),
+        "parsed_crosscheck_ticker_count": _int_value(current_payload.get("parsed_crosscheck_ticker_count")),
         "source_file_inbox_status": inbox_payload.get("status", "missing"),
         "source_file_inbox": source_file_inbox,
         "minimum_official_ticker_count": _int_value(inbox_payload.get("minimum_official_ticker_count"), 400),
         "official_export_url": official_export_url,
+        "official_full_file_required": not crosscheck_active and ready_to_import == 0,
         "source_matrix": source_matrix,
-        "next_actions": _next_actions(ready_to_import, verified_candidates, source_file_inbox),
+        "next_actions": _next_actions(
+            ready_to_import,
+            verified_candidates,
+            source_file_inbox,
+            crosscheck_active=crosscheck_active,
+        ),
         "formal_backtest_upgrade_allowed": False,
         "boundary": "只生成 S&P 500 verified 来源补强计划；不抓取网页，不导入来源，不改写 historical_membership.csv，不升级正式模型。",
     }

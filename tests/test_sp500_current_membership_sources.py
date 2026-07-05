@@ -176,6 +176,39 @@ def write_public_constituents_csv(path):
             )
 
 
+def write_crosscheck_xlsx(path):
+    import openpyxl
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    workbook = openpyxl.Workbook()
+    summary = workbook.active
+    summary.title = "说明"
+    summary.append(["S&P 500 全量成分股对照整理版（非官方导出）"])
+    summary.append(["结论边界", "此文件是公开来源交叉整理版，不是 S&P DJI 官方全量成分股导出。"])
+    sheet = workbook.create_sheet("工作清单_503")
+    sheet.append(
+        [
+            "symbol",
+            "name",
+            "sector",
+            "in_wikipedia",
+            "in_github_datahub",
+            "in_spy",
+            "in_ivv",
+            "in_voo",
+            "public_list_count",
+            "etf_count",
+            "evidence_count",
+            "inclusion_basis",
+        ]
+    )
+    sheet.append(["ABT", "Abbott Laboratories", "Health Care", 1, 1, 1, 0, 1, 2, 2, 4, "public_lists_agree"])
+    sheet.append(["ADM", "Archer Daniels Midland", "Consumer Staples", 1, 1, 1, 0, 1, 2, 2, 4, "public_lists_agree"])
+    for index in range(398):
+        sheet.append([f"T{index:03d}", f"Test Company {index}", "Industrials", 1, 1, 1, 0, 1, 2, 2, 4, "public_lists_agree"])
+    workbook.save(path)
+
+
 def write_incomplete_official_csv(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -350,6 +383,39 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["recommended_followup"], "obtain_official_spglobal_constituents_csv")
             self.assertFalse(payload["formal_backtest_upgrade_allowed"])
 
+    def test_builds_crosscheck_substitute_rows_from_xlsx_worklist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            crosscheck = root / "sp500_full_constituents_crosscheck_20260705.xlsx"
+            write_template(template)
+            write_crosscheck_xlsx(crosscheck)
+
+            from sp500_current_membership_sources import (
+                build_crosscheck_substitute_current_membership_sources_from_file,
+            )
+
+            payload = build_crosscheck_substitute_current_membership_sources_from_file(
+                template,
+                crosscheck,
+                as_of_date="2026-07-05",
+            )
+
+            self.assertEqual(payload["status"], "crosscheck_substitute_ready")
+            self.assertEqual(payload["source_trust_level"], "crosscheck_substitute")
+            self.assertEqual(payload["parsed_crosscheck_ticker_count"], 400)
+            self.assertEqual(payload["matched_count"], 1)
+            self.assertEqual(payload["missing_tickers"], ["ZZZ"])
+            self.assertEqual(payload["rows"][0]["ticker"], "ABT")
+            self.assertEqual(payload["rows"][0]["membership_evidence"], "secondary")
+            self.assertEqual(payload["next_action"], "run_screening_with_crosscheck_current_membership")
+            self.assertEqual(payload["recommended_followup"], "refresh_crosscheck_substitute_weekly")
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+            self.assertIn("crosscheck_substitute_source", payload["source_quality_flags"])
+            self.assertIn("public_lists_are_reference_only", payload["source_quality_flags"])
+            self.assertIn("etf_holdings_are_not_index_authority", payload["source_quality_flags"])
+            self.assertIn("announcements_are_not_full_current_file", payload["source_quality_flags"])
+
     def test_etf_holdings_source_is_cross_check_without_verified_upgrade(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -429,6 +495,62 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("status: secondary_ready", report_text)
             self.assertIn("source_trust_level: secondary", report_text)
             self.assertIn("recommended_followup: obtain_official_spglobal_constituents_csv", report_text)
+
+    def test_cli_builds_crosscheck_substitute_rows_from_xlsx(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            crosscheck = root / "sp500_full_constituents_crosscheck_20260705.xlsx"
+            output = root / "sources.csv"
+            report = root / "sources.md"
+            metadata = root / "sources.json"
+            intake = root / "intake_template.csv"
+            write_template(template)
+            write_crosscheck_xlsx(crosscheck)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_sources.py"),
+                    "--template",
+                    str(template),
+                    "--crosscheck-constituents-file",
+                    str(crosscheck),
+                    "--as-of-date",
+                    "2026-07-05",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--json-output",
+                    str(metadata),
+                    "--intake-template",
+                    str(intake),
+                    "--source-file-request",
+                    "",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with output.open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(rows[0]["ticker"], "ABT")
+            self.assertEqual(rows[0]["membership_evidence"], "secondary")
+            payload = json.loads(metadata.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "crosscheck_substitute_ready")
+            self.assertEqual(payload["source_trust_level"], "crosscheck_substitute")
+            self.assertEqual(payload["parsed_crosscheck_ticker_count"], 400)
+            self.assertEqual(payload["recommended_followup"], "refresh_crosscheck_substitute_weekly")
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+            report_text = report.read_text(encoding="utf-8-sig")
+            self.assertIn("status: crosscheck_substitute_ready", report_text)
+            self.assertIn("source_trust_level: crosscheck_substitute", report_text)
+            self.assertIn("parsed_crosscheck_ticker_count: 400", report_text)
 
     def test_build_marks_official_page_without_constituent_rows_as_source_file_required(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1170,10 +1292,14 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
         self.assertIn("--source-url", wrapper)
         self.assertIn("SourceFile", wrapper)
         self.assertIn("SourceFileInbox", wrapper)
+        self.assertIn("CrosscheckConstituentsFile", wrapper)
         self.assertIn("UserAgent", wrapper)
         self.assertIn("--user-agent", wrapper)
         self.assertIn("--source-file-inbox", wrapper)
         self.assertIn("inputs\\sp500_current_membership\\official_constituents.csv", wrapper)
+        self.assertIn("sp500_crosscheck_*", wrapper)
+        self.assertIn("sp500_full_constituents_crosscheck_*.xlsx", wrapper)
+        self.assertIn("--crosscheck-constituents-file", wrapper)
         self.assertIn("--validate-source-file-only", wrapper)
         self.assertIn("--source-file", wrapper)
         self.assertIn("--output", wrapper)

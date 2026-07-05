@@ -4,6 +4,7 @@ param(
   [string]$SourceUrl = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
   [string]$SourceHtml = "",
   [string]$SourceFile = "",
+  [string]$CrosscheckConstituentsFile = "",
   [string]$SecondaryConstituentsCsv = "",
   [string]$Output = "",
   [string]$Report = "",
@@ -51,7 +52,19 @@ if (-not $SourceFileInbox) {
 if ((-not $SourceFile) -and (Test-Path -LiteralPath $SourceFileInbox)) {
   $SourceFile = $SourceFileInbox
 }
-if ((-not $SourceFile) -and (-not $SourceHtml) -and (-not $SecondaryConstituentsCsv)) {
+if ((-not $SourceFile) -and (-not $SourceHtml) -and (-not $CrosscheckConstituentsFile)) {
+  $CrosscheckDirectories = Get-ChildItem -Path (Join-Path $ProjectRoot "outputs") -Directory -Filter "sp500_crosscheck_*" -ErrorAction SilentlyContinue
+  $LatestCrosscheck = $CrosscheckDirectories |
+    ForEach-Object {
+      Get-ChildItem -Path $_.FullName -File -Filter "sp500_full_constituents_crosscheck_*.xlsx" -ErrorAction SilentlyContinue
+    } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+  if ($LatestCrosscheck) {
+    $CrosscheckConstituentsFile = $LatestCrosscheck.FullName
+  }
+}
+if ((-not $SourceFile) -and (-not $SourceHtml) -and (-not $CrosscheckConstituentsFile) -and (-not $SecondaryConstituentsCsv)) {
   $DefaultSecondaryConstituentsCsv = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
   if (Test-Path -LiteralPath $DefaultSecondaryConstituentsCsv) {
     $SecondaryConstituentsCsv = $DefaultSecondaryConstituentsCsv
@@ -70,6 +83,7 @@ Write-Host "Template: $Template"
 Write-Host "SourceUrl: $SourceUrl"
 Write-Host "SourceHtml: $SourceHtml"
 Write-Host "SourceFile: $SourceFile"
+Write-Host "CrosscheckConstituentsFile: $CrosscheckConstituentsFile"
 Write-Host "SecondaryConstituentsCsv: $SecondaryConstituentsCsv"
 Write-Host "Output: $Output"
 Write-Host "Report: $Report"
@@ -80,7 +94,7 @@ Write-Host "SourceFileRequest: $SourceFileRequest"
 Write-Host "SourceFileInbox: $SourceFileInbox"
 Write-Host "UserAgent: $UserAgent"
 Write-Host "AsOfDate: $AsOfDate"
-Write-Host "Reads: us_sp500_current_membership_sources_template.csv, official S&P Global source, secondary public constituents fallback"
+Write-Host "Reads: us_sp500_current_membership_sources_template.csv, official S&P Global source, crosscheck substitute file, secondary public constituents fallback"
 Write-Host "Writes: us_sp500_current_membership_sources.csv, latest_sp500_current_membership_sources.md, latest_sp500_current_membership_sources.json, sp500_current_membership_source_intake_template.csv, sp500_current_membership_source_review_queue.csv, sp500_current_membership_source_file_request.md"
 
 if ($DryRun) {
@@ -102,8 +116,8 @@ if ($DryRun) {
     if ($LASTEXITCODE -ne 0) {
       throw "S&P 500 current membership source dry-run validation failed with exit code $LASTEXITCODE."
     }
-  } elseif ($SecondaryConstituentsCsv) {
-    $dryRunRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sp500-secondary-dryrun-" + [System.Guid]::NewGuid().ToString("N"))
+  } elseif ($CrosscheckConstituentsFile -or $SecondaryConstituentsCsv) {
+    $dryRunRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sp500-current-source-dryrun-" + [System.Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force -Path $dryRunRoot | Out-Null
     try {
       $dryRunArgs = @(
@@ -111,7 +125,6 @@ if ($DryRun) {
         "--template", $Template,
         "--source-url", $SourceUrl,
         "--as-of-date", $AsOfDate,
-        "--secondary-constituents-csv", $SecondaryConstituentsCsv,
         "--output", (Join-Path $dryRunRoot "sources.csv"),
         "--report", (Join-Path $dryRunRoot "sources.md"),
         "--json-output", (Join-Path $dryRunRoot "sources.json"),
@@ -119,12 +132,18 @@ if ($DryRun) {
         "--source-file-request", (Join-Path $dryRunRoot "source_file_request.md"),
         "--source-file-inbox", $SourceFileInbox
       )
+      if ($CrosscheckConstituentsFile) {
+        $dryRunArgs += @("--crosscheck-constituents-file", $CrosscheckConstituentsFile)
+      }
+      if ($SecondaryConstituentsCsv) {
+        $dryRunArgs += @("--secondary-constituents-csv", $SecondaryConstituentsCsv)
+      }
       if ($UserAgent) {
         $dryRunArgs += @("--user-agent", $UserAgent)
       }
       & $Python @dryRunArgs
       if ($LASTEXITCODE -ne 0) {
-        throw "S&P 500 secondary current membership source dry-run validation failed with exit code $LASTEXITCODE."
+        throw "S&P 500 current membership substitute dry-run validation failed with exit code $LASTEXITCODE."
       }
     } finally {
       Remove-Item -LiteralPath $dryRunRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -156,6 +175,9 @@ if ($SourceHtml) {
 }
 if ($SourceFile) {
   $args += @("--source-file", $SourceFile)
+}
+if ($CrosscheckConstituentsFile) {
+  $args += @("--crosscheck-constituents-file", $CrosscheckConstituentsFile)
 }
 if ($SecondaryConstituentsCsv) {
   $args += @("--secondary-constituents-csv", $SecondaryConstituentsCsv)

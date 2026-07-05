@@ -44,6 +44,20 @@ OFFICIAL_EXPORT_URL = (
 PUBLIC_CONSTITUENTS_SOURCE_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 PUBLIC_CONSTITUENTS_SEC_RECONCILIATION_URL = "https://www.sec.gov/files/company_tickers_exchange.json"
 DEFAULT_PUBLIC_CONSTITUENTS_CSV = "data/config/us_universe_symbols.csv"
+CROSSCHECK_SUBSTITUTE_SOURCE_URL = "local://sp500_crosscheck_substitute"
+DEFAULT_CROSSCHECK_CONSTITUENTS_GLOB = "outputs/sp500_crosscheck_*/sp500_full_constituents_crosscheck_*.xlsx"
+CROSSCHECK_WORKLIST_SHEETS = (
+    "工作清单_503",
+    "worklist",
+    "constituents",
+    "全量对照_510",
+)
+CROSSCHECK_SOURCE_QUALITY_FLAGS = [
+    "crosscheck_substitute_source",
+    "public_lists_are_reference_only",
+    "etf_holdings_are_not_index_authority",
+    "announcements_are_not_full_current_file",
+]
 SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE = (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
     "scripts\\run_sp500_current_membership_sources.ps1 "
@@ -212,10 +226,35 @@ def _source_file_ticker_columns(fieldnames):
     ]
 
 
-def _read_source_file_rows(source_file):
+def _read_xlsx_rows(source_file, preferred_sheet_names=None):
+    try:
+        import openpyxl
+    except ImportError as exc:
+        raise RuntimeError("openpyxl is required to read .xlsx source files") from exc
+
+    workbook = openpyxl.load_workbook(source_file, read_only=True, data_only=True)
+    try:
+        preferred = [name for name in preferred_sheet_names or [] if name in workbook.sheetnames]
+        remaining = [name for name in workbook.sheetnames if name not in preferred]
+        for sheet_name in preferred + remaining:
+            sheet = workbook[sheet_name]
+            rows = [
+                ["" if value is None else str(value).strip() for value in row]
+                for row in sheet.iter_rows(values_only=True)
+            ]
+            if any(_source_file_ticker_columns(row) for row in rows):
+                return rows
+        return []
+    finally:
+        workbook.close()
+
+
+def _read_source_file_rows(source_file, preferred_sheet_names=None):
     source = Path(source_file)
     if not source.exists():
         raise FileNotFoundError(source)
+    if source.suffix.lower() in {".xlsx", ".xlsm"}:
+        return _read_xlsx_rows(source, preferred_sheet_names=preferred_sheet_names)
     text = source.read_text(encoding="utf-8-sig", errors="replace")
     if re.search(r"<\s*table\b", text, flags=re.IGNORECASE):
         parser = _HtmlTableRowsParser()
@@ -225,8 +264,8 @@ def _read_source_file_rows(source_file):
         return list(csv.reader(handle))
 
 
-def _source_file_header_and_data_rows(source_file):
-    rows = _read_source_file_rows(source_file)
+def _source_file_header_and_data_rows(source_file, preferred_sheet_names=None):
+    rows = _read_source_file_rows(source_file, preferred_sheet_names=preferred_sheet_names)
     first_non_empty = []
     for index, row in enumerate(rows):
         normalized_row = [str(cell or "").strip() for cell in row]
@@ -283,7 +322,29 @@ def parse_public_current_tickers_from_constituents_csv(source_file):
             or row.get("Ticker")
         )
         if ticker and re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", ticker):
-            tickers.add(ticker)
+                tickers.add(ticker)
+    return tickers
+
+
+def parse_crosscheck_current_tickers_from_file(source_file):
+    source = Path(source_file)
+    if not source.exists():
+        raise FileNotFoundError(source)
+    fieldnames, data_rows = _source_file_header_and_data_rows(
+        source,
+        preferred_sheet_names=CROSSCHECK_WORKLIST_SHEETS,
+    )
+    ticker_columns = _source_file_ticker_columns(fieldnames)
+    if not ticker_columns:
+        raise ValueError("crosscheck file must contain a Symbol or Ticker column")
+    tickers = set()
+    for values in data_rows:
+        row = dict(zip(fieldnames, values))
+        for column in ticker_columns:
+            ticker = normalize_ticker(row.get(column))
+            if ticker and re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", ticker):
+                tickers.add(ticker)
+                break
     return tickers
 
 
@@ -494,6 +555,77 @@ def build_secondary_current_membership_sources_from_constituents_csv(
     }
 
 
+def build_crosscheck_substitute_current_membership_sources_from_file(
+    template_path,
+    crosscheck_constituents_file,
+    as_of_date=None,
+    source_url=CROSSCHECK_SUBSTITUTE_SOURCE_URL,
+):
+    requested = _template_tickers(template_path)
+    crosscheck = parse_crosscheck_current_tickers_from_file(crosscheck_constituents_file)
+    source_quality_flags = list(CROSSCHECK_SOURCE_QUALITY_FLAGS)
+    if len(crosscheck) < MINIMUM_OFFICIAL_TICKER_COUNT:
+        source_quality_flags.append("crosscheck_ticker_count_below_minimum")
+    crosscheck_for_matching = crosscheck if len(crosscheck) >= MINIMUM_OFFICIAL_TICKER_COUNT else set()
+    matched = [ticker for ticker in requested if ticker in crosscheck_for_matching]
+    missing = [ticker for ticker in requested if ticker not in crosscheck_for_matching]
+    status = (
+        "crosscheck_substitute_ready"
+        if "crosscheck_ticker_count_below_minimum" not in source_quality_flags
+        else "crosscheck_substitute_incomplete"
+    )
+    next_action = (
+        "run_screening_with_crosscheck_current_membership"
+        if status == "crosscheck_substitute_ready"
+        else "refresh_crosscheck_substitute_file"
+    )
+    rows = [
+        {
+            "ticker": ticker,
+            "membership_evidence": "secondary",
+            "membership_source_url": source_url,
+            "source_as_of_date": as_of_date or date.today().isoformat(),
+            "notes": (
+                "Matched ticker in crosscheck substitute S&P 500 current list. "
+                "Public lists are reference-only, ETF holdings are not index authority, "
+                "and announcements are not a full current file."
+            ),
+        }
+        for ticker in matched
+    ]
+    return {
+        "source_schema": SOURCE_SCHEMA,
+        "source_version": SOURCE_VERSION,
+        "status": status,
+        "as_of_date": as_of_date or date.today().isoformat(),
+        "source_url": source_url,
+        "crosscheck_constituents_file": str(crosscheck_constituents_file),
+        "crosscheck_constituents_glob": DEFAULT_CROSSCHECK_CONSTITUENTS_GLOB,
+        "source_trust_level": "crosscheck_substitute",
+        "source_policy_reason": "user_accepted_non_official_crosscheck_substitute",
+        "requested_count": len(requested),
+        "parsed_official_ticker_count": 0,
+        "parsed_secondary_ticker_count": 0,
+        "parsed_crosscheck_ticker_count": len(crosscheck),
+        "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "source_quality_flags": source_quality_flags,
+        "matched_count": len(rows),
+        "missing_count": len(missing),
+        "missing_tickers": missing,
+        "missing_ticker_review_queue": _missing_ticker_review_queue(missing, source_url, status),
+        "next_action": next_action,
+        "recommended_followup": "refresh_crosscheck_substitute_weekly",
+        "source_file_required_columns": [],
+        "formal_backtest_upgrade_allowed": False,
+        "official_full_file_required": False,
+        "rows": rows,
+        "boundary": (
+            "Crosscheck substitute is accepted for weekly current screening only; "
+            "it is not an official S&P DJI full export and cannot upgrade formal backtest evidence."
+        ),
+    }
+
+
 def build_current_membership_sources(template_path, html_text, source_url, as_of_date=None):
     return build_current_membership_sources_from_tickers(
         template_path,
@@ -629,7 +761,7 @@ def add_intake_coverage(payload, intake_template):
     payload["intake_matched_count"] = len(expected) - len(missing)
     payload["intake_missing_count"] = len(missing)
     payload["intake_missing_tickers"] = missing
-    if payload.get("source_trust_level") == "secondary" and payload.get("recommended_followup"):
+    if payload.get("source_trust_level") in {"secondary", "crosscheck_substitute"} and payload.get("recommended_followup"):
         pass
     elif status in {"complete", "partial"}:
         payload["recommended_followup"] = "run_membership_evidence_import_plan_then_apply_preview"
@@ -686,6 +818,7 @@ def render_report(payload):
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
         f"- parsed_secondary_ticker_count: {payload.get('parsed_secondary_ticker_count', 0)}",
+        f"- parsed_crosscheck_ticker_count: {payload.get('parsed_crosscheck_ticker_count', 0)}",
         f"- top_constituents_only_max_count: {payload.get('top_constituents_only_max_count', 0)}",
         f"- matched_count: {payload.get('matched_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",
@@ -736,6 +869,10 @@ def render_report(payload):
         lines.append(
             f"- secondary_reconciliation_url: {payload.get('secondary_reconciliation_url', '')}"
         )
+    if payload.get("crosscheck_constituents_file"):
+        lines.append(f"- crosscheck_constituents_file: {payload.get('crosscheck_constituents_file', '')}")
+    if payload.get("crosscheck_constituents_glob"):
+        lines.append(f"- crosscheck_constituents_glob: {payload.get('crosscheck_constituents_glob', '')}")
     if payload.get("source_file_user_agent_hint"):
         lines.append(f"- source_file_user_agent_hint: {payload.get('source_file_user_agent_hint', '')}")
     if payload.get("source_file_ticker_columns"):
@@ -893,6 +1030,7 @@ def main():
     parser.add_argument("--source-url", default="https://www.spglobal.com/spdji/en/indices/equity/sp-500/")
     parser.add_argument("--source-html", default="")
     parser.add_argument("--source-file", default="")
+    parser.add_argument("--crosscheck-constituents-file", default="")
     parser.add_argument("--secondary-constituents-csv", default="")
     parser.add_argument("--as-of-date", default="")
     parser.add_argument("--output", default="data/config/us_sp500_current_membership_sources.csv")
@@ -921,6 +1059,12 @@ def main():
                 as_of_date=args.as_of_date or None,
             )
             payload["source_file_ticker_columns"] = source_file_ticker_columns
+        elif args.crosscheck_constituents_file:
+            payload = build_crosscheck_substitute_current_membership_sources_from_file(
+                args.template,
+                args.crosscheck_constituents_file,
+                as_of_date=args.as_of_date or None,
+            )
         elif args.secondary_constituents_csv:
             payload = build_secondary_current_membership_sources_from_constituents_csv(
                 args.template,
