@@ -461,6 +461,11 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["next_action"], "provide_official_constituents_csv")
             self.assertEqual(payload["source_file_required_columns"], ["Symbol", "Ticker"])
             self.assertIn("official_ticker_count_below_minimum", payload["source_quality_flags"])
+            self.assertIn("official_top_constituents_only", payload["source_quality_flags"])
+            self.assertEqual(
+                payload["source_file_rejection_reason"],
+                "official_top_constituents_only",
+            )
             self.assertFalse(payload["formal_backtest_upgrade_allowed"])
 
     def test_rejects_unofficial_source_url(self):

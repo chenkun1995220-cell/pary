@@ -16,6 +16,7 @@ from sp500_constituents import normalize_ticker
 SOURCE_SCHEMA = "sp500_current_membership_sources"
 SOURCE_VERSION = 1
 MINIMUM_OFFICIAL_TICKER_COUNT = 400
+TOP_CONSTITUENTS_ONLY_MAX_COUNT = 10
 SOURCE_FILE_REQUIRED_COLUMNS = ["Symbol", "Ticker"]
 SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
     "Symbol",
@@ -326,16 +327,24 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
     source_quality_flags = []
     if len(official) < MINIMUM_OFFICIAL_TICKER_COUNT:
         source_quality_flags.append("official_ticker_count_below_minimum")
+    if 0 < len(official) <= TOP_CONSTITUENTS_ONLY_MAX_COUNT:
+        source_quality_flags.append("official_top_constituents_only")
     official_for_matching = official if not source_quality_flags else set()
     matched = [ticker for ticker in requested if ticker in official_for_matching]
     missing = [ticker for ticker in requested if ticker not in official_for_matching]
     status = "ready"
     next_action = "import_current_membership_sources"
     source_file_required_columns = []
+    source_file_rejection_reason = ""
     if source_quality_flags:
         status = "source_file_required"
         next_action = "provide_official_constituents_csv"
         source_file_required_columns = SOURCE_FILE_REQUIRED_COLUMNS
+        source_file_rejection_reason = (
+            "official_top_constituents_only"
+            if "official_top_constituents_only" in source_quality_flags
+            else "official_ticker_count_below_minimum"
+        )
     elif missing:
         next_action = "review_missing_tickers"
     rows = [
@@ -359,7 +368,9 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
         "requested_count": len(requested),
         "parsed_official_ticker_count": len(official),
         "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "top_constituents_only_max_count": TOP_CONSTITUENTS_ONLY_MAX_COUNT,
         "source_quality_flags": source_quality_flags,
+        "source_file_rejection_reason": source_file_rejection_reason,
         "matched_count": len(rows),
         "missing_count": len(missing),
         "missing_tickers": missing,
@@ -637,10 +648,12 @@ def render_report(payload):
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
         f"- parsed_secondary_ticker_count: {payload.get('parsed_secondary_ticker_count', 0)}",
+        f"- top_constituents_only_max_count: {payload.get('top_constituents_only_max_count', 0)}",
         f"- matched_count: {payload.get('matched_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",
         f"- next_action: {payload.get('next_action', '')}",
         f"- source_file_required_columns: {', '.join(payload.get('source_file_required_columns') or [])}",
+        f"- source_file_rejection_reason: {payload.get('source_file_rejection_reason', '')}",
         f"- intake_coverage_status: {payload.get('intake_coverage_status', '')}",
         f"- intake_expected_count: {payload.get('intake_expected_count', 0)}",
         f"- intake_matched_count: {payload.get('intake_matched_count', 0)}",
@@ -751,6 +764,8 @@ def render_source_file_request(payload, missing_limit=20):
         "- acceptance_criteria: " + ", ".join(payload.get("source_file_acceptance_criteria") or []),
         f"- source_file_user_agent_hint: {payload.get('source_file_user_agent_hint', '')}",
         f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
+        f"- top_constituents_only_max_count: {payload.get('top_constituents_only_max_count', 0)}",
+        f"- source_file_rejection_reason: {payload.get('source_file_rejection_reason', '')}",
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",
         f"- intake_template: {payload.get('source_file_intake_template', '')}",
