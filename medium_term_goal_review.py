@@ -22,6 +22,8 @@ INPUT_FILES = {
     "pre_submit": "latest_pre_submit_review.json",
     "automation_check": "latest_automation_check.json",
     "weekly_ops": "latest_weekly_ops_check.json",
+    "weekly_ops_history": "latest_weekly_ops_history_summary.json",
+    "weekly_delivery_history": "latest_weekly_delivery_history_summary.json",
     "weekly_action_items": "latest_weekly_action_items.json",
     "data_health": "latest_data_health_review.json",
     "candidate_findings": "latest_candidate_findings_review.json",
@@ -168,6 +170,20 @@ def _goal_completion_percent(goal):
     if goal_code == "weekly_delivery_stability" and status == "on_track":
         action_count = _int_value(current.get("weekly_action_items_count"))
         percent = 85 if action_count <= 8 else 75
+        if (
+            percent >= 85
+            and _int_value(current.get("weekly_delivery_history_ready_count")) >= 4
+            and _int_value(current.get("weekly_delivery_history_window_size")) >= 4
+            and _int_value(current.get("weekly_delivery_history_needs_attention_count")) == 0
+            and _int_value(current.get("weekly_delivery_history_stale_count")) == 0
+            and _int_value(current.get("weekly_delivery_history_action_items_problem_count")) == 0
+            and _int_value(current.get("weekly_delivery_history_conclusion_signal_problem_count")) == 0
+            and _int_value(current.get("weekly_ops_history_ready_count")) >= 4
+            and _int_value(current.get("weekly_ops_history_window_size")) >= 4
+            and _int_value(current.get("weekly_ops_history_needs_attention_count")) == 0
+            and _int_value(current.get("weekly_ops_history_stale_count")) == 0
+        ):
+            percent = 90
     elif goal_code == "backtest_evidence_quality":
         ratio = _float_value(current.get("verified_membership_ratio"))
         weak_rows = _int_value(current.get("weak_evidence_rows"))
@@ -272,8 +288,17 @@ def _task_closeout_snapshot(goals, goal_code=""):
     }
 
 
-def _weekly_delivery_goal(pre_submit, weekly_ops, automation_check, weekly_action_items=None):
+def _weekly_delivery_goal(
+    pre_submit,
+    weekly_ops,
+    automation_check,
+    weekly_action_items=None,
+    weekly_ops_history=None,
+    weekly_delivery_history=None,
+):
     weekly_action_items = weekly_action_items or {}
+    weekly_ops_history = weekly_ops_history or {}
+    weekly_delivery_history = weekly_delivery_history or {}
     backlog_plan = weekly_action_items.get("backlog_reduction_plan", [])
     core = _status_for_core(pre_submit, weekly_ops, automation_check)
     backlog_plan_status = _backlog_reduction_plan_status(weekly_action_items)
@@ -309,6 +334,36 @@ def _weekly_delivery_goal(pre_submit, weekly_ops, automation_check, weekly_actio
             "weekly_action_backlog_reduction_plan_categories": len(backlog_plan)
             if isinstance(backlog_plan, list)
             else 0,
+            "weekly_delivery_history_ready_count": _int_value(
+                weekly_delivery_history.get("ready_count")
+            ),
+            "weekly_delivery_history_window_size": _int_value(
+                weekly_delivery_history.get("window_size")
+            ),
+            "weekly_delivery_history_needs_attention_count": _int_value(
+                weekly_delivery_history.get("needs_attention_count")
+            ),
+            "weekly_delivery_history_stale_count": _int_value(
+                weekly_delivery_history.get("stale_count")
+            ),
+            "weekly_delivery_history_action_items_problem_count": _int_value(
+                weekly_delivery_history.get("action_items_problem_count")
+            ),
+            "weekly_delivery_history_conclusion_signal_problem_count": _int_value(
+                weekly_delivery_history.get("conclusion_signal_problem_count")
+            ),
+            "weekly_ops_history_ready_count": _int_value(
+                weekly_ops_history.get("ready_count")
+            ),
+            "weekly_ops_history_window_size": _int_value(
+                weekly_ops_history.get("window_size")
+            ),
+            "weekly_ops_history_needs_attention_count": _int_value(
+                weekly_ops_history.get("needs_attention_count")
+            ),
+            "weekly_ops_history_stale_count": _int_value(
+                weekly_ops_history.get("stale_count")
+            ),
         },
         "连续 4-6 周保持三市场 ready，提交前复核 ready，关键产物无缺失或过期。",
         next_action,
@@ -803,6 +858,8 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
     pre_submit = inputs["pre_submit"]
     automation_check = inputs["automation_check"]
     weekly_ops = inputs["weekly_ops"]
+    weekly_ops_history = inputs["weekly_ops_history"]
+    weekly_delivery_history = inputs["weekly_delivery_history"]
     weekly_action_items = inputs["weekly_action_items"]
     data_health = inputs["data_health"]
     candidate_findings = inputs["candidate_findings"]
@@ -820,7 +877,14 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
 
     core_delivery_status = _status_for_core(pre_submit, weekly_ops, automation_check)
     goals = [
-        _weekly_delivery_goal(pre_submit, weekly_ops, automation_check, weekly_action_items),
+        _weekly_delivery_goal(
+            pre_submit,
+            weekly_ops,
+            automation_check,
+            weekly_action_items,
+            weekly_ops_history,
+            weekly_delivery_history,
+        ),
         _data_quality_goal(data_health, automation_check),
         _candidate_review_goal(candidate_findings),
         _forecast_goal(forecast_performance),

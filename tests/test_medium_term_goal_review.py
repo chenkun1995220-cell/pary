@@ -412,6 +412,14 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 goals["weekly_delivery_stability"]["current"]["weekly_action_backlog_reduction_plan_categories"],
                 2,
             )
+            self.assertEqual(
+                goals["weekly_delivery_stability"]["current"]["weekly_delivery_history_ready_count"],
+                0,
+            )
+            self.assertEqual(
+                goals["weekly_delivery_stability"]["current"]["weekly_ops_history_ready_count"],
+                0,
+            )
             self.assertEqual(goals["data_quality_convergence"]["status"], "on_track")
             self.assertEqual(goals["candidate_review_convergence"]["status"], "on_track")
             self.assertEqual(goals["candidate_review_convergence"]["completion_percent"], 85)
@@ -762,6 +770,56 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             )
             self.assertNotIn("review_prediction_unavailable_signals", report)
             self.assertIn("weekly_action_backlog_reduction_plan_status=ready", report)
+
+    def test_weekly_delivery_reaches_target_with_four_ready_history_weeks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            write_json(
+                automation / "latest_weekly_delivery_history_summary.json",
+                {
+                    "history_summary_schema": "weekly_delivery_history_summary",
+                    "history_count": 4,
+                    "window_size": 4,
+                    "ready_count": 4,
+                    "needs_attention_count": 0,
+                    "stale_count": 0,
+                    "recommended_action": "continue_monitoring",
+                    "latest_status": "ready",
+                    "latest_freshness_status": "fresh",
+                    "action_items_ready_count": 4,
+                    "action_items_problem_count": 0,
+                    "conclusion_signal_ready_count": 4,
+                    "conclusion_signal_problem_count": 0,
+                },
+            )
+            write_json(
+                automation / "latest_weekly_ops_history_summary.json",
+                {
+                    "history_summary_schema": "weekly_ops_history_summary",
+                    "history_count": 4,
+                    "window_size": 4,
+                    "ready_count": 4,
+                    "needs_attention_count": 0,
+                    "stale_count": 0,
+                    "recommended_action": "continue_monitoring",
+                    "latest_status": "ready",
+                    "latest_freshness_status": "fresh",
+                },
+            )
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(root)
+            goals = {item["goal_code"]: item for item in payload["goals"]}
+            current = goals["weekly_delivery_stability"]["current"]
+
+            self.assertEqual(goals["weekly_delivery_stability"]["completion_percent"], 90)
+            self.assertEqual(goals["weekly_delivery_stability"]["completion_gap_percent"], 0)
+            self.assertEqual(current["weekly_delivery_history_ready_count"], 4)
+            self.assertEqual(current["weekly_delivery_history_window_size"], 4)
+            self.assertEqual(current["weekly_ops_history_ready_count"], 4)
+            self.assertEqual(current["weekly_ops_history_window_size"], 4)
 
     def test_ignores_refreshable_pre_submit_closeout_mismatch_for_core_delivery(self):
         with tempfile.TemporaryDirectory() as tmp:
