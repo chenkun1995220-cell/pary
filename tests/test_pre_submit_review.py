@@ -3039,6 +3039,28 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_official_csv_action_item_lacks_user_agent_hint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            source_path = root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json"
+            source = json.loads(source_path.read_text(encoding="utf-8-sig"))
+            source["source_file_user_agent_hint"] = (
+                "Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official "
+                "S&P Global fetches through PowerShell entrypoints."
+            )
+            write_json(source_path, source)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "sp500_current_membership_source_official_csv_action_item_missing_user_agent_hint",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_official_csv_action_item_lacks_machine_readable_column_and_criteria_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -2302,6 +2302,12 @@ def _sp500_current_membership_source_action_item_link_reasons(source_status, act
             return [
                 "sp500_current_membership_source_official_csv_action_item_acceptance_criteria_mismatch"
             ]
+        if _official_csv_action_item_user_agent_hint_missing(
+            recommended_check, source, source_status
+        ):
+            return [
+                "sp500_current_membership_source_official_csv_action_item_missing_user_agent_hint"
+            ]
         if _official_csv_action_item_source_acceptance_criteria_missing(source):
             return [
                 "sp500_current_membership_source_official_csv_action_item_source_missing_acceptance_criteria"
@@ -2442,6 +2448,19 @@ def _official_csv_action_item_acceptance_criteria_values(recommended_check):
     if not value and "验收条件：" in text:
         value = text.split("验收条件：", 1)[1].split("；", 1)[0]
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _official_csv_action_item_user_agent_hint_missing(
+    recommended_check, source, source_status
+):
+    expected = str(source_status.get("source_file_user_agent_hint", "") or "").strip()
+    if not expected:
+        return False
+    action_text = f"{source or ''} {recommended_check or ''}"
+    return (
+        "source_file_user_agent_hint" not in action_text
+        or "-UserAgent <user_agent>" not in action_text
+    )
 
 
 def _official_csv_action_item_source_acceptance_criteria_missing(source):
