@@ -32,6 +32,7 @@ $PowerShell = (Get-Command powershell.exe).Source
 $postSteps = @(
   @{ Label = "run_self_analysis"; Script = "run_self_analysis.ps1"; Critical = $true },
   @{ Label = "run_data_health_review"; Script = "run_data_health_review.ps1"; Critical = $true },
+  @{ Label = "run_data_quality_manual_review_plan"; Script = "run_data_quality_manual_review_plan.ps1"; Critical = $true },
   @{ Label = "run_backtest_evidence_review"; Script = "run_backtest_evidence_review.ps1"; Critical = $true },
   @{ Label = "run_sp500_current_membership_sources"; Script = "run_sp500_current_membership_sources.ps1"; Critical = $true },
   @{ Label = "check_sp500_current_membership_source_inbox"; Script = "check_sp500_current_membership_source_inbox.ps1"; Critical = $true },
