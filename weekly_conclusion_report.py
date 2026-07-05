@@ -1344,6 +1344,7 @@ def format_priority_input_gap_description(metadata, fallback):
         "source_file_inbox_import_command",
         "source_file_inbox_next_command",
     )
+    user_agent_hint = first_present(metadata, "source_file_user_agent_hint")
     if blocking_input:
         parts.append(f"投递入口={blocking_input}")
     if blocking_reason:
@@ -1354,6 +1355,8 @@ def format_priority_input_gap_description(metadata, fallback):
         parts.append(f"校验命令={dry_run_command}")
     if import_command:
         parts.append(f"导入命令={import_command}")
+    if user_agent_hint:
+        parts.append(f"source_file_user_agent_hint={user_agent_hint}")
     return "；".join(parts) or fallback
 
 

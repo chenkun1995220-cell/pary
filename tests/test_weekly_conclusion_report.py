@@ -567,6 +567,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                             "title": "核对当前 S&P 500 成分来源缺口",
                             "recommended_check": (
                                 "source_file_inbox:inputs/sp500_current_membership/official_constituents.csv; "
+                                "source_file_user_agent_hint=Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official S&P Global fetches through PowerShell entrypoints.; "
                                 "inbox_next_action=place_official_constituents_csv; "
                                 "inbox_external_input_required=true; "
                                 "inbox_blocking_reason=official_constituents_csv_missing; "
@@ -610,9 +611,16 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 "导入命令=",
                 payload["priority_action_details"][0]["description"],
             )
+            self.assertIn(
+                "source_file_user_agent_hint=Set SEC_USER_AGENT",
+                payload["priority_action_details"][0]["description"],
+            )
+            self.assertIn("-UserAgent <user_agent>", payload["priority_action_details"][0]["description"])
             self.assertIn("-DryRun -SourceFileInbox", payload["priority_input_gaps"][0]["dry_run_command"])
             self.assertIn("-SourceFileInbox", payload["priority_input_gaps"][0]["import_command"])
             self.assertIn("official_constituents.csv", markdown)
+            self.assertIn("source_file_user_agent_hint=Set SEC_USER_AGENT", markdown)
+            self.assertIn("-UserAgent <user_agent>", markdown)
             self.assertIn("投递入口", markdown)
             self.assertIn("阻塞原因", markdown)
             self.assertIn("导入命令", markdown)
