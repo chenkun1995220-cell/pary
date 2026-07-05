@@ -149,6 +149,37 @@ def write_membership_import_plan(path, ready_count=2):
     )
 
 
+def write_membership_apply_preview(path, preview_row_count=4):
+    payload = {
+        "preview_schema": "membership_evidence_apply_preview",
+        "preview_version": 1,
+        "as_of_date": "2026-07-06",
+        "status": "ready",
+        "current_source_pack": "outputs/automation/latest_membership_evidence_verified_source_pack.csv",
+        "eligible_ticker_count": 1,
+        "preview_row_count": preview_row_count,
+        "preview_weeks_affected": 2,
+        "invalid_source_ticker_count": 0,
+        "applied_to_historical_membership": False,
+        "formal_backtest_upgrade_allowed": False,
+        "items": [
+            {
+                "week": "2026-06-19",
+                "ticker": "ABT",
+                "company_name": "Abbott Laboratories",
+                "current_evidence": "secondary",
+                "proposed_evidence": "verified",
+                "proposed_membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+            }
+        ],
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_blocked_membership_import_plan(path):
     payload = {
         "review_schema": "membership_evidence_import_plan",
@@ -925,6 +956,40 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("run_membership_evidence_import_plan.ps1", apply_item["recommended_check"])
             self.assertIn("run_membership_evidence_apply_preview.ps1", apply_item["recommended_check"])
             self.assertIn("run_membership_evidence_apply_preview", report)
+
+    def test_adds_manual_confirmation_action_when_apply_preview_has_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            import_plan_path = root / "latest_membership_evidence_import_plan.json"
+            apply_preview_path = root / "latest_membership_evidence_apply_preview.json"
+            write_manifest(manifest_path)
+            write_membership_import_plan(import_plan_path)
+            write_membership_apply_preview(apply_preview_path)
+
+            from weekly_action_items import build_weekly_action_items, render_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                membership_import_plan=import_plan_path,
+                membership_apply_preview=apply_preview_path,
+            )
+            report = render_weekly_action_items(payload)
+
+            confirm_item = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "confirm_membership_evidence_apply_preview"
+            )
+            self.assertEqual(confirm_item["category"], "backtest")
+            self.assertIn("preview_row_count:4", confirm_item["source"])
+            self.assertIn("eligible_ticker_count:1", confirm_item["source"])
+            self.assertIn("applied_to_historical_membership:false", confirm_item["source"])
+            self.assertIn("formal_backtest_upgrade_allowed:false", confirm_item["source"])
+            self.assertIn("latest_membership_evidence_apply_preview.md", confirm_item["recommended_check"])
+            self.assertIn("人工确认", confirm_item["recommended_check"])
+            self.assertIn("不得自动修改 historical_membership.csv", confirm_item["recommended_check"])
+            self.assertIn("confirm_membership_evidence_apply_preview", report)
 
     def test_adds_verified_membership_supplement_action_when_sources_are_policy_blocked(self):
         with tempfile.TemporaryDirectory() as tmp:

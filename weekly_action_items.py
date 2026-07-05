@@ -10,6 +10,7 @@ ACTION_ITEMS_VERSION = 1
 EXPECTED_MANIFEST_SCHEMA = "self_analysis_manifest"
 EXPECTED_MANIFEST_VERSION = 1
 DEFAULT_MEMBERSHIP_IMPORT_PLAN = "outputs/automation/latest_membership_evidence_import_plan.json"
+DEFAULT_MEMBERSHIP_APPLY_PREVIEW = "outputs/automation/latest_membership_evidence_apply_preview.json"
 DEFAULT_CURRENT_MEMBERSHIP_SOURCES = "outputs/automation/latest_sp500_current_membership_sources.json"
 DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
     "outputs/automation/latest_sp500_current_membership_source_review_status.json"
@@ -557,6 +558,44 @@ def _membership_import_plan_action(import_plan):
             f"{ticker_text}; compare latest_membership_evidence_import_plan.md and "
             "latest_membership_evidence_apply_preview.md; keep this as preview only, "
             "without modifying historical_membership.csv or formal model parameters."
+        ),
+    }
+
+
+def _membership_apply_preview_confirmation_action(apply_preview):
+    if not isinstance(apply_preview, dict) or not apply_preview:
+        return None
+    preview_count = _int_value(apply_preview.get("preview_row_count"), 0)
+    if preview_count <= 0:
+        return None
+    eligible_count = _int_value(apply_preview.get("eligible_ticker_count"), 0)
+    weeks_affected = _int_value(apply_preview.get("preview_weeks_affected"), 0)
+    applied = bool(apply_preview.get("applied_to_historical_membership"))
+    formal_allowed = bool(apply_preview.get("formal_backtest_upgrade_allowed"))
+    source_pack = str(apply_preview.get("current_source_pack", "") or "").strip()
+    sample_tickers = [
+        str(item.get("ticker", "")).strip()
+        for item in apply_preview.get("items", []) or []
+        if isinstance(item, dict) and str(item.get("ticker", "")).strip()
+    ]
+    ticker_text = ", ".join(sample_tickers[:5]) or "preview rows"
+    return {
+        "action_code": "confirm_membership_evidence_apply_preview",
+        "category": "backtest",
+        "title": "人工确认成分证据导入预览",
+        "source": (
+            f"preview_row_count:{preview_count}; "
+            f"eligible_ticker_count:{eligible_count}; "
+            f"preview_weeks_affected:{weeks_affected}; "
+            f"current_source_pack:{source_pack}; "
+            f"applied_to_historical_membership:{str(applied).lower()}; "
+            f"formal_backtest_upgrade_allowed:{str(formal_allowed).lower()}"
+        ),
+        "recommended_check": (
+            "检查 outputs/automation/latest_membership_evidence_apply_preview.md，"
+            f"人工确认 {ticker_text} 的 proposed_evidence、source_as_of_date 和 S&P Global 来源；"
+            "确认后仍不得自动修改 historical_membership.csv 或正式模型参数，"
+            "只能进入人工批准后的只读导入/回放流程。"
         ),
     }
 
@@ -1129,6 +1168,7 @@ def _latest_as_of_date(*payloads):
 def build_weekly_action_items(
     manifest,
     membership_import_plan=None,
+    membership_apply_preview=None,
     current_membership_sources=None,
     current_membership_source_review_status=None,
     current_membership_source_inbox_status=None,
@@ -1144,6 +1184,7 @@ def build_weekly_action_items(
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
     import_plan = load_optional_json(membership_import_plan)
+    apply_preview = load_optional_json(membership_apply_preview)
     current_source_status = load_optional_json(current_membership_sources)
     current_source_review_status = load_optional_json(current_membership_source_review_status)
     current_source_inbox_status = load_optional_json(current_membership_source_inbox_status)
@@ -1230,6 +1271,15 @@ def build_weekly_action_items(
         membership_action["status"] = "open"
         items.append(membership_action)
 
+    apply_preview_action = _membership_apply_preview_confirmation_action(apply_preview)
+    if apply_preview_action and not any(
+        item.get("action_code") == apply_preview_action["action_code"] for item in items
+    ):
+        apply_preview_action = dict(apply_preview_action)
+        apply_preview_action["priority"] = len(items) + 1
+        apply_preview_action["status"] = "open"
+        items.append(apply_preview_action)
+
     current_source_action = _current_membership_source_action(
         current_source_status,
         current_source_review_status,
@@ -1276,6 +1326,7 @@ def build_weekly_action_items(
         "as_of_date": _latest_as_of_date(
             source,
             import_plan,
+            apply_preview,
             current_source_status,
             current_source_review_status,
             current_source_inbox_status,
@@ -1378,6 +1429,7 @@ def main():
     parser.add_argument("--output", default="outputs/automation/latest_weekly_action_items.json")
     parser.add_argument("--report", default="outputs/automation/latest_weekly_action_items.md")
     parser.add_argument("--membership-import-plan", default=DEFAULT_MEMBERSHIP_IMPORT_PLAN)
+    parser.add_argument("--membership-apply-preview", default=DEFAULT_MEMBERSHIP_APPLY_PREVIEW)
     parser.add_argument("--current-membership-sources", default=DEFAULT_CURRENT_MEMBERSHIP_SOURCES)
     parser.add_argument(
         "--current-membership-source-review-status",
@@ -1403,6 +1455,7 @@ def main():
     payload = build_weekly_action_items(
         args.manifest,
         membership_import_plan=args.membership_import_plan,
+        membership_apply_preview=args.membership_apply_preview,
         current_membership_sources=args.current_membership_sources,
         current_membership_source_review_status=args.current_membership_source_review_status,
         current_membership_source_inbox_status=args.current_membership_source_inbox_status,
