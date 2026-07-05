@@ -290,11 +290,28 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertEqual(payload["current_batch_invalid_count"], 0)
             self.assertEqual(payload["current_batch_tickers"], ["ABT", "ADM"])
             self.assertEqual(payload["current_batch_completion_ratio"], 0.5)
+            self.assertIn("current_batch_manual_checklist", payload)
+            self.assertEqual(len(payload["current_batch_manual_checklist"]), 1)
+            self.assertEqual(payload["current_batch_manual_checklist"][0]["ticker"], "ADM")
+            self.assertEqual(
+                payload["current_batch_manual_checklist"][0]["validation_reason"],
+                "manual_evidence_missing",
+            )
+            self.assertIn(
+                "membership_evidence=verified",
+                payload["current_batch_manual_checklist"][0]["manual_entry_instruction"],
+            )
+            self.assertIn(
+                "run_membership_evidence_source_intake_status.ps1",
+                payload["current_batch_manual_checklist"][0]["validation_command"],
+            )
             by_ticker = {row["ticker"]: row for row in payload["items"]}
             self.assertEqual(by_ticker["ABT"]["batch_id"], "2026-07-06-p1")
             self.assertEqual(by_ticker["ADM"]["batch_rank"], 2)
             self.assertIn("current_batch_id: 2026-07-06-p1", markdown)
             self.assertIn("current_batch_ready_count: 1", markdown)
+            self.assertIn("## current_batch_manual_checklist", markdown)
+            self.assertIn("ADM", markdown)
 
     def test_rejects_invalid_or_future_source_dates(self):
         with tempfile.TemporaryDirectory() as tmp:

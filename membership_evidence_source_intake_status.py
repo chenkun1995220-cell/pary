@@ -37,6 +37,8 @@ STATUS_FIELDS = [
     "validation_reason",
     "batch_id",
     "batch_rank",
+    "manual_entry_instruction",
+    "validation_command",
     "notes",
     "reviewer",
 ]
@@ -47,6 +49,10 @@ SOURCE_PACK_FIELDS = [
     "source_as_of_date",
     "notes",
 ]
+DEFAULT_VALIDATION_COMMAND = (
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+    "scripts\\run_membership_evidence_source_intake_status.ps1"
+)
 
 
 def _read_json(path):
@@ -79,6 +85,13 @@ def _parse_iso_date(value):
         return date.fromisoformat(text)
     except ValueError:
         return None
+
+
+def _manual_entry_instruction(ticker, accepted_domains):
+    return (
+        f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
+        f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date."
+    )
 
 
 def _queue_items(queue_payload):
@@ -129,6 +142,8 @@ def _intake_by_ticker(rows):
 
 def _validate_intake_row(queue_item, intake_row, review_date=None):
     ticker = queue_item.get("ticker", "")
+    accepted_domains = queue_item.get("accepted_source_domains", "spglobal.com,.spglobal.com")
+    default_instruction = _manual_entry_instruction(ticker, accepted_domains)
     if not intake_row:
         return {
             "priority": queue_item.get("priority", 0),
@@ -146,6 +161,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "validation_reason": "manual_evidence_missing",
             "batch_id": "",
             "batch_rank": 0,
+            "manual_entry_instruction": default_instruction,
+            "validation_command": DEFAULT_VALIDATION_COMMAND,
             "notes": "",
             "reviewer": "",
         }
@@ -157,6 +174,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     evidence_kind = str(intake_row.get("evidence_kind", "") or "").strip() or "current_constituents"
     batch_id = str(intake_row.get("batch_id", "") or "").strip()
     batch_rank = _int_value(intake_row.get("batch_rank"), 0)
+    manual_entry_instruction = str(intake_row.get("manual_entry_instruction", "") or "").strip() or default_instruction
+    validation_command = str(intake_row.get("validation_command", "") or "").strip() or DEFAULT_VALIDATION_COMMAND
     if not evidence and not source_url and not source_as_of_date:
         return {
             "priority": queue_item.get("priority", 0),
@@ -174,6 +193,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "validation_reason": "manual_evidence_missing",
             "batch_id": batch_id,
             "batch_rank": batch_rank,
+            "manual_entry_instruction": manual_entry_instruction,
+            "validation_command": validation_command,
             "notes": intake_row.get("notes", ""),
             "reviewer": intake_row.get("reviewer", ""),
         }
@@ -222,6 +243,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
         "validation_reason": validation_reason,
         "batch_id": batch_id,
         "batch_rank": batch_rank,
+        "manual_entry_instruction": manual_entry_instruction,
+        "validation_command": validation_command,
         "notes": intake_row.get("notes", ""),
         "reviewer": intake_row.get("reviewer", ""),
     }
@@ -270,6 +293,7 @@ def _current_batch_summary(items):
             "current_batch_invalid_count": 0,
             "current_batch_completion_ratio": 0.0,
             "current_batch_tickers": [],
+            "current_batch_manual_checklist": [],
         }
     latest_batch_id = sorted(
         {str(item.get("batch_id", "")) for item in batch_items if item.get("batch_id")}
@@ -278,6 +302,10 @@ def _current_batch_summary(items):
     ready_count = sum(1 for item in current_items if item["validation_status"] == "ready_current_source")
     pending_count = sum(1 for item in current_items if item["validation_status"] == "pending_manual_evidence")
     invalid_count = len(current_items) - ready_count - pending_count
+    sorted_items = sorted(
+        current_items,
+        key=lambda row: (_int_value(row.get("batch_rank"), 0), row.get("ticker", "")),
+    )
     return {
         "current_batch_id": latest_batch_id,
         "current_batch_count": len(current_items),
@@ -287,8 +315,21 @@ def _current_batch_summary(items):
         "current_batch_completion_ratio": round(ready_count / len(current_items), 4) if current_items else 0.0,
         "current_batch_tickers": [
             item.get("ticker", "")
-            for item in sorted(current_items, key=lambda row: (_int_value(row.get("batch_rank"), 0), row.get("ticker", "")))
+            for item in sorted_items
             if item.get("ticker")
+        ],
+        "current_batch_manual_checklist": [
+            {
+                "batch_rank": _int_value(item.get("batch_rank"), 0),
+                "ticker": item.get("ticker", ""),
+                "company_name": item.get("company_name", ""),
+                "validation_status": item.get("validation_status", ""),
+                "validation_reason": item.get("validation_reason", ""),
+                "manual_entry_instruction": item.get("manual_entry_instruction", ""),
+                "validation_command": item.get("validation_command", ""),
+            }
+            for item in sorted_items
+            if item.get("validation_status") != "ready_current_source"
         ],
     }
 
@@ -364,9 +405,23 @@ def render_markdown(payload):
         f"- template_status: {payload.get('template_status', '')}",
         f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
         "",
-        "| priority | ticker | company | status | trust | source_date | reason |",
+        "## current_batch_manual_checklist",
+        "",
+        "| batch_rank | ticker | company | status | reason | instruction | validation_command |",
         "|---:|---|---|---|---|---|---|",
     ]
+    for item in payload.get("current_batch_manual_checklist", []) or []:
+        lines.append(
+            "| {batch_rank} | {ticker} | {company_name} | {validation_status} | "
+            "{validation_reason} | {manual_entry_instruction} | {validation_command} |".format(**item)
+        )
+    if not payload.get("current_batch_manual_checklist"):
+        lines.append("| - | - | - | - | - | - | - |")
+    lines.extend([
+        "",
+        "| priority | ticker | company | status | trust | source_date | reason |",
+        "|---:|---|---|---|---|---|---|",
+    ])
     for item in payload.get("items", []) or []:
         lines.append(
             "| {priority} | {ticker} | {company_name} | {validation_status} | "
