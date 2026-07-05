@@ -117,7 +117,9 @@ def write_ready_delivery_files(root, as_of_date="2026-06-28"):
                     "direction_hit_rate": None,
                     "average_excess_return": None,
                     "next_one_week_evaluation_date": "2026-07-07",
+                    "next_one_week_evaluation_count": 42,
                     "next_one_month_evaluation_date": "2026-07-28",
+                    "next_one_month_evaluation_count": 42,
                     "path": "outputs/automation/latest_self_analysis_manifest.json",
                 },
             },
@@ -159,7 +161,9 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertEqual(result["conclusion_signal_status"], "ready")
             self.assertEqual(result["missing_conclusion_signals"], [])
             self.assertEqual(result["forecast_next_one_week_evaluation_date"], "2026-07-07")
+            self.assertEqual(result["forecast_next_one_week_evaluation_count"], 42)
             self.assertEqual(result["forecast_next_one_month_evaluation_date"], "2026-07-28")
+            self.assertEqual(result["forecast_next_one_month_evaluation_count"], 42)
             self.assertEqual(
                 result["conclusion_health_reasons"],
                 ["automation_check:manual_review_needed", "manual_review_pending:12"],
@@ -174,7 +178,9 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             self.assertIn("- 候选总数：64", report)
 
             self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
+            self.assertIn("forecast_next_one_week_evaluation_count=42", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
+            self.assertIn("forecast_next_one_month_evaluation_count=42", report)
 
     def test_delivery_check_reports_external_input_blockers_from_conclusion(self):
         with tempfile.TemporaryDirectory() as tmp:

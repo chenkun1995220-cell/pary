@@ -800,7 +800,9 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                 json.dumps(
                     {
                         "next_one_week_evaluation_date": "2026-07-05",
+                        "next_one_week_evaluation_count": 17,
                         "next_one_month_evaluation_date": "2026-07-26",
+                        "next_one_month_evaluation_count": 19,
                     },
                     ensure_ascii=False,
                     indent=2,
@@ -825,16 +827,28 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                 "2026-07-05",
             )
             self.assertEqual(
+                manifest["forecast_performance"]["next_one_week_evaluation_count"],
+                17,
+            )
+            self.assertEqual(
                 manifest["forecast_performance"]["next_one_month_evaluation_date"],
                 "2026-07-26",
             )
+            self.assertEqual(
+                manifest["forecast_performance"]["next_one_month_evaluation_count"],
+                19,
+            )
             self.assertEqual(check["forecast_performance_status"], "partial_sample_accumulating")
             self.assertEqual(check["forecast_next_one_week_evaluation_date"], "2026-07-05")
+            self.assertEqual(check["forecast_next_one_week_evaluation_count"], 17)
             self.assertEqual(check["forecast_next_one_month_evaluation_date"], "2026-07-26")
+            self.assertEqual(check["forecast_next_one_month_evaluation_count"], 19)
             self.assertIn("## 预测表现", report)
             self.assertIn("partial_sample_accumulating", report)
             self.assertIn("next_one_week_evaluation_date: 2026-07-05", report)
+            self.assertIn("next_one_week_evaluation_count: 17", report)
             self.assertIn("next_one_month_evaluation_date: 2026-07-26", report)
+            self.assertIn("next_one_month_evaluation_count: 19", report)
             self.assertIn("1w", report)
             self.assertIn("prediction_unavailable", report)
 

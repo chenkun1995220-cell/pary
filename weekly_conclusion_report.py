@@ -370,7 +370,12 @@ def read_forecast_performance_state(project_root, check_payload, check_path):
     fallback_review_path = Path(check_path).parent / "latest_forecast_performance_review.json"
     fallback_forecast = read_json(fallback_review_path)
     if isinstance(fallback_forecast, dict):
-        for key in ("next_one_week_evaluation_date", "next_one_month_evaluation_date"):
+        for key in (
+            "next_one_week_evaluation_date",
+            "next_one_week_evaluation_count",
+            "next_one_month_evaluation_date",
+            "next_one_month_evaluation_count",
+        ):
             if not forecast.get(key) and fallback_forecast.get(key):
                 forecast[key] = fallback_forecast.get(key)
     return {
@@ -383,7 +388,9 @@ def read_forecast_performance_state(project_root, check_payload, check_path):
         "direction_hit_rate": forecast.get("direction_hit_rate"),
         "average_excess_return": forecast.get("average_excess_return"),
         "next_one_week_evaluation_date": forecast.get("next_one_week_evaluation_date", ""),
+        "next_one_week_evaluation_count": forecast.get("next_one_week_evaluation_count", 0),
         "next_one_month_evaluation_date": forecast.get("next_one_month_evaluation_date", ""),
+        "next_one_month_evaluation_count": forecast.get("next_one_month_evaluation_count", 0),
         "path": relative_path(project_root, source_path),
     }
 
@@ -412,8 +419,12 @@ def format_forecast_performance_status(entry):
     )
     if entry.get("next_one_week_evaluation_date"):
         status += f" / next 1w {entry.get('next_one_week_evaluation_date')}"
+    if entry.get("next_one_week_evaluation_count"):
+        status += f" / next 1w count {entry.get('next_one_week_evaluation_count')}"
     if entry.get("next_one_month_evaluation_date"):
         status += f" / next 1m {entry.get('next_one_month_evaluation_date')}"
+    if entry.get("next_one_month_evaluation_count"):
+        status += f" / next 1m count {entry.get('next_one_month_evaluation_count')}"
     return status
 
 

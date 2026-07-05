@@ -565,7 +565,15 @@ def _forecast_performance_snapshot(project_root):
         "average_return": average_return,
         "average_excess_return": average_excess_return,
         "next_one_week_evaluation_date": review.get("next_one_week_evaluation_date", ""),
+        "next_one_week_evaluation_count": _as_int(
+            review.get("next_one_week_evaluation_count"),
+        )
+        or 0,
         "next_one_month_evaluation_date": review.get("next_one_month_evaluation_date", ""),
+        "next_one_month_evaluation_count": _as_int(
+            review.get("next_one_month_evaluation_count"),
+        )
+        or 0,
         "markets": markets,
     }
 
@@ -1133,8 +1141,14 @@ def _automation_check_payload(manifest, manifest_validation):
         "forecast_next_one_week_evaluation_date": (
             manifest.get("forecast_performance", {}).get("next_one_week_evaluation_date", "")
         ),
+        "forecast_next_one_week_evaluation_count": (
+            manifest.get("forecast_performance", {}).get("next_one_week_evaluation_count", 0)
+        ),
         "forecast_next_one_month_evaluation_date": (
             manifest.get("forecast_performance", {}).get("next_one_month_evaluation_date", "")
+        ),
+        "forecast_next_one_month_evaluation_count": (
+            manifest.get("forecast_performance", {}).get("next_one_month_evaluation_count", 0)
         ),
         "external_input_blocker_count": len(external_input_blockers),
         "external_input_blockers": external_input_blockers,
@@ -1727,7 +1741,9 @@ def _render(
             f"- missing_market_count: {forecast_performance.get('missing_market_count', 0)}",
             f"- direction_hit_rate: {_format_rate(forecast_performance.get('direction_hit_rate'))}",
             f"- next_one_week_evaluation_date: {forecast_performance.get('next_one_week_evaluation_date', '') or 'unknown'}",
+            f"- next_one_week_evaluation_count: {forecast_performance.get('next_one_week_evaluation_count', 0)}",
             f"- next_one_month_evaluation_date: {forecast_performance.get('next_one_month_evaluation_date', '') or 'unknown'}",
+            f"- next_one_month_evaluation_count: {forecast_performance.get('next_one_month_evaluation_count', 0)}",
             "",
             "| 模块 | 状态 | 总评估 | 成熟评估 | 1w | 1m | prediction_unavailable | 方向命中率 |",
             "|---|---|---:|---:|---:|---:|---:|---:|",

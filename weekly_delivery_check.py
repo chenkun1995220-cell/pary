@@ -70,7 +70,9 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     missing_conclusion_signal_fixes = {}
     external_input_blockers = []
     forecast_next_one_week_evaluation_date = ""
+    forecast_next_one_week_evaluation_count = 0
     forecast_next_one_month_evaluation_date = ""
+    forecast_next_one_month_evaluation_count = 0
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -107,8 +109,16 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
             forecast_next_one_week_evaluation_date = str(
                 forecast_performance.get("next_one_week_evaluation_date", "") or ""
             )
+            forecast_next_one_week_evaluation_count = _int_value(
+                forecast_performance.get("next_one_week_evaluation_count"),
+                0,
+            )
             forecast_next_one_month_evaluation_date = str(
                 forecast_performance.get("next_one_month_evaluation_date", "") or ""
+            )
+            forecast_next_one_month_evaluation_count = _int_value(
+                forecast_performance.get("next_one_month_evaluation_count"),
+                0,
             )
 
     required_outputs = _required_outputs(conclusion, conclusion_path)
@@ -176,7 +186,9 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         "external_input_blocker_count": len(external_input_blockers),
         "external_input_blockers": external_input_blockers,
         "forecast_next_one_week_evaluation_date": forecast_next_one_week_evaluation_date,
+        "forecast_next_one_week_evaluation_count": forecast_next_one_week_evaluation_count,
         "forecast_next_one_month_evaluation_date": forecast_next_one_month_evaluation_date,
+        "forecast_next_one_month_evaluation_count": forecast_next_one_month_evaluation_count,
         "action_items_status": action_items_status,
         "action_items_freshness_status": action_items_freshness_status,
         "action_items_age_days": action_items_age_days,
@@ -205,7 +217,9 @@ def render_delivery_check(result):
         f"- 周结论关键信号：{result.get('conclusion_signal_status', 'unknown')}",
         f"- 外部输入阻塞：{result.get('external_input_blocker_count', 0)}",
         f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+        f"- forecast_next_one_week_evaluation_count={result.get('forecast_next_one_week_evaluation_count', 0)}",
         f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
+        f"- forecast_next_one_month_evaluation_count={result.get('forecast_next_one_month_evaluation_count', 0)}",
         f"- 每周人工处理清单：{result.get('action_items_status', 'unknown')} / {result.get('action_items_count', 0)}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
     ]
@@ -453,6 +467,13 @@ def _conclusion_signal_fixes(missing_signals):
         signal: CONCLUSION_SIGNAL_FIXES.get(signal, "rerun_self_analysis_and_weekly_conclusion")
         for signal in missing_signals
     }
+
+
+def _int_value(value, default=0):
+    try:
+        return int(value if value not in (None, "") else default)
+    except (TypeError, ValueError):
+        return default
 
 
 def _external_input_blockers(conclusion):

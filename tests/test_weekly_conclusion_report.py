@@ -750,7 +750,9 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                     "total_evaluations": 80,
                     "mature_evaluations": 0,
                     "next_one_week_evaluation_date": "2026-07-07",
+                    "next_one_week_evaluation_count": 42,
                     "next_one_month_evaluation_date": "2026-07-28",
+                    "next_one_month_evaluation_count": 43,
                 },
             )
             write_json(
@@ -775,11 +777,21 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 "2026-07-07",
             )
             self.assertEqual(
+                payload["automation"]["forecast_performance"]["next_one_week_evaluation_count"],
+                42,
+            )
+            self.assertEqual(
                 payload["automation"]["forecast_performance"]["next_one_month_evaluation_date"],
                 "2026-07-28",
             )
+            self.assertEqual(
+                payload["automation"]["forecast_performance"]["next_one_month_evaluation_count"],
+                43,
+            )
             self.assertIn("next 1w 2026-07-07", markdown)
+            self.assertIn("next 1w count 42", markdown)
             self.assertIn("next 1m 2026-07-28", markdown)
+            self.assertIn("next 1m count 43", markdown)
 
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
