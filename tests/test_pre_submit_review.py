@@ -621,6 +621,19 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_membership_evidence_supplement_queue.json",
+        {
+            "queue_schema": "membership_evidence_supplement_queue",
+            "queue_version": 1,
+            "as_of_date": as_of_date,
+            "status": "action_required",
+            "queue_count": 50,
+            "official_evidence_required_count": 50,
+            "blocked_by_source_policy_count": 50,
+            "formal_backtest_upgrade_allowed": False,
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_membership_evidence_apply_preview.json",
         {
             "preview_schema": "membership_evidence_apply_preview",
@@ -1784,6 +1797,20 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn("missing_outputs", result["attention_reasons"])
             self.assertIn("membership_evidence_apply_preview", result["missing_outputs"])
+
+    def test_review_needs_attention_when_membership_supplement_queue_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_membership_evidence_supplement_queue.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("membership_evidence_supplement_queue", result["missing_outputs"])
 
     def test_review_needs_attention_when_sp500_current_source_status_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:

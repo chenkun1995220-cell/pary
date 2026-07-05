@@ -40,6 +40,7 @@ $postSteps = @(
   @{ Label = "apply_sp500_current_membership_source_review_decisions"; Script = "apply_sp500_current_membership_source_review_decisions.ps1"; Critical = $true },
   @{ Label = "run_sp500_current_membership_source_review_status"; Script = "run_sp500_current_membership_source_review_status.ps1"; Critical = $true },
   @{ Label = "run_membership_evidence_import_plan"; Script = "run_membership_evidence_import_plan.ps1"; Critical = $true },
+  @{ Label = "run_membership_evidence_supplement_queue"; Script = "run_membership_evidence_supplement_queue.ps1"; Critical = $true },
   @{ Label = "run_sp500_verified_source_plan"; Script = "run_sp500_verified_source_plan.ps1"; Critical = $true },
   @{ Label = "run_membership_evidence_apply_preview"; Script = "run_membership_evidence_apply_preview.ps1"; Critical = $true },
   @{ Label = "run_candidate_findings_review"; Script = "run_candidate_findings_review.ps1"; Critical = $true },

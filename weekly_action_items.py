@@ -561,6 +561,45 @@ def _membership_import_plan_action(import_plan):
     }
 
 
+def _membership_evidence_supplement_action(import_plan):
+    if not isinstance(import_plan, dict) or not import_plan:
+        return None
+    if _int_value(import_plan.get("ready_to_import_count"), 0) > 0:
+        return None
+    if str(import_plan.get("next_action", "") or "") != "supplement_verified_membership_evidence":
+        return None
+    blocked_count = _int_value(import_plan.get("blocked_by_source_policy_count"), 0)
+    invalid_count = _int_value(import_plan.get("invalid_source_count"), 0)
+    missing_count = _int_value(import_plan.get("missing_source_count"), 0)
+    if blocked_count <= 0 and invalid_count <= 0 and missing_count <= 0:
+        return None
+    weeks_affected = _int_value(import_plan.get("invalid_source_weeks_affected"), 0)
+    sample_tickers = [
+        str(item.get("ticker", "")).strip()
+        for item in import_plan.get("items", []) or []
+        if isinstance(item, dict) and str(item.get("ticker", "")).strip()
+    ]
+    ticker_text = ", ".join(sample_tickers[:5]) or "blocked membership evidence items"
+    return {
+        "action_code": "supplement_verified_membership_evidence",
+        "category": "backtest",
+        "title": "补充 S&P 500 历史成分 verified 证据",
+        "source": (
+            f"blocked_by_source_policy_count:{blocked_count}; "
+            f"invalid_source_count:{invalid_count}; "
+            f"missing_source_count:{missing_count}; "
+            f"invalid_source_weeks_affected:{weeks_affected}; "
+            "formal_backtest_upgrade_allowed:false"
+        ),
+        "recommended_check": (
+            "检查 outputs/automation/latest_membership_evidence_supplement_queue.md，"
+            f"优先处理 {ticker_text}；只接受 official S&P Global 成分页或指数公告作为 verified 证据，"
+            "crosscheck、ETF holdings、Wikipedia、GitHub、Kaggle 只能作为参考或交叉校验，"
+            "不得自动修改 historical_membership.csv 或正式模型参数。"
+        ),
+    }
+
+
 def _current_membership_source_action(source_status, review_status=None, inbox_status=None):
     review_status = review_status or {}
     inbox_status = inbox_status or {}
@@ -1210,6 +1249,15 @@ def build_weekly_action_items(
         forecast_gap_action["priority"] = len(items) + 1
         forecast_gap_action["status"] = "open"
         items.append(forecast_gap_action)
+
+    supplement_action = _membership_evidence_supplement_action(import_plan)
+    if supplement_action and not any(
+        item.get("action_code") == supplement_action["action_code"] for item in items
+    ):
+        supplement_action = dict(supplement_action)
+        supplement_action["priority"] = len(items) + 1
+        supplement_action["status"] = "open"
+        items.append(supplement_action)
 
     backlog_reduction_action = _backlog_reduction_action(source)
     if backlog_reduction_action and not any(

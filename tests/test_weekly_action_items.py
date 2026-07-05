@@ -149,6 +149,40 @@ def write_membership_import_plan(path, ready_count=2):
     )
 
 
+def write_blocked_membership_import_plan(path):
+    payload = {
+        "review_schema": "membership_evidence_import_plan",
+        "review_version": 1,
+        "as_of_date": "2026-07-05",
+        "status": "ready",
+        "ready_to_import_count": 0,
+        "ready_to_import_weeks_affected": 0,
+        "missing_source_count": 0,
+        "missing_source_weeks_affected": 0,
+        "invalid_source_count": 50,
+        "invalid_source_weeks_affected": 7800,
+        "blocked_by_source_policy_count": 50,
+        "next_action": "supplement_verified_membership_evidence",
+        "formal_backtest_upgrade_allowed": False,
+        "items": [
+            {
+                "rank": 1,
+                "ticker": "ABT",
+                "company_name": "Abbott Laboratories",
+                "import_status": "invalid_current_source",
+                "source_trust_level": "crosscheck_substitute",
+                "membership_source_url": "local://sp500_crosscheck_substitute",
+                "weeks_affected": 156,
+            }
+        ],
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_current_membership_sources(path):
     payload = {
         "source_schema": "sp500_current_membership_sources",
@@ -891,6 +925,34 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("run_membership_evidence_import_plan.ps1", apply_item["recommended_check"])
             self.assertIn("run_membership_evidence_apply_preview.ps1", apply_item["recommended_check"])
             self.assertIn("run_membership_evidence_apply_preview", report)
+
+    def test_adds_verified_membership_supplement_action_when_sources_are_policy_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            import_plan_path = root / "latest_membership_evidence_import_plan.json"
+            write_manifest(manifest_path)
+            write_blocked_membership_import_plan(import_plan_path)
+
+            from weekly_action_items import build_weekly_action_items, render_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                membership_import_plan=import_plan_path,
+            )
+            report = render_weekly_action_items(payload)
+
+            supplement_item = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "supplement_verified_membership_evidence"
+            )
+            self.assertEqual(supplement_item["category"], "backtest")
+            self.assertIn("blocked_by_source_policy_count:50", supplement_item["source"])
+            self.assertIn("invalid_source_weeks_affected:7800", supplement_item["source"])
+            self.assertIn("latest_membership_evidence_supplement_queue.md", supplement_item["recommended_check"])
+            self.assertIn("official S&P Global", supplement_item["recommended_check"])
+            self.assertIn("supplement_verified_membership_evidence", report)
 
     def test_adds_current_membership_source_review_action_when_missing_tickers_remain(self):
         with tempfile.TemporaryDirectory() as tmp:
