@@ -270,6 +270,67 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertEqual(payload["maturity_gap_reasons"]["prediction_unavailable"], 0)
             self.assertEqual(payload["markets"][0]["maturity_gap_reasons"]["pending_maturity"], 1)
 
+    def test_review_counts_next_due_forecast_samples_by_earliest_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for folder in ("us_universe", "cn_universe", "hk_universe"):
+                write_evaluations(root / "outputs" / folder / "forecast_evaluations.csv", [])
+            write_forecast_history(
+                root / "outputs" / "us_universe" / "forecast_history.csv",
+                [
+                    {
+                        "market": "US",
+                        "ticker": "AAA",
+                        "company_name": "Alpha",
+                        "generated_date": "2026-06-30",
+                        "one_week_expected_direction": "up",
+                        "one_month_expected_direction": "up",
+                    },
+                    {
+                        "market": "US",
+                        "ticker": "BBB",
+                        "company_name": "Beta",
+                        "generated_date": "2026-06-30",
+                        "one_week_expected_direction": "down",
+                        "one_month_expected_direction": "",
+                    },
+                ],
+            )
+            write_forecast_history(
+                root / "outputs" / "cn_universe" / "forecast_history.csv",
+                [
+                    {
+                        "market": "CN",
+                        "ticker": "CCC",
+                        "company_name": "Gamma",
+                        "generated_date": "2026-06-29",
+                        "one_week_expected_direction": "up",
+                        "one_month_expected_direction": "neutral",
+                    },
+                    {
+                        "market": "CN",
+                        "ticker": "DDD",
+                        "company_name": "Delta",
+                        "generated_date": "2026-06-29",
+                        "one_week_expected_direction": "down",
+                        "one_month_expected_direction": "down",
+                    },
+                ],
+            )
+
+            from forecast_performance_review import build_forecast_performance_review, render_forecast_performance_review
+
+            payload = build_forecast_performance_review(root, today="2026-07-05")
+            report = render_forecast_performance_review(payload)
+
+            self.assertEqual(payload["next_one_week_evaluation_date"], "2026-07-06")
+            self.assertEqual(payload["next_one_week_evaluation_count"], 2)
+            self.assertEqual(payload["next_one_month_evaluation_date"], "2026-07-27")
+            self.assertEqual(payload["next_one_month_evaluation_count"], 2)
+            self.assertEqual(payload["markets"][0]["forecast_history"]["latest_one_week_evaluation_count"], 2)
+            self.assertEqual(payload["markets"][0]["forecast_history"]["latest_one_month_evaluation_count"], 1)
+            self.assertIn("next_one_week_evaluation_count", report)
+
     def test_cli_writes_json_and_markdown(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -110,6 +110,19 @@ def _earliest_known_date(values):
     return min(known) if known else "unknown"
 
 
+def _evaluation_count_for_date(markets, horizon_key, target_date):
+    if not target_date or target_date == "unknown":
+        return 0
+    date_key = f"latest_{horizon_key}_evaluation_date"
+    count_key = f"latest_{horizon_key}_evaluation_count"
+    total = 0
+    for market in markets:
+        history = market.get("forecast_history", {}) or {}
+        if history.get(date_key) == target_date:
+            total += int(history.get(count_key) or 0)
+    return total
+
+
 def _has_short_signals(row):
     return bool(row.get("one_week_expected_direction")) and bool(row.get("one_month_expected_direction"))
 
@@ -137,6 +150,8 @@ def _forecast_history_review(path):
     missing = [row for row in rows if not _has_short_signals(row)]
     latest_rows = [row for row in rows if row.get("generated_date", "") == latest] if latest != "unknown" else []
     latest_missing = [row for row in latest_rows if not _has_short_signals(row)]
+    latest_one_week_ready = [row for row in latest_rows if row.get("one_week_expected_direction")]
+    latest_one_month_ready = [row for row in latest_rows if row.get("one_month_expected_direction")]
     legacy_missing = [
         row for row in missing if latest == "unknown" or row.get("generated_date", "") != latest
     ]
@@ -163,6 +178,8 @@ def _forecast_history_review(path):
         "legacy_short_signal_missing_count": len(legacy_missing),
         "latest_one_week_evaluation_date": _date_after(latest, FORECAST_MATURITY_DAYS["one_week"]),
         "latest_one_month_evaluation_date": _date_after(latest, FORECAST_MATURITY_DAYS["one_month"]),
+        "latest_one_week_evaluation_count": len(latest_one_week_ready),
+        "latest_one_month_evaluation_count": len(latest_one_month_ready),
         "latest_missing_samples": [sample(row) for row in latest_missing[:20]],
         "legacy_missing_samples": [sample(row) for row in legacy_missing[:5]],
     }
@@ -284,6 +301,12 @@ def build_forecast_performance_review(project_root=".", markets=None, today=None
     average_excess_return = _average(
         item.get("average_excess_return") for item in reviewed if item.get("average_excess_return") is not None
     )
+    next_one_week_evaluation_date = _earliest_known_date(
+        item.get("forecast_history", {}).get("latest_one_week_evaluation_date") for item in reviewed
+    )
+    next_one_month_evaluation_date = _earliest_known_date(
+        item.get("forecast_history", {}).get("latest_one_month_evaluation_date") for item in reviewed
+    )
     status, recommended_action = _overall_status(
         mature,
         missing_market_count,
@@ -319,11 +342,13 @@ def build_forecast_performance_review(project_root=".", markets=None, today=None
         "legacy_short_signal_missing_count": sum(
             item.get("forecast_history", {}).get("legacy_short_signal_missing_count", 0) for item in reviewed
         ),
-        "next_one_week_evaluation_date": _earliest_known_date(
-            item.get("forecast_history", {}).get("latest_one_week_evaluation_date") for item in reviewed
+        "next_one_week_evaluation_date": next_one_week_evaluation_date,
+        "next_one_week_evaluation_count": _evaluation_count_for_date(
+            reviewed, "one_week", next_one_week_evaluation_date
         ),
-        "next_one_month_evaluation_date": _earliest_known_date(
-            item.get("forecast_history", {}).get("latest_one_month_evaluation_date") for item in reviewed
+        "next_one_month_evaluation_date": next_one_month_evaluation_date,
+        "next_one_month_evaluation_count": _evaluation_count_for_date(
+            reviewed, "one_month", next_one_month_evaluation_date
         ),
         "missing_market_count": missing_market_count,
         "direction_hits": hits,
@@ -363,7 +388,9 @@ def render_forecast_performance_review(payload):
         f"- 1周成熟评估：{payload.get('one_week_mature', 0)}",
         f"- 1个月成熟评估：{payload.get('one_month_mature', 0)}",
         f"- next_one_week_evaluation_date: {payload.get('next_one_week_evaluation_date', 'unknown')}",
+        f"- next_one_week_evaluation_count: {payload.get('next_one_week_evaluation_count', 0)}",
         f"- next_one_month_evaluation_date: {payload.get('next_one_month_evaluation_date', 'unknown')}",
+        f"- next_one_month_evaluation_count: {payload.get('next_one_month_evaluation_count', 0)}",
         f"- 预测字段缺失未评估：{payload.get('prediction_unavailable', 0)}",
         f"- 缺失市场文件：{payload.get('missing_market_count', 0)}",
         f"- 方向命中率：{_pct(payload.get('direction_hit_rate'))}",
@@ -482,8 +509,8 @@ def render_forecast_performance_review(payload):
             "",
             "## 短周期预测字段覆盖",
             "",
-            "| 市场 | 状态 | 历史预测 | 短周期字段缺失 | 最新批次日期 | next_one_week_evaluation_date | next_one_month_evaluation_date | 最新批次缺失 | legacy缺失 |",
-            "|---|---|---:|---:|---|---|---|---:|---:|",
+            "| 市场 | 状态 | 历史预测 | 短周期字段缺失 | 最新批次日期 | next_one_week_evaluation_date | next_one_week_evaluation_count | next_one_month_evaluation_date | next_one_month_evaluation_count | 最新批次缺失 | legacy缺失 |",
+            "|---|---|---:|---:|---|---|---:|---|---:|---:|---:|",
         ]
     )
     for market in payload.get("markets", []) or []:
@@ -493,7 +520,9 @@ def render_forecast_performance_review(payload):
             f"{history.get('total_forecasts', 0)} | {history.get('short_signal_missing_count', 0)} | "
             f"{history.get('latest_generated_date', 'unknown')} | "
             f"{history.get('latest_one_week_evaluation_date', 'unknown')} | "
+            f"{history.get('latest_one_week_evaluation_count', 0)} | "
             f"{history.get('latest_one_month_evaluation_date', 'unknown')} | "
+            f"{history.get('latest_one_month_evaluation_count', 0)} | "
             f"{history.get('latest_short_signal_missing_count', 0)} | "
             f"{history.get('legacy_short_signal_missing_count', 0)} |"
         )

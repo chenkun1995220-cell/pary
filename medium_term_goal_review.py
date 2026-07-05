@@ -501,9 +501,17 @@ def _forecast_goal(forecast_performance):
                 "next_one_week_evaluation_date",
                 "unknown",
             ),
+            "next_one_week_evaluation_count": _int_value(
+                forecast_performance.get("next_one_week_evaluation_count"),
+                0,
+            ),
             "next_one_month_evaluation_date": forecast_performance.get(
                 "next_one_month_evaluation_date",
                 "unknown",
+            ),
+            "next_one_month_evaluation_count": _int_value(
+                forecast_performance.get("next_one_month_evaluation_count"),
+                0,
             ),
             "maturity_gap_prediction_unavailable": maturity_gap_prediction_unavailable,
             "maturity_gap_pending_maturity": maturity_gap_pending_maturity,
