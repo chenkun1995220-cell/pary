@@ -130,6 +130,39 @@ class _TableTextParser(HTMLParser):
             self._cell = []
 
 
+class _HtmlTableRowsParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self._in_row = False
+        self._in_cell = False
+        self._cell = []
+        self._row = []
+        self.rows = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self._in_row = True
+            self._row = []
+        elif self._in_row and tag in {"td", "th"}:
+            self._in_cell = True
+            self._cell = []
+
+    def handle_data(self, data):
+        if self._in_cell:
+            self._cell.append(data)
+
+    def handle_endtag(self, tag):
+        if tag in {"td", "th"} and self._in_cell:
+            self._row.append(re.sub(r"\s+", " ", "".join(self._cell)).strip())
+            self._in_cell = False
+            self._cell = []
+        elif tag == "tr" and self._in_row:
+            if any(self._row):
+                self.rows.append(self._row)
+            self._in_row = False
+            self._row = []
+
+
 def _read_csv(path):
     source = Path(path)
     if not source.exists():
@@ -183,6 +216,11 @@ def _read_source_file_rows(source_file):
     source = Path(source_file)
     if not source.exists():
         raise FileNotFoundError(source)
+    text = source.read_text(encoding="utf-8-sig", errors="replace")
+    if re.search(r"<\s*table\b", text, flags=re.IGNORECASE):
+        parser = _HtmlTableRowsParser()
+        parser.feed(text)
+        return parser.rows
     with source.open(encoding="utf-8-sig", newline="") as handle:
         return list(csv.reader(handle))
 

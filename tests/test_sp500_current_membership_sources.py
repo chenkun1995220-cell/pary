@@ -124,6 +124,23 @@ def write_official_csv_with_metadata_preamble(path):
             writer.writerow([f"T{index:03d}", f"Test Company {index}"])
 
 
+def write_official_html_xls(path):
+    rows = [
+        "<tr><th>Symbol</th><th>Security</th></tr>",
+        "<tr><td>ABT</td><td>Abbott Laboratories</td></tr>",
+        "<tr><td>ADM</td><td>Archer Daniels Midland</td></tr>",
+    ]
+    rows.extend(
+        f"<tr><td>T{index:03d}</td><td>Test Company {index}</td></tr>"
+        for index in range(398)
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "<html><body><table>" + "".join(rows) + "</table></body></html>",
+        encoding="utf-8",
+    )
+
+
 def write_public_constituents_csv(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -821,6 +838,57 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertFalse(output.exists())
             self.assertFalse(report.exists())
             self.assertFalse(metadata.exists())
+
+    def test_cli_accepts_official_html_xls_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            source_file = root / "official_constituents.xls"
+            output = root / "sources.csv"
+            report = root / "sources.md"
+            metadata = root / "sources.json"
+            intake = root / "intake_template.csv"
+            write_template(template)
+            write_official_html_xls(source_file)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_sources.py"),
+                    "--template",
+                    str(template),
+                    "--source-file",
+                    str(source_file),
+                    "--source-url",
+                    "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                    "--as-of-date",
+                    "2026-07-05",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--json-output",
+                    str(metadata),
+                    "--intake-template",
+                    str(intake),
+                    "--source-file-request",
+                    "",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(metadata.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "ready")
+            self.assertEqual(payload["parsed_official_ticker_count"], 400)
+            self.assertEqual(payload["source_file_ticker_columns"], ["Symbol"])
+            self.assertEqual(payload["rows"][0]["membership_evidence"], "verified")
+            self.assertIn("source_file_ticker_columns: Symbol", report.read_text(encoding="utf-8-sig"))
 
     def test_cli_validates_source_file_without_writing_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
