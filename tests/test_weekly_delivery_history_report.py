@@ -74,6 +74,10 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
                         "conclusion_health_reasons": ["manual_review_pending:6"],
                         "candidate_count_total": 64,
                         "manual_review_pending_count": 12,
+                        "forecast_next_one_week_evaluation_date": "2026-07-07",
+                        "forecast_next_one_week_evaluation_count": 42,
+                        "forecast_next_one_month_evaluation_date": "2026-07-28",
+                        "forecast_next_one_month_evaluation_count": 42,
                         "action_items_status": "missing",
                         "action_items_freshness_status": "unknown",
                         "action_items_count": 0,
@@ -112,6 +116,10 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
             self.assertEqual(summary["latest_status"], "needs_attention")
             self.assertEqual(summary["latest_candidate_count_total"], 64)
             self.assertEqual(summary["latest_manual_review_pending_count"], 12)
+            self.assertEqual(summary["latest_forecast_next_one_week_evaluation_date"], "2026-07-07")
+            self.assertEqual(summary["latest_forecast_next_one_week_evaluation_count"], 42)
+            self.assertEqual(summary["latest_forecast_next_one_month_evaluation_date"], "2026-07-28")
+            self.assertEqual(summary["latest_forecast_next_one_month_evaluation_count"], 42)
             self.assertEqual(summary["ready_count"], 1)
             self.assertEqual(summary["needs_attention_count"], 2)
             self.assertEqual(summary["recurring_attention_reasons"], [{"reason": "missing_outputs", "count": 2}])
@@ -178,6 +186,8 @@ class WeeklyDeliveryHistoryReportTests(unittest.TestCase):
             self.assertIn("automation.forecast_performance (2)", report)
             self.assertIn("latest_self_analysis_manifest.json", report)
             self.assertIn("show_weekly_conclusion.ps1", report)
+            self.assertIn("latest_forecast_next_one_week_evaluation_count: 42", report)
+            self.assertIn("latest_forecast_next_one_month_evaluation_count: 42", report)
 
     def test_summary_uses_latest_record_per_as_of_date_for_trend_counts(self):
         with tempfile.TemporaryDirectory() as tmp:

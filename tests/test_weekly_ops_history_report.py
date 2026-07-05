@@ -51,6 +51,10 @@ class WeeklyOpsHistoryReportTests(unittest.TestCase):
                         "status": "needs_attention",
                         "freshness_status": "fresh",
                         "attention_reasons": ["missing_outputs", "automation_config_drift"],
+                        "forecast_next_one_week_evaluation_date": "2026-07-07",
+                        "forecast_next_one_week_evaluation_count": 42,
+                        "forecast_next_one_month_evaluation_date": "2026-07-28",
+                        "forecast_next_one_month_evaluation_count": 42,
                     },
                 ],
             )
@@ -71,6 +75,10 @@ class WeeklyOpsHistoryReportTests(unittest.TestCase):
             self.assertEqual(summary["latest_status"], "needs_attention")
             self.assertEqual(summary["ready_count"], 1)
             self.assertEqual(summary["needs_attention_count"], 2)
+            self.assertEqual(summary["latest_forecast_next_one_week_evaluation_date"], "2026-07-07")
+            self.assertEqual(summary["latest_forecast_next_one_week_evaluation_count"], 42)
+            self.assertEqual(summary["latest_forecast_next_one_month_evaluation_date"], "2026-07-28")
+            self.assertEqual(summary["latest_forecast_next_one_month_evaluation_count"], 42)
             self.assertEqual(summary["recurring_attention_reasons"], [{"reason": "missing_outputs", "count": 2}])
             self.assertEqual(summary["recommended_action"], "review_recurring_ops_issues")
             self.assertIn("# 周度运维历史摘要", report)
@@ -79,6 +87,8 @@ class WeeklyOpsHistoryReportTests(unittest.TestCase):
             self.assertIn("建议动作：review_recurring_ops_issues", report)
 
             self.assertIn("raw_history_count: 3", report)
+            self.assertIn("latest_forecast_next_one_week_evaluation_count: 42", report)
+            self.assertIn("latest_forecast_next_one_month_evaluation_count: 42", report)
 
     def test_summary_uses_latest_record_per_as_of_date_for_trend_counts(self):
         with tempfile.TemporaryDirectory() as tmp:

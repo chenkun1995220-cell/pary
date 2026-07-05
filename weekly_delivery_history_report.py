@@ -166,6 +166,18 @@ def summarize_weekly_delivery_history(history, window=8):
         "latest_conclusion_health_reasons": latest.get("conclusion_health_reasons", []),
         "latest_candidate_count_total": _int_value(latest.get("candidate_count_total"), 0),
         "latest_manual_review_pending_count": _int_value(latest.get("manual_review_pending_count"), 0),
+        "latest_forecast_next_one_week_evaluation_date": latest.get(
+            "forecast_next_one_week_evaluation_date", ""
+        ),
+        "latest_forecast_next_one_week_evaluation_count": _int_value(
+            latest.get("forecast_next_one_week_evaluation_count"), 0
+        ),
+        "latest_forecast_next_one_month_evaluation_date": latest.get(
+            "forecast_next_one_month_evaluation_date", ""
+        ),
+        "latest_forecast_next_one_month_evaluation_count": _int_value(
+            latest.get("forecast_next_one_month_evaluation_count"), 0
+        ),
         "latest_action_items_status": latest.get("action_items_status", "unknown"),
         "latest_action_items_freshness_status": latest.get("action_items_freshness_status", "unknown"),
         "latest_action_items_count": _int_value(latest.get("action_items_count"), 0),
@@ -235,6 +247,10 @@ def render_weekly_delivery_history_report(summary):
         "# 每周最终交付历史摘要",
         "",
         f"- raw_history_count: {summary.get('raw_history_count', summary.get('history_count', 0))}",
+        f"- latest_forecast_next_one_week_evaluation_date: {summary.get('latest_forecast_next_one_week_evaluation_date', '')}",
+        f"- latest_forecast_next_one_week_evaluation_count: {summary.get('latest_forecast_next_one_week_evaluation_count', 0)}",
+        f"- latest_forecast_next_one_month_evaluation_date: {summary.get('latest_forecast_next_one_month_evaluation_date', '')}",
+        f"- latest_forecast_next_one_month_evaluation_count: {summary.get('latest_forecast_next_one_month_evaluation_count', 0)}",
         f"- 历史总数：{summary.get('history_count', 0)}",
         f"- 最近记录：{summary.get('window_size', 0)}",
         f"- 最新日期：{summary.get('latest_as_of_date', 'unknown')}",

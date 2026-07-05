@@ -42,6 +42,13 @@ def _latest_record_per_as_of_date(rows):
     return deduped
 
 
+def _int_value(value, default=0):
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
 def summarize_weekly_ops_history(history, window=8):
     rows = load_weekly_ops_history(history)
     trend_rows = _latest_record_per_as_of_date(rows)
@@ -76,6 +83,18 @@ def summarize_weekly_ops_history(history, window=8):
         "latest_as_of_date": latest.get("as_of_date", "unknown"),
         "latest_status": latest.get("status", "unknown"),
         "latest_freshness_status": latest.get("freshness_status", "unknown"),
+        "latest_forecast_next_one_week_evaluation_date": latest.get(
+            "forecast_next_one_week_evaluation_date", ""
+        ),
+        "latest_forecast_next_one_week_evaluation_count": _int_value(
+            latest.get("forecast_next_one_week_evaluation_count"), 0
+        ),
+        "latest_forecast_next_one_month_evaluation_date": latest.get(
+            "forecast_next_one_month_evaluation_date", ""
+        ),
+        "latest_forecast_next_one_month_evaluation_count": _int_value(
+            latest.get("forecast_next_one_month_evaluation_count"), 0
+        ),
         "ready_count": ready_count,
         "needs_attention_count": needs_attention_count,
         "stale_count": stale_count,
@@ -95,6 +114,10 @@ def render_weekly_ops_history_report(summary):
         "# 周度运维历史摘要",
         "",
         f"- raw_history_count: {summary.get('raw_history_count', summary.get('history_count', 0))}",
+        f"- latest_forecast_next_one_week_evaluation_date: {summary.get('latest_forecast_next_one_week_evaluation_date', '')}",
+        f"- latest_forecast_next_one_week_evaluation_count: {summary.get('latest_forecast_next_one_week_evaluation_count', 0)}",
+        f"- latest_forecast_next_one_month_evaluation_date: {summary.get('latest_forecast_next_one_month_evaluation_date', '')}",
+        f"- latest_forecast_next_one_month_evaluation_count: {summary.get('latest_forecast_next_one_month_evaluation_count', 0)}",
         f"- 历史总数：{summary.get('history_count', 0)}",
         f"- 最近记录：{summary.get('window_size', 0)}",
         f"- 最新日期：{summary.get('latest_as_of_date', 'unknown')}",
