@@ -485,7 +485,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                         "forecast_one_week_mature:0; "
                         "forecast_one_month_mature:0; "
                         "forecast_next_one_week_evaluation_date:2026-07-07; "
+                        "forecast_next_one_week_evaluation_count:42; "
                         "forecast_next_one_month_evaluation_date:2026-07-28; "
+                        "forecast_next_one_month_evaluation_count:42; "
                         "forecast_formal_model_change_allowed:false"
                     ),
                     "recommended_check": "keep tracking",
@@ -792,7 +794,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "latest_short_signal_missing_count": 0,
             "legacy_short_signal_missing_count": 240,
             "next_one_week_evaluation_date": "2026-07-07",
+            "next_one_week_evaluation_count": 42,
             "next_one_month_evaluation_date": "2026-07-28",
+            "next_one_month_evaluation_count": 42,
             "missing_market_count": 0,
             "formal_model_change_allowed": False,
         },
@@ -3971,6 +3975,25 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_forecast_review_lacks_maturity_count_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = root / "outputs" / "automation" / "latest_forecast_performance_review.json"
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            del review["next_one_week_evaluation_count"]
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "forecast_performance_review_missing_tracking_fields",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_backtest_review_allows_upgrade_with_weak_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -4271,6 +4294,30 @@ class PreSubmitReviewTests(unittest.TestCase):
             for item in action_items["items"]:
                 if item["action_code"] == "continue_sample_accumulation":
                     item["source"] = "model_audit_status:sample_accumulating"
+            write_json(action_items_path, action_items)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_action_items_missing_forecast_maturity_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_sample_accumulation_action_lacks_forecast_maturity_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            for item in action_items["items"]:
+                if item["action_code"] == "continue_sample_accumulation":
+                    item["source"] = item["source"].replace(
+                        "forecast_next_one_week_evaluation_count:42; ",
+                        "",
+                    )
             write_json(action_items_path, action_items)
 
             from pre_submit_review import run_pre_submit_review

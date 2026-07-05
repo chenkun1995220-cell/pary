@@ -174,7 +174,9 @@ FORECAST_PERFORMANCE_REQUIRED_TRACKING_FIELDS = [
     "latest_short_signal_missing_count",
     "legacy_short_signal_missing_count",
     "next_one_week_evaluation_date",
+    "next_one_week_evaluation_count",
     "next_one_month_evaluation_date",
+    "next_one_month_evaluation_count",
 ]
 
 MEDIUM_TERM_GOAL_REVIEW_REQUIRED_FIELDS = [
@@ -1081,7 +1083,9 @@ def _sample_accumulation_action_forecast_maturity_fields_missing(payload):
         "forecast_one_week_mature:",
         "forecast_one_month_mature:",
         "forecast_next_one_week_evaluation_date:",
+        "forecast_next_one_week_evaluation_count:",
         "forecast_next_one_month_evaluation_date:",
+        "forecast_next_one_month_evaluation_count:",
         "forecast_formal_model_change_allowed:false",
     ]
     return any(marker not in source for marker in required_markers)
