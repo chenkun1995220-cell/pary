@@ -58,6 +58,11 @@ CROSSCHECK_SOURCE_QUALITY_FLAGS = [
     "etf_holdings_are_not_index_authority",
     "announcements_are_not_full_current_file",
 ]
+REFERENCE_ONLY_USAGE_POLICY = {
+    "current_screening_allowed": True,
+    "source_usage_scope": "current_screening_only",
+    "verified_historical_evidence_allowed": False,
+}
 SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE = (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
     "scripts\\run_sp500_current_membership_sources.ps1 "
@@ -547,6 +552,7 @@ def build_secondary_current_membership_sources_from_constituents_csv(
         "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
         **_source_file_guidance(),
         "formal_backtest_upgrade_allowed": False,
+        **REFERENCE_ONLY_USAGE_POLICY,
         "rows": rows,
         "boundary": (
             "公开来源 fallback 只用于恢复当前全量名单和每周筛选输入；membership_evidence 只能写为 "
@@ -618,6 +624,7 @@ def build_crosscheck_substitute_current_membership_sources_from_file(
         "source_file_required_columns": [],
         "formal_backtest_upgrade_allowed": False,
         "official_full_file_required": False,
+        **REFERENCE_ONLY_USAGE_POLICY,
         "rows": rows,
         "boundary": (
             "Crosscheck substitute is accepted for weekly current screening only; "
@@ -830,6 +837,10 @@ def render_report(payload):
         f"- intake_matched_count: {payload.get('intake_matched_count', 0)}",
         f"- intake_missing_count: {payload.get('intake_missing_count', 0)}",
         f"- recommended_followup: {payload.get('recommended_followup', '')}",
+        f"- current_screening_allowed: {str(payload.get('current_screening_allowed')).lower()}",
+        f"- source_usage_scope: {payload.get('source_usage_scope', '')}",
+        "- verified_historical_evidence_allowed: "
+        + str(payload.get("verified_historical_evidence_allowed")).lower(),
         f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
     ]
     if payload.get("validation_only") is not None:

@@ -20,6 +20,9 @@ def secondary_current_membership_payload():
         "status": "secondary_ready",
         "source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
         "source_trust_level": "secondary",
+        "current_screening_allowed": True,
+        "source_usage_scope": "current_screening_only",
+        "verified_historical_evidence_allowed": False,
         "requested_count": 50,
         "parsed_official_ticker_count": 0,
         "parsed_secondary_ticker_count": 503,
@@ -1040,6 +1043,35 @@ class PreSubmitReviewTests(unittest.TestCase):
 
         self.assertNotIn("sp500_current_membership_sources_not_acceptable", reasons)
         self.assertNotIn("sp500_current_membership_sources_upgrade_gate_unsafe", reasons)
+
+    def test_review_needs_attention_when_crosscheck_substitute_lacks_usage_policy(self):
+        from pre_submit_review import _sp500_current_membership_source_reasons
+
+        payload = secondary_current_membership_payload()
+        payload.update(
+            {
+                "status": "crosscheck_substitute_ready",
+                "source_url": "local://sp500_crosscheck_substitute",
+                "source_trust_level": "crosscheck_substitute",
+                "parsed_secondary_ticker_count": 0,
+                "parsed_crosscheck_ticker_count": 503,
+                "next_action": "run_screening_with_crosscheck_current_membership",
+                "recommended_followup": "refresh_crosscheck_substitute_weekly",
+                "crosscheck_constituents_file": (
+                    "outputs/sp500_crosscheck_20260705/"
+                    "sp500_full_constituents_crosscheck_20260705.xlsx"
+                ),
+                "source_file_required_columns": [],
+                "formal_backtest_upgrade_allowed": False,
+            }
+        )
+        payload.pop("current_screening_allowed", None)
+        payload.pop("source_usage_scope", None)
+        payload.pop("verified_historical_evidence_allowed", None)
+
+        reasons = _sp500_current_membership_source_reasons(payload, PROJECT_ROOT)
+
+        self.assertIn("sp500_current_membership_sources_missing_usage_policy", reasons)
 
     def test_review_is_ready_when_all_existing_checks_are_fresh_and_acceptable(self):
         with tempfile.TemporaryDirectory() as tmp:

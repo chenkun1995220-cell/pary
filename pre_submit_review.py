@@ -1345,9 +1345,23 @@ def _sp500_current_membership_source_reasons(payload, project_root=None):
             reasons.append("sp500_current_membership_sources_stale_provide_csv_followup")
         reasons.extend(_sp500_current_membership_source_file_guidance_reasons(payload, project_root))
         reasons.extend(_sp500_current_membership_source_report_reasons(payload, project_root))
+    if _sp500_reference_source_usage_policy_missing(payload):
+        reasons.append("sp500_current_membership_sources_missing_usage_policy")
     if payload.get("formal_backtest_upgrade_allowed"):
         reasons.append("sp500_current_membership_sources_upgrade_gate_unsafe")
     return reasons
+
+
+def _sp500_reference_source_usage_policy_missing(payload):
+    if payload.get("source_trust_level") not in {"secondary", "cross_check", "crosscheck_substitute"}:
+        return False
+    if payload.get("status") not in {"secondary_ready", "crosscheck_substitute_ready"}:
+        return False
+    return (
+        payload.get("current_screening_allowed") is not True
+        or payload.get("source_usage_scope") != "current_screening_only"
+        or payload.get("verified_historical_evidence_allowed") is not False
+    )
 
 
 def _sp500_current_membership_source_ready_inbox_has_stale_followup(payload):
