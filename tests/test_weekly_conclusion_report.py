@@ -603,6 +603,10 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 payload["priority_input_gaps"][0]["next_action"],
                 "place_official_constituents_csv",
             )
+            self.assertEqual(
+                payload["priority_input_gaps"][0]["user_agent_hint"],
+                "Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official S&P Global fetches through PowerShell entrypoints.",
+            )
             self.assertIn(
                 "校验命令=",
                 payload["priority_action_details"][0]["description"],

@@ -1299,6 +1299,7 @@ def summarize_priority_input_gaps(priority_action_details):
                     "source_file_inbox_import_command",
                     "source_file_inbox_next_command",
                 ),
+                "user_agent_hint": first_present(metadata, "source_file_user_agent_hint"),
             }
         )
     return gaps
