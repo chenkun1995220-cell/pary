@@ -941,6 +941,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
         self.assertIn("--source-url", wrapper)
         self.assertIn("SourceFile", wrapper)
         self.assertIn("SourceFileInbox", wrapper)
+        self.assertIn("UserAgent", wrapper)
+        self.assertIn("--user-agent", wrapper)
         self.assertIn("--source-file-inbox", wrapper)
         self.assertIn("inputs\\sp500_current_membership\\official_constituents.csv", wrapper)
         self.assertIn("--validate-source-file-only", wrapper)

@@ -11,6 +11,7 @@ param(
   [string]$ReviewQueueOutput = "",
   [string]$SourceFileRequest = "",
   [string]$SourceFileInbox = "",
+  [string]$UserAgent = $env:SEC_USER_AGENT,
   [string]$AsOfDate = "",
   [switch]$DryRun
 )
@@ -69,6 +70,7 @@ Write-Host "IntakeTemplate: $IntakeTemplate"
 Write-Host "ReviewQueueOutput: $ReviewQueueOutput"
 Write-Host "SourceFileRequest: $SourceFileRequest"
 Write-Host "SourceFileInbox: $SourceFileInbox"
+Write-Host "UserAgent: $UserAgent"
 Write-Host "AsOfDate: $AsOfDate"
 Write-Host "Reads: us_sp500_current_membership_sources_template.csv, official S&P Global source"
 Write-Host "Writes: us_sp500_current_membership_sources.csv, latest_sp500_current_membership_sources.md, latest_sp500_current_membership_sources.json, sp500_current_membership_source_intake_template.csv, sp500_current_membership_source_review_queue.csv, sp500_current_membership_source_file_request.md"
@@ -85,6 +87,9 @@ if ($DryRun) {
       "--source-file-inbox", $SourceFileInbox,
       "--validate-source-file-only"
     )
+    if ($UserAgent) {
+      $dryRunArgs += @("--user-agent", $UserAgent)
+    }
     & $Python @dryRunArgs
     if ($LASTEXITCODE -ne 0) {
       throw "S&P 500 current membership source dry-run validation failed with exit code $LASTEXITCODE."
@@ -108,6 +113,9 @@ $args = @(
   "--source-file-inbox", $SourceFileInbox,
   "--allow-empty-on-fetch-error"
 )
+if ($UserAgent) {
+  $args += @("--user-agent", $UserAgent)
+}
 if ($SourceHtml) {
   $args += @("--source-html", $SourceHtml)
 }
