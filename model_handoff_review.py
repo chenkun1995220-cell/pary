@@ -244,9 +244,17 @@ def build_model_handoff_review(
             "next_one_week_evaluation_date",
             "",
         ),
+        "forecast_next_one_week_evaluation_count": _int_value(
+            forecast.get("next_one_week_evaluation_count"),
+            0,
+        ),
         "forecast_next_one_month_evaluation_date": forecast.get(
             "next_one_month_evaluation_date",
             "",
+        ),
+        "forecast_next_one_month_evaluation_count": _int_value(
+            forecast.get("next_one_month_evaluation_count"),
+            0,
         ),
         "forecast_formal_model_change_allowed": bool(
             forecast.get("formal_model_change_allowed", False)
@@ -341,7 +349,9 @@ def render_model_handoff_review(result):
             f"- forecast_one_week_mature={result.get('forecast_one_week_mature', 0)}",
             f"- forecast_one_month_mature={result.get('forecast_one_month_mature', 0)}",
             f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+            f"- forecast_next_one_week_evaluation_count={result.get('forecast_next_one_week_evaluation_count', 0)}",
             f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
+            f"- forecast_next_one_month_evaluation_count={result.get('forecast_next_one_month_evaluation_count', 0)}",
             f"- forecast_formal_model_change_allowed={result.get('forecast_formal_model_change_allowed', False)}",
         ]
     )

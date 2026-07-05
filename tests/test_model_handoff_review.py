@@ -183,7 +183,9 @@ class ModelHandoffReviewTests(unittest.TestCase):
                     "legacy_prediction_unavailable_count": 87,
                     "latest_short_signal_missing_count": 0,
                     "next_one_week_evaluation_date": "2026-07-07",
+                    "next_one_week_evaluation_count": 42,
                     "next_one_month_evaluation_date": "2026-07-28",
+                    "next_one_month_evaluation_count": 42,
                     "formal_model_change_allowed": False,
                 },
             )
@@ -241,7 +243,9 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertEqual(result["forecast_one_week_mature"], 0)
             self.assertEqual(result["forecast_one_month_mature"], 0)
             self.assertEqual(result["forecast_next_one_week_evaluation_date"], "2026-07-07")
+            self.assertEqual(result["forecast_next_one_week_evaluation_count"], 42)
             self.assertEqual(result["forecast_next_one_month_evaluation_date"], "2026-07-28")
+            self.assertEqual(result["forecast_next_one_month_evaluation_count"], 42)
             self.assertFalse(result["forecast_formal_model_change_allowed"])
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
             self.assertIn("sp500_current_source_inbox_size_bytes=12345", report)
@@ -264,7 +268,9 @@ class ModelHandoffReviewTests(unittest.TestCase):
             )
             self.assertIn("forecast_performance_status=sample_accumulating", report)
             self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
+            self.assertIn("forecast_next_one_week_evaluation_count=42", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
+            self.assertIn("forecast_next_one_month_evaluation_count=42", report)
 
     def test_weekly_bundle_runs_handoff_before_pre_submit_review(self):
         project_root = Path(__file__).resolve().parents[1]

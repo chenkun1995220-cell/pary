@@ -2832,7 +2832,9 @@ def _model_handoff_review_forecast_maturity_details_missing(
         "forecast_one_week_mature",
         "forecast_one_month_mature",
         "forecast_next_one_week_evaluation_date",
+        "forecast_next_one_week_evaluation_count",
         "forecast_next_one_month_evaluation_date",
+        "forecast_next_one_month_evaluation_count",
         "forecast_formal_model_change_allowed",
     ]
     if any(field not in payload for field in required_fields):
