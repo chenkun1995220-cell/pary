@@ -75,6 +75,33 @@ def _merge_maturity_gap_reasons(markets):
     return merged
 
 
+def _merge_model_audit_status_counts(markets):
+    merged = {}
+    for market in markets:
+        status = market.get("model_audit_status") or "missing"
+        merged[status] = merged.get(status, 0) + 1
+    return merged
+
+
+def _model_audit_status(evaluation_path):
+    path = Path(evaluation_path).parent / "model_audit.md"
+    if not path.exists():
+        return "missing"
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        stripped = line.strip()
+        if "审计状态" in stripped or "Audit status" in stripped:
+            separator = "：" if "：" in stripped else ":"
+            if separator in stripped:
+                return stripped.split(separator, 1)[1].strip() or "unknown"
+    return "unknown"
+
+
+def _shadow_model_proposal_count(evaluation_path):
+    path = Path(evaluation_path).parent / "shadow_model_proposals.csv"
+    rows = _read_csv_rows(path)
+    return len(rows or [])
+
+
 def _maturity_gap_reasons(rows, mature, unavailable):
     pending_statuses = {"tracking", "pending", "not_due", "sample_accumulating"}
     mature_ids = {id(row) for row in mature}
@@ -206,6 +233,8 @@ def _market_review(project_root, name, path):
             "prediction_unavailable_reasons": {},
             "prediction_unavailable_samples": [],
             "forecast_history": history_review,
+            "model_audit_status": _model_audit_status(csv_path),
+            "shadow_model_proposal_count": _shadow_model_proposal_count(csv_path),
             "weak_sample_count": 0,
             "weak_samples": [],
         }
@@ -260,6 +289,8 @@ def _market_review(project_root, name, path):
         "latest_prediction_unavailable_samples": [unavailable_sample(row) for row in latest_unavailable[:20]],
         "legacy_prediction_unavailable_samples": [unavailable_sample(row) for row in legacy_unavailable[:5]],
         "forecast_history": history_review,
+        "model_audit_status": _model_audit_status(csv_path),
+        "shadow_model_proposal_count": _shadow_model_proposal_count(csv_path),
         "direction_hits": len(hits),
         "direction_hit_rate": len(hits) / len(mature) if mature else None,
         "average_return": _average(_float_value(row.get("actual_return")) for row in mature),
@@ -342,6 +373,10 @@ def build_forecast_performance_review(project_root=".", markets=None, today=None
         "legacy_short_signal_missing_count": sum(
             item.get("forecast_history", {}).get("legacy_short_signal_missing_count", 0) for item in reviewed
         ),
+        "model_audit_status_counts": _merge_model_audit_status_counts(reviewed),
+        "shadow_model_proposal_count": sum(
+            item.get("shadow_model_proposal_count", 0) for item in reviewed
+        ),
         "next_one_week_evaluation_date": next_one_week_evaluation_date,
         "next_one_week_evaluation_count": _evaluation_count_for_date(
             reviewed, "one_week", next_one_week_evaluation_date
@@ -391,6 +426,8 @@ def render_forecast_performance_review(payload):
         f"- next_one_week_evaluation_count: {payload.get('next_one_week_evaluation_count', 0)}",
         f"- next_one_month_evaluation_date: {payload.get('next_one_month_evaluation_date', 'unknown')}",
         f"- next_one_month_evaluation_count: {payload.get('next_one_month_evaluation_count', 0)}",
+        f"- model_audit_status_counts: {payload.get('model_audit_status_counts', {})}",
+        f"- shadow_model_proposal_count: {payload.get('shadow_model_proposal_count', 0)}",
         f"- 预测字段缺失未评估：{payload.get('prediction_unavailable', 0)}",
         f"- 缺失市场文件：{payload.get('missing_market_count', 0)}",
         f"- 方向命中率：{_pct(payload.get('direction_hit_rate'))}",

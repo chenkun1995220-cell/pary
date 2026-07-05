@@ -54,6 +54,16 @@ def write_forecast_history(path, rows):
         writer.writerows(rows)
 
 
+def write_shadow_proposals(path, rows):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields = ["proposal_type", "parameter", "candidate_value", "status"]
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 class ForecastPerformanceReviewTests(unittest.TestCase):
     def test_review_summarizes_three_market_forecast_performance(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -138,6 +148,29 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
                 ],
             )
             write_evaluations(root / "outputs" / "hk_universe" / "forecast_evaluations.csv", [])
+            (root / "outputs" / "us_universe" / "model_audit.md").write_text(
+                "- 审计状态：sample_accumulating\n",
+                encoding="utf-8-sig",
+            )
+            (root / "outputs" / "cn_universe" / "model_audit.md").write_text(
+                "- 审计状态：shadow_analysis_ready\n",
+                encoding="utf-8-sig",
+            )
+            (root / "outputs" / "hk_universe" / "model_audit.md").write_text(
+                "- 审计状态：validation_sample_insufficient\n",
+                encoding="utf-8-sig",
+            )
+            write_shadow_proposals(
+                root / "outputs" / "cn_universe" / "shadow_model_proposals.csv",
+                [
+                    {
+                        "proposal_type": "direction_threshold",
+                        "parameter": "direction_threshold",
+                        "candidate_value": "0.03",
+                        "status": "analysis_candidate",
+                    }
+                ],
+            )
 
             from forecast_performance_review import build_forecast_performance_review, render_forecast_performance_review
 
@@ -181,6 +214,11 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertEqual(payload["missing_market_count"], 0)
             self.assertAlmostEqual(payload["direction_hit_rate"], 0.5)
             self.assertAlmostEqual(payload["average_excess_return"], -0.035)
+            self.assertEqual(payload["model_audit_status_counts"]["sample_accumulating"], 1)
+            self.assertEqual(payload["model_audit_status_counts"]["shadow_analysis_ready"], 1)
+            self.assertEqual(payload["model_audit_status_counts"]["validation_sample_insufficient"], 1)
+            self.assertEqual(payload["shadow_model_proposal_count"], 1)
+            self.assertEqual(payload["markets"][1]["shadow_model_proposal_count"], 1)
             self.assertFalse(payload["formal_model_change_allowed"])
             self.assertIn("预测表现复核结论", report)
             self.assertIn("样本积累中", report)
@@ -196,6 +234,8 @@ class ForecastPerformanceReviewTests(unittest.TestCase):
             self.assertIn("maturity_gap_reasons", report)
             self.assertIn("next_one_week_evaluation_date", report)
             self.assertIn("2026-07-06", report)
+            self.assertIn("shadow_model_proposal_count", report)
+            self.assertIn("shadow_analysis_ready", report)
             self.assertIn("正式模型修改：不允许", report)
 
     def test_review_needs_attention_when_market_evaluation_file_is_missing(self):

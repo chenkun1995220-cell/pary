@@ -907,6 +907,11 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                         "direction_hit_rate": None,
                         "average_return": None,
                         "average_excess_return": None,
+                        "model_audit_status_counts": {
+                            "sample_accumulating": 2,
+                            "validation_sample_insufficient": 1,
+                        },
+                        "shadow_model_proposal_count": 0,
                         "next_one_week_evaluation_date": "2026-07-07",
                         "next_one_week_evaluation_count": 42,
                         "next_one_month_evaluation_date": "2026-07-28",
@@ -938,6 +943,11 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                 manifest["forecast_performance"]["legacy_prediction_unavailable_count"],
                 87,
             )
+            self.assertEqual(
+                manifest["forecast_performance"]["model_audit_status_counts"],
+                {"sample_accumulating": 2, "validation_sample_insufficient": 1},
+            )
+            self.assertEqual(manifest["forecast_performance"]["shadow_model_proposal_count"], 0)
             self.assertEqual(check["forecast_performance_status"], "sample_accumulating")
             self.assertEqual(check["forecast_next_one_week_evaluation_date"], "2026-07-07")
 

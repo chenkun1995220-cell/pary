@@ -552,6 +552,8 @@ def _forecast_performance_snapshot(project_root):
             "direction_hit_rate": review.get("direction_hit_rate"),
             "average_return": review.get("average_return"),
             "average_excess_return": review.get("average_excess_return"),
+            "model_audit_status_counts": review.get("model_audit_status_counts", {}),
+            "shadow_model_proposal_count": _as_int(review.get("shadow_model_proposal_count")) or 0,
             "next_one_week_evaluation_date": review.get("next_one_week_evaluation_date", ""),
             "next_one_week_evaluation_count": _as_int(review.get("next_one_week_evaluation_count")) or 0,
             "next_one_month_evaluation_date": review.get("next_one_month_evaluation_date", ""),
