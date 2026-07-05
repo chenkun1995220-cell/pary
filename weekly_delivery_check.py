@@ -239,12 +239,17 @@ def render_delivery_check(result):
     if result.get("external_input_blockers"):
         lines.extend(["", "## 外部输入阻塞"])
         for blocker in result["external_input_blockers"]:
+            official_export_url = str(blocker.get("official_export_url", "") or "")
+            official_export_part = (
+                f"; official_export_url={official_export_url}" if official_export_url else ""
+            )
             lines.append(
-                "- {action_code}: {blocking_input}; reason={blocking_reason}; next_action={next_action}".format(
+                "- {action_code}: {blocking_input}; reason={blocking_reason}; next_action={next_action}{official_export_part}".format(
                     action_code=blocker.get("action_code", "unknown"),
                     blocking_input=blocker.get("blocking_input", ""),
                     blocking_reason=blocker.get("blocking_reason", ""),
                     next_action=blocker.get("next_action", ""),
+                    official_export_part=official_export_part,
                 )
             )
     if result.get("missing_output_paths"):
@@ -494,6 +499,7 @@ def _external_input_blockers(conclusion):
                 "blocking_input": blocking_input,
                 "blocking_reason": blocking_reason,
                 "next_action": str(gap.get("next_action", "") or ""),
+                "official_export_url": str(gap.get("official_export_url", "") or ""),
                 "dry_run_command": str(gap.get("dry_run_command", "") or ""),
                 "import_command": str(gap.get("import_command", "") or ""),
             }

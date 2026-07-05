@@ -194,6 +194,11 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
                     "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
                     "blocking_reason": "official_constituents_csv_missing",
                     "next_action": "place_official_constituents_csv",
+                    "official_export_url": (
+                        "https://www.spglobal.com/spdji/en/idsexport/file.xls?"
+                        "redesignExport=true&languageId=1&selectedModule=Constituents&"
+                        "selectedSubModule=ConstituentsFullList&indexId=340"
+                    ),
                     "dry_run_command": (
                         "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
                         "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
@@ -219,7 +224,10 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
                 result["external_input_blockers"][0]["blocking_reason"],
                 "official_constituents_csv_missing",
             )
+            self.assertIn("official_export_url", result["external_input_blockers"][0])
+            self.assertIn("spdji/en/idsexport/file.xls", result["external_input_blockers"][0]["official_export_url"])
             self.assertIn("official_constituents.csv", report)
+            self.assertIn("official_export_url=https://www.spglobal.com/spdji/en/idsexport/file.xls", report)
             self.assertIn("place_official_constituents_csv", report)
 
     def test_delivery_check_needs_attention_when_conclusion_key_signals_are_missing(self):

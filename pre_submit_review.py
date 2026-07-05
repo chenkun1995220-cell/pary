@@ -718,12 +718,17 @@ def render_pre_submit_review(result):
     if result.get("external_input_blockers"):
         lines.extend(["", "## external_input_blockers"])
         for blocker in result.get("external_input_blockers", []):
+            official_export_url = str(blocker.get("official_export_url", "") or "")
+            official_export_part = (
+                f"; official_export_url={official_export_url}" if official_export_url else ""
+            )
             lines.append(
-                "- {action_code}: {blocking_input}; reason={blocking_reason}; next_action={next_action}".format(
+                "- {action_code}: {blocking_input}; reason={blocking_reason}; next_action={next_action}{official_export_part}".format(
                     action_code=blocker.get("action_code", "unknown"),
                     blocking_input=blocker.get("blocking_input", ""),
                     blocking_reason=blocker.get("blocking_reason", ""),
                     next_action=blocker.get("next_action", ""),
+                    official_export_part=official_export_part,
                 )
             )
     if (

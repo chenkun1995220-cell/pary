@@ -5351,6 +5351,11 @@ class PreSubmitReviewTests(unittest.TestCase):
                     "blocking_input": "inputs/sp500_current_membership/official_constituents.csv",
                     "blocking_reason": "official_constituents_csv_missing",
                     "next_action": "place_official_constituents_csv",
+                    "official_export_url": (
+                        "https://www.spglobal.com/spdji/en/idsexport/file.xls?"
+                        "redesignExport=true&languageId=1&selectedModule=Constituents&"
+                        "selectedSubModule=ConstituentsFullList&indexId=340"
+                    ),
                 }
             ]
             write_json(delivery_path, delivery)
@@ -5364,6 +5369,7 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertIn("provide_official_constituents_csv", report)
             self.assertIn("official_constituents.csv", report)
             self.assertIn("official_constituents_csv_missing", report)
+            self.assertIn("official_export_url=https://www.spglobal.com/spdji/en/idsexport/file.xls", report)
             self.assertIn("place_official_constituents_csv", report)
 
     def test_review_needs_attention_when_ops_check_lacks_forecast_dates(self):
