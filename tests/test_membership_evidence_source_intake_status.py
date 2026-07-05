@@ -216,6 +216,86 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertEqual(by_ticker["ABT"]["validation_status"], "pending_manual_evidence")
             self.assertEqual(by_ticker["ABT"]["validation_reason"], "manual_evidence_missing")
 
+    def test_summarizes_current_batch_completion_from_intake_draft(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue_path = root / "queue.json"
+            intake_path = root / "verified_membership_evidence_intake.csv"
+            template_path = root / "template.csv"
+            write_queue(queue_path)
+            with intake_path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "batch_id",
+                        "batch_rank",
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "batch_id": "2026-07-06-p1",
+                        "batch_rank": "1",
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "2026-07-06",
+                        "evidence_kind": "current_constituents",
+                        "notes": "official page",
+                        "reviewer": "manual",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "batch_id": "2026-07-06-p1",
+                        "batch_rank": "2",
+                        "ticker": "ADM",
+                        "company_name": "Archer Daniels Midland",
+                        "membership_evidence": "",
+                        "membership_source_url": "",
+                        "source_as_of_date": "",
+                        "evidence_kind": "current_constituents",
+                        "notes": "",
+                        "reviewer": "",
+                    }
+                )
+
+            from membership_evidence_source_intake_status import (
+                build_source_intake_status,
+                render_markdown,
+            )
+
+            payload = build_source_intake_status(
+                queue_path,
+                intake_path=intake_path,
+                template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
+                as_of_date="2026-07-06",
+            )
+            markdown = render_markdown(payload)
+
+            self.assertEqual(payload["current_batch_id"], "2026-07-06-p1")
+            self.assertEqual(payload["current_batch_count"], 2)
+            self.assertEqual(payload["current_batch_ready_count"], 1)
+            self.assertEqual(payload["current_batch_pending_count"], 1)
+            self.assertEqual(payload["current_batch_invalid_count"], 0)
+            self.assertEqual(payload["current_batch_tickers"], ["ABT", "ADM"])
+            self.assertEqual(payload["current_batch_completion_ratio"], 0.5)
+            by_ticker = {row["ticker"]: row for row in payload["items"]}
+            self.assertEqual(by_ticker["ABT"]["batch_id"], "2026-07-06-p1")
+            self.assertEqual(by_ticker["ADM"]["batch_rank"], 2)
+            self.assertIn("current_batch_id: 2026-07-06-p1", markdown)
+            self.assertIn("current_batch_ready_count: 1", markdown)
+
     def test_rejects_invalid_or_future_source_dates(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

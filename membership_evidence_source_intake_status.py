@@ -35,6 +35,8 @@ STATUS_FIELDS = [
     "can_upgrade_membership",
     "validation_status",
     "validation_reason",
+    "batch_id",
+    "batch_rank",
     "notes",
     "reviewer",
 ]
@@ -142,6 +144,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "can_upgrade_membership": False,
             "validation_status": "pending_manual_evidence",
             "validation_reason": "manual_evidence_missing",
+            "batch_id": "",
+            "batch_rank": 0,
             "notes": "",
             "reviewer": "",
         }
@@ -151,6 +155,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     source_as_of_date = str(intake_row.get("source_as_of_date", "") or "").strip()
     source_date = _parse_iso_date(source_as_of_date)
     evidence_kind = str(intake_row.get("evidence_kind", "") or "").strip() or "current_constituents"
+    batch_id = str(intake_row.get("batch_id", "") or "").strip()
+    batch_rank = _int_value(intake_row.get("batch_rank"), 0)
     if not evidence and not source_url and not source_as_of_date:
         return {
             "priority": queue_item.get("priority", 0),
@@ -166,6 +172,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "can_upgrade_membership": False,
             "validation_status": "pending_manual_evidence",
             "validation_reason": "manual_evidence_missing",
+            "batch_id": batch_id,
+            "batch_rank": batch_rank,
             "notes": intake_row.get("notes", ""),
             "reviewer": intake_row.get("reviewer", ""),
         }
@@ -212,6 +220,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
         "can_upgrade_membership": bool(policy["can_upgrade_membership"]),
         "validation_status": validation_status,
         "validation_reason": validation_reason,
+        "batch_id": batch_id,
+        "batch_rank": batch_rank,
         "notes": intake_row.get("notes", ""),
         "reviewer": intake_row.get("reviewer", ""),
     }
@@ -247,6 +257,40 @@ def _write_source_pack(items, path):
                     "notes": item.get("notes", ""),
                 }
             )
+
+
+def _current_batch_summary(items):
+    batch_items = [item for item in items if item.get("batch_id")]
+    if not batch_items:
+        return {
+            "current_batch_id": "",
+            "current_batch_count": 0,
+            "current_batch_ready_count": 0,
+            "current_batch_pending_count": 0,
+            "current_batch_invalid_count": 0,
+            "current_batch_completion_ratio": 0.0,
+            "current_batch_tickers": [],
+        }
+    latest_batch_id = sorted(
+        {str(item.get("batch_id", "")) for item in batch_items if item.get("batch_id")}
+    )[-1]
+    current_items = [item for item in batch_items if item.get("batch_id") == latest_batch_id]
+    ready_count = sum(1 for item in current_items if item["validation_status"] == "ready_current_source")
+    pending_count = sum(1 for item in current_items if item["validation_status"] == "pending_manual_evidence")
+    invalid_count = len(current_items) - ready_count - pending_count
+    return {
+        "current_batch_id": latest_batch_id,
+        "current_batch_count": len(current_items),
+        "current_batch_ready_count": ready_count,
+        "current_batch_pending_count": pending_count,
+        "current_batch_invalid_count": invalid_count,
+        "current_batch_completion_ratio": round(ready_count / len(current_items), 4) if current_items else 0.0,
+        "current_batch_tickers": [
+            item.get("ticker", "")
+            for item in sorted(current_items, key=lambda row: (_int_value(row.get("batch_rank"), 0), row.get("ticker", "")))
+            if item.get("ticker")
+        ],
+    }
 
 
 def build_source_intake_status(queue, intake_path, template_path, source_pack_path="", as_of_date=None):
@@ -290,6 +334,7 @@ def build_source_intake_status(queue, intake_path, template_path, source_pack_pa
         "invalid_count": invalid_count,
         "invalid_weeks_affected": invalid_weeks,
         "pending_count": pending_count,
+        **_current_batch_summary(items),
         "formal_backtest_upgrade_allowed": False,
         "items": items,
         "boundary": (
@@ -309,6 +354,13 @@ def render_markdown(payload):
         f"- ready_to_import_count: {payload.get('ready_to_import_count', 0)}",
         f"- invalid_count: {payload.get('invalid_count', 0)}",
         f"- pending_count: {payload.get('pending_count', 0)}",
+        f"- current_batch_id: {payload.get('current_batch_id', '')}",
+        f"- current_batch_count: {payload.get('current_batch_count', 0)}",
+        f"- current_batch_ready_count: {payload.get('current_batch_ready_count', 0)}",
+        f"- current_batch_pending_count: {payload.get('current_batch_pending_count', 0)}",
+        f"- current_batch_invalid_count: {payload.get('current_batch_invalid_count', 0)}",
+        f"- current_batch_completion_ratio: {payload.get('current_batch_completion_ratio', 0)}",
+        f"- current_batch_tickers: {', '.join(payload.get('current_batch_tickers') or [])}",
         f"- template_status: {payload.get('template_status', '')}",
         f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
         "",
