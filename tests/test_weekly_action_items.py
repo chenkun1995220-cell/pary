@@ -617,6 +617,40 @@ def write_manifest_with_duplicate_delivery_health_reason(path):
     )
 
 
+def write_manifest_with_routed_forecast_delivery_health_reason(path):
+    write_manifest(path)
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    payload["manual_review_queue_count"] = 0
+    payload["automation_priority_actions"] = [
+        "review_forecast_performance",
+        "review_delivery_health_issues",
+    ]
+    payload["weekly_delivery_history"] = {
+        "latest_manual_review_pending_count": 0,
+        "latest_conclusion_health_status": "needs_review",
+        "latest_conclusion_health_score": 70,
+        "latest_conclusion_health_reasons": [
+            "automation_check:manual_review_needed",
+            "data_quality_history:manual_review_needed",
+            "forecast_performance:performance_review_needed",
+        ],
+        "recurring_health_reasons": [
+            {"reason": "automation_check:manual_review_needed", "count": 7},
+            {"reason": "data_quality_history:manual_review_needed", "count": 6},
+            {"reason": "forecast_performance:performance_review_needed", "count": 2},
+        ],
+        "latest_conclusion_signal_status": "ready",
+        "latest_missing_conclusion_signals": [],
+        "latest_missing_conclusion_signal_fixes": {},
+        "recurring_missing_conclusion_signals": [],
+        "recurring_missing_conclusion_signal_fixes": [],
+    }
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 class WeeklyActionItemsTests(unittest.TestCase):
     def test_builds_action_items_from_self_analysis_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -903,6 +937,35 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 actions,
                 ["review_data_quality_score", "review_data_quality_trend"],
             )
+            self.assertNotIn("review_delivery_health_issues", actions)
+
+    def test_skips_delivery_health_issue_when_forecast_reason_has_dedicated_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            forecast_path = Path(tmp) / "latest_forecast_performance_review.json"
+            write_manifest_with_routed_forecast_delivery_health_reason(manifest_path)
+            write_forecast_performance_review(
+                forecast_path,
+                mature_evaluations=64,
+            )
+            forecast_payload = json.loads(forecast_path.read_text(encoding="utf-8-sig"))
+            forecast_payload["status"] = "performance_review_needed"
+            forecast_payload["recommended_action"] = "review_forecast_performance"
+            forecast_payload["one_week_mature"] = 64
+            forecast_path.write_text(
+                json.dumps(forecast_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                forecast_performance=forecast_path,
+            )
+
+            actions = [item["action_code"] for item in payload["items"]]
+            self.assertEqual(actions, ["review_forecast_performance"])
             self.assertNotIn("review_delivery_health_issues", actions)
 
     def test_skips_candidate_findings_when_review_is_structured_and_below_target(self):

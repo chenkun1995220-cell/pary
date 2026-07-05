@@ -27,6 +27,7 @@ AUTOMATION_FILES = {
     "weekly_ops_history": "latest_weekly_ops_history_summary.json",
     "weekly_delivery_history": "latest_weekly_delivery_history_summary.json",
 }
+NON_BLOCKING_AUTOMATION_STATUS_KEYS = {"weekly_delivery_history"}
 
 DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
 DEFAULT_JSON_OUTPUT = "outputs/automation/latest_weekly_conclusion.json"
@@ -284,7 +285,8 @@ def decide_status(markets, candidates, automation, missing_inputs, warnings):
         return "missing"
     automation_bad = any(
         not is_acceptable_status(entry.get("status"))
-        for entry in automation.values()
+        for key, entry in automation.items()
+        if key not in NON_BLOCKING_AUTOMATION_STATUS_KEYS
     )
     market_bad = any(market.get("status") != "ready" for market in markets)
     candidate_bad = any(not candidate.get("ticker") for candidate in candidates)
@@ -306,6 +308,8 @@ def summarize_health(status, automation, missing_inputs, warnings, manual_review
         score -= 20
         reasons.append(f"warnings:{len(set(warnings))}")
     for key, entry in automation.items():
+        if key in NON_BLOCKING_AUTOMATION_STATUS_KEYS:
+            continue
         entry_status = entry.get("status", "unknown")
         if entry_status in {"manual_review_needed", "performance_review_needed"}:
             score -= 10

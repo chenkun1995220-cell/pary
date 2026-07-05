@@ -15,7 +15,7 @@ EXPECTED_AUTOMATIONS = [
         ],
     },
     {
-        "id": "a-300-2",
+        "id": "a-300-3",
         "name": "A股沪深300每周筛选",
         "minute": 10,
         "required_prompt_terms": [
@@ -25,7 +25,7 @@ EXPECTED_AUTOMATIONS = [
         ],
     },
     {
-        "id": "automation-4",
+        "id": "automation-5",
         "name": "港股大中盘每周筛选",
         "minute": 15,
         "required_prompt_terms": [

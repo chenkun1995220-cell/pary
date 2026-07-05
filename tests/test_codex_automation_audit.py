@@ -39,14 +39,14 @@ class CodexAutomationAuditTests(unittest.TestCase):
             )
             write_automation(
                 tmp,
-                "a-300-2",
+                "a-300-3",
                 "A股沪深300每周筛选",
                 "scripts\\run_cn_weekly.ps1 运行并产出 outputs\\automation\\latest_automation_check.json；不要运行或引用旧 latest_automation_check.json",
                 10,
             )
             write_automation(
                 tmp,
-                "automation-4",
+                "automation-5",
                 "港股大中盘每周筛选",
                 "scripts\\run_hk_weekly.ps1 scripts\\run_self_analysis.ps1 scripts\\show_automation_check.ps1 scripts\\run_weekly_ops_check.ps1 scripts\\show_weekly_ops_history.ps1 scripts\\show_weekly_conclusion.ps1 scripts\\run_weekly_delivery_check.ps1 scripts\\show_weekly_delivery_history.ps1 scripts\\run_pre_submit_review.ps1",
                 15,
@@ -60,10 +60,10 @@ class CodexAutomationAuditTests(unittest.TestCase):
             self.assertEqual(result["status"], "ready")
             self.assertEqual(result["ready_count"], 3)
             self.assertEqual(result["automation_count"], 3)
-            self.assertEqual(result["checks"][2]["id"], "automation-4")
+            self.assertEqual(result["checks"][2]["id"], "automation-5")
             self.assertIn("Codex 自动化任务配置审计", report)
             self.assertIn("总体状态：ready", report)
-            self.assertIn("automation-4：ready", report)
+            self.assertIn("automation-5：ready", report)
             self.assertIn("show_automation_check.ps1", report)
             self.assertIn("run_weekly_ops_check.ps1", report)
             self.assertIn("show_weekly_ops_history.ps1", report)
@@ -83,14 +83,14 @@ class CodexAutomationAuditTests(unittest.TestCase):
             )
             write_automation(
                 tmp,
-                "a-300-2",
+                "a-300-3",
                 "A股沪深300每周筛选",
                 "scripts\\run_cn_weekly.ps1 运行并产出 outputs\\automation\\latest_automation_check.json",
                 10,
             )
             write_automation(
                 tmp,
-                "automation-4",
+                "automation-5",
                 "港股大中盘每周筛选",
                 "scripts\\run_hk_weekly.ps1 scripts\\run_self_analysis.ps1 scripts\\show_automation_check.ps1 scripts\\run_weekly_ops_check.ps1 scripts\\show_weekly_ops_history.ps1",
                 15,
@@ -131,8 +131,8 @@ class CodexAutomationAuditTests(unittest.TestCase):
             result = audit_automations(tmp)
 
             self.assertEqual(result["status"], "needs_attention")
-            self.assertIn("a-300-2", result["missing_automations"])
-            self.assertIn("automation-4", result["missing_automations"])
+            self.assertIn("a-300-3", result["missing_automations"])
+            self.assertIn("automation-5", result["missing_automations"])
             self.assertIn("rrule", result["checks"][0]["issues"][0])
             self.assertTrue(any("latest_automation_check.json" in issue for issue in result["checks"][0]["issues"]))
 

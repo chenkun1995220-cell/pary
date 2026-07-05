@@ -344,6 +344,33 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| review_candidate_findings | 复核候选结论 | 检查候选公司的风险说明", markdown)
             self.assertIn("- 优先动作：review_manual_queue", markdown)
 
+    def test_delivery_history_status_does_not_hard_block_current_conclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root / "outputs" / "automation" / "latest_weekly_delivery_history_summary.json",
+                {
+                    "latest_as_of_date": "2026-06-28",
+                    "latest_status": "needs_attention",
+                    "recurring_attention_reasons": [
+                        {"reason": "previous_delivery_check_failed", "count": 1}
+                    ],
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(payload["status"], "ready")
+            self.assertNotEqual(payload["health"]["status"], "needs_fix")
+            self.assertEqual(
+                payload["automation"]["weekly_delivery_history"]["status"],
+                "needs_attention",
+            )
+
     def test_delivery_health_actions_have_chinese_labels(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
