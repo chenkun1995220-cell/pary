@@ -201,6 +201,23 @@ def _merge_category_counts(markets):
     return merged
 
 
+def _queue_action_counts(items):
+    counts = {}
+    for item in items:
+        action = item.get("queue_action", "")
+        if action:
+            counts[action] = counts.get(action, 0) + 1
+    return counts
+
+
+def _merge_queue_action_counts(markets):
+    merged = {}
+    for market in markets:
+        for action, count in (market.get("risk_action_queue_by_action") or {}).items():
+            merged[action] = merged.get(action, 0) + count
+    return merged
+
+
 def _market_review(name, path):
     market_path = Path(path)
     rows = _read_csv_rows(market_path / "valuation_targets.csv")
@@ -243,6 +260,7 @@ def _market_review(name, path):
         in {"deprioritize_or_wait", "manual_fundamental_review", "manual_classification_required"}
     )
     risk_action_queue = _risk_action_queue(risk_items)
+    risk_action_queue_by_action = _queue_action_counts(risk_action_queue)
     return {
         "name": name,
         "path": str(market_path),
@@ -258,6 +276,7 @@ def _market_review(name, path):
         "risk_action_required_count": risk_action_required_count,
         "risk_action_queue_count": len(risk_action_queue),
         "risk_action_unqueued_count": max(risk_action_required_count - len(risk_action_queue), 0),
+        "risk_action_queue_by_action": risk_action_queue_by_action,
         "risk_category_counts": _category_counts(risk_items),
         "negative_return_count": sum(1 for row in rows if _is_negative_return(row)),
         "weak_trend_count": sum(1 for row in rows if _is_weak_trend(row)),
@@ -301,6 +320,7 @@ def build_candidate_findings_review(markets=None):
         "risk_action_required_count": sum(item["risk_action_required_count"] for item in reviewed),
         "risk_action_queue_count": sum(item["risk_action_queue_count"] for item in reviewed),
         "risk_action_unqueued_count": sum(item["risk_action_unqueued_count"] for item in reviewed),
+        "risk_action_queue_by_action": _merge_queue_action_counts(reviewed),
         "risk_category_counts": _merge_category_counts(reviewed),
         "negative_return_count": sum(item["negative_return_count"] for item in reviewed),
         "weak_trend_count": sum(item["weak_trend_count"] for item in reviewed),
@@ -337,6 +357,7 @@ def render_candidate_findings_review(payload):
     lines.insert(7, f"- risk_action_required_count: {payload.get('risk_action_required_count', 0)}")
     lines.insert(8, f"- risk_action_queue_count: {payload.get('risk_action_queue_count', 0)}")
     lines.insert(9, f"- risk_action_unqueued_count: {payload.get('risk_action_unqueued_count', 0)}")
+    lines.insert(10, f"- risk_action_queue_by_action: {payload.get('risk_action_queue_by_action', {})}")
     for item in payload.get("markets", []) or []:
         lines.append(
             f"| {item.get('name', '')} | {item.get('candidate_count', 0)} | "

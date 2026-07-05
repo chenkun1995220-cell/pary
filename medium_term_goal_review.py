@@ -433,6 +433,7 @@ def _candidate_review_goal(candidate_findings):
     risk_unclassified = _int_value(candidate_findings.get("risk_unclassified_count", risk_review))
     risk_action_required = _int_value(candidate_findings.get("risk_action_required_count", risk_review))
     risk_action_queue = _int_value(candidate_findings.get("risk_action_queue_count"))
+    risk_action_queue_by_action = candidate_findings.get("risk_action_queue_by_action", {}) or {}
     risk_action_unqueued = _int_value(
         candidate_findings.get("risk_action_unqueued_count", risk_action_required)
     )
@@ -460,6 +461,7 @@ def _candidate_review_goal(candidate_findings):
             "risk_unclassified_count": risk_unclassified,
             "risk_action_required_count": risk_action_required,
             "risk_action_queue_count": risk_action_queue,
+            "risk_action_queue_by_action": risk_action_queue_by_action,
             "risk_action_unqueued_count": risk_action_unqueued,
         },
         "候选字段完整率保持 100%，风险提示全覆盖，风险复核项完成分类并逐步降至 20 以下。",

@@ -127,6 +127,10 @@ def write_review_fixtures(root):
             "risk_action_required_count": 14,
             "risk_action_queue_count": 14,
             "risk_action_unqueued_count": 0,
+            "risk_action_queue_by_action": {
+                "defer_research": 8,
+                "manual_fundamental_review": 6,
+            },
             "formal_model_change_allowed": False,
         },
     )
@@ -425,6 +429,10 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(goals["data_quality_convergence"]["status"], "on_track")
             self.assertEqual(goals["candidate_review_convergence"]["status"], "on_track")
             self.assertEqual(goals["candidate_review_convergence"]["completion_percent"], 85)
+            self.assertEqual(
+                goals["candidate_review_convergence"]["current"]["risk_action_queue_by_action"],
+                {"defer_research": 8, "manual_fundamental_review": 6},
+            )
             self.assertEqual(goals["forecast_tracking_maturity"]["status"], "sample_accumulating")
             self.assertEqual(
                 goals["forecast_tracking_maturity"]["current"]["maturity_gap_prediction_unavailable"],
