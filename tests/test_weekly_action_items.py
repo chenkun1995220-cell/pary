@@ -932,6 +932,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
                         "at_least_400_tickers",
                         "official_spglobal_constituents_export",
                     ],
+                    "source_file_user_agent_hint": (
+                        "Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official "
+                        "S&P Global fetches through PowerShell entrypoints."
+                    ),
                     "source_quality_flags": ["official_ticker_count_below_minimum"],
                     "fetch_error_type": "network_permission_denied",
                     "fetch_retryable_without_environment_change": False,
@@ -991,6 +995,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             self.assertIn("fetch_error_type:network_permission_denied", source_item["source"])
             self.assertIn("fetch_retryable_without_environment_change:false", source_item["source"])
+            self.assertIn("source_file_user_agent_hint:Set SEC_USER_AGENT", source_item["source"])
+            self.assertIn("-UserAgent <user_agent>", source_item["source"])
             self.assertIn(
                 "fetch_error_next_action:provide_official_constituents_csv_or_fix_network_permission",
                 source_item["source"],
@@ -1034,7 +1040,11 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("inbox_blocking_reason=official_constituents_csv_missing", source_item["recommended_check"])
             self.assertIn("parsed_official_ticker_count=0", source_item["recommended_check"])
             self.assertIn("inbox_intake_missing_count=50", source_item["recommended_check"])
+            self.assertIn("source_file_user_agent_hint=Set SEC_USER_AGENT", source_item["recommended_check"])
+            self.assertIn("-UserAgent <user_agent>", source_item["recommended_check"])
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
+            self.assertIn("source_file_user_agent_hint", report)
+            self.assertIn("-UserAgent <user_agent>", report)
             self.assertIn("provide_official_constituents_csv", report)
 
     def test_skips_generic_backtest_review_when_official_csv_action_covers_it(self):

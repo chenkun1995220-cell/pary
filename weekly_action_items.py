@@ -664,6 +664,9 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         if str(item).strip()
     ]
     source_file_criteria_text = ", ".join(source_file_acceptance_criteria) or "none"
+    source_file_user_agent_hint = str(
+        source_status.get("source_file_user_agent_hint", "") or ""
+    ).strip()
     review_decision_status = str(
         review_status.get("review_decision_status", "unknown") or "unknown"
     ).strip()
@@ -697,6 +700,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
         f"fetch_error_type={fetch_error_type}; "
         f"fetch_retryable_without_environment_change={fetch_retryable_without_environment_change}; "
         f"fetch_error_next_action={fetch_error_next_action}; "
+        f"source_file_user_agent_hint={source_file_user_agent_hint or 'none'}; "
         f"dry_run_command:{source_file_dry_run_command or source_file_dry_run_command_default}; "
         f"import_command:{source_file_next_command or source_file_next_command_default}; "
     )
@@ -749,6 +753,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"fetch_error_type:{fetch_error_type}; "
             f"fetch_retryable_without_environment_change:{fetch_retryable_without_environment_change}; "
             f"fetch_error_next_action:{fetch_error_next_action}; "
+            f"source_file_user_agent_hint:{source_file_user_agent_hint or 'none'}; "
             f"review_status:{review_status_value}; "
             f"review_open_count:{review_open_count}; "
             f"review_resolved_count:{review_resolved_count}; "
