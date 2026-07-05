@@ -44,6 +44,15 @@ GOAL_MODULES = {
     "model_governance_handoff": "模型治理与多模型协作准备",
 }
 
+GOAL_TARGET_COMPLETION = {
+    "backtest_evidence_quality": 70,
+    "forecast_tracking_maturity": 60,
+    "data_quality_convergence": 85,
+    "candidate_review_convergence": 85,
+    "weekly_delivery_stability": 90,
+    "model_governance_handoff": 85,
+}
+
 
 STATUS_COMPLETION = {
     "blocked": 0,
@@ -159,6 +168,11 @@ def _attach_goal_progress(goals):
     for goal in goals:
         goal["module"] = GOAL_MODULES.get(goal.get("goal_code"), goal.get("title", "unknown"))
         goal["completion_percent"] = _goal_completion_percent(goal)
+        goal["target_completion_percent"] = GOAL_TARGET_COMPLETION.get(goal.get("goal_code"), 100)
+        goal["completion_gap_percent"] = max(
+            0,
+            _int_value(goal.get("target_completion_percent")) - _int_value(goal.get("completion_percent")),
+        )
     return goals
 
 
@@ -920,14 +934,15 @@ def render_medium_term_goal_review(payload):
         "",
         "## 目标进度",
         "",
-        "| 目标 | 模块 | 状态 | 完成度 | 当前指标 | 中期目标 | 下一步 |",
-        "|---|---|---|---:|---|---|---|",
+        "| 目标 | 模块 | 状态 | 完成度 | 目标完成度 | 差距 | 当前指标 | 中期目标 | 下一步 |",
+        "|---|---|---|---:|---:|---:|---|---|---|",
     ]
     for goal in payload.get("goals", []) or []:
         lines.append(
             f"| {goal.get('goal_code', '')} | {goal.get('module', '')} | "
             f"{goal.get('status', '')}（{_status_label(goal.get('status', ''))}） | "
-            f"{goal.get('completion_percent', 0)}% | {_format_current(goal)} | "
+            f"{goal.get('completion_percent', 0)}% | {goal.get('target_completion_percent', 0)}% | "
+            f"{goal.get('completion_gap_percent', 0)}% | {_format_current(goal)} | "
             f"{goal.get('target', '')} | {goal.get('next_action', '')} |"
         )
     snapshot = payload.get("task_closeout_snapshot", {}) or {}

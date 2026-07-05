@@ -380,6 +380,23 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertGreater(payload["overall_completion_percent"], 0)
 
             goals = {item["goal_code"]: item for item in payload["goals"]}
+            expected_targets = {
+                "backtest_evidence_quality": 70,
+                "forecast_tracking_maturity": 60,
+                "data_quality_convergence": 85,
+                "candidate_review_convergence": 85,
+                "weekly_delivery_stability": 90,
+                "model_governance_handoff": 85,
+            }
+            for goal_code, target_percent in expected_targets.items():
+                self.assertEqual(
+                    goals[goal_code]["target_completion_percent"],
+                    target_percent,
+                )
+                self.assertEqual(
+                    goals[goal_code]["completion_gap_percent"],
+                    max(0, target_percent - goals[goal_code]["completion_percent"]),
+                )
             self.assertEqual(goals["weekly_delivery_stability"]["status"], "on_track")
             self.assertEqual(goals["weekly_delivery_stability"]["module"], "每周自动交付稳定性")
             self.assertIn("completion_percent", goals["weekly_delivery_stability"])
