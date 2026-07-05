@@ -687,6 +687,26 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_membership_evidence_approved_apply_plan.json",
+        {
+            "plan_schema": "membership_evidence_approved_apply_plan",
+            "plan_version": 1,
+            "as_of_date": as_of_date,
+            "status": "clear",
+            "approved_package_row_count": 0,
+            "membership_row_count": 7800,
+            "ready_to_apply_count": 0,
+            "already_verified_count": 0,
+            "missing_historical_row_count": 0,
+            "invalid_approved_package_row_count": 0,
+            "requires_manual_apply": False,
+            "would_modify_historical_membership": False,
+            "applied_to_historical_membership": False,
+            "formal_backtest_upgrade_allowed": False,
+            "items": [],
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_sp500_current_membership_sources.json",
         {
             "source_schema": "sp500_current_membership_sources",
