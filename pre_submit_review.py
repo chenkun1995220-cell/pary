@@ -593,10 +593,26 @@ def run_pre_submit_review(
         automation_check.get("forecast_next_one_week_evaluation_date"),
         model_handoff_review.get("forecast_next_one_week_evaluation_date"),
     )
+    forecast_next_one_week_evaluation_count = _int_value(
+        _first_non_empty(
+            forecast_performance_review.get("next_one_week_evaluation_count"),
+            automation_check.get("forecast_next_one_week_evaluation_count"),
+            model_handoff_review.get("forecast_next_one_week_evaluation_count"),
+        ),
+        0,
+    )
     forecast_next_one_month_evaluation_date = _first_non_empty(
         forecast_performance_review.get("next_one_month_evaluation_date"),
         automation_check.get("forecast_next_one_month_evaluation_date"),
         model_handoff_review.get("forecast_next_one_month_evaluation_date"),
+    )
+    forecast_next_one_month_evaluation_count = _int_value(
+        _first_non_empty(
+            forecast_performance_review.get("next_one_month_evaluation_count"),
+            automation_check.get("forecast_next_one_month_evaluation_count"),
+            model_handoff_review.get("forecast_next_one_month_evaluation_count"),
+        ),
+        0,
     )
 
     return {
@@ -630,7 +646,9 @@ def run_pre_submit_review(
             membership_apply_preview.get("preview_row_count"), 0
         ),
         "forecast_next_one_week_evaluation_date": forecast_next_one_week_evaluation_date,
+        "forecast_next_one_week_evaluation_count": forecast_next_one_week_evaluation_count,
         "forecast_next_one_month_evaluation_date": forecast_next_one_month_evaluation_date,
+        "forecast_next_one_month_evaluation_count": forecast_next_one_month_evaluation_count,
         "membership_evidence_preview_action_item_present": _has_action_item(
             action_items,
             "run_membership_evidence_apply_preview",
@@ -705,13 +723,17 @@ def render_pre_submit_review(result):
     if (
         result.get("forecast_next_one_week_evaluation_date")
         or result.get("forecast_next_one_month_evaluation_date")
+        or result.get("forecast_next_one_week_evaluation_count")
+        or result.get("forecast_next_one_month_evaluation_count")
     ):
         lines.extend(
             [
                 "",
                 "## forecast_evaluation_dates",
                 f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+                f"- forecast_next_one_week_evaluation_count={result.get('forecast_next_one_week_evaluation_count', 0)}",
                 f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
+                f"- forecast_next_one_month_evaluation_count={result.get('forecast_next_one_month_evaluation_count', 0)}",
             ]
         )
     closeout = result.get("development_closeout", {}) or {}

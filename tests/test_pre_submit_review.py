@@ -911,7 +911,9 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["input_statuses"]["candidate_findings_review"], "manual_review_needed")
             self.assertEqual(result["input_statuses"]["forecast_performance_review"], "sample_accumulating")
             self.assertEqual(result["forecast_next_one_week_evaluation_date"], "2026-07-07")
+            self.assertEqual(result["forecast_next_one_week_evaluation_count"], 42)
             self.assertEqual(result["forecast_next_one_month_evaluation_date"], "2026-07-28")
+            self.assertEqual(result["forecast_next_one_month_evaluation_count"], 42)
             self.assertEqual(
                 result["development_closeout"]["current_module"],
                 "S&P 500 成分证据补强",
@@ -1001,7 +1003,9 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertIn("sp500_current_source_inbox_dry_run_command=", report)
             self.assertIn("sp500_current_source_inbox_import_command=", report)
             self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
+            self.assertIn("forecast_next_one_week_evaluation_count=42", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
+            self.assertIn("forecast_next_one_month_evaluation_count=42", report)
 
     def test_review_needs_attention_when_weekly_conclusion_is_older_than_action_items(self):
         with tempfile.TemporaryDirectory() as tmp:
