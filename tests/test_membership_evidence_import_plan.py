@@ -98,6 +98,49 @@ def write_priority_gap_report(path):
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8-sig")
 
 
+def write_three_item_gap_report(path):
+    payload = {
+        "schema": "membership_evidence_gap_report",
+        "version": 1,
+        "gap_count": 3,
+        "returned_gap_count": 3,
+        "gaps": [
+            {
+                "rank": 1,
+                "ticker": "VER",
+                "company_name": "Verified Source",
+                "effective_date": "2024-01-01",
+                "current_evidence": "secondary",
+                "membership_source_url": "",
+                "weeks_affected": 30,
+                "recommended_action": "supplement_official_spglobal_source",
+            },
+            {
+                "rank": 2,
+                "ticker": "ETF",
+                "company_name": "ETF Cross Check",
+                "effective_date": "2024-01-01",
+                "current_evidence": "secondary",
+                "membership_source_url": "",
+                "weeks_affected": 20,
+                "recommended_action": "supplement_official_spglobal_source",
+            },
+            {
+                "rank": 3,
+                "ticker": "SEC",
+                "company_name": "Secondary Source",
+                "effective_date": "2024-01-01",
+                "current_evidence": "secondary",
+                "membership_source_url": "",
+                "weeks_affected": 10,
+                "recommended_action": "supplement_official_spglobal_source",
+            },
+        ],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8-sig")
+
+
 class MembershipEvidenceImportPlanTests(unittest.TestCase):
     def test_builds_import_plan_from_gap_report_and_current_source_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -151,6 +194,62 @@ class MembershipEvidenceImportPlanTests(unittest.TestCase):
             self.assertEqual(by_ticker["ABT"]["import_status"], "ready_current_source")
             self.assertEqual(by_ticker["ABT"]["upgrade_scope"], "current_membership_only")
             self.assertEqual(by_ticker["ADM"]["import_status"], "invalid_current_source")
+
+    def test_import_plan_reports_source_policy_diagnostics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gaps = root / "latest_membership_evidence_gaps.json"
+            source_pack = root / "current_membership_sources.csv"
+            write_three_item_gap_report(gaps)
+            write_csv(
+                source_pack,
+                [
+                    {
+                        "ticker": "VER",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "2026-07-05",
+                        "source_trust_level": "verified",
+                        "notes": "",
+                    },
+                    {
+                        "ticker": "ETF",
+                        "membership_evidence": "secondary",
+                        "membership_source_url": "https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf",
+                        "source_as_of_date": "2026-07-05",
+                        "source_trust_level": "cross_check",
+                        "notes": "",
+                    },
+                    {
+                        "ticker": "SEC",
+                        "membership_evidence": "secondary",
+                        "membership_source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+                        "source_as_of_date": "2026-07-05",
+                        "source_trust_level": "secondary",
+                        "notes": "",
+                    },
+                ],
+                [
+                    "ticker",
+                    "membership_evidence",
+                    "membership_source_url",
+                    "source_as_of_date",
+                    "source_trust_level",
+                    "notes",
+                ],
+            )
+
+            from membership_evidence_import_plan import build_membership_evidence_import_plan
+
+            payload = build_membership_evidence_import_plan(gaps, source_pack, as_of_date="2026-07-05")
+
+            self.assertEqual(payload["verified_candidate_count"], 1)
+            self.assertEqual(payload["cross_check_count"], 1)
+            self.assertEqual(payload["blocked_by_source_policy_count"], 2)
+            self.assertEqual(payload["ready_to_import_count"], 1)
+            by_ticker = {item["ticker"]: item for item in payload["items"]}
+            self.assertEqual(by_ticker["ETF"]["source_trust_level"], "cross_check")
+            self.assertEqual(by_ticker["SEC"]["source_trust_level"], "secondary")
 
     def test_import_plan_prioritizes_ready_sources_by_impact_weeks(self):
         with tempfile.TemporaryDirectory() as tmp:

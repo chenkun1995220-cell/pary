@@ -6,7 +6,8 @@ from copy import deepcopy
 from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlparse
+
+from sp500_membership_source_policy import is_official_spglobal_source
 
 from sp500_constituents import normalize_ticker
 
@@ -41,18 +42,7 @@ def _evidence(value, field_name):
 
 
 def _is_official_spglobal_source(url):
-    try:
-        parsed = urlparse(str(url or "").strip())
-        hostname = (parsed.hostname or "").lower()
-        return (
-            parsed.scheme.lower() == "https"
-            and parsed.username is None
-            and parsed.password is None
-            and parsed.port in {None, 443}
-            and (hostname == "spglobal.com" or hostname.endswith(".spglobal.com"))
-        )
-    except ValueError:
-        return False
+    return is_official_spglobal_source(url)
 
 
 def _trusted_evidence(level, source_url):

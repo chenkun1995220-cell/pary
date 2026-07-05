@@ -5,7 +5,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from historical_sp500 import _is_official_spglobal_source
+from sp500_membership_source_policy import classify_membership_source
 from sp500_constituents import normalize_ticker
 
 
@@ -23,6 +23,7 @@ CSV_FIELDS = [
     "upgrade_scope",
     "membership_source_url",
     "source_as_of_date",
+    "source_trust_level",
 ]
 SOURCE_TEMPLATE_FIELDS = [
     "ticker",
@@ -59,18 +60,21 @@ def _current_source_map(path):
 
 def _source_status(row):
     if not row:
-        return "missing_current_source", "add_current_membership_source"
+        return "missing_current_source", "add_current_membership_source", "missing"
     evidence = str(row.get("membership_evidence", "")).strip().lower()
     source_url = str(row.get("membership_source_url", "")).strip()
-    if evidence != "verified" or not _is_official_spglobal_source(source_url):
-        return "invalid_current_source", "fix_current_membership_source"
-    return "ready_current_source", "prepare_current_membership_import"
+    explicit_trust_level = str(row.get("source_trust_level", "")).strip().lower()
+    policy = classify_membership_source(source_url, evidence_kind="current_constituents")
+    trust_level = explicit_trust_level or policy["trust_level"]
+    if evidence != "verified" or not policy["can_upgrade_membership"] or trust_level != "verified":
+        return "invalid_current_source", "fix_current_membership_source", trust_level
+    return "ready_current_source", "prepare_current_membership_import", trust_level
 
 
 def _plan_item(gap, current_source):
     ticker = normalize_ticker(gap.get("ticker"))
     source_row = current_source.get(ticker, {})
-    import_status, proposed_action = _source_status(source_row)
+    import_status, proposed_action, source_trust_level = _source_status(source_row)
     return {
         "rank": int(gap.get("rank") or 0),
         "ticker": ticker,
@@ -83,6 +87,7 @@ def _plan_item(gap, current_source):
         "upgrade_scope": "current_membership_only",
         "membership_source_url": source_row.get("membership_source_url", ""),
         "source_as_of_date": source_row.get("source_as_of_date", ""),
+        "source_trust_level": source_trust_level,
         "notes": source_row.get("notes", ""),
     }
 
@@ -111,6 +116,14 @@ def build_membership_evidence_import_plan(gaps_path, current_source_pack=None, a
     ready_weeks = sum(item["weeks_affected"] for item in items if item["import_status"] == "ready_current_source")
     missing_weeks = sum(item["weeks_affected"] for item in items if item["import_status"] == "missing_current_source")
     invalid_weeks = sum(item["weeks_affected"] for item in items if item["import_status"] == "invalid_current_source")
+    verified_candidates = sum(1 for item in items if item["source_trust_level"] == "verified")
+    cross_checks = sum(1 for item in items if item["source_trust_level"] == "cross_check")
+    blocked_by_source_policy = sum(
+        1
+        for item in items
+        if item["source_trust_level"] in {"cross_check", "secondary"}
+        and item["import_status"] != "ready_current_source"
+    )
     return {
         "review_schema": REVIEW_SCHEMA,
         "review_version": REVIEW_VERSION,
@@ -123,6 +136,9 @@ def build_membership_evidence_import_plan(gaps_path, current_source_pack=None, a
         "ready_to_import_count": ready,
         "missing_source_count": missing,
         "invalid_source_count": invalid,
+        "verified_candidate_count": verified_candidates,
+        "cross_check_count": cross_checks,
+        "blocked_by_source_policy_count": blocked_by_source_policy,
         "ready_to_import_weeks_affected": ready_weeks,
         "missing_source_weeks_affected": missing_weeks,
         "invalid_source_weeks_affected": invalid_weeks,
@@ -142,6 +158,9 @@ def render_markdown(payload):
         f"- ready_to_import_count: {payload.get('ready_to_import_count', 0)}",
         f"- missing_source_count: {payload.get('missing_source_count', 0)}",
         f"- invalid_source_count: {payload.get('invalid_source_count', 0)}",
+        f"- verified_candidate_count: {payload.get('verified_candidate_count', 0)}",
+        f"- cross_check_count: {payload.get('cross_check_count', 0)}",
+        f"- blocked_by_source_policy_count: {payload.get('blocked_by_source_policy_count', 0)}",
         f"- ready_to_import_weeks_affected: {payload.get('ready_to_import_weeks_affected', 0)}",
         f"- missing_source_weeks_affected: {payload.get('missing_source_weeks_affected', 0)}",
         f"- invalid_source_weeks_affected: {payload.get('invalid_source_weeks_affected', 0)}",

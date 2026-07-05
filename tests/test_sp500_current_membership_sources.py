@@ -333,6 +333,30 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["recommended_followup"], "obtain_official_spglobal_constituents_csv")
             self.assertFalse(payload["formal_backtest_upgrade_allowed"])
 
+    def test_etf_holdings_source_is_cross_check_without_verified_upgrade(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            public_source = root / "ivv_holdings.csv"
+            write_template(template)
+            write_public_constituents_csv(public_source)
+
+            from sp500_current_membership_sources import (
+                build_secondary_current_membership_sources_from_constituents_csv,
+            )
+
+            payload = build_secondary_current_membership_sources_from_constituents_csv(
+                template,
+                public_source,
+                as_of_date="2026-07-05",
+                source_url="https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf",
+            )
+
+            self.assertEqual(payload["source_trust_level"], "cross_check")
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+            self.assertEqual(payload["rows"][0]["membership_evidence"], "secondary")
+            self.assertIn("cross_check_source", payload["source_quality_flags"])
+
     def test_cli_builds_secondary_rows_from_public_constituents_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

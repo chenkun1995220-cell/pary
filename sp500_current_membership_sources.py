@@ -9,7 +9,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from historical_sp500 import _is_official_spglobal_source
+from sp500_membership_source_policy import classify_membership_source
 from sp500_constituents import normalize_ticker
 
 
@@ -318,7 +318,8 @@ def _fetch_error_classification(error):
 
 
 def build_current_membership_sources_from_tickers(template_path, official_tickers, source_url, as_of_date=None):
-    if not _is_official_spglobal_source(source_url):
+    source_policy = classify_membership_source(source_url, evidence_kind="current_constituents")
+    if not source_policy["can_upgrade_membership"]:
         raise ValueError("source_url must be an official S&P Global HTTPS URL")
     requested = _template_tickers(template_path)
     official = set(official_tickers)
@@ -353,6 +354,8 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
         "status": status,
         "as_of_date": as_of_date or date.today().isoformat(),
         "source_url": source_url,
+        "source_trust_level": source_policy["trust_level"],
+        "source_policy_reason": source_policy["reason"],
         "requested_count": len(requested),
         "parsed_official_ticker_count": len(official),
         "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
@@ -380,7 +383,11 @@ def build_secondary_current_membership_sources_from_constituents_csv(
 ):
     requested = _template_tickers(template_path)
     secondary = parse_public_current_tickers_from_constituents_csv(constituents_csv)
-    source_quality_flags = ["secondary_public_source"]
+    source_policy = classify_membership_source(source_url, evidence_kind="etf_holdings")
+    source_trust_level = source_policy["trust_level"]
+    source_quality_flags = [
+        "cross_check_source" if source_trust_level == "cross_check" else "secondary_public_source"
+    ]
     if len(secondary) < MINIMUM_OFFICIAL_TICKER_COUNT:
         source_quality_flags.append("secondary_ticker_count_below_minimum")
     secondary_for_matching = secondary if len(secondary) >= MINIMUM_OFFICIAL_TICKER_COUNT else set()
@@ -414,7 +421,8 @@ def build_secondary_current_membership_sources_from_constituents_csv(
         "secondary_source_url": source_url,
         "secondary_reconciliation_url": PUBLIC_CONSTITUENTS_SEC_RECONCILIATION_URL,
         "secondary_constituents_csv": str(constituents_csv),
-        "source_trust_level": "secondary",
+        "source_trust_level": source_trust_level,
+        "source_policy_reason": source_policy["reason"],
         "requested_count": len(requested),
         "parsed_official_ticker_count": 0,
         "parsed_secondary_ticker_count": len(secondary),
