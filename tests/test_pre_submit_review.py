@@ -978,6 +978,19 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_one_week_forecast_shadow_parameter_validation.json",
+        {
+            "validation_schema": "one_week_forecast_shadow_parameter_validation",
+            "validation_version": 1,
+            "as_of_date": as_of_date,
+            "status": "no_evaluable_samples",
+            "baseline": {"sample_count": 0, "direction_hit_rate": None},
+            "candidate_results": [],
+            "validated_candidate_count": 0,
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_medium_term_goal_review.json",
         {
             "review_schema": "medium_term_goal_review",

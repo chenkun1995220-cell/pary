@@ -207,6 +207,13 @@ INPUT_SPECS = {
         "version_field": "plan_version",
         "version_value": 1,
     },
+    "one_week_forecast_shadow_parameter_validation": {
+        "path": "outputs/automation/latest_one_week_forecast_shadow_parameter_validation.json",
+        "schema_field": "validation_schema",
+        "schema_value": "one_week_forecast_shadow_parameter_validation",
+        "version_field": "validation_version",
+        "version_value": 1,
+    },
     "medium_term_goal_review": {
         "path": "outputs/automation/latest_medium_term_goal_review.json",
         "schema_field": "review_schema",
