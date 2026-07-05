@@ -116,6 +116,13 @@ INPUT_SPECS = {
         "version_field": "preview_version",
         "version_value": 1,
     },
+    "membership_evidence_apply_confirmation_status": {
+        "path": "outputs/automation/latest_membership_evidence_apply_confirmation_status.json",
+        "schema_field": "confirmation_schema",
+        "schema_value": "membership_evidence_apply_confirmation_status",
+        "version_field": "confirmation_version",
+        "version_value": 1,
+    },
     "membership_evidence_supplement_queue": {
         "path": "outputs/automation/latest_membership_evidence_supplement_queue.json",
         "schema_field": "queue_schema",
