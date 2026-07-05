@@ -216,6 +216,74 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertEqual(by_ticker["ABT"]["validation_status"], "pending_manual_evidence")
             self.assertEqual(by_ticker["ABT"]["validation_reason"], "manual_evidence_missing")
 
+    def test_rejects_invalid_or_future_source_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue_path = root / "queue.json"
+            intake_path = root / "verified_membership_evidence_intake.csv"
+            template_path = root / "template.csv"
+            write_queue(queue_path)
+            with intake_path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "not-a-date",
+                        "evidence_kind": "current_constituents",
+                        "notes": "official page",
+                        "reviewer": "manual",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "ticker": "ADM",
+                        "company_name": "Archer Daniels Midland",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "2026-07-07",
+                        "evidence_kind": "current_constituents",
+                        "notes": "official page",
+                        "reviewer": "manual",
+                    }
+                )
+
+            from membership_evidence_source_intake_status import build_source_intake_status
+
+            payload = build_source_intake_status(
+                queue_path,
+                intake_path=intake_path,
+                template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
+                as_of_date="2026-07-06",
+            )
+
+            self.assertEqual(payload["status"], "needs_review")
+            self.assertEqual(payload["ready_to_import_count"], 0)
+            self.assertEqual(payload["invalid_count"], 2)
+            by_ticker = {row["ticker"]: row for row in payload["items"]}
+            self.assertEqual(by_ticker["ABT"]["validation_status"], "invalid_source_date")
+            self.assertEqual(by_ticker["ABT"]["validation_reason"], "source_as_of_date_invalid")
+            self.assertEqual(by_ticker["ADM"]["validation_status"], "invalid_future_source_date")
+            self.assertEqual(by_ticker["ADM"]["validation_reason"], "source_as_of_date_after_review_date")
+            with (root / "verified_source_pack.csv").open(encoding="utf-8-sig", newline="") as handle:
+                self.assertEqual(list(csv.DictReader(handle)), [])
+
     def test_cli_wrapper_bundle_and_pre_submit_include_source_intake_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

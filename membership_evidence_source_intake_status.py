@@ -69,6 +69,16 @@ def _int_value(value, default=0):
         return default
 
 
+def _parse_iso_date(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
 def _queue_items(queue_payload):
     items = []
     for item in queue_payload.get("items", []) or []:
@@ -115,7 +125,7 @@ def _intake_by_ticker(rows):
     return by_ticker
 
 
-def _validate_intake_row(queue_item, intake_row):
+def _validate_intake_row(queue_item, intake_row, review_date=None):
     ticker = queue_item.get("ticker", "")
     if not intake_row:
         return {
@@ -139,6 +149,7 @@ def _validate_intake_row(queue_item, intake_row):
     evidence = str(intake_row.get("membership_evidence", "") or "").strip().lower()
     source_url = str(intake_row.get("membership_source_url", "") or "").strip()
     source_as_of_date = str(intake_row.get("source_as_of_date", "") or "").strip()
+    source_date = _parse_iso_date(source_as_of_date)
     evidence_kind = str(intake_row.get("evidence_kind", "") or "").strip() or "current_constituents"
     if not evidence and not source_url and not source_as_of_date:
         return {
@@ -159,7 +170,15 @@ def _validate_intake_row(queue_item, intake_row):
             "reviewer": intake_row.get("reviewer", ""),
         }
     policy = classify_membership_source(source_url, evidence_kind=evidence_kind)
-    is_ready = evidence == "verified" and source_as_of_date and policy["can_upgrade_membership"]
+    review_date = review_date if isinstance(review_date, date) else None
+    is_future_source_date = bool(source_date and review_date and source_date > review_date)
+    is_ready = (
+        evidence == "verified"
+        and source_as_of_date
+        and source_date
+        and not is_future_source_date
+        and policy["can_upgrade_membership"]
+    )
     if is_ready:
         validation_status = "ready_current_source"
         validation_reason = policy["reason"]
@@ -169,6 +188,12 @@ def _validate_intake_row(queue_item, intake_row):
     elif not source_as_of_date:
         validation_status = "invalid_missing_source_date"
         validation_reason = "source_as_of_date_required"
+    elif not source_date:
+        validation_status = "invalid_source_date"
+        validation_reason = "source_as_of_date_invalid"
+    elif is_future_source_date:
+        validation_status = "invalid_future_source_date"
+        validation_reason = "source_as_of_date_after_review_date"
     else:
         validation_status = "invalid_source_policy"
         validation_reason = f"{policy['reason']}_cannot_upgrade"
@@ -235,7 +260,8 @@ def build_source_intake_status(queue, intake_path, template_path, source_pack_pa
 
     intake_rows = _read_csv(intake)
     intake_lookup = _intake_by_ticker(intake_rows)
-    items = [_validate_intake_row(item, intake_lookup.get(item["ticker"])) for item in queue_items]
+    review_date = _parse_iso_date(as_of_date) if as_of_date else date.today()
+    items = [_validate_intake_row(item, intake_lookup.get(item["ticker"]), review_date) for item in queue_items]
     ready_count = sum(1 for item in items if item["validation_status"] == "ready_current_source")
     pending_count = sum(1 for item in items if item["validation_status"] == "pending_manual_evidence")
     invalid_count = len(items) - ready_count - pending_count
