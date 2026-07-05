@@ -1,5 +1,4 @@
 import argparse
-import csv
 import hashlib
 import json
 from datetime import date, datetime, timezone
@@ -15,6 +14,7 @@ from sp500_current_membership_sources import (
     SOURCE_FILE_REQUIRED_COLUMNS,
     _intake_expected_tickers,
     _source_file_available_columns,
+    _source_file_fieldnames,
     _source_file_ticker_columns,
     _template_tickers,
     parse_official_current_tickers_from_source_file,
@@ -130,8 +130,9 @@ def build_inbox_status(
         )
         return payload
     try:
-        with inbox_path.open(encoding="utf-8-sig", newline="") as handle:
-            source_file_ticker_columns = _source_file_ticker_columns(csv.DictReader(handle).fieldnames or [])
+        source_file_ticker_columns = _source_file_ticker_columns(
+            _source_file_fieldnames(inbox_path)
+        )
         tickers = parse_official_current_tickers_from_source_file(inbox_path)
     except Exception as exc:
         available_columns = _source_file_available_columns(inbox_path)

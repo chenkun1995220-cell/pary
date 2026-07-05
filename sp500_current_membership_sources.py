@@ -166,13 +166,39 @@ def _source_file_ticker_columns(fieldnames):
     ]
 
 
+def _read_source_file_rows(source_file):
+    source = Path(source_file)
+    if not source.exists():
+        raise FileNotFoundError(source)
+    with source.open(encoding="utf-8-sig", newline="") as handle:
+        return list(csv.reader(handle))
+
+
+def _source_file_header_and_data_rows(source_file):
+    rows = _read_source_file_rows(source_file)
+    first_non_empty = []
+    for index, row in enumerate(rows):
+        normalized_row = [str(cell or "").strip() for cell in row]
+        if not any(normalized_row):
+            continue
+        if not first_non_empty:
+            first_non_empty = normalized_row
+        if _source_file_ticker_columns(normalized_row):
+            return normalized_row, rows[index + 1 :]
+    return first_non_empty, []
+
+
+def _source_file_fieldnames(source_file):
+    fieldnames, _rows = _source_file_header_and_data_rows(source_file)
+    return [name for name in fieldnames or [] if name]
+
+
 def _source_file_available_columns(source_file):
     source = Path(source_file)
     if not source.exists():
         return []
     try:
-        with source.open(encoding="utf-8-sig", newline="") as handle:
-            return [name for name in (csv.DictReader(handle).fieldnames or []) if name]
+        return _source_file_fieldnames(source)
     except OSError:
         return []
 
@@ -181,20 +207,19 @@ def parse_official_current_tickers_from_source_file(source_file):
     source = Path(source_file)
     if not source.exists():
         raise FileNotFoundError(source)
-    with source.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        fieldnames = reader.fieldnames or []
-        ticker_columns = _source_file_ticker_columns(fieldnames)
-        if not ticker_columns:
-            raise ValueError("source_file must contain a Symbol or Ticker column")
-        tickers = set()
-        for row in reader:
-            for column in ticker_columns:
-                ticker = normalize_ticker(row.get(column))
-                if ticker and re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", ticker):
-                    tickers.add(ticker)
-                    break
-        return tickers
+    fieldnames, data_rows = _source_file_header_and_data_rows(source)
+    ticker_columns = _source_file_ticker_columns(fieldnames)
+    if not ticker_columns:
+        raise ValueError("source_file must contain a Symbol or Ticker column")
+    tickers = set()
+    for values in data_rows:
+        row = dict(zip(fieldnames, values))
+        for column in ticker_columns:
+            ticker = normalize_ticker(row.get(column))
+            if ticker and re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", ticker):
+                tickers.add(ticker)
+                break
+    return tickers
 
 
 def fetch_source_html(source_url, user_agent=None):
@@ -714,8 +739,9 @@ def main():
 
     try:
         if args.source_file:
-            with Path(args.source_file).open(encoding="utf-8-sig", newline="") as handle:
-                source_file_ticker_columns = _source_file_ticker_columns(csv.DictReader(handle).fieldnames or [])
+            source_file_ticker_columns = _source_file_ticker_columns(
+                _source_file_fieldnames(args.source_file)
+            )
             payload = build_current_membership_sources_from_tickers(
                 args.template,
                 parse_official_current_tickers_from_source_file(args.source_file),
