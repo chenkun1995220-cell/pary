@@ -124,6 +124,41 @@ def write_official_csv_with_metadata_preamble(path):
             writer.writerow([f"T{index:03d}", f"Test Company {index}"])
 
 
+def write_public_constituents_csv(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["ticker", "company_name", "industry", "cik"],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "ticker": "ABT",
+                "company_name": "Abbott Laboratories",
+                "industry": "Health Care",
+                "cik": "1800",
+            }
+        )
+        writer.writerow(
+            {
+                "ticker": "ADM",
+                "company_name": "Archer Daniels Midland",
+                "industry": "Consumer Staples",
+                "cik": "7084",
+            }
+        )
+        for index in range(398):
+            writer.writerow(
+                {
+                    "ticker": f"T{index:03d}",
+                    "company_name": f"Test Company {index}",
+                    "industry": "Industrials",
+                    "cik": str(100000 + index),
+                }
+            )
+
+
 def write_incomplete_official_csv(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -266,6 +301,93 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                 "official S&P Global current membership source",
                 payload["missing_ticker_review_queue"][0]["recommended_check"],
             )
+
+    def test_builds_secondary_rows_from_public_constituents_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            public_source = root / "us_universe_symbols.csv"
+            write_template(template)
+            write_public_constituents_csv(public_source)
+
+            from sp500_current_membership_sources import (
+                build_secondary_current_membership_sources_from_constituents_csv,
+            )
+
+            payload = build_secondary_current_membership_sources_from_constituents_csv(
+                template,
+                public_source,
+                as_of_date="2026-07-05",
+            )
+
+            self.assertEqual(payload["status"], "secondary_ready")
+            self.assertEqual(payload["source_trust_level"], "secondary")
+            self.assertEqual(payload["parsed_secondary_ticker_count"], 400)
+            self.assertEqual(payload["matched_count"], 1)
+            self.assertEqual(payload["missing_tickers"], ["ZZZ"])
+            self.assertEqual(payload["rows"][0]["ticker"], "ABT")
+            self.assertEqual(payload["rows"][0]["membership_evidence"], "secondary")
+            self.assertIn("en.wikipedia.org/wiki/List_of_S%26P_500_companies", payload["rows"][0]["membership_source_url"])
+            self.assertIn("SEC company_tickers_exchange", payload["rows"][0]["notes"])
+            self.assertEqual(payload["next_action"], "run_screening_with_secondary_current_membership")
+            self.assertEqual(payload["recommended_followup"], "obtain_official_spglobal_constituents_csv")
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+
+    def test_cli_builds_secondary_rows_from_public_constituents_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            public_source = root / "us_universe_symbols.csv"
+            output = root / "sources.csv"
+            report = root / "sources.md"
+            metadata = root / "sources.json"
+            intake = root / "intake_template.csv"
+            write_template(template)
+            write_public_constituents_csv(public_source)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_sources.py"),
+                    "--template",
+                    str(template),
+                    "--secondary-constituents-csv",
+                    str(public_source),
+                    "--as-of-date",
+                    "2026-07-05",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                    "--json-output",
+                    str(metadata),
+                    "--intake-template",
+                    str(intake),
+                    "--source-file-request",
+                    "",
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with output.open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(rows[0]["ticker"], "ABT")
+            self.assertEqual(rows[0]["membership_evidence"], "secondary")
+            payload = json.loads(metadata.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "secondary_ready")
+            self.assertEqual(payload["source_trust_level"], "secondary")
+            self.assertEqual(payload["matched_count"], 1)
+            self.assertEqual(payload["recommended_followup"], "obtain_official_spglobal_constituents_csv")
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+            report_text = report.read_text(encoding="utf-8-sig")
+            self.assertIn("status: secondary_ready", report_text)
+            self.assertIn("source_trust_level: secondary", report_text)
+            self.assertIn("recommended_followup: obtain_official_spglobal_constituents_csv", report_text)
 
     def test_build_marks_official_page_without_constituent_rows_as_source_file_required(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1088,6 +1210,52 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("blocking_reason: official_constituents_csv_missing", report_text)
             self.assertIn("source_file_user_agent_hint: Set SEC_USER_AGENT", report_text)
             self.assertIn("official_export_url: https://www.spglobal.com/spdji/en/idsexport/file.xls", report_text)
+
+    def test_inbox_status_reports_secondary_fallback_when_official_csv_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            template = root / "template.csv"
+            inbox = root / "inputs" / "official_constituents.csv"
+            secondary = root / "data" / "us_universe_symbols.csv"
+            output = root / "latest_inbox_status.json"
+            report = root / "latest_inbox_status.md"
+            write_template(template)
+            write_public_constituents_csv(secondary)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "sp500_current_membership_source_inbox_status.py"),
+                    "--template",
+                    str(template),
+                    "--source-file-inbox",
+                    str(inbox),
+                    "--secondary-constituents-csv",
+                    str(secondary),
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["status"], "secondary_fallback_available")
+            self.assertFalse(payload["source_file_inbox_exists"])
+            self.assertEqual(payload["secondary_constituents_csv"], str(secondary))
+            self.assertEqual(payload["parsed_secondary_ticker_count"], 400)
+            self.assertFalse(payload["external_input_required"])
+            self.assertEqual(payload["blocking_reason"], "")
+            self.assertEqual(payload["next_action"], "run_sp500_current_membership_sources_with_secondary_fallback")
+            report_text = report.read_text(encoding="utf-8-sig")
+            self.assertIn("status: secondary_fallback_available", report_text)
+            self.assertIn("external_input_required: false", report_text)
 
     def test_inbox_status_reports_ready_official_csv_with_intake_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:

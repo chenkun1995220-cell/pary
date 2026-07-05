@@ -336,6 +336,20 @@ def write_review_fixtures(root):
 
 
 class MediumTermGoalReviewTests(unittest.TestCase):
+    def test_secondary_current_membership_source_does_not_require_official_csv_blocker(self):
+        from medium_term_goal_review import _requires_official_csv
+
+        requires = _requires_official_csv(
+            {"status": "secondary_ready", "source_trust_level": "secondary"},
+            {
+                "status": "missing",
+                "external_input_required": True,
+                "blocking_reason": "official_constituents_csv_missing",
+            },
+        )
+
+        self.assertFalse(requires)
+
     def test_builds_medium_term_goal_dashboard_from_existing_reviews(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

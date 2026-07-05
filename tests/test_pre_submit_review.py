@@ -13,6 +13,35 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def secondary_current_membership_payload():
+    return {
+        "source_schema": "sp500_current_membership_sources",
+        "source_version": 1,
+        "status": "secondary_ready",
+        "source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+        "source_trust_level": "secondary",
+        "requested_count": 50,
+        "parsed_official_ticker_count": 0,
+        "parsed_secondary_ticker_count": 503,
+        "matched_count": 50,
+        "missing_count": 0,
+        "missing_ticker_review_queue": [],
+        "next_action": "run_screening_with_secondary_current_membership",
+        "source_file_required_columns": ["Symbol", "Ticker"],
+        "recommended_followup": "obtain_official_spglobal_constituents_csv",
+        "formal_backtest_upgrade_allowed": False,
+        "rows": [
+            {
+                "ticker": "ABT",
+                "membership_evidence": "secondary",
+                "membership_source_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+                "source_as_of_date": "2026-07-05",
+                "notes": "secondary current membership source",
+            }
+        ],
+    }
+
+
 def write_json(path, payload):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -881,6 +910,17 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
 
 
 class PreSubmitReviewTests(unittest.TestCase):
+    def test_secondary_current_membership_source_is_acceptable_with_upgrade_gate_closed(self):
+        from pre_submit_review import _sp500_current_membership_source_reasons
+
+        reasons = _sp500_current_membership_source_reasons(
+            secondary_current_membership_payload(),
+            PROJECT_ROOT,
+        )
+
+        self.assertNotIn("sp500_current_membership_sources_not_acceptable", reasons)
+        self.assertNotIn("sp500_current_membership_sources_upgrade_gate_unsafe", reasons)
+
     def test_review_is_ready_when_all_existing_checks_are_fresh_and_acceptable(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

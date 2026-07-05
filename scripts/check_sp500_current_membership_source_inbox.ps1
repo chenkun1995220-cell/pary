@@ -4,6 +4,7 @@ param(
   [string]$SourceFileInbox = "",
   [string]$IntakeTemplate = "",
   [string]$SourceUrl = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+  [string]$SecondaryConstituentsCsv = "",
   [string]$Output = "",
   [string]$Report = "",
   [string]$AsOfDate = ""
@@ -25,6 +26,12 @@ if (-not $SourceFileInbox) {
 if (-not $IntakeTemplate) {
   $IntakeTemplate = Join-Path $ProjectRoot "outputs\automation\sp500_current_membership_source_intake_template.csv"
 }
+if (-not $SecondaryConstituentsCsv) {
+  $DefaultSecondaryConstituentsCsv = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
+  if (Test-Path -LiteralPath $DefaultSecondaryConstituentsCsv) {
+    $SecondaryConstituentsCsv = $DefaultSecondaryConstituentsCsv
+  }
+}
 if (-not $Output) {
   $Output = Join-Path $ProjectRoot "outputs\automation\latest_sp500_current_membership_source_inbox_status.json"
 }
@@ -43,13 +50,28 @@ Write-Host "ProjectRoot: $ProjectRoot"
 Write-Host "Template: $Template"
 Write-Host "SourceFileInbox: $SourceFileInbox"
 Write-Host "IntakeTemplate: $IntakeTemplate"
+Write-Host "SecondaryConstituentsCsv: $SecondaryConstituentsCsv"
 Write-Host "Output: $Output"
 Write-Host "Report: $Report"
 Write-Host "AsOfDate: $AsOfDate"
-Write-Host "Reads: official_constituents.csv, sp500_current_membership_source_intake_template.csv"
+Write-Host "Reads: official_constituents.csv, sp500_current_membership_source_intake_template.csv, secondary public constituents fallback"
 Write-Host "Writes: latest_sp500_current_membership_source_inbox_status.json, latest_sp500_current_membership_source_inbox_status.md"
 
-& $Python -B $Script --template $Template --source-file-inbox $SourceFileInbox --intake-template $IntakeTemplate --source-url $SourceUrl --as-of-date $AsOfDate --output $Output --report $Report
+$args = @(
+  "-B", $Script,
+  "--template", $Template,
+  "--source-file-inbox", $SourceFileInbox,
+  "--intake-template", $IntakeTemplate,
+  "--source-url", $SourceUrl,
+  "--as-of-date", $AsOfDate,
+  "--output", $Output,
+  "--report", $Report
+)
+if ($SecondaryConstituentsCsv) {
+  $args += @("--secondary-constituents-csv", $SecondaryConstituentsCsv)
+}
+
+& $Python @args
 if ($LASTEXITCODE -ne 0) {
   throw "S&P 500 current membership source inbox status check failed with exit code $LASTEXITCODE."
 }

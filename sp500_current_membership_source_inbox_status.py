@@ -8,6 +8,8 @@ from sp500_current_membership_sources import (
     INTAKE_TEMPLATE_FIELDS,
     MINIMUM_OFFICIAL_TICKER_COUNT,
     OFFICIAL_EXPORT_URL,
+    PUBLIC_CONSTITUENTS_SEC_RECONCILIATION_URL,
+    PUBLIC_CONSTITUENTS_SOURCE_URL,
     SOURCE_FILE_ACCEPTANCE_CRITERIA,
     SOURCE_FILE_INBOX,
     SOURCE_FILE_INBOX_DRY_RUN_COMMAND_TEMPLATE,
@@ -19,6 +21,7 @@ from sp500_current_membership_sources import (
     _source_file_fieldnames,
     _source_file_ticker_columns,
     _template_tickers,
+    parse_public_current_tickers_from_constituents_csv,
     parse_official_current_tickers_from_source_file,
 )
 
@@ -89,6 +92,7 @@ def build_inbox_status(
     source_file_inbox=SOURCE_FILE_INBOX,
     intake_template="outputs/automation/sp500_current_membership_source_intake_template.csv",
     source_url="https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+    secondary_constituents_csv="",
     as_of_date=None,
 ):
     requested = _template_tickers(template)
@@ -120,6 +124,25 @@ def build_inbox_status(
         "formal_model_change_allowed": False,
         **_source_file_inbox_metadata(inbox_path),
     }
+    secondary_path = Path(secondary_constituents_csv) if secondary_constituents_csv else None
+    if not inbox_path.exists() and secondary_path and secondary_path.exists():
+        secondary_tickers = parse_public_current_tickers_from_constituents_csv(secondary_path)
+        payload.update(
+            {
+                "status": "secondary_fallback_available",
+                "source_file_validation_status": "missing",
+                "secondary_constituents_csv": str(secondary_path),
+                "secondary_source_url": PUBLIC_CONSTITUENTS_SOURCE_URL,
+                "secondary_reconciliation_url": PUBLIC_CONSTITUENTS_SEC_RECONCILIATION_URL,
+                "parsed_secondary_ticker_count": len(secondary_tickers),
+                "next_action": "run_sp500_current_membership_sources_with_secondary_fallback",
+                "external_input_required": False,
+                "blocking_reason": "",
+                "blocking_input": "",
+                **_intake_coverage(secondary_tickers, intake_template),
+            }
+        )
+        return payload
     if not inbox_path.exists():
         payload.update(
             {
@@ -193,6 +216,7 @@ def render_status(payload):
         f"- source_file_inbox_modified_at: {payload.get('source_file_inbox_modified_at', '')}",
         f"- source_file_validation_status: {payload.get('source_file_validation_status', '')}",
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
+        f"- parsed_secondary_ticker_count: {payload.get('parsed_secondary_ticker_count', 0)}",
         f"- source_file_ticker_columns: {', '.join(payload.get('source_file_ticker_columns') or [])}",
         f"- source_file_available_columns: {', '.join(payload.get('source_file_available_columns') or [])}",
         f"- source_file_rejection_reason: {payload.get('source_file_rejection_reason', '')}",
@@ -218,6 +242,17 @@ def render_status(payload):
     missing = payload.get("intake_missing_tickers", []) or []
     if missing:
         lines.extend(["## Intake Missing Tickers", "", ", ".join(missing[:20]), ""])
+    if payload.get("secondary_constituents_csv"):
+        lines.extend(
+            [
+                "## Secondary Fallback",
+                "",
+                f"- secondary_constituents_csv: {payload.get('secondary_constituents_csv', '')}",
+                f"- secondary_source_url: {payload.get('secondary_source_url', '')}",
+                f"- secondary_reconciliation_url: {payload.get('secondary_reconciliation_url', '')}",
+                "",
+            ]
+        )
     if payload.get("validation_error"):
         lines.extend(["## Validation Error", "", str(payload.get("validation_error")), ""])
     return "\n".join(lines)
@@ -244,6 +279,7 @@ def main():
     parser.add_argument("--source-file-inbox", default=SOURCE_FILE_INBOX)
     parser.add_argument("--intake-template", default="outputs/automation/sp500_current_membership_source_intake_template.csv")
     parser.add_argument("--source-url", default="https://www.spglobal.com/spdji/en/indices/equity/sp-500/")
+    parser.add_argument("--secondary-constituents-csv", default="")
     parser.add_argument("--as-of-date", default="")
     parser.add_argument("--output", default="outputs/automation/latest_sp500_current_membership_source_inbox_status.json")
     parser.add_argument("--report", default="outputs/automation/latest_sp500_current_membership_source_inbox_status.md")
@@ -254,6 +290,7 @@ def main():
         source_file_inbox=args.source_file_inbox,
         intake_template=args.intake_template,
         source_url=args.source_url,
+        secondary_constituents_csv=args.secondary_constituents_csv,
         as_of_date=args.as_of_date or None,
     )
     report = render_status(payload)

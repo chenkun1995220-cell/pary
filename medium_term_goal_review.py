@@ -542,7 +542,7 @@ def _forecast_goal(forecast_performance):
 
 
 def _requires_official_csv(current_membership_sources, current_membership_source_inbox_status):
-    if current_membership_sources.get("status") == "ready":
+    if current_membership_sources.get("status") in {"ready", "secondary_ready"}:
         return False
     if current_membership_source_inbox_status.get("external_input_required"):
         return True

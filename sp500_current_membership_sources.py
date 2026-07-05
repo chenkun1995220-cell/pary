@@ -40,6 +40,9 @@ OFFICIAL_EXPORT_URL = (
     "redesignExport=true&languageId=1&selectedModule=Constituents&"
     "selectedSubModule=ConstituentsFullList&indexId=340"
 )
+PUBLIC_CONSTITUENTS_SOURCE_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+PUBLIC_CONSTITUENTS_SEC_RECONCILIATION_URL = "https://www.sec.gov/files/company_tickers_exchange.json"
+DEFAULT_PUBLIC_CONSTITUENTS_CSV = "data/config/us_universe_symbols.csv"
 SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE = (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
     "scripts\\run_sp500_current_membership_sources.ps1 "
@@ -231,6 +234,20 @@ def parse_official_current_tickers_from_source_file(source_file):
     return tickers
 
 
+def parse_public_current_tickers_from_constituents_csv(source_file):
+    tickers = set()
+    for row in _read_csv(source_file):
+        ticker = normalize_ticker(
+            row.get("ticker")
+            or row.get("source_ticker")
+            or row.get("Symbol")
+            or row.get("Ticker")
+        )
+        if ticker and re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", ticker):
+            tickers.add(ticker)
+    return tickers
+
+
 def fetch_source_html(source_url, user_agent=None):
     request = Request(
         source_url,
@@ -353,6 +370,71 @@ def build_current_membership_sources_from_tickers(template_path, official_ticker
     if status == "source_file_required":
         payload.update(_source_file_guidance())
     return payload
+
+
+def build_secondary_current_membership_sources_from_constituents_csv(
+    template_path,
+    constituents_csv,
+    as_of_date=None,
+    source_url=PUBLIC_CONSTITUENTS_SOURCE_URL,
+):
+    requested = _template_tickers(template_path)
+    secondary = parse_public_current_tickers_from_constituents_csv(constituents_csv)
+    source_quality_flags = ["secondary_public_source"]
+    if len(secondary) < MINIMUM_OFFICIAL_TICKER_COUNT:
+        source_quality_flags.append("secondary_ticker_count_below_minimum")
+    secondary_for_matching = secondary if len(secondary) >= MINIMUM_OFFICIAL_TICKER_COUNT else set()
+    matched = [ticker for ticker in requested if ticker in secondary_for_matching]
+    missing = [ticker for ticker in requested if ticker not in secondary_for_matching]
+    status = "secondary_ready" if "secondary_ticker_count_below_minimum" not in source_quality_flags else "secondary_source_incomplete"
+    next_action = (
+        "run_screening_with_secondary_current_membership"
+        if status == "secondary_ready"
+        else "refresh_public_constituents_source_or_provide_official_csv"
+    )
+    rows = [
+        {
+            "ticker": ticker,
+            "membership_evidence": "secondary",
+            "membership_source_url": source_url,
+            "source_as_of_date": as_of_date or date.today().isoformat(),
+            "notes": (
+                "Matched ticker in public S&P 500 constituents source; "
+                "source is reconciled with SEC company_tickers_exchange and remains below official verified status."
+            ),
+        }
+        for ticker in matched
+    ]
+    return {
+        "source_schema": SOURCE_SCHEMA,
+        "source_version": SOURCE_VERSION,
+        "status": status,
+        "as_of_date": as_of_date or date.today().isoformat(),
+        "source_url": source_url,
+        "secondary_source_url": source_url,
+        "secondary_reconciliation_url": PUBLIC_CONSTITUENTS_SEC_RECONCILIATION_URL,
+        "secondary_constituents_csv": str(constituents_csv),
+        "source_trust_level": "secondary",
+        "requested_count": len(requested),
+        "parsed_official_ticker_count": 0,
+        "parsed_secondary_ticker_count": len(secondary),
+        "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "source_quality_flags": source_quality_flags,
+        "matched_count": len(rows),
+        "missing_count": len(missing),
+        "missing_tickers": missing,
+        "missing_ticker_review_queue": _missing_ticker_review_queue(missing, source_url, status),
+        "next_action": next_action,
+        "recommended_followup": "obtain_official_spglobal_constituents_csv",
+        "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
+        **_source_file_guidance(),
+        "formal_backtest_upgrade_allowed": False,
+        "rows": rows,
+        "boundary": (
+            "公开来源 fallback 只用于恢复当前全量名单和每周筛选输入；membership_evidence 只能写为 "
+            "secondary，不允许升级历史回测证据或正式模型参数。"
+        ),
+    }
 
 
 def build_current_membership_sources(template_path, html_text, source_url, as_of_date=None):
@@ -490,7 +572,9 @@ def add_intake_coverage(payload, intake_template):
     payload["intake_matched_count"] = len(expected) - len(missing)
     payload["intake_missing_count"] = len(missing)
     payload["intake_missing_tickers"] = missing
-    if status in {"complete", "partial"}:
+    if payload.get("source_trust_level") == "secondary" and payload.get("recommended_followup"):
+        pass
+    elif status in {"complete", "partial"}:
         payload["recommended_followup"] = "run_membership_evidence_import_plan_then_apply_preview"
     elif payload.get("status") in {"fetch_failed", "source_file_required"}:
         payload["recommended_followup"] = "provide_official_constituents_csv"
@@ -540,9 +624,11 @@ def render_report(payload):
         f"- as_of_date: {payload.get('as_of_date', '')}",
         f"- source_url: {payload.get('source_url', '')}",
         f"- official_export_url: {payload.get('official_export_url', '')}",
+        f"- source_trust_level: {payload.get('source_trust_level', 'official')}",
         f"- status: {payload.get('status', 'unknown')}",
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
+        f"- parsed_secondary_ticker_count: {payload.get('parsed_secondary_ticker_count', 0)}",
         f"- matched_count: {payload.get('matched_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",
         f"- next_action: {payload.get('next_action', '')}",
@@ -582,6 +668,14 @@ def render_report(payload):
         lines.append(
             "- source_file_acceptance_criteria: "
             + ", ".join(payload.get("source_file_acceptance_criteria") or [])
+        )
+    if payload.get("secondary_constituents_csv"):
+        lines.append(f"- secondary_constituents_csv: {payload.get('secondary_constituents_csv', '')}")
+    if payload.get("secondary_source_url"):
+        lines.append(f"- secondary_source_url: {payload.get('secondary_source_url', '')}")
+    if payload.get("secondary_reconciliation_url"):
+        lines.append(
+            f"- secondary_reconciliation_url: {payload.get('secondary_reconciliation_url', '')}"
         )
     if payload.get("source_file_user_agent_hint"):
         lines.append(f"- source_file_user_agent_hint: {payload.get('source_file_user_agent_hint', '')}")
@@ -738,6 +832,7 @@ def main():
     parser.add_argument("--source-url", default="https://www.spglobal.com/spdji/en/indices/equity/sp-500/")
     parser.add_argument("--source-html", default="")
     parser.add_argument("--source-file", default="")
+    parser.add_argument("--secondary-constituents-csv", default="")
     parser.add_argument("--as-of-date", default="")
     parser.add_argument("--output", default="data/config/us_sp500_current_membership_sources.csv")
     parser.add_argument("--report", default="outputs/automation/latest_sp500_current_membership_sources.md")
@@ -765,6 +860,12 @@ def main():
                 as_of_date=args.as_of_date or None,
             )
             payload["source_file_ticker_columns"] = source_file_ticker_columns
+        elif args.secondary_constituents_csv:
+            payload = build_secondary_current_membership_sources_from_constituents_csv(
+                args.template,
+                args.secondary_constituents_csv,
+                as_of_date=args.as_of_date or None,
+            )
         else:
             html_text = Path(args.source_html).read_text(encoding="utf-8-sig") if args.source_html else fetch_source_html(
                 args.source_url,

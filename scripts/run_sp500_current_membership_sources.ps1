@@ -4,6 +4,7 @@ param(
   [string]$SourceUrl = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
   [string]$SourceHtml = "",
   [string]$SourceFile = "",
+  [string]$SecondaryConstituentsCsv = "",
   [string]$Output = "",
   [string]$Report = "",
   [string]$JsonOutput = "",
@@ -50,6 +51,12 @@ if (-not $SourceFileInbox) {
 if ((-not $SourceFile) -and (Test-Path -LiteralPath $SourceFileInbox)) {
   $SourceFile = $SourceFileInbox
 }
+if ((-not $SourceFile) -and (-not $SourceHtml) -and (-not $SecondaryConstituentsCsv)) {
+  $DefaultSecondaryConstituentsCsv = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
+  if (Test-Path -LiteralPath $DefaultSecondaryConstituentsCsv) {
+    $SecondaryConstituentsCsv = $DefaultSecondaryConstituentsCsv
+  }
+}
 if (-not $AsOfDate) {
   $AsOfDate = Get-Date -Format "yyyy-MM-dd"
 }
@@ -63,6 +70,7 @@ Write-Host "Template: $Template"
 Write-Host "SourceUrl: $SourceUrl"
 Write-Host "SourceHtml: $SourceHtml"
 Write-Host "SourceFile: $SourceFile"
+Write-Host "SecondaryConstituentsCsv: $SecondaryConstituentsCsv"
 Write-Host "Output: $Output"
 Write-Host "Report: $Report"
 Write-Host "JsonOutput: $JsonOutput"
@@ -72,7 +80,7 @@ Write-Host "SourceFileRequest: $SourceFileRequest"
 Write-Host "SourceFileInbox: $SourceFileInbox"
 Write-Host "UserAgent: $UserAgent"
 Write-Host "AsOfDate: $AsOfDate"
-Write-Host "Reads: us_sp500_current_membership_sources_template.csv, official S&P Global source"
+Write-Host "Reads: us_sp500_current_membership_sources_template.csv, official S&P Global source, secondary public constituents fallback"
 Write-Host "Writes: us_sp500_current_membership_sources.csv, latest_sp500_current_membership_sources.md, latest_sp500_current_membership_sources.json, sp500_current_membership_source_intake_template.csv, sp500_current_membership_source_review_queue.csv, sp500_current_membership_source_file_request.md"
 
 if ($DryRun) {
@@ -93,6 +101,33 @@ if ($DryRun) {
     & $Python @dryRunArgs
     if ($LASTEXITCODE -ne 0) {
       throw "S&P 500 current membership source dry-run validation failed with exit code $LASTEXITCODE."
+    }
+  } elseif ($SecondaryConstituentsCsv) {
+    $dryRunRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sp500-secondary-dryrun-" + [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $dryRunRoot | Out-Null
+    try {
+      $dryRunArgs = @(
+        "-B", $Script,
+        "--template", $Template,
+        "--source-url", $SourceUrl,
+        "--as-of-date", $AsOfDate,
+        "--secondary-constituents-csv", $SecondaryConstituentsCsv,
+        "--output", (Join-Path $dryRunRoot "sources.csv"),
+        "--report", (Join-Path $dryRunRoot "sources.md"),
+        "--json-output", (Join-Path $dryRunRoot "sources.json"),
+        "--intake-template", (Join-Path $dryRunRoot "intake.csv"),
+        "--source-file-request", (Join-Path $dryRunRoot "source_file_request.md"),
+        "--source-file-inbox", $SourceFileInbox
+      )
+      if ($UserAgent) {
+        $dryRunArgs += @("--user-agent", $UserAgent)
+      }
+      & $Python @dryRunArgs
+      if ($LASTEXITCODE -ne 0) {
+        throw "S&P 500 secondary current membership source dry-run validation failed with exit code $LASTEXITCODE."
+      }
+    } finally {
+      Remove-Item -LiteralPath $dryRunRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
   }
   Write-Host "DryRun: no files or network requests were created."
@@ -121,6 +156,9 @@ if ($SourceHtml) {
 }
 if ($SourceFile) {
   $args += @("--source-file", $SourceFile)
+}
+if ($SecondaryConstituentsCsv) {
+  $args += @("--secondary-constituents-csv", $SecondaryConstituentsCsv)
 }
 
 & $Python @args

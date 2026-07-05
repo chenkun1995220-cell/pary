@@ -1252,7 +1252,7 @@ def _sp500_current_membership_source_reasons(payload, project_root=None):
     if not payload:
         return []
     reasons = []
-    if payload.get("status") not in {"ready", "fetch_failed", "source_file_required"}:
+    if payload.get("status") not in {"ready", "secondary_ready", "fetch_failed", "source_file_required"}:
         reasons.append("sp500_current_membership_sources_not_acceptable")
     if any(field not in payload for field in SP500_CURRENT_MEMBERSHIP_SOURCE_REQUIRED_FIELDS):
         reasons.append("sp500_current_membership_sources_missing_quality_fields")
