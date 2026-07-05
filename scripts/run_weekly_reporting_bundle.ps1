@@ -45,6 +45,7 @@ $postSteps = @(
   @{ Label = "run_candidate_findings_review"; Script = "run_candidate_findings_review.ps1"; Critical = $true },
   @{ Label = "run_candidate_risk_priority_review"; Script = "run_candidate_risk_priority_review.ps1"; Critical = $true },
   @{ Label = "run_candidate_risk_manual_review_plan"; Script = "run_candidate_risk_manual_review_plan.ps1"; Critical = $true },
+  @{ Label = "run_candidate_risk_priority_research_review"; Script = "run_candidate_risk_priority_research_review.ps1"; Critical = $true },
   @{ Label = "run_forecast_performance_review"; Script = "run_forecast_performance_review.ps1"; Critical = $true },
   @{ Label = "run_one_week_forecast_shadow_review"; Script = "run_one_week_forecast_shadow_review.ps1"; Critical = $true },
   @{ Label = "run_one_week_forecast_calibration_review"; Script = "run_one_week_forecast_calibration_review.ps1"; Critical = $true },
