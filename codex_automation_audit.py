@@ -15,9 +15,9 @@ EXPECTED_AUTOMATIONS = [
         ],
     },
     {
-        "id": "a-300",
+        "id": "a-300-2",
         "name": "A股沪深300每周筛选",
-        "minute": 25,
+        "minute": 10,
         "required_prompt_terms": [
             "scripts\\run_cn_weekly.ps1",
             "latest_automation_check.json",
@@ -25,9 +25,9 @@ EXPECTED_AUTOMATIONS = [
         ],
     },
     {
-        "id": "automation-3",
+        "id": "automation-4",
         "name": "港股大中盘每周筛选",
-        "minute": 45,
+        "minute": 15,
         "required_prompt_terms": [
             "scripts\\run_hk_weekly.ps1",
             "scripts\\run_self_analysis.ps1",
@@ -106,7 +106,7 @@ def audit_automations(root):
 
 def render_audit_report(result):
     lines = [
-        "# Codex 自动任务配置审计",
+        "# Codex 自动化任务配置审计",
         "",
         f"- 总体状态：{result['status']}",
         f"- 通过数量：{result['ready_count']}/{result['automation_count']}",
@@ -124,7 +124,7 @@ def render_audit_report(result):
         [
             "",
             "## 验收重点",
-            "- 美股和A股任务不得提前引用旧 latest_automation_check.json。",
+            "- 美股和 A 股任务不得提前引用旧 latest_automation_check.json。",
             "- 港股任务必须在三市场完成后运行 run_self_analysis.ps1、show_automation_check.ps1、run_weekly_ops_check.ps1、show_weekly_ops_history.ps1、show_weekly_conclusion.ps1、run_weekly_delivery_check.ps1、show_weekly_delivery_history.ps1 和 run_pre_submit_review.ps1。",
         ]
     )

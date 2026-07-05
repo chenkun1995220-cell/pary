@@ -4,13 +4,16 @@
 
 | 市场 | 自动化 id | 时间 | 状态 | 说明 |
 |---|---|---:|---|---|
-| 美股 | `us-weekly` | 14:05 | 保持既有配置 | S&P 500 当前成分来源优先使用交叉校验替代文件。 |
-| A 股 | `a-300` | 14:10 | ACTIVE | 运行沪深 300 每周筛选。 |
-| 港股 | `automation-3` | 14:15 | ACTIVE | 运行恒生大型股/中型股每周筛选，并作为三市场周筛收口任务。 |
+| 美股 | `automation` | 14:05 | ACTIVE | 运行 S&P 500 美股低估公司每周筛选。 |
+| A 股 | `a-300-2` | 14:10 | ACTIVE | 运行沪深 300 每周筛选。 |
+| 港股 | `automation-4` | 14:15 | ACTIVE | 运行恒生大型股/中型股每周筛选，并作为三市场周筛收口任务。 |
 
-A 股和港股任务已从旧时间调整为：
+旧任务保留但不作为生产入口：
 
-- A 股：`FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR=14;BYMINUTE=10`
-- 港股：`FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR=14;BYMINUTE=15`
+| 自动化 id | 状态 | 说明 |
+|---|---|---|
+| `a-300` | PAUSED | 旧 A 股任务，界面曾不可见，避免重复运行。 |
+| `automation-3` | PAUSED | 旧港股任务，界面曾不可见，避免重复运行。 |
+| `automation-2` | PAUSED | 更早的旧港股任务。 |
 
-旧 Windows 计划任务不作为当前调度入口；当前以 Codex 自动化任务为准。
+当前生产调度以 Codex 自动化任务为准，旧 Windows 计划任务不作为当前入口。

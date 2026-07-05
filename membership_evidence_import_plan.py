@@ -121,9 +121,15 @@ def build_membership_evidence_import_plan(gaps_path, current_source_pack=None, a
     blocked_by_source_policy = sum(
         1
         for item in items
-        if item["source_trust_level"] in {"cross_check", "secondary"}
+        if item["source_trust_level"] in {"cross_check", "crosscheck_substitute", "secondary"}
         and item["import_status"] != "ready_current_source"
     )
+    if ready:
+        next_action = "run_membership_evidence_apply_preview"
+    elif missing:
+        next_action = "provide_current_membership_sources"
+    else:
+        next_action = "supplement_verified_membership_evidence"
     return {
         "review_schema": REVIEW_SCHEMA,
         "review_version": REVIEW_VERSION,
@@ -142,7 +148,7 @@ def build_membership_evidence_import_plan(gaps_path, current_source_pack=None, a
         "ready_to_import_weeks_affected": ready_weeks,
         "missing_source_weeks_affected": missing_weeks,
         "invalid_source_weeks_affected": invalid_weeks,
-        "next_action": "run_membership_evidence_apply_preview" if ready else "provide_current_membership_sources",
+        "next_action": next_action,
         "formal_backtest_upgrade_allowed": False,
         "items": items,
         "boundary": "只生成成分证据导入计划，不抓取网页，不修改 historical_membership.csv，不把当前成分来源直接升级为完整历史证据。",

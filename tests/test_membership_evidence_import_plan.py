@@ -251,6 +251,52 @@ class MembershipEvidenceImportPlanTests(unittest.TestCase):
             self.assertEqual(by_ticker["ETF"]["source_trust_level"], "cross_check")
             self.assertEqual(by_ticker["SEC"]["source_trust_level"], "secondary")
 
+    def test_crosscheck_substitute_routes_to_verified_evidence_supplement(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gaps = root / "latest_membership_evidence_gaps.json"
+            source_pack = root / "current_membership_sources.csv"
+            write_gap_report(gaps)
+            write_csv(
+                source_pack,
+                [
+                    {
+                        "ticker": "ABT",
+                        "membership_evidence": "secondary",
+                        "membership_source_url": "local://sp500_crosscheck_substitute",
+                        "source_as_of_date": "2026-07-05",
+                        "notes": "crosscheck substitute",
+                    },
+                    {
+                        "ticker": "ADM",
+                        "membership_evidence": "secondary",
+                        "membership_source_url": "local://sp500_crosscheck_substitute",
+                        "source_as_of_date": "2026-07-05",
+                        "notes": "crosscheck substitute",
+                    },
+                ],
+                [
+                    "ticker",
+                    "membership_evidence",
+                    "membership_source_url",
+                    "source_as_of_date",
+                    "notes",
+                ],
+            )
+
+            from membership_evidence_import_plan import build_membership_evidence_import_plan
+
+            payload = build_membership_evidence_import_plan(gaps, source_pack, as_of_date="2026-07-05")
+
+            self.assertEqual(payload["ready_to_import_count"], 0)
+            self.assertEqual(payload["missing_source_count"], 0)
+            self.assertEqual(payload["invalid_source_count"], 2)
+            self.assertEqual(payload["blocked_by_source_policy_count"], 2)
+            self.assertEqual(payload["next_action"], "supplement_verified_membership_evidence")
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+            by_ticker = {item["ticker"]: item for item in payload["items"]}
+            self.assertEqual(by_ticker["ABT"]["source_trust_level"], "crosscheck_substitute")
+
     def test_import_plan_prioritizes_ready_sources_by_impact_weeks(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

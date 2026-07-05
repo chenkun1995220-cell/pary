@@ -41,6 +41,12 @@ def _is_cross_check(host):
 
 def classify_membership_source(source_url, evidence_kind=""):
     kind = (evidence_kind or "").strip().lower()
+    if str(source_url or "").strip().lower() == "local://sp500_crosscheck_substitute":
+        return {
+            "trust_level": "crosscheck_substitute",
+            "can_upgrade_membership": False,
+            "reason": "crosscheck_substitute_is_not_official_index_membership_evidence",
+        }
     if is_official_spglobal_source(source_url) and kind in VERIFIED_EVIDENCE_KINDS:
         return {
             "trust_level": "verified",
