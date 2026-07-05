@@ -5,7 +5,8 @@
   [switch]$Strict,
   [switch]$IgnorePreSubmitFailure,
   [string]$Sp500CurrentMembershipSourceFile = "",
-  [string]$Sp500CurrentMembershipSourceInbox = ""
+  [string]$Sp500CurrentMembershipSourceInbox = "",
+  [string]$UserAgent = $env:SEC_USER_AGENT
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,6 +58,7 @@ $postSteps = @(
 Write-Host "Starting weekly reporting closure bundle"
 Write-Host "Sp500CurrentMembershipSourceInbox: $Sp500CurrentMembershipSourceInbox"
 Write-Host "Sp500CurrentMembershipSourceFile: $Sp500CurrentMembershipSourceFile"
+Write-Host "UserAgent: $UserAgent"
 if ($Sp500CurrentMembershipSourceFile) {
   Write-Host "S&P 500 current membership source file detected: $Sp500CurrentMembershipSourceFile"
 }
@@ -95,11 +97,17 @@ foreach ($step in $postSteps) {
       $Sp500CurrentMembershipSourceFile,
       "-DryRun"
     )
+    if ($UserAgent) {
+      $validationArgs += @("-UserAgent", $UserAgent)
+    }
     & $PowerShell @validationArgs
     if ($LASTEXITCODE -ne 0) {
       throw "S&P 500 current membership source file validation failed with exit code $LASTEXITCODE."
     }
     $args += @("-SourceFile", $Sp500CurrentMembershipSourceFile)
+  }
+  if ($isSp500CurrentMembershipSourceStep -and $UserAgent) {
+    $args += @("-UserAgent", $UserAgent)
   }
 
   & $PowerShell @args

@@ -159,6 +159,16 @@ class WeeklyAutomationTests(unittest.TestCase):
             script.index("run_pre_submit_review.ps1"),
         )
 
+    def test_weekly_reporting_bundle_passes_user_agent_to_sp500_source_step(self):
+        script = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("[string]$UserAgent = $env:SEC_USER_AGENT", script)
+        self.assertIn('"UserAgent: $UserAgent"', script)
+        self.assertIn('"-UserAgent",', script)
+        self.assertIn("$UserAgent", script)
+
     def test_task_registration_what_if_prints_schedule_and_orchestrator(self):
         result = subprocess.run(
             [
