@@ -140,6 +140,24 @@ def _validate_intake_row(queue_item, intake_row):
     source_url = str(intake_row.get("membership_source_url", "") or "").strip()
     source_as_of_date = str(intake_row.get("source_as_of_date", "") or "").strip()
     evidence_kind = str(intake_row.get("evidence_kind", "") or "").strip() or "current_constituents"
+    if not evidence and not source_url and not source_as_of_date:
+        return {
+            "priority": queue_item.get("priority", 0),
+            "ticker": ticker,
+            "company_name": intake_row.get("company_name") or queue_item.get("company_name", ""),
+            "effective_date": queue_item.get("effective_date", ""),
+            "weeks_affected": queue_item.get("weeks_affected", 0),
+            "membership_evidence": "",
+            "membership_source_url": "",
+            "source_as_of_date": "",
+            "evidence_kind": evidence_kind,
+            "source_trust_level": "missing",
+            "can_upgrade_membership": False,
+            "validation_status": "pending_manual_evidence",
+            "validation_reason": "manual_evidence_missing",
+            "notes": intake_row.get("notes", ""),
+            "reviewer": intake_row.get("reviewer", ""),
+        }
     policy = classify_membership_source(source_url, evidence_kind=evidence_kind)
     is_ready = evidence == "verified" and source_as_of_date and policy["can_upgrade_membership"]
     if is_ready:

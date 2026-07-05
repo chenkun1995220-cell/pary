@@ -128,6 +128,54 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertIn("membership_evidence_supplement_batch", report)
             self.assertIn("remaining_after_batch_count: 1", report)
 
+    def test_cli_can_write_inputs_side_intake_draft(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue = root / "queue.json"
+            output_json = root / "batch.json"
+            output_csv = root / "batch.csv"
+            output_md = root / "batch.md"
+            intake_draft = root / "inputs" / "sp500_membership_evidence" / "verified_membership_evidence_intake.csv"
+            write_queue(queue)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "membership_evidence_supplement_batch.py"),
+                    "--queue",
+                    str(queue),
+                    "--batch-size",
+                    "2",
+                    "--as-of-date",
+                    "2026-07-06",
+                    "--output-json",
+                    str(output_json),
+                    "--output-csv",
+                    str(output_csv),
+                    "--output-md",
+                    str(output_md),
+                    "--intake-draft",
+                    str(intake_draft),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            with intake_draft.open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual([row["ticker"] for row in rows], ["ABT", "ADM"])
+            self.assertEqual(rows[0]["membership_evidence"], "")
+            self.assertEqual(rows[0]["membership_source_url"], "")
+            self.assertEqual(rows[0]["source_as_of_date"], "")
+            self.assertEqual(rows[0]["evidence_kind"], "current_constituents")
+            payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["intake_draft_path"], str(intake_draft))
+
     def test_wrapper_bundle_and_pre_submit_include_supplement_batch(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_supplement_batch.ps1").read_text(
             encoding="utf-8-sig"
@@ -141,6 +189,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
         self.assertIn("latest_membership_evidence_supplement_batch.json", wrapper)
         self.assertIn("latest_membership_evidence_supplement_batch.csv", wrapper)
         self.assertIn("latest_membership_evidence_supplement_batch.md", wrapper)
+        self.assertIn("verified_membership_evidence_intake.csv", wrapper)
         self.assertIn("run_membership_evidence_supplement_batch", bundle)
         self.assertLess(
             bundle.index("run_membership_evidence_supplement_queue"),

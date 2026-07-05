@@ -163,6 +163,59 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                 source_rows = list(csv.DictReader(handle))
             self.assertEqual(source_rows, [])
 
+    def test_blank_intake_draft_rows_remain_pending_manual_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue_path = root / "queue.json"
+            intake_path = root / "verified_membership_evidence_intake.csv"
+            template_path = root / "template.csv"
+            write_queue(queue_path)
+            with intake_path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "",
+                        "membership_source_url": "",
+                        "source_as_of_date": "",
+                        "evidence_kind": "current_constituents",
+                        "notes": "",
+                        "reviewer": "",
+                    }
+                )
+
+            from membership_evidence_source_intake_status import build_source_intake_status
+
+            payload = build_source_intake_status(
+                queue_path,
+                intake_path=intake_path,
+                template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
+                as_of_date="2026-07-06",
+            )
+
+            self.assertEqual(payload["status"], "awaiting_manual_evidence")
+            self.assertEqual(payload["ready_to_import_count"], 0)
+            self.assertEqual(payload["invalid_count"], 0)
+            self.assertEqual(payload["pending_count"], 2)
+            by_ticker = {row["ticker"]: row for row in payload["items"]}
+            self.assertEqual(by_ticker["ABT"]["validation_status"], "pending_manual_evidence")
+            self.assertEqual(by_ticker["ABT"]["validation_reason"], "manual_evidence_missing")
+
     def test_cli_wrapper_bundle_and_pre_submit_include_source_intake_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

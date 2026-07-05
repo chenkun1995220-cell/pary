@@ -5,6 +5,7 @@ param(
   [string]$OutputJson = "",
   [string]$OutputCsv = "",
   [string]$OutputMarkdown = "",
+  [string]$IntakeDraft = "",
   [string]$AsOfDate = "",
   [switch]$DryRun
 )
@@ -28,6 +29,9 @@ if (-not $OutputCsv) {
 if (-not $OutputMarkdown) {
   $OutputMarkdown = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_supplement_batch.md"
 }
+if (-not $IntakeDraft) {
+  $IntakeDraft = Join-Path $ProjectRoot "inputs\sp500_membership_evidence\verified_membership_evidence_intake.csv"
+}
 if (-not $AsOfDate) {
   $AsOfDate = Get-Date -Format "yyyy-MM-dd"
 }
@@ -42,9 +46,10 @@ Write-Host "BatchSize: $BatchSize"
 Write-Host "OutputJson: $OutputJson"
 Write-Host "OutputCsv: $OutputCsv"
 Write-Host "OutputMarkdown: $OutputMarkdown"
+Write-Host "IntakeDraft: $IntakeDraft"
 Write-Host "AsOfDate: $AsOfDate"
 Write-Host "Reads: latest_membership_evidence_supplement_queue.json"
-Write-Host "Writes: latest_membership_evidence_supplement_batch.json, latest_membership_evidence_supplement_batch.csv, latest_membership_evidence_supplement_batch.md"
+Write-Host "Writes: latest_membership_evidence_supplement_batch.json, latest_membership_evidence_supplement_batch.csv, latest_membership_evidence_supplement_batch.md, verified_membership_evidence_intake.csv"
 Write-Host "Boundary: read-only batch; does not modify historical_membership.csv"
 
 if ($DryRun) {
@@ -58,7 +63,8 @@ if ($DryRun) {
   --as-of-date $AsOfDate `
   --output-json $OutputJson `
   --output-csv $OutputCsv `
-  --output-md $OutputMarkdown
+  --output-md $OutputMarkdown `
+  --intake-draft $IntakeDraft
 if ($LASTEXITCODE -ne 0) {
   throw "Membership evidence supplement batch failed with exit code $LASTEXITCODE."
 }

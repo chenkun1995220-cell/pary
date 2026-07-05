@@ -108,6 +108,7 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
             "Fill these tickers in inputs/sp500_membership_evidence/verified_membership_evidence_intake.csv "
             "with verified S&P Global source URLs, then rerun run_membership_evidence_source_intake_status.ps1."
         ),
+        "intake_draft_path": "",
         "applied_to_historical_membership": False,
         "formal_backtest_upgrade_allowed": False,
         "items": batch_items,
@@ -131,6 +132,7 @@ def render_markdown(payload):
         f"- remaining_after_batch_count: {payload.get('remaining_after_batch_count', 0)}",
         f"- batch_tickers: {', '.join(payload.get('batch_tickers') or [])}",
         f"- batch_weeks_affected: {payload.get('batch_weeks_affected', 0)}",
+        f"- intake_draft_path: {payload.get('intake_draft_path', '')}",
         f"- applied_to_historical_membership: {str(payload.get('applied_to_historical_membership')).lower()}",
         f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
         "",
@@ -183,12 +185,17 @@ def main():
     parser.add_argument("--output-json", default="outputs/automation/latest_membership_evidence_supplement_batch.json")
     parser.add_argument("--output-csv", default="outputs/automation/latest_membership_evidence_supplement_batch.csv")
     parser.add_argument("--output-md", default="outputs/automation/latest_membership_evidence_supplement_batch.md")
+    parser.add_argument("--intake-draft", default="")
     args = parser.parse_args()
 
     payload = build_supplement_batch(args.queue, batch_size=args.batch_size, as_of_date=args.as_of_date or None)
+    if args.intake_draft:
+        payload["intake_draft_path"] = str(Path(args.intake_draft))
     report = render_markdown(payload)
     write_json(payload, args.output_json)
     write_csv(payload, args.output_csv)
+    if args.intake_draft:
+        write_csv(payload, args.intake_draft)
     write_text(report, args.output_md)
     print(report)
 
