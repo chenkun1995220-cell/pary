@@ -634,6 +634,24 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_membership_evidence_source_intake_status.json",
+        {
+            "status_schema": "membership_evidence_source_intake_status",
+            "status_version": 1,
+            "as_of_date": as_of_date,
+            "status": "awaiting_manual_evidence",
+            "queue_count": 50,
+            "ready_to_import_count": 0,
+            "ready_to_import_weeks_affected": 0,
+            "invalid_count": 0,
+            "invalid_weeks_affected": 0,
+            "pending_count": 50,
+            "template_status": "created",
+            "formal_backtest_upgrade_allowed": False,
+            "items": [],
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_membership_evidence_apply_preview.json",
         {
             "preview_schema": "membership_evidence_apply_preview",

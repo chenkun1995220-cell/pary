@@ -593,6 +593,8 @@ def _membership_evidence_supplement_action(import_plan):
         ),
         "recommended_check": (
             "检查 outputs/automation/latest_membership_evidence_supplement_queue.md，"
+            "填写 outputs/automation/us_sp500_verified_membership_evidence_intake_template.csv，"
+            "再检查 outputs/automation/latest_membership_evidence_source_intake_status.md，"
             f"优先处理 {ticker_text}；只接受 official S&P Global 成分页或指数公告作为 verified 证据，"
             "crosscheck、ETF holdings、Wikipedia、GitHub、Kaggle 只能作为参考或交叉校验，"
             "不得自动修改 historical_membership.csv 或正式模型参数。"

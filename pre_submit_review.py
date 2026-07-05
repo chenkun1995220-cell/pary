@@ -123,6 +123,13 @@ INPUT_SPECS = {
         "version_field": "queue_version",
         "version_value": 1,
     },
+    "membership_evidence_source_intake_status": {
+        "path": "outputs/automation/latest_membership_evidence_source_intake_status.json",
+        "schema_field": "status_schema",
+        "schema_value": "membership_evidence_source_intake_status",
+        "version_field": "status_version",
+        "version_value": 1,
+    },
     "sp500_current_membership_sources": {
         "path": "outputs/automation/latest_sp500_current_membership_sources.json",
         "schema_field": "source_schema",
