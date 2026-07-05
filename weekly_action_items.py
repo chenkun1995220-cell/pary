@@ -18,6 +18,12 @@ DEFAULT_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS = (
     "outputs/automation/latest_sp500_current_membership_source_inbox_status.json"
 )
 DEFAULT_FORECAST_PERFORMANCE = "outputs/automation/latest_forecast_performance_review.json"
+DEFAULT_ONE_WEEK_FORECAST_SHADOW_REVIEW = (
+    "outputs/automation/latest_one_week_forecast_shadow_review.json"
+)
+DEFAULT_ONE_WEEK_FORECAST_CALIBRATION_REVIEW = (
+    "outputs/automation/latest_one_week_forecast_calibration_review.json"
+)
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
 DEFAULT_CANDIDATE_FINDINGS_REVIEW = "outputs/automation/latest_candidate_findings_review.json"
@@ -238,6 +244,35 @@ def _forecast_maturity_schedule_text(forecast_performance):
     return f"；下一批1周可评估日期 {one_week}，1个月可评估日期 {one_month}"
 
 
+def _shadow_review_actions_text(*reviews):
+    parts = []
+    for review in reviews:
+        if not isinstance(review, dict) or not review:
+            continue
+        schema = review.get("review_schema", "shadow_review")
+        status = review.get("status", "unknown")
+        sample_count = _int_value(review.get("one_week_evaluated_count"), 0)
+        formal_allowed = str(bool(review.get("formal_model_change_allowed", False))).lower()
+        actions = [
+            str(action).strip()
+            for action in review.get("recommended_shadow_actions", []) or []
+            if str(action).strip()
+        ]
+        path = (
+            "latest_one_week_forecast_calibration_review.json"
+            if schema == "one_week_forecast_calibration_review"
+            else "latest_one_week_forecast_shadow_review.json"
+        )
+        parts.append(
+            f"{path}: status={status}, one_week_samples={sample_count}, "
+            f"actions={','.join(actions) or 'none'}, "
+            f"formal_model_change_allowed:{formal_allowed}"
+        )
+    if not parts:
+        return ""
+    return " 影子复核证据：" + "；".join(parts) + "。"
+
+
 def _quote_retry_text(quote_retry_results):
     if not isinstance(quote_retry_results, dict):
         return ""
@@ -343,6 +378,16 @@ def _action_template(action_code, manifest):
     forecast_performance = manifest.get("forecast_performance", {})
     if not isinstance(forecast_performance, dict):
         forecast_performance = {}
+    one_week_shadow_review = manifest.get("one_week_forecast_shadow_review", {})
+    if not isinstance(one_week_shadow_review, dict):
+        one_week_shadow_review = {}
+    one_week_calibration_review = manifest.get("one_week_forecast_calibration_review", {})
+    if not isinstance(one_week_calibration_review, dict):
+        one_week_calibration_review = {}
+    shadow_review_text = _shadow_review_actions_text(
+        one_week_shadow_review,
+        one_week_calibration_review,
+    )
     data_health_review = manifest.get("data_health_review", {})
     if not isinstance(data_health_review, dict):
         data_health_review = {}
@@ -423,13 +468,17 @@ def _action_template(action_code, manifest):
             "category": "forecast_performance",
             "source": (
                 f"forecast_performance_status:{manifest.get('forecast_performance_status', 'unknown')}; "
-                f"mature:{forecast_performance.get('mature_evaluations', 0)}"
+                f"mature:{forecast_performance.get('mature_evaluations', 0)}; "
+                f"one_week_shadow_status:{one_week_shadow_review.get('status', 'missing')}; "
+                f"one_week_calibration_status:{one_week_calibration_review.get('status', 'missing')}; "
+                f"formal_model_change_allowed:{str(bool(one_week_shadow_review.get('formal_model_change_allowed', False) or one_week_calibration_review.get('formal_model_change_allowed', False))).lower()}"
             ),
             "recommended_check": (
                 "检查 forecast_evaluations.csv、performance_report.md 和预测方向阈值；"
                 f"当前方向命中率 {_percent_value(forecast_performance.get('direction_hit_rate'))}，"
                 f"平均超额收益 {_percent_value(forecast_performance.get('average_excess_return'))}。"
                 "仅生成影子分析或人工复核建议，不自动修改正式模型参数。"
+                f"{shadow_review_text}"
             ),
         },
         "continue_sample_accumulation": {
@@ -1043,6 +1092,8 @@ def build_weekly_action_items(
     current_membership_source_review_status=None,
     current_membership_source_inbox_status=None,
     forecast_performance=None,
+    one_week_forecast_shadow_review=None,
+    one_week_forecast_calibration_review=None,
     manual_review_queue=None,
     data_health_review=None,
     candidate_findings_review=None,
@@ -1056,6 +1107,8 @@ def build_weekly_action_items(
     current_source_review_status = load_optional_json(current_membership_source_review_status)
     current_source_inbox_status = load_optional_json(current_membership_source_inbox_status)
     forecast_performance_review = load_optional_json(forecast_performance)
+    one_week_shadow_payload = load_optional_json(one_week_forecast_shadow_review)
+    one_week_calibration_payload = load_optional_json(one_week_forecast_calibration_review)
     manual_review_rows = load_optional_csv_rows(manual_review_queue)
     data_health_payload = load_optional_json(data_health_review)
     candidate_findings_payload = load_optional_json(candidate_findings_review)
@@ -1079,6 +1132,10 @@ def build_weekly_action_items(
             **manifest_forecast,
             **forecast_performance_review,
         }
+    if one_week_shadow_payload:
+        source["one_week_forecast_shadow_review"] = one_week_shadow_payload
+    if one_week_calibration_payload:
+        source["one_week_forecast_calibration_review"] = one_week_calibration_payload
     actions = list(source.get("automation_priority_actions", []) or [])
     if not actions:
         actions = [source.get("automation_recommended_action", "") or "continue_monitoring"]
@@ -1173,6 +1230,8 @@ def build_weekly_action_items(
             current_source_review_status,
             current_source_inbox_status,
             forecast_performance_review,
+            one_week_shadow_payload,
+            one_week_calibration_payload,
             data_health_payload,
             candidate_findings_payload,
             backtest_evidence_payload,
@@ -1279,6 +1338,11 @@ def main():
         default=DEFAULT_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS,
     )
     parser.add_argument("--forecast-performance", default=DEFAULT_FORECAST_PERFORMANCE)
+    parser.add_argument("--one-week-forecast-shadow-review", default=DEFAULT_ONE_WEEK_FORECAST_SHADOW_REVIEW)
+    parser.add_argument(
+        "--one-week-forecast-calibration-review",
+        default=DEFAULT_ONE_WEEK_FORECAST_CALIBRATION_REVIEW,
+    )
     parser.add_argument("--manual-review-queue", default=DEFAULT_MANUAL_REVIEW_QUEUE)
     parser.add_argument("--data-health-review", default=DEFAULT_DATA_HEALTH_REVIEW)
     parser.add_argument("--candidate-findings-review", default=DEFAULT_CANDIDATE_FINDINGS_REVIEW)
@@ -1293,6 +1357,8 @@ def main():
         current_membership_source_review_status=args.current_membership_source_review_status,
         current_membership_source_inbox_status=args.current_membership_source_inbox_status,
         forecast_performance=args.forecast_performance,
+        one_week_forecast_shadow_review=args.one_week_forecast_shadow_review,
+        one_week_forecast_calibration_review=args.one_week_forecast_calibration_review,
         manual_review_queue=args.manual_review_queue,
         data_health_review=args.data_health_review,
         candidate_findings_review=args.candidate_findings_review,

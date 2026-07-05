@@ -839,6 +839,30 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_one_week_forecast_shadow_review.json",
+        {
+            "review_schema": "one_week_forecast_shadow_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "sample_accumulating",
+            "one_week_evaluated_count": 12,
+            "recommended_shadow_actions": ["keep_formal_model_unchanged"],
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_one_week_forecast_calibration_review.json",
+        {
+            "review_schema": "one_week_forecast_calibration_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "insufficient_samples",
+            "one_week_evaluated_count": 12,
+            "recommended_shadow_actions": ["keep_formal_model_unchanged"],
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_medium_term_goal_review.json",
         {
             "review_schema": "medium_term_goal_review",
@@ -4114,6 +4138,24 @@ class PreSubmitReviewTests(unittest.TestCase):
                 "forecast_performance_review_missing_tracking_fields",
                 result["attention_reasons"],
             )
+
+    def test_review_needs_attention_when_one_week_shadow_review_is_missing_or_unsafe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            shadow_path = root / "outputs" / "automation" / "latest_one_week_forecast_shadow_review.json"
+            shadow = json.loads(shadow_path.read_text(encoding="utf-8-sig"))
+            shadow["formal_model_change_allowed"] = True
+            write_json(shadow_path, shadow)
+            (root / "outputs" / "automation" / "latest_one_week_forecast_calibration_review.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("one_week_forecast_shadow_formal_model_change_unsafe", result["attention_reasons"])
+            self.assertIn("one_week_forecast_calibration_review", result["missing_outputs"])
 
     def test_review_needs_attention_when_backtest_review_allows_upgrade_with_weak_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:

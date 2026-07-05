@@ -151,6 +151,20 @@ INPUT_SPECS = {
         "version_field": "review_version",
         "version_value": 1,
     },
+    "one_week_forecast_shadow_review": {
+        "path": "outputs/automation/latest_one_week_forecast_shadow_review.json",
+        "schema_field": "review_schema",
+        "schema_value": "one_week_forecast_shadow_review",
+        "version_field": "review_version",
+        "version_value": 1,
+    },
+    "one_week_forecast_calibration_review": {
+        "path": "outputs/automation/latest_one_week_forecast_calibration_review.json",
+        "schema_field": "review_schema",
+        "schema_value": "one_week_forecast_calibration_review",
+        "version_field": "review_version",
+        "version_value": 1,
+    },
     "medium_term_goal_review": {
         "path": "outputs/automation/latest_medium_term_goal_review.json",
         "schema_field": "review_schema",
@@ -177,6 +191,18 @@ FORECAST_PERFORMANCE_REQUIRED_TRACKING_FIELDS = [
     "next_one_week_evaluation_count",
     "next_one_month_evaluation_date",
     "next_one_month_evaluation_count",
+]
+
+ONE_WEEK_FORECAST_SHADOW_REQUIRED_FIELDS = [
+    "one_week_evaluated_count",
+    "recommended_shadow_actions",
+    "formal_model_change_allowed",
+]
+
+ONE_WEEK_FORECAST_CALIBRATION_REQUIRED_FIELDS = [
+    "one_week_evaluated_count",
+    "recommended_shadow_actions",
+    "formal_model_change_allowed",
 ]
 
 MEDIUM_TERM_GOAL_REVIEW_REQUIRED_FIELDS = [
@@ -576,6 +602,14 @@ def run_pre_submit_review(
     )
     attention_reasons.extend(_candidate_findings_review_reasons(payloads.get("candidate_findings_review", {})))
     attention_reasons.extend(_forecast_performance_review_reasons(payloads.get("forecast_performance_review", {})))
+    attention_reasons.extend(
+        _one_week_forecast_shadow_review_reasons(payloads.get("one_week_forecast_shadow_review", {}))
+    )
+    attention_reasons.extend(
+        _one_week_forecast_calibration_review_reasons(
+            payloads.get("one_week_forecast_calibration_review", {})
+        )
+    )
     attention_reasons.extend(_medium_term_goal_review_reasons(payloads.get("medium_term_goal_review", {})))
     attention_reasons.extend(
         _model_handoff_review_reasons(
@@ -2676,6 +2710,32 @@ def _forecast_performance_review_reasons(payload):
         reasons.append("forecast_performance_latest_short_signals_missing")
     if payload.get("formal_model_change_allowed"):
         reasons.append("forecast_performance_formal_model_change_unsafe")
+    return reasons
+
+
+def _one_week_forecast_shadow_review_reasons(payload):
+    if not payload:
+        return []
+    reasons = []
+    if payload.get("status") not in {"sample_accumulating", "shadow_review_needed"}:
+        reasons.append("one_week_forecast_shadow_review_not_acceptable")
+    if any(field not in payload for field in ONE_WEEK_FORECAST_SHADOW_REQUIRED_FIELDS):
+        reasons.append("one_week_forecast_shadow_review_missing_fields")
+    if payload.get("formal_model_change_allowed"):
+        reasons.append("one_week_forecast_shadow_formal_model_change_unsafe")
+    return reasons
+
+
+def _one_week_forecast_calibration_review_reasons(payload):
+    if not payload:
+        return []
+    reasons = []
+    if payload.get("status") not in {"insufficient_samples", "monitoring", "calibration_review_needed"}:
+        reasons.append("one_week_forecast_calibration_review_not_acceptable")
+    if any(field not in payload for field in ONE_WEEK_FORECAST_CALIBRATION_REQUIRED_FIELDS):
+        reasons.append("one_week_forecast_calibration_review_missing_fields")
+    if payload.get("formal_model_change_allowed"):
+        reasons.append("one_week_forecast_calibration_formal_model_change_unsafe")
     return reasons
 
 

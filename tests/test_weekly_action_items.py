@@ -319,6 +319,51 @@ def write_forecast_performance_review(
     )
 
 
+def write_one_week_shadow_review(path):
+    payload = {
+        "review_schema": "one_week_forecast_shadow_review",
+        "review_version": 1,
+        "as_of_date": "2026-06-28",
+        "status": "shadow_review_needed",
+        "one_week_evaluated_count": 64,
+        "direction_hit_rate": 0.25,
+        "opposite_miss_count": 12,
+        "neutral_miss_count": 18,
+        "recommended_shadow_actions": [
+            "review_direction_mapping",
+            "review_neutral_band",
+            "keep_formal_model_unchanged",
+        ],
+        "formal_model_change_allowed": False,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
+def write_one_week_calibration_review(path):
+    payload = {
+        "review_schema": "one_week_forecast_calibration_review",
+        "review_version": 1,
+        "as_of_date": "2026-06-28",
+        "status": "calibration_review_needed",
+        "one_week_evaluated_count": 64,
+        "recommended_shadow_actions": [
+            "review_down_signal_mapping_shadow_only",
+            "review_neutral_band_shadow_only",
+            "keep_formal_model_unchanged",
+        ],
+        "formal_model_change_allowed": False,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_manual_review_queue(path):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -664,6 +709,43 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("00754.HK partial", data_health["recommended_check"])
             self.assertIn("00823.HK partial", data_health["recommended_check"])
             self.assertIn("补充行情源或人工复核字段口径", data_health["recommended_check"])
+
+    def test_forecast_action_includes_one_week_shadow_review_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            forecast_path = root / "latest_forecast_performance_review.json"
+            shadow_path = root / "latest_one_week_forecast_shadow_review.json"
+            calibration_path = root / "latest_one_week_forecast_calibration_review.json"
+            write_manifest(manifest_path)
+            write_forecast_performance_review(
+                forecast_path,
+                mature_evaluations=64,
+                latest_prediction_unavailable=0,
+                legacy_prediction_unavailable=0,
+            )
+            write_one_week_shadow_review(shadow_path)
+            write_one_week_calibration_review(calibration_path)
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                forecast_performance=forecast_path,
+                one_week_forecast_shadow_review=shadow_path,
+                one_week_forecast_calibration_review=calibration_path,
+            )
+
+            forecast = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_forecast_performance"
+            )
+            self.assertIn("latest_one_week_forecast_shadow_review.json", forecast["recommended_check"])
+            self.assertIn("review_direction_mapping", forecast["recommended_check"])
+            self.assertIn("latest_one_week_forecast_calibration_review.json", forecast["recommended_check"])
+            self.assertIn("review_down_signal_mapping_shadow_only", forecast["recommended_check"])
+            self.assertIn("formal_model_change_allowed:false", forecast["source"])
 
     def test_skips_data_health_action_when_review_only_requires_monitoring(self):
         with tempfile.TemporaryDirectory() as tmp:
