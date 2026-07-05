@@ -57,7 +57,9 @@ def write_weekly_check(root, outputs, as_of_date="2026-06-28"):
                 "manual_review_queue_count": 12,
                 "manual_review_repeat_count": 2,
                 "forecast_next_one_week_evaluation_date": "2026-07-07",
+                "forecast_next_one_week_evaluation_count": 42,
                 "forecast_next_one_month_evaluation_date": "2026-07-28",
+                "forecast_next_one_month_evaluation_count": 42,
                 "priority_actions": ["review_quote_gaps"],
                 "outputs": outputs,
             },
@@ -104,7 +106,9 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             self.assertEqual(result["automation_check_status"], "manual_review_needed")
             self.assertEqual(result["missing_outputs"], [])
             self.assertEqual(result["forecast_next_one_week_evaluation_date"], "2026-07-07")
+            self.assertEqual(result["forecast_next_one_week_evaluation_count"], 42)
             self.assertEqual(result["forecast_next_one_month_evaluation_date"], "2026-07-28")
+            self.assertEqual(result["forecast_next_one_month_evaluation_count"], 42)
             self.assertIn("# 周度运维总检查", report)
             self.assertIn("总体状态：ready", report)
             self.assertIn("自动任务配置：ready", report)
@@ -113,7 +117,9 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             self.assertIn("人工复核队列：12", report)
 
             self.assertIn("forecast_next_one_week_evaluation_date=2026-07-07", report)
+            self.assertIn("forecast_next_one_week_evaluation_count=42", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
+            self.assertIn("forecast_next_one_month_evaluation_count=42", report)
 
     def test_ops_check_reports_external_input_blockers_from_weekly_check(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:

@@ -125,8 +125,16 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
         "forecast_next_one_week_evaluation_date": str(
             weekly_check.get("forecast_next_one_week_evaluation_date", "") or ""
         ),
+        "forecast_next_one_week_evaluation_count": _int_value(
+            weekly_check.get("forecast_next_one_week_evaluation_count"),
+            0,
+        ),
         "forecast_next_one_month_evaluation_date": str(
             weekly_check.get("forecast_next_one_month_evaluation_date", "") or ""
+        ),
+        "forecast_next_one_month_evaluation_count": _int_value(
+            weekly_check.get("forecast_next_one_month_evaluation_count"),
+            0,
         ),
         "external_input_blocker_count": len(external_input_blockers),
         "external_input_blockers": external_input_blockers,
@@ -145,6 +153,13 @@ def _join_or_none(values):
     return ", ".join(str(value) for value in values)
 
 
+def _int_value(value, default=0):
+    try:
+        return int(value if value not in (None, "") else default)
+    except (TypeError, ValueError):
+        return default
+
+
 def render_weekly_ops_check(result):
     lines = [
         "# 周度运维总检查",
@@ -160,7 +175,9 @@ def render_weekly_ops_check(result):
         f"- 人工复核队列：{result.get('manual_review_queue_count', 0)}",
         f"- 历史重复复核：{result.get('manual_review_repeat_count', 0)}",
         f"- forecast_next_one_week_evaluation_date={result.get('forecast_next_one_week_evaluation_date', '')}",
+        f"- forecast_next_one_week_evaluation_count={result.get('forecast_next_one_week_evaluation_count', 0)}",
         f"- forecast_next_one_month_evaluation_date={result.get('forecast_next_one_month_evaluation_date', '')}",
+        f"- forecast_next_one_month_evaluation_count={result.get('forecast_next_one_month_evaluation_count', 0)}",
         f"- external_input_blocker_count={result.get('external_input_blocker_count', 0)}",
         f"- 缺失输出：{_join_or_none(result.get('missing_outputs', []))}",
         f"- 建议动作：{result.get('recommended_action', 'unknown')}",

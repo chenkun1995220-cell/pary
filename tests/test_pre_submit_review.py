@@ -302,7 +302,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                 }
             ],
             "forecast_next_one_week_evaluation_date": "2026-07-07",
+            "forecast_next_one_week_evaluation_count": 42,
             "forecast_next_one_month_evaluation_date": "2026-07-28",
+            "forecast_next_one_month_evaluation_count": 42,
             "missing_outputs": [],
             "attention_reasons": [],
         },
@@ -326,7 +328,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "recommended_action": "review_data_health",
             "priority_actions": ["review_data_health", "continue_sample_accumulation"],
             "forecast_next_one_week_evaluation_date": "2026-07-07",
+            "forecast_next_one_week_evaluation_count": 42,
             "forecast_next_one_month_evaluation_date": "2026-07-28",
+            "forecast_next_one_month_evaluation_count": 42,
             "automation_issues": [],
             "external_input_blocker_count": 1,
             "external_input_blockers": [
@@ -373,7 +377,9 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "model_audit_status": "sample_accumulating",
             "forecast_performance_status": "sample_accumulating",
             "forecast_next_one_week_evaluation_date": "2026-07-07",
+            "forecast_next_one_week_evaluation_count": 42,
             "forecast_next_one_month_evaluation_date": "2026-07-28",
+            "forecast_next_one_month_evaluation_count": 42,
             "backtest_status": "evidence_review_needed",
             "external_input_blocker_count": 1,
             "external_input_blockers": [
@@ -1580,6 +1586,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             check = json.loads(check_path.read_text(encoding="utf-8-sig"))
             del check["forecast_next_one_week_evaluation_date"]
             del check["forecast_next_one_month_evaluation_date"]
+            write_json(check_path, check)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "automation_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_automation_check_lacks_forecast_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            check_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            del check["forecast_next_one_week_evaluation_count"]
+            del check["forecast_next_one_month_evaluation_count"]
             write_json(check_path, check)
 
             from pre_submit_review import run_pre_submit_review
@@ -5191,6 +5217,26 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
+    def test_review_needs_attention_when_delivery_check_lacks_forecast_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            delivery = json.loads(delivery_path.read_text(encoding="utf-8-sig"))
+            del delivery["forecast_next_one_week_evaluation_count"]
+            del delivery["forecast_next_one_month_evaluation_count"]
+            write_json(delivery_path, delivery)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_delivery_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
     def test_review_needs_attention_when_delivery_check_omits_external_input_blockers(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -5306,6 +5352,26 @@ class PreSubmitReviewTests(unittest.TestCase):
             ops = json.loads(ops_path.read_text(encoding="utf-8-sig"))
             del ops["forecast_next_one_week_evaluation_date"]
             del ops["forecast_next_one_month_evaluation_date"]
+            write_json(ops_path, ops)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_ops_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_ops_check_lacks_forecast_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            ops_path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
+            ops = json.loads(ops_path.read_text(encoding="utf-8-sig"))
+            del ops["forecast_next_one_week_evaluation_count"]
+            del ops["forecast_next_one_month_evaluation_count"]
             write_json(ops_path, ops)
 
             from pre_submit_review import run_pre_submit_review
