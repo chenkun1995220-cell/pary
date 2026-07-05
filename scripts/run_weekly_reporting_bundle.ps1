@@ -42,6 +42,7 @@ $postSteps = @(
   @{ Label = "run_membership_evidence_apply_preview"; Script = "run_membership_evidence_apply_preview.ps1"; Critical = $true },
   @{ Label = "run_candidate_findings_review"; Script = "run_candidate_findings_review.ps1"; Critical = $true },
   @{ Label = "run_forecast_performance_review"; Script = "run_forecast_performance_review.ps1"; Critical = $true },
+  @{ Label = "run_one_week_forecast_shadow_review"; Script = "run_one_week_forecast_shadow_review.ps1"; Critical = $true },
   @{ Label = "run_medium_term_goal_review"; Script = "run_medium_term_goal_review.ps1"; Critical = $true },
   @{ Label = "run_model_handoff_review"; Script = "run_model_handoff_review.ps1"; Critical = $true },
   @{ Label = "show_automation_check"; Script = "show_automation_check.ps1"; Critical = $true },
