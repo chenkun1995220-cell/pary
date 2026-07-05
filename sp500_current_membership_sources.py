@@ -50,6 +50,10 @@ SOURCE_FILE_ACCEPTANCE_CRITERIA = [
     "at_least_400_tickers",
     "official_spglobal_constituents_export",
 ]
+SOURCE_FILE_USER_AGENT_HINT = (
+    "Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official "
+    "S&P Global fetches through PowerShell entrypoints."
+)
 INTAKE_TEMPLATE_FIELDS = [
     "expected_ticker",
     "intake_status",
@@ -254,6 +258,7 @@ def _source_file_guidance(source_file_inbox=SOURCE_FILE_INBOX):
         "source_file_next_command": SOURCE_FILE_NEXT_COMMAND,
         "source_file_dry_run_command": SOURCE_FILE_DRY_RUN_COMMAND,
         "source_file_acceptance_criteria": SOURCE_FILE_ACCEPTANCE_CRITERIA,
+        "source_file_user_agent_hint": SOURCE_FILE_USER_AGENT_HINT,
     }
 
 
@@ -571,6 +576,8 @@ def render_report(payload):
             "- source_file_acceptance_criteria: "
             + ", ".join(payload.get("source_file_acceptance_criteria") or [])
         )
+    if payload.get("source_file_user_agent_hint"):
+        lines.append(f"- source_file_user_agent_hint: {payload.get('source_file_user_agent_hint', '')}")
     if payload.get("source_file_ticker_columns"):
         lines.append(
             "- source_file_ticker_columns: " + ", ".join(payload.get("source_file_ticker_columns") or [])
@@ -632,6 +639,7 @@ def render_source_file_request(payload, missing_limit=20):
         f"- required_columns: {required_columns}",
         "- accepted_ticker_columns: " + ", ".join(SOURCE_FILE_ACCEPTED_TICKER_COLUMNS),
         "- acceptance_criteria: " + ", ".join(payload.get("source_file_acceptance_criteria") or []),
+        f"- source_file_user_agent_hint: {payload.get('source_file_user_agent_hint', '')}",
         f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- missing_count: {payload.get('missing_count', 0)}",

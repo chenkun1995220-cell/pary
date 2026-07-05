@@ -467,6 +467,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("source_file_inbox_sha256: none", report_text)
             self.assertIn("source_file_inbox_modified_at: none", report_text)
             self.assertIn("at_least_400_tickers", report_text)
+            self.assertIn("source_file_user_agent_hint", report_text)
+            self.assertIn("-UserAgent <user_agent>", report_text)
             self.assertEqual(payload["source_file_intake_template"], str(intake))
             self.assertEqual(payload["source_file_request_file"], str(source_request))
             self.assertTrue(source_request.exists())
@@ -479,6 +481,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertIn("source_file_inbox_size_bytes: 0", source_request_text)
             self.assertIn("source_file_inbox_sha256: none", source_request_text)
             self.assertIn("source_file_inbox_modified_at: none", source_request_text)
+            self.assertIn("source_file_user_agent_hint", source_request_text)
+            self.assertIn("-UserAgent <user_agent>", source_request_text)
             self.assertIn("formal_backtest_upgrade_allowed: false", source_request_text)
             self.assertIn("formal_model_change_allowed: false", source_request_text)
             with intake.open(encoding="utf-8-sig", newline="") as handle:
