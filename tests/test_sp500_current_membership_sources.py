@@ -838,6 +838,7 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             report_text = report.read_text(encoding="utf-8-sig")
             self.assertIn("status: fetch_failed", report_text)
             self.assertIn("missing.html", report_text)
+            self.assertIn("official_export_url: https://www.spglobal.com/spdji/en/idsexport/file.xls", report_text)
             payload = json.loads(metadata.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["source_file_intake_template"], str(intake))
             self.assertEqual(payload["recommended_followup"], "provide_official_constituents_csv")
@@ -848,11 +849,16 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
             self.assertEqual(payload["intake_missing_tickers"], ["ABT", "ZZZ"])
             self.assertIn("run_sp500_current_membership_sources.ps1", payload["source_file_next_command"])
             self.assertIn("at_least_400_tickers", payload["source_file_acceptance_criteria"])
+            self.assertEqual(
+                payload["official_export_url"],
+                "https://www.spglobal.com/spdji/en/idsexport/file.xls?redesignExport=true&languageId=1&selectedModule=Constituents&selectedSubModule=ConstituentsFullList&indexId=340",
+            )
             self.assertEqual([row["ticker"] for row in payload["missing_ticker_review_queue"]], ["ABT", "ZZZ"])
             self.assertEqual(payload["source_file_request_file"], str(source_request))
             request_text = source_request.read_text(encoding="utf-8-sig")
             self.assertIn("# S&P 500 official constituents CSV request", request_text)
             self.assertIn("status: fetch_failed", request_text)
+            self.assertIn("official_export_url: https://www.spglobal.com/spdji/en/idsexport/file.xls", request_text)
             self.assertIn("required_columns: Symbol or Ticker", request_text)
             self.assertIn(
                 "accepted_ticker_columns: Symbol, Ticker, Ticker Symbol, Constituent Ticker, Constituent Symbol",
@@ -1071,12 +1077,17 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                 payload["source_file_user_agent_hint"],
                 "Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official S&P Global fetches through PowerShell entrypoints.",
             )
+            self.assertEqual(
+                payload["official_export_url"],
+                "https://www.spglobal.com/spdji/en/idsexport/file.xls?redesignExport=true&languageId=1&selectedModule=Constituents&selectedSubModule=ConstituentsFullList&indexId=340",
+            )
             self.assertEqual(payload["requested_count"], 2)
             report_text = report.read_text(encoding="utf-8-sig")
             self.assertIn("status: missing", report_text)
             self.assertIn("external_input_required: true", report_text)
             self.assertIn("blocking_reason: official_constituents_csv_missing", report_text)
             self.assertIn("source_file_user_agent_hint: Set SEC_USER_AGENT", report_text)
+            self.assertIn("official_export_url: https://www.spglobal.com/spdji/en/idsexport/file.xls", report_text)
 
     def test_inbox_status_reports_ready_official_csv_with_intake_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -7,6 +7,7 @@ from pathlib import Path
 from sp500_current_membership_sources import (
     INTAKE_TEMPLATE_FIELDS,
     MINIMUM_OFFICIAL_TICKER_COUNT,
+    OFFICIAL_EXPORT_URL,
     SOURCE_FILE_ACCEPTANCE_CRITERIA,
     SOURCE_FILE_INBOX,
     SOURCE_FILE_INBOX_DRY_RUN_COMMAND_TEMPLATE,
@@ -97,6 +98,7 @@ def build_inbox_status(
         "status_version": STATUS_VERSION,
         "as_of_date": as_of_date or date.today().isoformat(),
         "source_url": source_url,
+        "official_export_url": OFFICIAL_EXPORT_URL,
         "source_file_inbox": str(source_file_inbox),
         "source_file_inbox_exists": inbox_path.exists(),
         "source_file_required_columns": SOURCE_FILE_REQUIRED_COLUMNS,
@@ -183,6 +185,7 @@ def render_status(payload):
         "",
         f"- as_of_date: {payload.get('as_of_date', '')}",
         f"- status: {payload.get('status', 'unknown')}",
+        f"- official_export_url: {payload.get('official_export_url', '')}",
         f"- source_file_inbox: {payload.get('source_file_inbox', '')}",
         f"- source_file_inbox_exists: {str(payload.get('source_file_inbox_exists')).lower()}",
         f"- source_file_inbox_size_bytes: {payload.get('source_file_inbox_size_bytes', 0)}",

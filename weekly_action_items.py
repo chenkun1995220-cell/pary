@@ -667,6 +667,11 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
     source_file_user_agent_hint = str(
         source_status.get("source_file_user_agent_hint", "") or ""
     ).strip()
+    official_export_url = str(
+        source_status.get("official_export_url")
+        or inbox_status.get("official_export_url", "")
+        or ""
+    ).strip()
     review_decision_status = str(
         review_status.get("review_decision_status", "unknown") or "unknown"
     ).strip()
@@ -681,6 +686,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
     decision_pending_ticker_text = ", ".join(decision_pending_tickers[:10]) or "none"
     source_file_action_prefix = (
         f"source_file_request_file:{source_file_request_file or 'outputs/automation/sp500_current_membership_source_file_request.md'}; "
+        f"official_export_url={official_export_url or 'none'}; "
         f"source_file_inbox:{source_file_inbox_default}; "
         f"accepted_ticker_columns:{source_file_accepted_ticker_columns_text}; "
         f"acceptance_criteria:{source_file_criteria_text}; "
@@ -734,6 +740,7 @@ def _current_membership_source_action(source_status, review_status=None, inbox_s
             f"source_file_accepted_ticker_columns:{source_file_accepted_ticker_columns_text}; "
             f"source_file_acceptance_criteria:{source_file_criteria_text}; "
             f"source_file_request_file:{source_file_request_file or 'missing'}; "
+            f"official_export_url:{official_export_url or 'none'}; "
             f"source_file_inbox:{source_file_inbox or 'missing'}; "
             f"source_file_inbox_exists:{source_file_inbox_exists}; "
             f"source_file_validation_status:{source_file_validation_status}; "

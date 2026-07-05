@@ -832,6 +832,8 @@ def render_risk_section(payload):
         parts = [f"- 优先输入缺口：{gap.get('label') or gap.get('action_code')}"]
         if gap.get("blocking_input"):
             parts.append(f"投递入口={gap.get('blocking_input')}")
+        if gap.get("official_export_url"):
+            parts.append(f"official_export_url={gap.get('official_export_url')}")
         if gap.get("blocking_reason"):
             parts.append(f"阻塞原因={gap.get('blocking_reason')}")
         if gap.get("next_action"):
@@ -1299,6 +1301,7 @@ def summarize_priority_input_gaps(priority_action_details):
                     "source_file_inbox_import_command",
                     "source_file_inbox_next_command",
                 ),
+                "official_export_url": first_present(metadata, "official_export_url"),
                 "user_agent_hint": first_present(metadata, "source_file_user_agent_hint"),
             }
         )
@@ -1346,8 +1349,11 @@ def format_priority_input_gap_description(metadata, fallback):
         "source_file_inbox_next_command",
     )
     user_agent_hint = first_present(metadata, "source_file_user_agent_hint")
+    official_export_url = first_present(metadata, "official_export_url")
     if blocking_input:
         parts.append(f"投递入口={blocking_input}")
+    if official_export_url:
+        parts.append(f"official_export_url={official_export_url}")
     if blocking_reason:
         parts.append(f"阻塞原因={blocking_reason}")
     if next_action:

@@ -567,6 +567,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                             "title": "核对当前 S&P 500 成分来源缺口",
                             "recommended_check": (
                                 "source_file_inbox:inputs/sp500_current_membership/official_constituents.csv; "
+                                "official_export_url=https://www.spglobal.com/spdji/en/idsexport/file.xls?redesignExport=true&languageId=1&selectedModule=Constituents&selectedSubModule=ConstituentsFullList&indexId=340; "
                                 "source_file_user_agent_hint=Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official S&P Global fetches through PowerShell entrypoints.; "
                                 "inbox_next_action=place_official_constituents_csv; "
                                 "inbox_external_input_required=true; "
@@ -607,6 +608,10 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 payload["priority_input_gaps"][0]["user_agent_hint"],
                 "Set SEC_USER_AGENT or pass -UserAgent <user_agent> when retrying official S&P Global fetches through PowerShell entrypoints.",
             )
+            self.assertEqual(
+                payload["priority_input_gaps"][0]["official_export_url"],
+                "https://www.spglobal.com/spdji/en/idsexport/file.xls?redesignExport=true&languageId=1&selectedModule=Constituents&selectedSubModule=ConstituentsFullList&indexId=340",
+            )
             self.assertIn(
                 "校验命令=",
                 payload["priority_action_details"][0]["description"],
@@ -624,6 +629,14 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("-SourceFileInbox", payload["priority_input_gaps"][0]["import_command"])
             self.assertIn("official_constituents.csv", markdown)
             self.assertIn("source_file_user_agent_hint=Set SEC_USER_AGENT", markdown)
+            self.assertIn("official_export_url=https://www.spglobal.com/spdji/en/idsexport/file.xls", markdown)
+            risk_gap_lines = [
+                line
+                for line in markdown.splitlines()
+                if line.startswith("- 优先输入缺口：核对当前 S&P 500 成分来源缺口")
+            ]
+            self.assertEqual(len(risk_gap_lines), 1)
+            self.assertIn("official_export_url=", risk_gap_lines[0])
             self.assertIn("-UserAgent <user_agent>", markdown)
             self.assertIn("投递入口", markdown)
             self.assertIn("阻塞原因", markdown)

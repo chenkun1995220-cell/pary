@@ -35,6 +35,11 @@ SOURCE_FILE_DRY_RUN_COMMAND = (
     "-ProjectRoot <project_root> -DryRun -SourceFile <official_constituents.csv>"
 )
 SOURCE_FILE_INBOX = "inputs/sp500_current_membership/official_constituents.csv"
+OFFICIAL_EXPORT_URL = (
+    "https://www.spglobal.com/spdji/en/idsexport/file.xls?"
+    "redesignExport=true&languageId=1&selectedModule=Constituents&"
+    "selectedSubModule=ConstituentsFullList&indexId=340"
+)
 SOURCE_FILE_INBOX_NEXT_COMMAND_TEMPLATE = (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
     "scripts\\run_sp500_current_membership_sources.ps1 "
@@ -257,6 +262,7 @@ def _source_file_guidance(source_file_inbox=SOURCE_FILE_INBOX):
         "source_file_inbox": source_file_inbox,
         "source_file_next_command": SOURCE_FILE_NEXT_COMMAND,
         "source_file_dry_run_command": SOURCE_FILE_DRY_RUN_COMMAND,
+        "official_export_url": OFFICIAL_EXPORT_URL,
         "source_file_acceptance_criteria": SOURCE_FILE_ACCEPTANCE_CRITERIA,
         "source_file_user_agent_hint": SOURCE_FILE_USER_AGENT_HINT,
     }
@@ -533,6 +539,7 @@ def render_report(payload):
         "",
         f"- as_of_date: {payload.get('as_of_date', '')}",
         f"- source_url: {payload.get('source_url', '')}",
+        f"- official_export_url: {payload.get('official_export_url', '')}",
         f"- status: {payload.get('status', 'unknown')}",
         f"- requested_count: {payload.get('requested_count', 0)}",
         f"- parsed_official_ticker_count: {payload.get('parsed_official_ticker_count', 0)}",
@@ -636,6 +643,7 @@ def render_source_file_request(payload, missing_limit=20):
         f"- as_of_date: {payload.get('as_of_date', '')}",
         f"- status: {payload.get('status', 'unknown')}",
         f"- source_url: {payload.get('source_url', '')}",
+        f"- official_export_url: {payload.get('official_export_url', '')}",
         f"- required_columns: {required_columns}",
         "- accepted_ticker_columns: " + ", ".join(SOURCE_FILE_ACCEPTED_TICKER_COLUMNS),
         "- acceptance_criteria: " + ", ".join(payload.get("source_file_acceptance_criteria") or []),

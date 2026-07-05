@@ -902,6 +902,11 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     "intake_missing_tickers": ["ABT", "ADM", "AEP"],
                     "next_action": "retry_official_source_or_provide_official_constituents_csv",
                     "recommended_followup": "provide_official_constituents_csv",
+                    "official_export_url": (
+                        "https://www.spglobal.com/spdji/en/idsexport/file.xls?"
+                        "redesignExport=true&languageId=1&selectedModule=Constituents&"
+                        "selectedSubModule=ConstituentsFullList&indexId=340"
+                    ),
                     "source_file_required_columns": ["Symbol", "Ticker"],
                     "source_file_next_command": (
                         "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
@@ -978,6 +983,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 source_item["source"],
             )
             self.assertIn("source_file_request_file:outputs/automation/sp500_current_membership_source_file_request.md", source_item["source"])
+            self.assertIn("official_export_url:https://www.spglobal.com/spdji/en/idsexport/file.xls", source_item["source"])
             self.assertIn("source_file_inbox:inputs/sp500_current_membership/official_constituents.csv", source_item["source"])
             self.assertIn("source_file_inbox_exists:false", source_item["source"])
             self.assertIn("source_file_validation_status:missing", source_item["source"])
@@ -1004,6 +1010,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("latest_sp500_current_membership_sources.json", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_intake_template.csv", source_item["recommended_check"])
             self.assertIn("sp500_current_membership_source_file_request.md", source_item["recommended_check"])
+            self.assertIn("official_export_url=https://www.spglobal.com/spdji/en/idsexport/file.xls", source_item["recommended_check"])
             self.assertIn("inputs/sp500_current_membership/official_constituents.csv", source_item["recommended_check"])
             self.assertIn("inbox_status=invalid", source_item["recommended_check"])
             self.assertIn("fetch_error_type=network_permission_denied", source_item["recommended_check"])
@@ -1044,6 +1051,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("-UserAgent <user_agent>", source_item["recommended_check"])
             self.assertIn("at_least_400_tickers", source_item["recommended_check"])
             self.assertIn("source_file_user_agent_hint", report)
+            self.assertIn("official_export_url", report)
             self.assertIn("-UserAgent <user_agent>", report)
             self.assertIn("provide_official_constituents_csv", report)
 
