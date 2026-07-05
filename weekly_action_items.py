@@ -227,6 +227,12 @@ def _percent_value(value):
 def _forecast_maturity_schedule_text(forecast_performance):
     one_week = forecast_performance.get("next_one_week_evaluation_date", "unknown")
     one_month = forecast_performance.get("next_one_month_evaluation_date", "unknown")
+    one_week_count = _int_value(forecast_performance.get("next_one_week_evaluation_count"), 0)
+    one_month_count = _int_value(forecast_performance.get("next_one_month_evaluation_count"), 0)
+    if one_week != "unknown":
+        one_week = f"{one_week} ({one_week_count} samples)"
+    if one_month != "unknown":
+        one_month = f"{one_month} ({one_month_count} samples)"
     if one_week == "unknown" and one_month == "unknown":
         return ""
     return f"；下一批1周可评估日期 {one_week}，1个月可评估日期 {one_month}"
@@ -435,7 +441,9 @@ def _action_template(action_code, manifest):
                 f"forecast_one_week_mature:{_int_value(forecast_performance.get('one_week_mature'), 0)}; "
                 f"forecast_one_month_mature:{_int_value(forecast_performance.get('one_month_mature'), 0)}; "
                 f"forecast_next_one_week_evaluation_date:{forecast_performance.get('next_one_week_evaluation_date', 'unknown')}; "
+                f"forecast_next_one_week_evaluation_count:{_int_value(forecast_performance.get('next_one_week_evaluation_count'), 0)}; "
                 f"forecast_next_one_month_evaluation_date:{forecast_performance.get('next_one_month_evaluation_date', 'unknown')}; "
+                f"forecast_next_one_month_evaluation_count:{_int_value(forecast_performance.get('next_one_month_evaluation_count'), 0)}; "
                 "forecast_formal_model_change_allowed:false"
             ),
             "recommended_check": (

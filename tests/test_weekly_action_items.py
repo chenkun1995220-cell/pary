@@ -103,7 +103,9 @@ def write_manifest(path):
             "direction_hit_rate": 0.32,
             "average_excess_return": -0.04,
             "next_one_week_evaluation_date": "2026-07-07",
+            "next_one_week_evaluation_count": 42,
             "next_one_month_evaluation_date": "2026-07-28",
+            "next_one_month_evaluation_count": 42,
         },
     }
     Path(path).write_text(
@@ -284,7 +286,9 @@ def write_forecast_performance_review(
     latest_prediction_unavailable=87,
     legacy_prediction_unavailable=0,
     next_one_week_evaluation_date="2026-07-07",
+    next_one_week_evaluation_count=42,
     next_one_month_evaluation_date="2026-07-28",
+    next_one_month_evaluation_count=42,
 ):
     payload = {
         "review_schema": "forecast_performance_review",
@@ -299,7 +303,9 @@ def write_forecast_performance_review(
         "latest_prediction_unavailable_count": latest_prediction_unavailable,
         "legacy_prediction_unavailable_count": legacy_prediction_unavailable,
         "next_one_week_evaluation_date": next_one_week_evaluation_date,
+        "next_one_week_evaluation_count": next_one_week_evaluation_count,
         "next_one_month_evaluation_date": next_one_month_evaluation_date,
+        "next_one_month_evaluation_count": next_one_month_evaluation_count,
         "maturity_gap_reasons": {
             "prediction_unavailable": prediction_unavailable,
             "pending_maturity": pending_maturity,
@@ -604,9 +610,12 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("forecast_one_week_mature:0", sample["source"])
             self.assertIn("forecast_one_month_mature:0", sample["source"])
             self.assertIn("forecast_next_one_week_evaluation_date:2026-07-07", sample["source"])
+            self.assertIn("forecast_next_one_week_evaluation_count:42", sample["source"])
             self.assertIn("forecast_next_one_month_evaluation_date:2026-07-28", sample["source"])
+            self.assertIn("forecast_next_one_month_evaluation_count:42", sample["source"])
             self.assertIn("sample_accumulating", sample["recommended_check"])
             self.assertIn("2026-07-07", sample["recommended_check"])
+            self.assertIn("42", sample["recommended_check"])
             self.assertIn("2026-07-28", sample["recommended_check"])
 
             forecast = next(
