@@ -235,11 +235,17 @@ def build_data_health_review(manifest):
         item["refetch_gap_unresolved_non_candidate_count"] for item in markets
     )
     manual_financial_review_count = sum(item["manual_financial_review_count"] for item in markets)
+    candidate_manual_financial_review_count = sum(
+        item["candidate_manual_financial_review_count"] for item in markets
+    )
     manual_financial_review_classified_count = sum(
         item["manual_financial_review_classified_count"] for item in markets
     )
     manual_financial_review_unclassified_count = sum(
         item["manual_financial_review_unclassified_count"] for item in markets
+    )
+    candidate_manual_financial_review_unclassified_count = sum(
+        item["candidate_manual_financial_review_unclassified_count"] for item in markets
     )
     return {
         "review_schema": REVIEW_SCHEMA,
@@ -255,8 +261,10 @@ def build_data_health_review(manifest):
         "refetch_gap_action_required_count": refetch_gap_action_required_count,
         "refetch_gap_unresolved_non_candidate_count": refetch_gap_unresolved_non_candidate_count,
         "manual_financial_review_count": manual_financial_review_count,
+        "candidate_manual_financial_review_count": candidate_manual_financial_review_count,
         "manual_financial_review_classified_count": manual_financial_review_classified_count,
         "manual_financial_review_unclassified_count": manual_financial_review_unclassified_count,
+        "candidate_manual_financial_review_unclassified_count": candidate_manual_financial_review_unclassified_count,
         "markets": markets,
         "boundary": "只读取现有自我分析和 quote_gaps.csv，不抓取行情，不重新评分，不修改正式模型参数。",
     }
@@ -353,6 +361,13 @@ def render_data_health_review(payload):
             )
     if not any_residual:
         lines.append("| - | - | - | - | - | 无残留观察项 |")
+    lines.extend(
+        [
+            "",
+            f"- candidate_manual_financial_review_count: {payload.get('candidate_manual_financial_review_count', 0)}",
+            f"- candidate_manual_financial_review_unclassified_count: {payload.get('candidate_manual_financial_review_unclassified_count', 0)}",
+        ]
+    )
     return "\n".join(lines)
 
 

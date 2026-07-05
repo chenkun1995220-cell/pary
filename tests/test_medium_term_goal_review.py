@@ -876,8 +876,10 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                     "refetch_gap_action_required_count": 0,
                     "refetch_gap_unresolved_non_candidate_count": 1,
                     "manual_financial_review_count": 73,
+                    "candidate_manual_financial_review_count": 0,
                     "manual_financial_review_classified_count": 73,
                     "manual_financial_review_unclassified_count": 0,
+                    "candidate_manual_financial_review_unclassified_count": 0,
                 }
             )
             write_json(review_path, review)
@@ -893,6 +895,16 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(goals["data_quality_convergence"]["status"], "on_track")
             self.assertEqual(goals["data_quality_convergence"]["completion_percent"], 85)
             self.assertEqual(goals["data_quality_convergence"]["completion_gap_percent"], 0)
+            self.assertEqual(
+                goals["data_quality_convergence"]["current"]["candidate_manual_financial_review_count"],
+                0,
+            )
+            self.assertEqual(
+                goals["data_quality_convergence"]["current"][
+                    "candidate_manual_financial_review_unclassified_count"
+                ],
+                0,
+            )
 
     def test_dashboard_blocks_when_core_delivery_is_not_ready(self):
         with tempfile.TemporaryDirectory() as tmp:

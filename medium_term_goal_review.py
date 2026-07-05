@@ -381,12 +381,16 @@ def _data_quality_goal(data_health, automation_check):
         data_health.get("refetch_gap_unresolved_non_candidate_count")
     )
     manual = _int_value(data_health.get("manual_financial_review_count"))
+    candidate_manual = _int_value(data_health.get("candidate_manual_financial_review_count"))
     classified = _int_value(data_health.get("manual_financial_review_classified_count"))
     unclassified = _int_value(
         data_health.get(
             "manual_financial_review_unclassified_count",
             manual if manual else 0,
         )
+    )
+    candidate_unclassified = _int_value(
+        data_health.get("candidate_manual_financial_review_unclassified_count")
     )
     manual_resolved = manual <= 40 or (manual > 0 and unclassified == 0)
     status = "on_track" if blocked == 0 and refetch_action_required == 0 and manual_resolved else "needs_work"
@@ -409,8 +413,10 @@ def _data_quality_goal(data_health, automation_check):
             "refetch_gap_action_required_count": refetch_action_required,
             "refetch_gap_unresolved_non_candidate_count": refetch_unresolved_non_candidate,
             "manual_financial_review_count": manual,
+            "candidate_manual_financial_review_count": candidate_manual,
             "manual_financial_review_classified_count": classified,
             "manual_financial_review_unclassified_count": unclassified,
+            "candidate_manual_financial_review_unclassified_count": candidate_unclassified,
         },
         "候选阻断数保持 0，可重抓缺口收敛到 0，财务人工复核项降至 40 以下或全部完成分类。",
         next_action,
