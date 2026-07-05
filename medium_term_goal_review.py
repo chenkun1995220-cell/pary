@@ -91,13 +91,30 @@ def _first_value(*values, default="unknown"):
     return default
 
 
+def _pre_submit_status_for_medium_term(pre_submit):
+    status = pre_submit.get("status", "missing")
+    reasons = pre_submit.get("attention_reasons", []) or []
+    if (
+        status == "needs_attention"
+        and isinstance(reasons, list)
+        and set(str(reason) for reason in reasons) == {"model_handoff_review_closeout_mismatch"}
+    ):
+        return "ready_refresh_required"
+    return status
+
+
 def _status_for_core(pre_submit, weekly_ops, automation_check):
     market_count = _int_value(automation_check.get("market_count"), _int_value(weekly_ops.get("market_count")))
     markets_ready = _int_value(
         automation_check.get("markets_ready_count"),
         _int_value(weekly_ops.get("markets_ready_count")),
     )
-    if pre_submit.get("status") == "ready" and weekly_ops.get("status") == "ready" and market_count and markets_ready == market_count:
+    if (
+        _pre_submit_status_for_medium_term(pre_submit) in {"ready", "ready_refresh_required"}
+        and weekly_ops.get("status") == "ready"
+        and market_count
+        and markets_ready == market_count
+    ):
         return "ready"
     return "blocked"
 
@@ -161,6 +178,28 @@ def _goal_completion_percent(goal):
         one_week = _int_value(current.get("one_week_mature"))
         one_month = _int_value(current.get("one_month_mature"))
         percent = min(65, 35 + min(15, one_week // 2) + min(15, one_month // 2))
+    elif goal_code == "candidate_review_convergence" and status == "on_track":
+        candidate_count = _int_value(current.get("candidate_count"))
+        complete = _int_value(current.get("field_complete_count"))
+        if (
+            candidate_count
+            and complete == candidate_count
+            and _int_value(current.get("missing_field_count")) == 0
+            and _int_value(current.get("risk_missing_count")) == 0
+            and _int_value(current.get("risk_unclassified_count")) == 0
+            and _int_value(current.get("risk_action_unqueued_count")) == 0
+            and _int_value(current.get("risk_action_required_count")) <= 20
+        ):
+            percent = max(percent, 85)
+    elif goal_code == "model_governance_handoff" and status == "on_track":
+        if (
+            current.get("governance_status") == "ready"
+            and current.get("pre_submit_status") in {"ready", "ready_refresh_required"}
+            and current.get("collaboration_execution_mode")
+            == "single_codex_with_gpt55_review_checklist"
+            and current.get("automatic_multi_model_collaboration_enabled") is False
+        ):
+            percent = max(percent, 85)
     return max(0, min(100, percent))
 
 
@@ -196,8 +235,12 @@ def _development_completion_policy():
     }
 
 
-def _closeout_goal(goals):
+def _closeout_goal(goals, goal_code=""):
     goals = [goal for goal in goals if isinstance(goal, dict)]
+    if goal_code:
+        goal = next((item for item in goals if item.get("goal_code") == goal_code), None)
+        if goal:
+            return goal
     for status in ("needs_work", "sample_accumulating", "blocked"):
         goal = next((item for item in goals if item.get("status") == status), None)
         if goal:
@@ -209,9 +252,9 @@ def _closeout_goal(goals):
     return goal or (goals[0] if goals else {})
 
 
-def _task_closeout_snapshot(goals):
+def _task_closeout_snapshot(goals, goal_code=""):
     overall = _overall_completion_percent(goals)
-    goal = _closeout_goal(goals)
+    goal = _closeout_goal(goals, goal_code=goal_code)
     return {
         "goal_code": goal.get("goal_code", "unknown"),
         "current_module": goal.get("module", "unknown"),
@@ -240,7 +283,7 @@ def _weekly_delivery_goal(pre_submit, weekly_ops, automation_check, weekly_actio
         "稳定每周三市场交付",
         status,
         {
-            "pre_submit_status": pre_submit.get("status", "missing"),
+            "pre_submit_status": _pre_submit_status_for_medium_term(pre_submit),
             "weekly_ops_status": weekly_ops.get("status", "missing"),
             "markets_ready_count": _int_value(
                 automation_check.get("markets_ready_count"),
@@ -721,7 +764,7 @@ def _governance_goal(pre_submit):
         status,
         {
             "governance_status": pre_submit.get("governance_status", "missing"),
-            "pre_submit_status": pre_submit.get("status", "missing"),
+            "pre_submit_status": _pre_submit_status_for_medium_term(pre_submit),
             "governance_mode": COLLABORATION_EXECUTION_MODE,
             "collaboration_execution_mode": COLLABORATION_EXECUTION_MODE,
             "collaboration_boundary_note": COLLABORATION_BOUNDARY_NOTE,
@@ -743,7 +786,7 @@ def _priority_actions(goals):
     return actions or ["continue_medium_term_monitoring"]
 
 
-def build_medium_term_goal_review(project_root="."):
+def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
     root = Path(project_root)
     inputs = {
         key: _load_json(root / AUTOMATION_DIR / filename)
@@ -831,7 +874,10 @@ def build_medium_term_goal_review(project_root="."):
         "collaboration_execution_mode": COLLABORATION_EXECUTION_MODE,
         "collaboration_boundary_note": COLLABORATION_BOUNDARY_NOTE,
         "development_completion_policy": _development_completion_policy(),
-        "task_closeout_snapshot": _task_closeout_snapshot(goals),
+        "task_closeout_snapshot": _task_closeout_snapshot(
+            goals,
+            goal_code=closeout_goal_code,
+        ),
         "inputs": {
             key: str(root / AUTOMATION_DIR / filename)
             for key, filename in INPUT_FILES.items()
@@ -998,9 +1044,13 @@ def main():
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--output", default="outputs/automation/latest_medium_term_goal_review.json")
     parser.add_argument("--report", default="outputs/automation/latest_medium_term_goal_review.md")
+    parser.add_argument("--closeout-goal-code", default="")
     args = parser.parse_args()
 
-    payload = build_medium_term_goal_review(args.project_root)
+    payload = build_medium_term_goal_review(
+        args.project_root,
+        closeout_goal_code=args.closeout_goal_code,
+    )
     report = render_medium_term_goal_review(payload)
     if args.output:
         write_json(payload, args.output)

@@ -2,6 +2,7 @@ param(
   [string]$ProjectRoot = "",
   [string]$Output = "",
   [string]$Report = "",
+  [string]$CloseoutGoalCode = "",
   [switch]$DryRun
 )
 
@@ -34,7 +35,21 @@ if ($DryRun) {
   exit 0
 }
 
-& $Python -B $Script --project-root $ProjectRoot --output $Output --report $Report
+$Arguments = @(
+  "-B",
+  $Script,
+  "--project-root",
+  $ProjectRoot,
+  "--output",
+  $Output,
+  "--report",
+  $Report
+)
+if ($CloseoutGoalCode) {
+  $Arguments += @("--closeout-goal-code", $CloseoutGoalCode)
+}
+
+& $Python @Arguments
 if ($LASTEXITCODE -ne 0) {
   throw "Medium-term goal review failed with exit code $LASTEXITCODE."
 }

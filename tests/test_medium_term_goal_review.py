@@ -414,6 +414,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             )
             self.assertEqual(goals["data_quality_convergence"]["status"], "on_track")
             self.assertEqual(goals["candidate_review_convergence"]["status"], "on_track")
+            self.assertEqual(goals["candidate_review_convergence"]["completion_percent"], 85)
             self.assertEqual(goals["forecast_tracking_maturity"]["status"], "sample_accumulating")
             self.assertEqual(
                 goals["forecast_tracking_maturity"]["current"]["maturity_gap_prediction_unavailable"],
@@ -671,6 +672,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 "provide_current_membership_sources",
             )
             self.assertEqual(goals["model_governance_handoff"]["status"], "on_track")
+            self.assertEqual(goals["model_governance_handoff"]["completion_percent"], 85)
             self.assertEqual(
                 goals["model_governance_handoff"]["title"],
                 "建立多模型协作治理准备",
@@ -728,12 +730,69 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 report,
             )
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
+
+    def test_closeout_snapshot_can_select_goal_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_review_fixtures(root)
+
+            from medium_term_goal_review import build_medium_term_goal_review, render_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(
+                root,
+                closeout_goal_code="candidate_review_convergence",
+            )
+            report = render_medium_term_goal_review(payload)
+
+            snapshot = payload["task_closeout_snapshot"]
+            goals = {item["goal_code"]: item for item in payload["goals"]}
+            self.assertEqual(snapshot["goal_code"], "candidate_review_convergence")
+            self.assertEqual(
+                snapshot["current_module"],
+                goals["candidate_review_convergence"]["module"],
+            )
+            self.assertEqual(snapshot["module_completion_percent"], 85)
+            self.assertEqual(
+                snapshot["medium_term_overall_completion_percent"],
+                payload["overall_completion_percent"],
+            )
             self.assertIn(
                 "sp500_current_source_inbox_blocking_reason=official_constituents_csv_missing",
                 report,
             )
             self.assertNotIn("review_prediction_unavailable_signals", report)
             self.assertIn("weekly_action_backlog_reduction_plan_status=ready", report)
+
+    def test_ignores_refreshable_pre_submit_closeout_mismatch_for_core_delivery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            write_json(
+                automation / "latest_pre_submit_review.json",
+                {
+                    "as_of_date": "2026-07-05",
+                    "status": "needs_attention",
+                    "governance_status": "ready",
+                    "candidate_count_total": 64,
+                    "attention_reasons": ["model_handoff_review_closeout_mismatch"],
+                },
+            )
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(
+                root,
+                closeout_goal_code="candidate_review_convergence",
+            )
+            goals = {item["goal_code"]: item for item in payload["goals"]}
+
+            self.assertEqual(payload["core_delivery_status"], "ready")
+            self.assertEqual(goals["weekly_delivery_stability"]["status"], "on_track")
+            self.assertEqual(
+                goals["weekly_delivery_stability"]["current"]["pre_submit_status"],
+                "ready_refresh_required",
+            )
+            self.assertEqual(goals["model_governance_handoff"]["completion_percent"], 85)
 
     def test_dashboard_blocks_when_core_delivery_is_not_ready(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1057,6 +1116,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
 
     def test_development_closeout_wrapper_exists(self):
         wrapper = PROJECT_ROOT / "scripts" / "show_development_closeout.ps1"
+        medium_term_wrapper = PROJECT_ROOT / "scripts" / "run_medium_term_goal_review.ps1"
         bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
             encoding="utf-8-sig"
         )
@@ -1065,6 +1125,9 @@ class MediumTermGoalReviewTests(unittest.TestCase):
         text = wrapper.read_text(encoding="utf-8-sig")
         self.assertIn("development_closeout_summary.py", text)
         self.assertIn("GoalCode", text)
+        medium_term_text = medium_term_wrapper.read_text(encoding="utf-8-sig")
+        self.assertIn("CloseoutGoalCode", medium_term_text)
+        self.assertIn("--closeout-goal-code", medium_term_text)
         self.assertIn("show_development_closeout.ps1", bundle)
         self.assertLess(
             bundle.index("run_pre_submit_review.ps1"),
