@@ -38,6 +38,13 @@ STATUS_FIELDS = [
     "notes",
     "reviewer",
 ]
+SOURCE_PACK_FIELDS = [
+    "ticker",
+    "membership_evidence",
+    "membership_source_url",
+    "source_as_of_date",
+    "notes",
+]
 
 
 def _read_json(path):
@@ -179,7 +186,27 @@ def _status_for_counts(ready_count, invalid_count, pending_count):
     return "clear"
 
 
-def build_source_intake_status(queue, intake_path, template_path, as_of_date=None):
+def _write_source_pack(items, path):
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=SOURCE_PACK_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for item in items:
+            if item.get("validation_status") != "ready_current_source":
+                continue
+            writer.writerow(
+                {
+                    "ticker": item.get("ticker", ""),
+                    "membership_evidence": "verified",
+                    "membership_source_url": item.get("membership_source_url", ""),
+                    "source_as_of_date": item.get("source_as_of_date", ""),
+                    "notes": item.get("notes", ""),
+                }
+            )
+
+
+def build_source_intake_status(queue, intake_path, template_path, source_pack_path="", as_of_date=None):
     queue_payload = _read_json(queue)
     queue_items = _queue_items(queue_payload)
     intake = Path(intake_path)
@@ -200,6 +227,8 @@ def build_source_intake_status(queue, intake_path, template_path, as_of_date=Non
         for item in items
         if item["validation_status"] not in {"ready_current_source", "pending_manual_evidence"}
     )
+    source_pack = Path(source_pack_path) if source_pack_path else Path("outputs/automation/latest_membership_evidence_verified_source_pack.csv")
+    _write_source_pack(items, source_pack)
     return {
         "status_schema": STATUS_SCHEMA,
         "status_version": STATUS_VERSION,
@@ -209,6 +238,8 @@ def build_source_intake_status(queue, intake_path, template_path, as_of_date=Non
         "intake_path": str(intake),
         "template_path": str(template),
         "template_status": template_status,
+        "source_pack_path": str(source_pack),
+        "source_pack_ready_count": ready_count,
         "queue_count": len(queue_items),
         "ready_to_import_count": ready_count,
         "ready_to_import_weeks_affected": ready_weeks,
@@ -279,6 +310,7 @@ def main():
     parser.add_argument("--queue", default="outputs/automation/latest_membership_evidence_supplement_queue.json")
     parser.add_argument("--intake", default="inputs/sp500_membership_evidence/verified_membership_evidence_intake.csv")
     parser.add_argument("--template", default="outputs/automation/us_sp500_verified_membership_evidence_intake_template.csv")
+    parser.add_argument("--source-pack", default="outputs/automation/latest_membership_evidence_verified_source_pack.csv")
     parser.add_argument("--as-of-date", default="")
     parser.add_argument("--output-json", default="outputs/automation/latest_membership_evidence_source_intake_status.json")
     parser.add_argument("--output-csv", default="outputs/automation/latest_membership_evidence_source_intake_status.csv")
@@ -289,6 +321,7 @@ def main():
         args.queue,
         intake_path=args.intake,
         template_path=args.template,
+        source_pack_path=args.source_pack,
         as_of_date=args.as_of_date or None,
     )
     report = render_markdown(payload)

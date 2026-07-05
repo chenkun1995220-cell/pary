@@ -103,6 +103,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                 queue_path,
                 intake_path=intake_path,
                 template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
                 as_of_date="2026-07-06",
             )
 
@@ -119,6 +120,17 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertEqual(by_ticker["ADM"]["validation_status"], "invalid_source_policy")
             self.assertEqual(by_ticker["ADM"]["source_trust_level"], "crosscheck_substitute")
             self.assertIn("cannot_upgrade", by_ticker["ADM"]["validation_reason"])
+            self.assertEqual(payload["source_pack_ready_count"], 1)
+            self.assertEqual(payload["source_pack_path"], str(root / "verified_source_pack.csv"))
+            with (root / "verified_source_pack.csv").open(encoding="utf-8-sig", newline="") as handle:
+                source_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(source_rows), 1)
+            self.assertEqual(source_rows[0]["ticker"], "ABT")
+            self.assertEqual(source_rows[0]["membership_evidence"], "verified")
+            self.assertEqual(
+                source_rows[0]["membership_source_url"],
+                "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+            )
 
     def test_missing_intake_creates_template_and_waits_for_manual_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -134,6 +146,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                 queue_path,
                 intake_path=intake_path,
                 template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
                 as_of_date="2026-07-06",
             )
 
@@ -146,6 +159,9 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                 rows = list(csv.DictReader(handle))
             self.assertEqual([row["ticker"] for row in rows], ["ABT", "ADM"])
             self.assertEqual(rows[0]["evidence_kind"], "current_constituents")
+            with (root / "verified_source_pack.csv").open(encoding="utf-8-sig", newline="") as handle:
+                source_rows = list(csv.DictReader(handle))
+            self.assertEqual(source_rows, [])
 
     def test_cli_wrapper_bundle_and_pre_submit_include_source_intake_status(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -155,6 +171,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             output_csv = root / "status.csv"
             output_md = root / "status.md"
             template_path = root / "template.csv"
+            source_pack_path = root / "verified_source_pack.csv"
             write_queue(queue_path)
 
             result = subprocess.run(
@@ -167,6 +184,8 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                     str(root / "missing_intake.csv"),
                     "--template",
                     str(template_path),
+                    "--source-pack",
+                    str(source_pack_path),
                     "--as-of-date",
                     "2026-07-06",
                     "--output-json",
@@ -188,9 +207,13 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["status"], "awaiting_manual_evidence")
             self.assertTrue(output_csv.exists())
+            self.assertTrue(source_pack_path.exists())
             self.assertIn("membership_evidence_source_intake_status", output_md.read_text(encoding="utf-8-sig"))
 
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_source_intake_status.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        apply_wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_apply_preview.ps1").read_text(
             encoding="utf-8-sig"
         )
         bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(encoding="utf-8-sig")
@@ -198,6 +221,8 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
 
         self.assertIn("membership_evidence_source_intake_status.py", wrapper)
         self.assertIn("latest_membership_evidence_source_intake_status.json", wrapper)
+        self.assertIn("latest_membership_evidence_verified_source_pack.csv", wrapper)
+        self.assertIn("latest_membership_evidence_verified_source_pack.csv", apply_wrapper)
         self.assertIn("run_membership_evidence_source_intake_status", bundle)
         self.assertLess(
             bundle.index("run_membership_evidence_supplement_queue"),

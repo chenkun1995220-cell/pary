@@ -20,7 +20,12 @@ if (-not $Membership) {
   $Membership = Join-Path $ProjectRoot "outputs\backtests\us_3y_weekly\historical_membership.csv"
 }
 if (-not $CurrentSourcePack) {
-  $CurrentSourcePack = Join-Path $ProjectRoot "data\config\us_sp500_current_membership_sources.csv"
+  $GeneratedSourcePack = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_verified_source_pack.csv"
+  if (Test-Path -LiteralPath $GeneratedSourcePack) {
+    $CurrentSourcePack = $GeneratedSourcePack
+  } else {
+    $CurrentSourcePack = Join-Path $ProjectRoot "data\config\us_sp500_current_membership_sources.csv"
+  }
 }
 if (-not $OutputJson) {
   $OutputJson = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_apply_preview.json"
@@ -46,7 +51,7 @@ Write-Host "OutputJson: $OutputJson"
 Write-Host "OutputCsv: $OutputCsv"
 Write-Host "OutputMarkdown: $OutputMarkdown"
 Write-Host "AsOfDate: $AsOfDate"
-Write-Host "Reads: historical_membership.csv, us_sp500_current_membership_sources.csv"
+Write-Host "Reads: historical_membership.csv, latest_membership_evidence_verified_source_pack.csv when present, otherwise us_sp500_current_membership_sources.csv"
 Write-Host "Writes: latest_membership_evidence_apply_preview.json, latest_membership_evidence_apply_preview.csv, latest_membership_evidence_apply_preview.md"
 
 if ($DryRun) {

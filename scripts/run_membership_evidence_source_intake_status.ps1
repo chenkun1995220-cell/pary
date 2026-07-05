@@ -3,6 +3,7 @@ param(
   [string]$Queue = "",
   [string]$Intake = "",
   [string]$Template = "",
+  [string]$SourcePack = "",
   [string]$OutputJson = "",
   [string]$OutputCsv = "",
   [string]$OutputMarkdown = "",
@@ -26,6 +27,9 @@ if (-not $Intake) {
 if (-not $Template) {
   $Template = Join-Path $ProjectRoot "outputs\automation\us_sp500_verified_membership_evidence_intake_template.csv"
 }
+if (-not $SourcePack) {
+  $SourcePack = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_verified_source_pack.csv"
+}
 if (-not $OutputJson) {
   $OutputJson = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_source_intake_status.json"
 }
@@ -47,12 +51,13 @@ Write-Host "ProjectRoot: $ProjectRoot"
 Write-Host "Queue: $Queue"
 Write-Host "Intake: $Intake"
 Write-Host "Template: $Template"
+Write-Host "SourcePack: $SourcePack"
 Write-Host "OutputJson: $OutputJson"
 Write-Host "OutputCsv: $OutputCsv"
 Write-Host "OutputMarkdown: $OutputMarkdown"
 Write-Host "AsOfDate: $AsOfDate"
 Write-Host "Reads: latest_membership_evidence_supplement_queue.json, verified_membership_evidence_intake.csv when present"
-Write-Host "Writes: latest_membership_evidence_source_intake_status.json, latest_membership_evidence_source_intake_status.csv, latest_membership_evidence_source_intake_status.md, us_sp500_verified_membership_evidence_intake_template.csv"
+Write-Host "Writes: latest_membership_evidence_source_intake_status.json, latest_membership_evidence_source_intake_status.csv, latest_membership_evidence_source_intake_status.md, us_sp500_verified_membership_evidence_intake_template.csv, latest_membership_evidence_verified_source_pack.csv"
 
 if ($DryRun) {
   Write-Host "DryRun: no files were created."
@@ -63,6 +68,7 @@ if ($DryRun) {
   --queue $Queue `
   --intake $Intake `
   --template $Template `
+  --source-pack $SourcePack `
   --as-of-date $AsOfDate `
   --output-json $OutputJson `
   --output-csv $OutputCsv `
