@@ -11,6 +11,9 @@ EXPECTED_MANIFEST_SCHEMA = "self_analysis_manifest"
 EXPECTED_MANIFEST_VERSION = 1
 DEFAULT_MEMBERSHIP_IMPORT_PLAN = "outputs/automation/latest_membership_evidence_import_plan.json"
 DEFAULT_MEMBERSHIP_APPLY_PREVIEW = "outputs/automation/latest_membership_evidence_apply_preview.json"
+DEFAULT_MEMBERSHIP_EVIDENCE_SOURCE_INTAKE_STATUS = (
+    "outputs/automation/latest_membership_evidence_source_intake_status.json"
+)
 DEFAULT_CURRENT_MEMBERSHIP_SOURCES = "outputs/automation/latest_sp500_current_membership_sources.json"
 DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
     "outputs/automation/latest_sp500_current_membership_source_review_status.json"
@@ -601,9 +604,10 @@ def _membership_apply_preview_confirmation_action(apply_preview):
     }
 
 
-def _membership_evidence_supplement_action(import_plan):
+def _membership_evidence_supplement_action(import_plan, source_intake_status=None):
     if not isinstance(import_plan, dict) or not import_plan:
         return None
+    source_intake_status = source_intake_status or {}
     if _int_value(import_plan.get("ready_to_import_count"), 0) > 0:
         return None
     if str(import_plan.get("next_action", "") or "") != "supplement_verified_membership_evidence":
@@ -620,6 +624,31 @@ def _membership_evidence_supplement_action(import_plan):
         if isinstance(item, dict) and str(item.get("ticker", "")).strip()
     ]
     ticker_text = ", ".join(sample_tickers[:5]) or "blocked membership evidence items"
+    current_batch_id = str(source_intake_status.get("current_batch_id", "") or "").strip()
+    current_batch_checklist = [
+        item
+        for item in source_intake_status.get("current_batch_manual_checklist", []) or []
+        if isinstance(item, dict)
+    ]
+    current_batch_tickers = [
+        str(item.get("ticker", "")).strip()
+        for item in current_batch_checklist
+        if str(item.get("ticker", "")).strip()
+    ]
+    current_batch_text = ", ".join(current_batch_tickers[:5])
+    current_batch_source = ""
+    if current_batch_id or current_batch_checklist:
+        current_batch_source = (
+            f"; current_batch_id:{current_batch_id or 'unknown'}; "
+            f"current_batch_manual_checklist_count:{len(current_batch_checklist)}"
+        )
+    current_batch_check = ""
+    if current_batch_checklist:
+        current_batch_check = (
+            "当前批次人工清单见 outputs/automation/latest_membership_evidence_source_intake_status.md "
+            f"的 current_batch_manual_checklist，待补 {len(current_batch_checklist)} 条"
+            f"（{current_batch_text}）；"
+        )
     return {
         "action_code": "supplement_verified_membership_evidence",
         "category": "backtest",
@@ -630,11 +659,13 @@ def _membership_evidence_supplement_action(import_plan):
             f"missing_source_count:{missing_count}; "
             f"invalid_source_weeks_affected:{weeks_affected}; "
             "formal_backtest_upgrade_allowed:false"
+            f"{current_batch_source}"
         ),
         "recommended_check": (
             "检查 outputs/automation/latest_membership_evidence_supplement_queue.md，"
             "填写 outputs/automation/us_sp500_verified_membership_evidence_intake_template.csv，"
             "再检查 outputs/automation/latest_membership_evidence_source_intake_status.md，"
+            f"{current_batch_check}"
             f"优先处理 {ticker_text}；只接受 official S&P Global 成分页或指数公告作为 verified 证据，"
             "crosscheck、ETF holdings、Wikipedia、GitHub、Kaggle 只能作为参考或交叉校验，"
             "不得自动修改 historical_membership.csv 或正式模型参数。"
@@ -1170,6 +1201,7 @@ def build_weekly_action_items(
     manifest,
     membership_import_plan=None,
     membership_apply_preview=None,
+    membership_evidence_source_intake_status=None,
     current_membership_sources=None,
     current_membership_source_review_status=None,
     current_membership_source_inbox_status=None,
@@ -1186,6 +1218,7 @@ def build_weekly_action_items(
     source = load_manifest(manifest_path)
     import_plan = load_optional_json(membership_import_plan)
     apply_preview = load_optional_json(membership_apply_preview)
+    source_intake_status = load_optional_json(membership_evidence_source_intake_status)
     current_source_status = load_optional_json(current_membership_sources)
     current_source_review_status = load_optional_json(current_membership_source_review_status)
     current_source_inbox_status = load_optional_json(current_membership_source_inbox_status)
@@ -1303,7 +1336,7 @@ def build_weekly_action_items(
         forecast_gap_action["status"] = "open"
         items.append(forecast_gap_action)
 
-    supplement_action = _membership_evidence_supplement_action(import_plan)
+    supplement_action = _membership_evidence_supplement_action(import_plan, source_intake_status)
     if supplement_action and not any(
         item.get("action_code") == supplement_action["action_code"] for item in items
     ):
@@ -1328,6 +1361,7 @@ def build_weekly_action_items(
             source,
             import_plan,
             apply_preview,
+            source_intake_status,
             current_source_status,
             current_source_review_status,
             current_source_inbox_status,
@@ -1431,6 +1465,10 @@ def main():
     parser.add_argument("--report", default="outputs/automation/latest_weekly_action_items.md")
     parser.add_argument("--membership-import-plan", default=DEFAULT_MEMBERSHIP_IMPORT_PLAN)
     parser.add_argument("--membership-apply-preview", default=DEFAULT_MEMBERSHIP_APPLY_PREVIEW)
+    parser.add_argument(
+        "--membership-evidence-source-intake-status",
+        default=DEFAULT_MEMBERSHIP_EVIDENCE_SOURCE_INTAKE_STATUS,
+    )
     parser.add_argument("--current-membership-sources", default=DEFAULT_CURRENT_MEMBERSHIP_SOURCES)
     parser.add_argument(
         "--current-membership-source-review-status",
@@ -1457,6 +1495,7 @@ def main():
         args.manifest,
         membership_import_plan=args.membership_import_plan,
         membership_apply_preview=args.membership_apply_preview,
+        membership_evidence_source_intake_status=args.membership_evidence_source_intake_status,
         current_membership_sources=args.current_membership_sources,
         current_membership_source_review_status=args.current_membership_source_review_status,
         current_membership_source_inbox_status=args.current_membership_source_inbox_status,

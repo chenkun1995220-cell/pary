@@ -214,6 +214,61 @@ def write_blocked_membership_import_plan(path):
     )
 
 
+def write_membership_source_intake_status(path):
+    payload = {
+        "status_schema": "membership_evidence_source_intake_status",
+        "status_version": 1,
+        "as_of_date": "2026-07-07",
+        "status": "awaiting_manual_evidence",
+        "ready_to_import_count": 0,
+        "pending_count": 50,
+        "current_batch_id": "2026-07-06-p1",
+        "current_batch_pending_count": 10,
+        "current_batch_manual_checklist": [
+            {
+                "batch_rank": 1,
+                "ticker": "ABT",
+                "company_name": "Abbott Laboratories",
+                "validation_status": "pending_manual_evidence",
+                "validation_reason": "manual_evidence_missing",
+            },
+            {
+                "batch_rank": 2,
+                "ticker": "ADM",
+                "company_name": "Archer Daniels Midland",
+                "validation_status": "pending_manual_evidence",
+                "validation_reason": "manual_evidence_missing",
+            },
+            {
+                "batch_rank": 3,
+                "ticker": "AEP",
+                "company_name": "American Electric Power",
+                "validation_status": "pending_manual_evidence",
+                "validation_reason": "manual_evidence_missing",
+            },
+            {
+                "batch_rank": 4,
+                "ticker": "BA",
+                "company_name": "Boeing",
+                "validation_status": "pending_manual_evidence",
+                "validation_reason": "manual_evidence_missing",
+            },
+            {
+                "batch_rank": 5,
+                "ticker": "BMY",
+                "company_name": "Bristol Myers Squibb",
+                "validation_status": "pending_manual_evidence",
+                "validation_reason": "manual_evidence_missing",
+            },
+        ],
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_current_membership_sources(path):
     payload = {
         "source_schema": "sp500_current_membership_sources",
@@ -1059,14 +1114,17 @@ class WeeklyActionItemsTests(unittest.TestCase):
             root = Path(tmp)
             manifest_path = root / "latest_self_analysis_manifest.json"
             import_plan_path = root / "latest_membership_evidence_import_plan.json"
+            source_intake_path = root / "latest_membership_evidence_source_intake_status.json"
             write_manifest(manifest_path)
             write_blocked_membership_import_plan(import_plan_path)
+            write_membership_source_intake_status(source_intake_path)
 
             from weekly_action_items import build_weekly_action_items, render_weekly_action_items
 
             payload = build_weekly_action_items(
                 manifest_path,
                 membership_import_plan=import_plan_path,
+                membership_evidence_source_intake_status=source_intake_path,
             )
             report = render_weekly_action_items(payload)
 
@@ -1078,7 +1136,11 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(supplement_item["category"], "backtest")
             self.assertIn("blocked_by_source_policy_count:50", supplement_item["source"])
             self.assertIn("invalid_source_weeks_affected:7800", supplement_item["source"])
+            self.assertIn("current_batch_id:2026-07-06-p1", supplement_item["source"])
+            self.assertIn("current_batch_manual_checklist_count:5", supplement_item["source"])
             self.assertIn("latest_membership_evidence_supplement_queue.md", supplement_item["recommended_check"])
+            self.assertIn("current_batch_manual_checklist", supplement_item["recommended_check"])
+            self.assertIn("ABT, ADM, AEP, BA, BMY", supplement_item["recommended_check"])
             self.assertIn("official S&P Global", supplement_item["recommended_check"])
             self.assertIn("supplement_verified_membership_evidence", report)
 
@@ -1730,6 +1792,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(report_path),
                     "--membership-import-plan",
                     str(root / "latest_membership_evidence_import_plan.json"),
+                    "--membership-evidence-source-intake-status",
+                    str(root / "latest_membership_evidence_source_intake_status.json"),
                     "--current-membership-sources",
                     str(root / "latest_sp500_current_membership_sources.json"),
                     "--forecast-performance",
@@ -1772,6 +1836,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--output", script)
         self.assertIn("--report", script)
         self.assertIn("--membership-import-plan", script)
+        self.assertIn("latest_membership_evidence_source_intake_status.json", script)
+        self.assertIn("--membership-evidence-source-intake-status", script)
         self.assertIn("--current-membership-sources", script)
         self.assertIn("--current-membership-source-review-status", script)
         self.assertIn("--forecast-performance", script)
