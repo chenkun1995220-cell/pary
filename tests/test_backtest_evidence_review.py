@@ -85,12 +85,13 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
                 render_backtest_evidence_review,
             )
 
-            payload = build_backtest_evidence_review(summary)
+            payload = build_backtest_evidence_review(summary, as_of_date="2026-07-07")
             report = render_backtest_evidence_review(payload)
 
             self.assertEqual(payload["review_schema"], "backtest_evidence_review")
             self.assertEqual(payload["review_version"], 1)
-            self.assertEqual(payload["as_of_date"], "2026-06-28")
+            self.assertEqual(payload["as_of_date"], "2026-07-07")
+            self.assertEqual(payload["backtest_as_of_date"], "2026-06-28")
             self.assertEqual(payload["status"], "evidence_review_needed")
             self.assertEqual(payload["weeks_completed"], 8)
             self.assertEqual(payload["weeks_failed"], 0)
@@ -135,6 +136,8 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
                     str(output),
                     "--report",
                     str(report),
+                    "--as-of-date",
+                    "2026-07-07",
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -147,6 +150,8 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
             combined = result.stdout + result.stderr
             self.assertEqual(result.returncode, 0, combined)
             payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["as_of_date"], "2026-07-07")
+            self.assertEqual(payload["backtest_as_of_date"], "2026-06-28")
             self.assertEqual(payload["status"], "evidence_review_needed")
             self.assertFalse(payload["formal_model_upgrade_allowed"])
             self.assertIn("回测证据复核结论", report.read_text(encoding="utf-8-sig"))

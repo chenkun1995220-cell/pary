@@ -2,7 +2,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 
@@ -139,7 +139,7 @@ def _decision(fields, gap_report):
     return evidence_status, fields.get("Evidence next action", "review_backtest_evidence"), False
 
 
-def build_backtest_evidence_review(summary):
+def build_backtest_evidence_review(summary, as_of_date=None):
     summary_path = Path(summary)
     text = _read_text(summary_path)
     fields = _summary_fields(text)
@@ -151,10 +151,12 @@ def build_backtest_evidence_review(summary):
     public_gap_report = dict(gap_report)
     public_gap_report.pop("_queue_source_gaps", None)
     status, recommended_action, upgrade_allowed = _decision(fields, gap_report)
+    backtest_as_of_date = _as_of_date(fields)
     return {
         "review_schema": REVIEW_SCHEMA,
         "review_version": REVIEW_VERSION,
-        "as_of_date": _as_of_date(fields),
+        "as_of_date": as_of_date or date.today().isoformat(),
+        "backtest_as_of_date": backtest_as_of_date,
         "source_summary": str(summary_path),
         "status": status,
         "recommended_action": recommended_action,
@@ -194,7 +196,8 @@ def render_backtest_evidence_review(payload):
         f"- membership_evidence_action_queue_count: {payload.get('membership_evidence_action_queue_count', 0)}",
         f"- membership_evidence_action_unqueued_count: {payload.get('membership_evidence_action_unqueued_count', 0)}",
         "",
-        f"- 日期：{payload.get('as_of_date', 'unknown')}",
+        f"- 复核日期：{payload.get('as_of_date', 'unknown')}",
+        f"- 回测日期：{payload.get('backtest_as_of_date', 'unknown')}",
         f"- 状态：{payload.get('status', 'unknown')}",
         f"- 建议动作：{payload.get('recommended_action', 'unknown')}",
         f"- 完成周数：{payload.get('weeks_completed', 0)}",
@@ -262,9 +265,10 @@ def main():
     parser.add_argument("--summary", default="outputs/automation/latest_backtest_summary.md")
     parser.add_argument("--output", default="outputs/automation/latest_backtest_evidence_review.json")
     parser.add_argument("--report", default="outputs/automation/latest_backtest_evidence_review.md")
+    parser.add_argument("--as-of-date", default="")
     args = parser.parse_args()
 
-    payload = build_backtest_evidence_review(args.summary)
+    payload = build_backtest_evidence_review(args.summary, as_of_date=args.as_of_date or None)
     report = render_backtest_evidence_review(payload)
     if args.output:
         write_json(payload, args.output)
