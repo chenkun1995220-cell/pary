@@ -667,6 +667,14 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
         if str(item.get("ticker", "")).strip()
     ]
     current_batch_text = ", ".join(current_batch_tickers[:5])
+    current_batch_search_query = next(
+        (
+            str(item.get("official_domain_search_query", "")).strip()
+            for item in current_batch_checklist
+            if str(item.get("official_domain_search_query", "")).strip()
+        ),
+        "",
+    )
     current_batch_source = ""
     if current_batch_id or current_batch_checklist:
         current_batch_source = (
@@ -680,6 +688,11 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
             f"的 current_batch_manual_checklist，待补 {len(current_batch_checklist)} 条"
             f"（{current_batch_text}）；"
         )
+        if current_batch_search_query:
+            current_batch_check += (
+                "current_batch_manual_checklist includes official_domain_search_query, "
+                f"example={current_batch_search_query}; "
+            )
     official_probe_source, official_probe_check = _official_export_probe_parts(official_export_probe)
     return {
         "action_code": "supplement_verified_membership_evidence",
