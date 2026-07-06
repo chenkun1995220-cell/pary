@@ -616,10 +616,21 @@ def _official_export_probe_parts(official_export_probe):
     if http_status:
         source += f"; official_export_probe_http_status:{http_status}"
     status_text = f"{status}/{http_status}" if http_status else status
+    target_file = str(official_export_probe.get("manual_export_target_file", "") or "").strip()
+    dry_run_command = str(official_export_probe.get("manual_export_dry_run_command", "") or "").strip()
+    handoff_parts = []
+    if target_file:
+        handoff_parts.append(f"save official export to {target_file}")
+    if dry_run_command:
+        handoff_parts.append(f"dry_run={dry_run_command}")
+    handoff_text = "; ".join(handoff_parts)
+    if handoff_text:
+        handoff_text = f"{handoff_text}; "
     check = (
         "Check outputs/automation/latest_sp500_official_export_probe.md; "
         f"official export probe is {status_text}; "
         f"next_action={next_action or 'review_official_export_probe'}; "
+        f"{handoff_text}"
     )
     return source, check
 

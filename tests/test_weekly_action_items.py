@@ -277,6 +277,12 @@ def write_official_export_probe(path):
         "http_status": 403,
         "official_export_url": "https://www.spglobal.com/spdji/en/idsexport/file.xls?indexId=340",
         "next_action": "retry_with_logged_in_browser_or_manual_export",
+        "manual_export_target_file": "inputs/sp500_current_membership/official_constituents.csv",
+        "manual_export_dry_run_command": (
+            "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+            "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+            "-DryRun -SourceFileInbox inputs\\sp500_current_membership\\official_constituents.csv"
+        ),
         "formal_backtest_upgrade_allowed": False,
     }
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -1164,6 +1170,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("current_batch_manual_checklist", supplement_item["recommended_check"])
             self.assertIn("ABT, ADM, AEP, BA, BMY", supplement_item["recommended_check"])
             self.assertIn("retry_with_logged_in_browser_or_manual_export", supplement_item["recommended_check"])
+            self.assertIn("inputs/sp500_current_membership/official_constituents.csv", supplement_item["recommended_check"])
+            self.assertIn("run_sp500_current_membership_sources.ps1", supplement_item["recommended_check"])
+            self.assertIn("-DryRun", supplement_item["recommended_check"])
             self.assertIn("official S&P Global", supplement_item["recommended_check"])
             self.assertIn("supplement_verified_membership_evidence", report)
 
