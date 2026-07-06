@@ -752,6 +752,8 @@ def _membership_evidence_supplement_action(
         "recommended_check": (
             "检查 outputs/automation/latest_membership_evidence_supplement_queue.md，"
             "填写 outputs/automation/us_sp500_verified_membership_evidence_intake_template.csv，"
+            "优先使用 outputs/automation/latest_membership_evidence_manual_work_package.csv "
+            "和 outputs/automation/latest_membership_evidence_manual_work_package.md 执行当前批次补证，"
             "再检查 outputs/automation/latest_membership_evidence_source_intake_status.md，"
             f"{current_batch_check}"
             f"{official_probe_check}"

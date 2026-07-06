@@ -380,6 +380,59 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertIn("https://www.google.com/search?q=", markdown)
             self.assertIn("ADM", markdown)
 
+    def test_builds_current_batch_manual_work_package(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue_path = root / "queue.json"
+            intake_path = root / "missing_intake.csv"
+            template_path = root / "template.csv"
+            write_queue(queue_path)
+
+            from membership_evidence_source_intake_status import (
+                build_source_intake_status,
+                render_manual_work_package_markdown,
+                write_manual_work_package_csv,
+            )
+
+            payload = build_source_intake_status(
+                queue_path,
+                intake_path=intake_path,
+                template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
+                as_of_date="2026-07-06",
+            )
+            work_package = payload["current_batch_manual_work_package"]
+
+            self.assertEqual(len(work_package), 2)
+            self.assertEqual(work_package[0]["ticker"], "ABT")
+            self.assertEqual(work_package[0]["membership_evidence"], "verified")
+            self.assertEqual(work_package[0]["evidence_kind"], "current_constituents")
+            self.assertEqual(
+                work_package[0]["notes_example"],
+                "official page shows ABT or Abbott Laboratories as current constituent",
+            )
+            self.assertIn("site:spglobal.com/spdji", work_package[0]["official_domain_search_query"])
+            self.assertIn("https://www.google.com/search?q=", work_package[0]["official_domain_search_url"])
+            self.assertIn("spglobal.com,.spglobal.com", work_package[0]["accepted_source_domains"])
+            self.assertIn("crosscheck", work_package[0]["rejected_source_examples"])
+            self.assertIn("run_membership_evidence_source_intake_status.ps1", work_package[0]["validation_command"])
+
+            work_package_csv = root / "manual_work_package.csv"
+            write_manual_work_package_csv(payload, work_package_csv)
+            with work_package_csv.open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(rows[0]["ticker"], "ABT")
+            self.assertEqual(rows[0]["membership_evidence"], "verified")
+            self.assertEqual(rows[0]["membership_source_url"], "")
+            self.assertEqual(rows[0]["source_as_of_date"], "")
+
+            markdown = render_manual_work_package_markdown(payload)
+            self.assertIn("# S&P 500 verified evidence manual work package", markdown)
+            self.assertIn("current_batch_id", markdown)
+            self.assertIn("ABT", markdown)
+            self.assertIn("notes_example", markdown)
+            self.assertIn("crosscheck substitute is not verified evidence", markdown)
+
     def test_rejects_invalid_or_future_source_dates(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -455,6 +508,8 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             output_json = root / "status.json"
             output_csv = root / "status.csv"
             output_md = root / "status.md"
+            work_package_csv = root / "manual_work_package.csv"
+            work_package_md = root / "manual_work_package.md"
             template_path = root / "template.csv"
             source_pack_path = root / "verified_source_pack.csv"
             write_queue(queue_path)
@@ -479,6 +534,10 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                     str(output_csv),
                     "--output-md",
                     str(output_md),
+                    "--manual-work-package-csv",
+                    str(work_package_csv),
+                    "--manual-work-package-md",
+                    str(work_package_md),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -494,6 +553,9 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertTrue(output_csv.exists())
             self.assertTrue(source_pack_path.exists())
             self.assertIn("membership_evidence_source_intake_status", output_md.read_text(encoding="utf-8-sig"))
+            self.assertTrue(work_package_csv.exists())
+            self.assertTrue(work_package_md.exists())
+            self.assertIn("manual work package", work_package_md.read_text(encoding="utf-8-sig"))
 
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_source_intake_status.ps1").read_text(
             encoding="utf-8-sig"
@@ -507,6 +569,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
         self.assertIn("membership_evidence_source_intake_status.py", wrapper)
         self.assertIn("latest_membership_evidence_source_intake_status.json", wrapper)
         self.assertIn("latest_membership_evidence_verified_source_pack.csv", wrapper)
+        self.assertIn("latest_membership_evidence_manual_work_package.csv", wrapper)
         self.assertIn("latest_membership_evidence_verified_source_pack.csv", apply_wrapper)
         refresh_wrapper = (
             PROJECT_ROOT / "scripts" / "run_membership_evidence_import_plan_from_verified_intake.ps1"

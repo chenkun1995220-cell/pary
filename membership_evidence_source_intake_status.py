@@ -46,6 +46,27 @@ STATUS_FIELDS = [
     "notes",
     "reviewer",
 ]
+MANUAL_WORK_PACKAGE_FIELDS = [
+    "batch_id",
+    "batch_rank",
+    "priority",
+    "ticker",
+    "company_name",
+    "membership_evidence",
+    "membership_source_url",
+    "source_as_of_date",
+    "evidence_kind",
+    "notes",
+    "notes_example",
+    "reviewer",
+    "accepted_source_domains",
+    "official_domain_search_query",
+    "official_domain_search_url",
+    "official_index_page_url",
+    "validation_command",
+    "accepted_source_policy",
+    "rejected_source_examples",
+]
 SOURCE_PACK_FIELDS = [
     "ticker",
     "membership_evidence",
@@ -208,6 +229,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "official_index_page_url": OFFICIAL_INDEX_PAGE_URL,
             "manual_entry_instruction": default_instruction,
             "validation_command": DEFAULT_VALIDATION_COMMAND,
+            "accepted_source_domains": accepted_domains,
             "notes": "",
             "reviewer": "",
         }
@@ -256,6 +278,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "official_index_page_url": official_index_page_url,
             "manual_entry_instruction": manual_entry_instruction,
             "validation_command": validation_command,
+            "accepted_source_domains": accepted_domains,
             "notes": intake_row.get("notes", ""),
             "reviewer": intake_row.get("reviewer", ""),
         }
@@ -319,6 +342,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
         "official_index_page_url": official_index_page_url,
         "manual_entry_instruction": manual_entry_instruction,
         "validation_command": validation_command,
+        "accepted_source_domains": accepted_domains,
         "notes": notes,
         "reviewer": intake_row.get("reviewer", ""),
     }
@@ -411,6 +435,67 @@ def _current_batch_summary(items):
     }
 
 
+def _manual_work_package_items(items):
+    batch_items = [item for item in items if item.get("batch_id")]
+    if batch_items:
+        latest_batch_id = sorted(
+            {str(item.get("batch_id", "")) for item in batch_items if item.get("batch_id")}
+        )[-1]
+        candidates = [item for item in batch_items if item.get("batch_id") == latest_batch_id]
+    else:
+        latest_batch_id = ""
+        candidates = items
+    actionable = [
+        item
+        for item in candidates
+        if item.get("validation_status") != "ready_current_source"
+    ]
+    sorted_items = sorted(
+        actionable,
+        key=lambda row: (
+            _int_value(row.get("batch_rank"), 0),
+            _int_value(row.get("priority"), 0),
+            row.get("ticker", ""),
+        ),
+    )
+    rows = []
+    for item in sorted_items:
+        ticker = item.get("ticker", "")
+        company_name = item.get("company_name", "")
+        rows.append(
+            {
+                "batch_id": item.get("batch_id", latest_batch_id),
+                "batch_rank": _int_value(item.get("batch_rank"), 0),
+                "priority": _int_value(item.get("priority"), 0),
+                "ticker": ticker,
+                "company_name": company_name,
+                "membership_evidence": "verified",
+                "membership_source_url": "",
+                "source_as_of_date": "",
+                "evidence_kind": item.get("evidence_kind") or "current_constituents",
+                "notes": "",
+                "notes_example": (
+                    f"official page shows {ticker} or {company_name} as current constituent"
+                ),
+                "reviewer": "",
+                "accepted_source_domains": item.get("accepted_source_domains", "spglobal.com,.spglobal.com"),
+                "official_domain_search_query": item.get("official_domain_search_query", ""),
+                "official_domain_search_url": item.get("official_domain_search_url", ""),
+                "official_index_page_url": item.get("official_index_page_url", ""),
+                "validation_command": item.get("validation_command", DEFAULT_VALIDATION_COMMAND),
+                "accepted_source_policy": (
+                    "official S&P Global HTTPS constituent page, index announcement, "
+                    "or same-domain official document only"
+                ),
+                "rejected_source_examples": (
+                    "crosscheck substitute is not verified evidence; ETF holdings, "
+                    "Wikipedia, GitHub, Kaggle, Yahoo, and search result pages are rejected"
+                ),
+            }
+        )
+    return rows
+
+
 def build_source_intake_status(queue, intake_path, template_path, source_pack_path="", as_of_date=None):
     queue_payload = _read_json(queue)
     queue_items = _queue_items(queue_payload)
@@ -453,6 +538,7 @@ def build_source_intake_status(queue, intake_path, template_path, source_pack_pa
         "invalid_weeks_affected": invalid_weeks,
         "pending_count": pending_count,
         **_current_batch_summary(items),
+        "current_batch_manual_work_package": _manual_work_package_items(items),
         "formal_backtest_upgrade_allowed": False,
         "items": items,
         "boundary": (
@@ -512,6 +598,40 @@ def render_markdown(payload):
     return "\n".join(lines)
 
 
+def render_manual_work_package_markdown(payload):
+    rows = payload.get("current_batch_manual_work_package", []) or []
+    lines = [
+        "# S&P 500 verified evidence manual work package",
+        "",
+        f"- as_of_date: {payload.get('as_of_date', '')}",
+        f"- current_batch_id: {payload.get('current_batch_id', '')}",
+        f"- work_package_count: {len(rows)}",
+        "- boundary: fill only official S&P Global evidence; crosscheck substitute is not verified evidence.",
+        "",
+        "| batch_rank | ticker | company | membership_evidence | source_url_to_fill | source_as_of_date_to_fill | notes_example | search_url | validation_command |",
+        "|---:|---|---|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        lines.append(
+            "| {batch_rank} | {ticker} | {company_name} | {membership_evidence} | "
+            "{membership_source_url} | {source_as_of_date} | {notes_example} | "
+            "{official_domain_search_url} | {validation_command} |".format(**row)
+        )
+    if not rows:
+        lines.append("| - | - | - | - | - | - | - | - | - |")
+    lines.extend(
+        [
+            "",
+            "## rejected_source_examples",
+            "",
+            "- crosscheck substitute is not verified evidence.",
+            "- ETF holdings, Wikipedia, GitHub, Kaggle, Yahoo, and search result pages are reference-only.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def write_json(payload, path):
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -525,6 +645,15 @@ def write_csv(payload, path):
         writer = csv.DictWriter(handle, fieldnames=STATUS_FIELDS, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(payload.get("items", []) or [])
+
+
+def write_manual_work_package_csv(payload, path):
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=MANUAL_WORK_PACKAGE_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(payload.get("current_batch_manual_work_package", []) or [])
 
 
 def write_text(text, path):
@@ -545,6 +674,14 @@ def main():
     parser.add_argument("--output-json", default="outputs/automation/latest_membership_evidence_source_intake_status.json")
     parser.add_argument("--output-csv", default="outputs/automation/latest_membership_evidence_source_intake_status.csv")
     parser.add_argument("--output-md", default="outputs/automation/latest_membership_evidence_source_intake_status.md")
+    parser.add_argument(
+        "--manual-work-package-csv",
+        default="outputs/automation/latest_membership_evidence_manual_work_package.csv",
+    )
+    parser.add_argument(
+        "--manual-work-package-md",
+        default="outputs/automation/latest_membership_evidence_manual_work_package.md",
+    )
     args = parser.parse_args()
 
     payload = build_source_intake_status(
@@ -558,6 +695,8 @@ def main():
     write_json(payload, args.output_json)
     write_csv(payload, args.output_csv)
     write_text(report, args.output_md)
+    write_manual_work_package_csv(payload, args.manual_work_package_csv)
+    write_text(render_manual_work_package_markdown(payload), args.manual_work_package_md)
     print(report)
 
 

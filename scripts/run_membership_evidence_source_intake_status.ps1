@@ -7,6 +7,8 @@ param(
   [string]$OutputJson = "",
   [string]$OutputCsv = "",
   [string]$OutputMarkdown = "",
+  [string]$ManualWorkPackageCsv = "",
+  [string]$ManualWorkPackageMarkdown = "",
   [string]$AsOfDate = "",
   [switch]$DryRun
 )
@@ -39,6 +41,12 @@ if (-not $OutputCsv) {
 if (-not $OutputMarkdown) {
   $OutputMarkdown = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_source_intake_status.md"
 }
+if (-not $ManualWorkPackageCsv) {
+  $ManualWorkPackageCsv = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_manual_work_package.csv"
+}
+if (-not $ManualWorkPackageMarkdown) {
+  $ManualWorkPackageMarkdown = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_manual_work_package.md"
+}
 if (-not $AsOfDate) {
   $AsOfDate = Get-Date -Format "yyyy-MM-dd"
 }
@@ -55,9 +63,11 @@ Write-Host "SourcePack: $SourcePack"
 Write-Host "OutputJson: $OutputJson"
 Write-Host "OutputCsv: $OutputCsv"
 Write-Host "OutputMarkdown: $OutputMarkdown"
+Write-Host "ManualWorkPackageCsv: $ManualWorkPackageCsv"
+Write-Host "ManualWorkPackageMarkdown: $ManualWorkPackageMarkdown"
 Write-Host "AsOfDate: $AsOfDate"
 Write-Host "Reads: latest_membership_evidence_supplement_queue.json, verified_membership_evidence_intake.csv when present"
-Write-Host "Writes: latest_membership_evidence_source_intake_status.json, latest_membership_evidence_source_intake_status.csv, latest_membership_evidence_source_intake_status.md, us_sp500_verified_membership_evidence_intake_template.csv, latest_membership_evidence_verified_source_pack.csv"
+Write-Host "Writes: latest_membership_evidence_source_intake_status.json, latest_membership_evidence_source_intake_status.csv, latest_membership_evidence_source_intake_status.md, us_sp500_verified_membership_evidence_intake_template.csv, latest_membership_evidence_verified_source_pack.csv, latest_membership_evidence_manual_work_package.csv, latest_membership_evidence_manual_work_package.md"
 
 if ($DryRun) {
   Write-Host "DryRun: no files were created."
@@ -72,7 +82,9 @@ if ($DryRun) {
   --as-of-date $AsOfDate `
   --output-json $OutputJson `
   --output-csv $OutputCsv `
-  --output-md $OutputMarkdown
+  --output-md $OutputMarkdown `
+  --manual-work-package-csv $ManualWorkPackageCsv `
+  --manual-work-package-md $ManualWorkPackageMarkdown
 if ($LASTEXITCODE -ne 0) {
   throw "Membership evidence source intake status failed with exit code $LASTEXITCODE."
 }
