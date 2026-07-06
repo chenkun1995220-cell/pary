@@ -87,6 +87,8 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertIn("site:spglobal.com/spdji", payload["items"][0]["official_domain_search_query"])
             self.assertIn("ABT", payload["items"][0]["official_domain_search_query"])
             self.assertIn("Abbott Laboratories", payload["items"][0]["official_domain_search_query"])
+            self.assertIn("https://www.google.com/search?q=", payload["items"][0]["official_domain_search_url"])
+            self.assertIn("site%3Aspglobal.com%2Fspdji", payload["items"][0]["official_domain_search_url"])
             self.assertIn("https://www.spglobal.com/spdji/en/indices/equity/sp-500/", payload["items"][0]["official_index_page_url"])
             self.assertIn("search query is not evidence", payload["items"][0]["manual_entry_instruction"])
             self.assertIn("run_membership_evidence_source_intake_status.ps1", payload["validation_command"])
@@ -136,6 +138,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertIn("membership_evidence=verified", rows[0]["manual_entry_instruction"])
             self.assertIn("run_membership_evidence_source_intake_status.ps1", rows[0]["validation_command"])
             self.assertIn("site:spglobal.com/spdji", rows[0]["official_domain_search_query"])
+            self.assertIn("https://www.google.com/search?q=", rows[0]["official_domain_search_url"])
             self.assertIn("https://www.spglobal.com/spdji/en/indices/equity/sp-500/", rows[0]["official_index_page_url"])
             report = output_md.read_text(encoding="utf-8-sig")
             self.assertIn("membership_evidence_supplement_batch", report)
@@ -144,6 +147,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertIn("source_as_of_date must use YYYY-MM-DD", report)
             self.assertIn("## official_domain_search_guidance", report)
             self.assertIn("site:spglobal.com/spdji", report)
+            self.assertIn("https://www.google.com/search?q=", report)
             self.assertIn("run_membership_evidence_source_intake_status.ps1", report)
 
     def test_cli_can_write_inputs_side_intake_draft(self):
@@ -192,6 +196,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertEqual(rows[0]["source_as_of_date"], "")
             self.assertEqual(rows[0]["evidence_kind"], "current_constituents")
             self.assertIn("site:spglobal.com/spdji", rows[0]["official_domain_search_query"])
+            self.assertIn("https://www.google.com/search?q=", rows[0]["official_domain_search_url"])
             self.assertIn("search query is not evidence", rows[0]["manual_entry_instruction"])
             self.assertIn("membership_evidence=verified", rows[0]["manual_entry_instruction"])
             payload = json.loads(output_json.read_text(encoding="utf-8-sig"))

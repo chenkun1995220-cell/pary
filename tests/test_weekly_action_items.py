@@ -232,6 +232,7 @@ def write_membership_source_intake_status(path):
                 "validation_status": "pending_manual_evidence",
                 "validation_reason": "manual_evidence_missing",
                 "official_domain_search_query": 'site:spglobal.com/spdji "S&P 500" "ABT" "Abbott Laboratories"',
+                "official_domain_search_url": "https://www.google.com/search?q=site%3Aspglobal.com%2Fspdji+%22S%26P+500%22+%22ABT%22",
                 "official_index_page_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
             },
             {
@@ -1173,6 +1174,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("ABT, ADM, AEP, BA, BMY", supplement_item["recommended_check"])
             self.assertIn("official_domain_search_query", supplement_item["recommended_check"])
             self.assertIn('site:spglobal.com/spdji "S&P 500" "ABT"', supplement_item["recommended_check"])
+            self.assertIn("official_domain_search_url", supplement_item["recommended_check"])
+            self.assertIn("https://www.google.com/search?q=site%3Aspglobal.com%2Fspdji", supplement_item["recommended_check"])
             self.assertIn("retry_with_logged_in_browser_or_manual_export", supplement_item["recommended_check"])
             self.assertIn("inputs/sp500_current_membership/official_constituents.csv", supplement_item["recommended_check"])
             self.assertIn("run_sp500_current_membership_sources.ps1", supplement_item["recommended_check"])

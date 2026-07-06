@@ -675,6 +675,14 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
         ),
         "",
     )
+    current_batch_search_url = next(
+        (
+            str(item.get("official_domain_search_url", "")).strip()
+            for item in current_batch_checklist
+            if str(item.get("official_domain_search_url", "")).strip()
+        ),
+        "",
+    )
     current_batch_source = ""
     if current_batch_id or current_batch_checklist:
         current_batch_source = (
@@ -693,6 +701,8 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
                 "current_batch_manual_checklist includes official_domain_search_query, "
                 f"example={current_batch_search_query}; "
             )
+        if current_batch_search_url:
+            current_batch_check += f"official_domain_search_url={current_batch_search_url}; "
     official_probe_source, official_probe_check = _official_export_probe_parts(official_export_probe)
     return {
         "action_code": "supplement_verified_membership_evidence",

@@ -4,6 +4,7 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from sp500_constituents import normalize_ticker
 from sp500_membership_source_policy import classify_membership_source
@@ -38,6 +39,7 @@ STATUS_FIELDS = [
     "batch_id",
     "batch_rank",
     "official_domain_search_query",
+    "official_domain_search_url",
     "official_index_page_url",
     "manual_entry_instruction",
     "validation_command",
@@ -107,6 +109,10 @@ def _official_domain_search_query(ticker, company_name):
     if company_name:
         parts.append(f'"{company_name}"')
     return " ".join(parts)
+
+
+def _official_domain_search_url(query):
+    return f"https://www.google.com/search?q={quote_plus(query)}"
 
 
 def _queue_items(queue_payload):
@@ -179,6 +185,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "batch_id": "",
             "batch_rank": 0,
             "official_domain_search_query": default_search_query,
+            "official_domain_search_url": _official_domain_search_url(default_search_query),
             "official_index_page_url": OFFICIAL_INDEX_PAGE_URL,
             "manual_entry_instruction": default_instruction,
             "validation_command": DEFAULT_VALIDATION_COMMAND,
@@ -196,6 +203,10 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     official_domain_search_query = (
         str(intake_row.get("official_domain_search_query", "") or "").strip()
         or _official_domain_search_query(ticker, intake_row.get("company_name") or company_name)
+    )
+    official_domain_search_url = (
+        str(intake_row.get("official_domain_search_url", "") or "").strip()
+        or _official_domain_search_url(official_domain_search_query)
     )
     official_index_page_url = (
         str(intake_row.get("official_index_page_url", "") or "").strip()
@@ -221,6 +232,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "batch_id": batch_id,
             "batch_rank": batch_rank,
             "official_domain_search_query": official_domain_search_query,
+            "official_domain_search_url": official_domain_search_url,
             "official_index_page_url": official_index_page_url,
             "manual_entry_instruction": manual_entry_instruction,
             "validation_command": validation_command,
@@ -273,6 +285,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
         "batch_id": batch_id,
         "batch_rank": batch_rank,
         "official_domain_search_query": official_domain_search_query,
+        "official_domain_search_url": official_domain_search_url,
         "official_index_page_url": official_index_page_url,
         "manual_entry_instruction": manual_entry_instruction,
         "validation_command": validation_command,
@@ -357,6 +370,7 @@ def _current_batch_summary(items):
                 "validation_status": item.get("validation_status", ""),
                 "validation_reason": item.get("validation_reason", ""),
                 "official_domain_search_query": item.get("official_domain_search_query", ""),
+                "official_domain_search_url": item.get("official_domain_search_url", ""),
                 "official_index_page_url": item.get("official_index_page_url", ""),
                 "manual_entry_instruction": item.get("manual_entry_instruction", ""),
                 "validation_command": item.get("validation_command", ""),
@@ -440,17 +454,18 @@ def render_markdown(payload):
         "",
         "## current_batch_manual_checklist",
         "",
-        "| batch_rank | ticker | company | status | reason | official_domain_search_query | official_index_page_url | instruction | validation_command |",
-        "|---:|---|---|---|---|---|---|---|---|",
+        "| batch_rank | ticker | company | status | reason | official_domain_search_query | official_domain_search_url | official_index_page_url | instruction | validation_command |",
+        "|---:|---|---|---|---|---|---|---|---|---|",
     ]
     for item in payload.get("current_batch_manual_checklist", []) or []:
         lines.append(
             "| {batch_rank} | {ticker} | {company_name} | {validation_status} | "
-            "{validation_reason} | {official_domain_search_query} | {official_index_page_url} | "
+            "{validation_reason} | {official_domain_search_query} | {official_domain_search_url} | "
+            "{official_index_page_url} | "
             "{manual_entry_instruction} | {validation_command} |".format(**item)
         )
     if not payload.get("current_batch_manual_checklist"):
-        lines.append("| - | - | - | - | - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - | - | - | - | - |")
     lines.extend([
         "",
         "| priority | ticker | company | status | trust | source_date | reason |",

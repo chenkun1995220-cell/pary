@@ -4,6 +4,7 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from sp500_constituents import normalize_ticker
 
@@ -29,6 +30,7 @@ BATCH_FIELDS = [
     "notes",
     "reviewer",
     "official_domain_search_query",
+    "official_domain_search_url",
     "official_index_page_url",
     "manual_entry_instruction",
     "validation_command",
@@ -77,6 +79,10 @@ def _official_domain_search_query(ticker, company_name):
     return " ".join(parts)
 
 
+def _official_domain_search_url(query):
+    return f"https://www.google.com/search?q={quote_plus(query)}"
+
+
 def _batch_item(item, batch_id, batch_rank):
     ticker = item.get("ticker", "")
     company_name = item.get("company_name", "")
@@ -102,6 +108,7 @@ def _batch_item(item, batch_id, batch_rank):
         "notes": "",
         "reviewer": "",
         "official_domain_search_query": search_query,
+        "official_domain_search_url": _official_domain_search_url(search_query),
         "official_index_page_url": OFFICIAL_INDEX_PAGE_URL,
         "manual_entry_instruction": (
             f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
@@ -190,18 +197,19 @@ def render_markdown(payload):
         "## official_domain_search_guidance",
         "",
         f"- official_index_page_url: {OFFICIAL_INDEX_PAGE_URL}",
-        "- Use official_domain_search_query only to locate S&P Global pages or announcements; it is not evidence.",
+        "- Use official_domain_search_query or official_domain_search_url only to locate S&P Global pages or announcements; it is not evidence.",
         "",
-        "| batch_rank | ticker | company | weeks | official_domain_search_query | required_evidence | reason |",
-        "|---:|---|---|---:|---|---|---|",
+        "| batch_rank | ticker | company | weeks | official_domain_search_query | official_domain_search_url | required_evidence | reason |",
+        "|---:|---|---|---:|---|---|---|---|",
     ])
     for item in payload.get("items", []) or []:
         lines.append(
             "| {batch_rank} | {ticker} | {company_name} | {weeks_affected} | "
-            "{official_domain_search_query} | {required_evidence_kind} | {rejection_reason} |".format(**item)
+            "{official_domain_search_query} | {official_domain_search_url} | "
+            "{required_evidence_kind} | {rejection_reason} |".format(**item)
         )
     if not payload.get("items"):
-        lines.append("| - | - | - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - | - | - |")
     lines.extend(["", "## boundary", "", f"- {payload.get('boundary', '')}", ""])
     return "\n".join(lines)
 
