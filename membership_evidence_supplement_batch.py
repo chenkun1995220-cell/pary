@@ -45,6 +45,14 @@ def _read_json(path):
     return json.loads(source.read_text(encoding="utf-8-sig"))
 
 
+def _read_csv(path):
+    source = Path(path)
+    if not source.exists():
+        return []
+    with source.open(encoding="utf-8-sig", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
 def _int_value(value, default=0):
     try:
         return int(value or default)
@@ -137,6 +145,7 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
         "batch_size": size,
         "queue_count": len(items),
         "selected_count": len(batch_items),
+        "preserved_manual_evidence_count": 0,
         "remaining_after_batch_count": max(len(items) - len(batch_items), 0),
         "batch_tickers": [item["ticker"] for item in batch_items],
         "batch_weeks_affected": sum(_int_value(item.get("weeks_affected"), 0) for item in batch_items),
@@ -162,6 +171,37 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
             "不把 crosscheck、ETF 或 secondary 来源升级为 verified。"
         ),
     }
+
+
+def preserve_manual_intake_fields(payload, intake_path):
+    existing_rows = _read_csv(intake_path)
+    existing_by_ticker = {
+        normalize_ticker(row.get("ticker")): row
+        for row in existing_rows
+        if normalize_ticker(row.get("ticker"))
+    }
+    manual_fields = [
+        "membership_evidence",
+        "membership_source_url",
+        "source_as_of_date",
+        "notes",
+        "reviewer",
+    ]
+    preserved_count = 0
+    for item in payload.get("items", []) or []:
+        existing = existing_by_ticker.get(item.get("ticker", ""))
+        if not existing:
+            continue
+        preserved_any = False
+        for field in manual_fields:
+            value = str(existing.get(field, "") or "").strip()
+            if value:
+                item[field] = value
+                preserved_any = True
+        if preserved_any:
+            preserved_count += 1
+    payload["preserved_manual_evidence_count"] = preserved_count
+    return payload
 
 
 def render_markdown(payload):
@@ -251,6 +291,7 @@ def main():
     payload = build_supplement_batch(args.queue, batch_size=args.batch_size, as_of_date=args.as_of_date or None)
     if args.intake_draft:
         payload["intake_draft_path"] = str(Path(args.intake_draft))
+        payload = preserve_manual_intake_fields(payload, args.intake_draft)
     report = render_markdown(payload)
     write_json(payload, args.output_json)
     write_csv(payload, args.output_csv)

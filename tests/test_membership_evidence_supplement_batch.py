@@ -202,6 +202,88 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["intake_draft_path"], str(intake_draft))
 
+    def test_cli_preserves_existing_manual_evidence_when_regenerating_intake_draft(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue = root / "queue.json"
+            output_json = root / "batch.json"
+            output_csv = root / "batch.csv"
+            output_md = root / "batch.md"
+            intake_draft = root / "inputs" / "sp500_membership_evidence" / "verified_membership_evidence_intake.csv"
+            write_queue(queue)
+            intake_draft.parent.mkdir(parents=True, exist_ok=True)
+            with intake_draft.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "2026-07-07",
+                        "evidence_kind": "current_constituents",
+                        "notes": "manual official page candidate",
+                        "reviewer": "manual",
+                    }
+                )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "membership_evidence_supplement_batch.py"),
+                    "--queue",
+                    str(queue),
+                    "--batch-size",
+                    "2",
+                    "--as-of-date",
+                    "2026-07-08",
+                    "--output-json",
+                    str(output_json),
+                    "--output-csv",
+                    str(output_csv),
+                    "--output-md",
+                    str(output_md),
+                    "--intake-draft",
+                    str(intake_draft),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            with intake_draft.open(encoding="utf-8-sig", newline="") as handle:
+                rows = {row["ticker"]: row for row in csv.DictReader(handle)}
+            self.assertEqual(rows["ABT"]["batch_id"], "2026-07-08-p1")
+            self.assertEqual(rows["ABT"]["membership_evidence"], "verified")
+            self.assertEqual(
+                rows["ABT"]["membership_source_url"],
+                "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+            )
+            self.assertEqual(rows["ABT"]["source_as_of_date"], "2026-07-07")
+            self.assertEqual(rows["ABT"]["notes"], "manual official page candidate")
+            self.assertEqual(rows["ABT"]["reviewer"], "manual")
+            self.assertIn("official_domain_search_url", rows["ABT"])
+            self.assertEqual(rows["ADM"]["membership_evidence"], "")
+            payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["preserved_manual_evidence_count"], 1)
+
     def test_wrapper_bundle_and_pre_submit_include_supplement_batch(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_supplement_batch.ps1").read_text(
             encoding="utf-8-sig"
