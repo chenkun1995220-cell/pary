@@ -4,7 +4,7 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 from sp500_constituents import normalize_ticker
 from sp500_membership_source_policy import classify_membership_source
@@ -96,6 +96,7 @@ def _manual_entry_instruction(ticker, accepted_domains):
     return (
         f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
         f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date; "
+        f"notes must mention the ticker or company as observed on the official page; "
         f"use official_domain_search_query to find official pages, but the search query is not evidence."
     )
 
@@ -113,6 +114,24 @@ def _official_domain_search_query(ticker, company_name):
 
 def _official_domain_search_url(query):
     return f"https://www.google.com/search?q={quote_plus(query)}"
+
+
+def _is_generic_sp500_index_page(source_url):
+    try:
+        parsed = urlparse(str(source_url or "").strip())
+    except ValueError:
+        return False
+    path = (parsed.path or "").rstrip("/").lower()
+    return path.endswith("/indices/equity/sp-500")
+
+
+def _notes_confirm_ticker_or_company(notes, ticker, company_name):
+    text = str(notes or "").strip().lower()
+    if not text:
+        return False
+    ticker_text = str(ticker or "").strip().lower()
+    company_text = str(company_name or "").strip().lower()
+    return bool((ticker_text and ticker_text in text) or (company_text and company_text in text))
 
 
 def _queue_items(queue_payload):
@@ -198,6 +217,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     source_as_of_date = str(intake_row.get("source_as_of_date", "") or "").strip()
     source_date = _parse_iso_date(source_as_of_date)
     evidence_kind = str(intake_row.get("evidence_kind", "") or "").strip() or "current_constituents"
+    notes = intake_row.get("notes", "")
     batch_id = str(intake_row.get("batch_id", "") or "").strip()
     batch_rank = _int_value(intake_row.get("batch_rank"), 0)
     official_domain_search_query = (
@@ -242,12 +262,19 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     policy = classify_membership_source(source_url, evidence_kind=evidence_kind)
     review_date = review_date if isinstance(review_date, date) else None
     is_future_source_date = bool(source_date and review_date and source_date > review_date)
+    needs_ticker_observation_note = (
+        policy["can_upgrade_membership"]
+        and evidence_kind == "current_constituents"
+        and _is_generic_sp500_index_page(source_url)
+        and not _notes_confirm_ticker_or_company(notes, ticker, intake_row.get("company_name") or company_name)
+    )
     is_ready = (
         evidence == "verified"
         and source_as_of_date
         and source_date
         and not is_future_source_date
         and policy["can_upgrade_membership"]
+        and not needs_ticker_observation_note
     )
     if is_ready:
         validation_status = "ready_current_source"
@@ -264,6 +291,9 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     elif is_future_source_date:
         validation_status = "invalid_future_source_date"
         validation_reason = "source_as_of_date_after_review_date"
+    elif needs_ticker_observation_note:
+        validation_status = "invalid_generic_official_source"
+        validation_reason = "generic_official_page_requires_ticker_observation_note"
     else:
         validation_status = "invalid_source_policy"
         validation_reason = f"{policy['reason']}_cannot_upgrade"
@@ -289,7 +319,7 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
         "official_index_page_url": official_index_page_url,
         "manual_entry_instruction": manual_entry_instruction,
         "validation_command": validation_command,
-        "notes": intake_row.get("notes", ""),
+        "notes": notes,
         "reviewer": intake_row.get("reviewer", ""),
     }
 

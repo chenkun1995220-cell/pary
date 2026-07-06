@@ -121,6 +121,7 @@ def _batch_item(item, batch_id, batch_rank):
         "manual_entry_instruction": (
             f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
             f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date; "
+            f"notes must mention the ticker or company as observed on the official page; "
             f"use official_domain_search_query to find official pages, but the search query is not evidence."
         ),
         "validation_command": validation_command,
@@ -157,6 +158,7 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
             "membership_evidence must be verified.",
             "membership_source_url must be an official S&P Global HTTPS URL under spglobal.com.",
             "source_as_of_date must use YYYY-MM-DD and must not be later than the review date.",
+            "notes must mention the ticker or company as observed on the official page.",
             "official_domain_search_query is only a manual lookup aid; do not paste search results as evidence.",
             "ETF holdings, Wikipedia, GitHub, Kaggle, crosscheck, or secondary sources remain reference-only.",
         ],

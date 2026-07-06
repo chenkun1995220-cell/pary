@@ -80,7 +80,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                         "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
                         "source_as_of_date": "2026-07-06",
                         "evidence_kind": "current_constituents",
-                        "notes": "official page",
+                        "notes": "official page shows ABT as current constituent",
                         "reviewer": "manual",
                     }
                 )
@@ -131,6 +131,59 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                 source_rows[0]["membership_source_url"],
                 "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
             )
+
+    def test_rejects_generic_official_index_page_without_ticker_observation_note(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue_path = root / "queue.json"
+            intake_path = root / "intake.csv"
+            template_path = root / "template.csv"
+            write_queue(queue_path)
+            with intake_path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "2026-07-06",
+                        "evidence_kind": "current_constituents",
+                        "notes": "official page",
+                        "reviewer": "manual",
+                    }
+                )
+
+            from membership_evidence_source_intake_status import build_source_intake_status
+
+            payload = build_source_intake_status(
+                queue_path,
+                intake_path=intake_path,
+                template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
+                as_of_date="2026-07-06",
+            )
+
+            by_ticker = {row["ticker"]: row for row in payload["items"]}
+            self.assertEqual(payload["ready_to_import_count"], 0)
+            self.assertEqual(payload["invalid_count"], 1)
+            self.assertEqual(by_ticker["ABT"]["validation_status"], "invalid_generic_official_source")
+            self.assertEqual(by_ticker["ABT"]["validation_reason"], "generic_official_page_requires_ticker_observation_note")
+            with (root / "verified_source_pack.csv").open(encoding="utf-8-sig", newline="") as handle:
+                self.assertEqual(list(csv.DictReader(handle)), [])
 
     def test_missing_intake_creates_template_and_waits_for_manual_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -250,7 +303,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                         "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
                         "source_as_of_date": "2026-07-06",
                         "evidence_kind": "current_constituents",
-                        "notes": "official page",
+                        "notes": "official page shows ABT as current constituent",
                         "reviewer": "manual",
                     }
                 )
