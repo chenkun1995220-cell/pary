@@ -635,7 +635,25 @@ def _official_export_probe_parts(official_export_probe):
     return source, check
 
 
-def _membership_evidence_supplement_action(import_plan, source_intake_status=None, official_export_probe=None):
+def _current_membership_uses_crosscheck_substitute(current_source_status):
+    if not isinstance(current_source_status, dict):
+        return False
+    return (
+        str(current_source_status.get("status", "") or "").strip()
+        == "crosscheck_substitute_ready"
+        or str(current_source_status.get("source_trust_level", "") or "").strip()
+        == "crosscheck_substitute"
+        or str(current_source_status.get("recommended_followup", "") or "").strip()
+        == "refresh_crosscheck_substitute_weekly"
+    )
+
+
+def _membership_evidence_supplement_action(
+    import_plan,
+    source_intake_status=None,
+    official_export_probe=None,
+    current_source_status=None,
+):
     if not isinstance(import_plan, dict) or not import_plan:
         return None
     source_intake_status = source_intake_status or {}
@@ -703,7 +721,21 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
             )
         if current_batch_search_url:
             current_batch_check += f"official_domain_search_url={current_batch_search_url}; "
-    official_probe_source, official_probe_check = _official_export_probe_parts(official_export_probe)
+    uses_crosscheck_substitute = _current_membership_uses_crosscheck_substitute(
+        current_source_status
+    )
+    official_probe_source, official_probe_check = (
+        ("", "")
+        if uses_crosscheck_substitute
+        else _official_export_probe_parts(official_export_probe)
+    )
+    crosscheck_boundary_check = (
+        "Current S&P 500 membership uses the crosscheck substitute strategy; "
+        "do not request official_constituents.csv as a weekly blocker; "
+        "crosscheck substitute remains secondary evidence only. "
+        if uses_crosscheck_substitute
+        else ""
+    )
     return {
         "action_code": "supplement_verified_membership_evidence",
         "category": "backtest",
@@ -723,6 +755,7 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
             "再检查 outputs/automation/latest_membership_evidence_source_intake_status.md，"
             f"{current_batch_check}"
             f"{official_probe_check}"
+            f"{crosscheck_boundary_check}"
             f"优先处理 {ticker_text}；只接受 official S&P Global 成分页或指数公告作为 verified 证据，"
             "crosscheck、ETF holdings、Wikipedia、GitHub、Kaggle 只能作为参考或交叉校验，"
             "不得自动修改 historical_membership.csv 或正式模型参数。"
@@ -1399,6 +1432,7 @@ def build_weekly_action_items(
         import_plan,
         source_intake_status,
         official_export_probe,
+        current_source_status,
     )
     if supplement_action and not any(
         item.get("action_code") == supplement_action["action_code"] for item in items

@@ -1183,6 +1183,55 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("official S&P Global", supplement_item["recommended_check"])
             self.assertIn("supplement_verified_membership_evidence", report)
 
+    def test_supplement_action_omits_official_export_handoff_when_crosscheck_substitute_is_active(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            import_plan_path = root / "latest_membership_evidence_import_plan.json"
+            source_intake_path = root / "latest_membership_evidence_source_intake_status.json"
+            official_probe_path = root / "latest_sp500_official_export_probe.json"
+            current_source_path = root / "latest_sp500_current_membership_sources.json"
+            write_manifest(manifest_path)
+            write_blocked_membership_import_plan(import_plan_path)
+            write_membership_source_intake_status(source_intake_path)
+            write_official_export_probe(official_probe_path)
+            write_current_membership_sources(current_source_path)
+            current_source = json.loads(current_source_path.read_text(encoding="utf-8-sig"))
+            current_source.update(
+                {
+                    "status": "crosscheck_substitute_ready",
+                    "source_trust_level": "crosscheck_substitute",
+                    "membership_evidence": "secondary",
+                    "recommended_followup": "refresh_crosscheck_substitute_weekly",
+                    "formal_backtest_upgrade_allowed": False,
+                }
+            )
+            current_source_path.write_text(
+                json.dumps(current_source, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                membership_import_plan=import_plan_path,
+                membership_evidence_source_intake_status=source_intake_path,
+                sp500_official_export_probe=official_probe_path,
+                current_membership_sources=current_source_path,
+            )
+
+            supplement_item = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "supplement_verified_membership_evidence"
+            )
+            self.assertNotIn("retry_with_logged_in_browser_or_manual_export", supplement_item["recommended_check"])
+            self.assertNotIn("inputs/sp500_current_membership/official_constituents.csv", supplement_item["recommended_check"])
+            self.assertNotIn("official_export_probe_status", supplement_item["source"])
+            self.assertIn("crosscheck substitute", supplement_item["recommended_check"])
+            self.assertIn("official S&P Global", supplement_item["recommended_check"])
+
     def test_adds_current_membership_source_review_action_when_missing_tickers_remain(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
