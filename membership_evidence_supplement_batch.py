@@ -28,9 +28,12 @@ BATCH_FIELDS = [
     "evidence_kind",
     "notes",
     "reviewer",
+    "official_domain_search_query",
+    "official_index_page_url",
     "manual_entry_instruction",
     "validation_command",
 ]
+OFFICIAL_INDEX_PAGE_URL = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/"
 
 
 def _read_json(path):
@@ -63,16 +66,29 @@ def _queue_items(payload):
     return sorted(items, key=lambda row: (_int_value(row.get("priority"), 0), row.get("ticker", "")))
 
 
+def _official_domain_search_query(ticker, company_name):
+    parts = [
+        "site:spglobal.com/spdji",
+        '"S&P 500"',
+        f'"{ticker}"',
+    ]
+    if company_name:
+        parts.append(f'"{company_name}"')
+    return " ".join(parts)
+
+
 def _batch_item(item, batch_id, batch_rank):
     ticker = item.get("ticker", "")
+    company_name = item.get("company_name", "")
     accepted_domains = item.get("accepted_source_domains", "spglobal.com,.spglobal.com")
     validation_command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_membership_evidence_source_intake_status.ps1"
+    search_query = _official_domain_search_query(ticker, company_name)
     return {
         "batch_id": batch_id,
         "batch_rank": batch_rank,
         "queue_priority": item.get("priority", 0),
         "ticker": ticker,
-        "company_name": item.get("company_name", ""),
+        "company_name": company_name,
         "effective_date": item.get("effective_date", ""),
         "weeks_affected": _int_value(item.get("weeks_affected"), 0),
         "current_evidence": item.get("current_evidence", ""),
@@ -85,9 +101,12 @@ def _batch_item(item, batch_id, batch_rank):
         "evidence_kind": "current_constituents",
         "notes": "",
         "reviewer": "",
+        "official_domain_search_query": search_query,
+        "official_index_page_url": OFFICIAL_INDEX_PAGE_URL,
         "manual_entry_instruction": (
             f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
-            f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date."
+            f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date; "
+            f"use official_domain_search_query to find official pages, but the search query is not evidence."
         ),
         "validation_command": validation_command,
     }
@@ -122,6 +141,7 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
             "membership_evidence must be verified.",
             "membership_source_url must be an official S&P Global HTTPS URL under spglobal.com.",
             "source_as_of_date must use YYYY-MM-DD and must not be later than the review date.",
+            "official_domain_search_query is only a manual lookup aid; do not paste search results as evidence.",
             "ETF holdings, Wikipedia, GitHub, Kaggle, crosscheck, or secondary sources remain reference-only.",
         ],
         "validation_command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_membership_evidence_source_intake_status.ps1",
@@ -167,16 +187,21 @@ def render_markdown(payload):
         "",
         f"- {payload.get('completion_condition', '')}",
         "",
-        "| batch_rank | ticker | company | weeks | required_evidence | reason |",
-        "|---:|---|---|---:|---|---|",
+        "## official_domain_search_guidance",
+        "",
+        f"- official_index_page_url: {OFFICIAL_INDEX_PAGE_URL}",
+        "- Use official_domain_search_query only to locate S&P Global pages or announcements; it is not evidence.",
+        "",
+        "| batch_rank | ticker | company | weeks | official_domain_search_query | required_evidence | reason |",
+        "|---:|---|---|---:|---|---|---|",
     ])
     for item in payload.get("items", []) or []:
         lines.append(
             "| {batch_rank} | {ticker} | {company_name} | {weeks_affected} | "
-            "{required_evidence_kind} | {rejection_reason} |".format(**item)
+            "{official_domain_search_query} | {required_evidence_kind} | {rejection_reason} |".format(**item)
         )
     if not payload.get("items"):
-        lines.append("| - | - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - | - |")
     lines.extend(["", "## boundary", "", f"- {payload.get('boundary', '')}", ""])
     return "\n".join(lines)
 

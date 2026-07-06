@@ -37,6 +37,8 @@ STATUS_FIELDS = [
     "validation_reason",
     "batch_id",
     "batch_rank",
+    "official_domain_search_query",
+    "official_index_page_url",
     "manual_entry_instruction",
     "validation_command",
     "notes",
@@ -53,6 +55,7 @@ DEFAULT_VALIDATION_COMMAND = (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
     "scripts\\run_membership_evidence_source_intake_status.ps1"
 )
+OFFICIAL_INDEX_PAGE_URL = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/"
 
 
 def _read_json(path):
@@ -90,8 +93,20 @@ def _parse_iso_date(value):
 def _manual_entry_instruction(ticker, accepted_domains):
     return (
         f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
-        f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date."
+        f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date; "
+        f"use official_domain_search_query to find official pages, but the search query is not evidence."
     )
+
+
+def _official_domain_search_query(ticker, company_name):
+    parts = [
+        "site:spglobal.com/spdji",
+        '"S&P 500"',
+        f'"{ticker}"',
+    ]
+    if company_name:
+        parts.append(f'"{company_name}"')
+    return " ".join(parts)
 
 
 def _queue_items(queue_payload):
@@ -142,8 +157,10 @@ def _intake_by_ticker(rows):
 
 def _validate_intake_row(queue_item, intake_row, review_date=None):
     ticker = queue_item.get("ticker", "")
+    company_name = queue_item.get("company_name", "")
     accepted_domains = queue_item.get("accepted_source_domains", "spglobal.com,.spglobal.com")
     default_instruction = _manual_entry_instruction(ticker, accepted_domains)
+    default_search_query = _official_domain_search_query(ticker, company_name)
     if not intake_row:
         return {
             "priority": queue_item.get("priority", 0),
@@ -161,6 +178,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "validation_reason": "manual_evidence_missing",
             "batch_id": "",
             "batch_rank": 0,
+            "official_domain_search_query": default_search_query,
+            "official_index_page_url": OFFICIAL_INDEX_PAGE_URL,
             "manual_entry_instruction": default_instruction,
             "validation_command": DEFAULT_VALIDATION_COMMAND,
             "notes": "",
@@ -174,6 +193,14 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     evidence_kind = str(intake_row.get("evidence_kind", "") or "").strip() or "current_constituents"
     batch_id = str(intake_row.get("batch_id", "") or "").strip()
     batch_rank = _int_value(intake_row.get("batch_rank"), 0)
+    official_domain_search_query = (
+        str(intake_row.get("official_domain_search_query", "") or "").strip()
+        or _official_domain_search_query(ticker, intake_row.get("company_name") or company_name)
+    )
+    official_index_page_url = (
+        str(intake_row.get("official_index_page_url", "") or "").strip()
+        or OFFICIAL_INDEX_PAGE_URL
+    )
     manual_entry_instruction = str(intake_row.get("manual_entry_instruction", "") or "").strip() or default_instruction
     validation_command = str(intake_row.get("validation_command", "") or "").strip() or DEFAULT_VALIDATION_COMMAND
     if not evidence and not source_url and not source_as_of_date:
@@ -193,6 +220,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "validation_reason": "manual_evidence_missing",
             "batch_id": batch_id,
             "batch_rank": batch_rank,
+            "official_domain_search_query": official_domain_search_query,
+            "official_index_page_url": official_index_page_url,
             "manual_entry_instruction": manual_entry_instruction,
             "validation_command": validation_command,
             "notes": intake_row.get("notes", ""),
@@ -243,6 +272,8 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
         "validation_reason": validation_reason,
         "batch_id": batch_id,
         "batch_rank": batch_rank,
+        "official_domain_search_query": official_domain_search_query,
+        "official_index_page_url": official_index_page_url,
         "manual_entry_instruction": manual_entry_instruction,
         "validation_command": validation_command,
         "notes": intake_row.get("notes", ""),
@@ -325,6 +356,8 @@ def _current_batch_summary(items):
                 "company_name": item.get("company_name", ""),
                 "validation_status": item.get("validation_status", ""),
                 "validation_reason": item.get("validation_reason", ""),
+                "official_domain_search_query": item.get("official_domain_search_query", ""),
+                "official_index_page_url": item.get("official_index_page_url", ""),
                 "manual_entry_instruction": item.get("manual_entry_instruction", ""),
                 "validation_command": item.get("validation_command", ""),
             }
@@ -407,16 +440,17 @@ def render_markdown(payload):
         "",
         "## current_batch_manual_checklist",
         "",
-        "| batch_rank | ticker | company | status | reason | instruction | validation_command |",
-        "|---:|---|---|---|---|---|---|",
+        "| batch_rank | ticker | company | status | reason | official_domain_search_query | official_index_page_url | instruction | validation_command |",
+        "|---:|---|---|---|---|---|---|---|---|",
     ]
     for item in payload.get("current_batch_manual_checklist", []) or []:
         lines.append(
             "| {batch_rank} | {ticker} | {company_name} | {validation_status} | "
-            "{validation_reason} | {manual_entry_instruction} | {validation_command} |".format(**item)
+            "{validation_reason} | {official_domain_search_query} | {official_index_page_url} | "
+            "{manual_entry_instruction} | {validation_command} |".format(**item)
         )
     if not payload.get("current_batch_manual_checklist"):
-        lines.append("| - | - | - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - | - | - | - |")
     lines.extend([
         "",
         "| priority | ticker | company | status | trust | source_date | reason |",

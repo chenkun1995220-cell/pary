@@ -298,6 +298,14 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
                 "manual_evidence_missing",
             )
             self.assertIn(
+                "site:spglobal.com/spdji",
+                payload["current_batch_manual_checklist"][0]["official_domain_search_query"],
+            )
+            self.assertIn(
+                "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                payload["current_batch_manual_checklist"][0]["official_index_page_url"],
+            )
+            self.assertIn(
                 "membership_evidence=verified",
                 payload["current_batch_manual_checklist"][0]["manual_entry_instruction"],
             )
@@ -311,6 +319,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertIn("current_batch_id: 2026-07-06-p1", markdown)
             self.assertIn("current_batch_ready_count: 1", markdown)
             self.assertIn("## current_batch_manual_checklist", markdown)
+            self.assertIn("site:spglobal.com/spdji", markdown)
             self.assertIn("ADM", markdown)
 
     def test_rejects_invalid_or_future_source_dates(self):
