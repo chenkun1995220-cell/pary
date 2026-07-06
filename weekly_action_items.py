@@ -14,6 +14,7 @@ DEFAULT_MEMBERSHIP_APPLY_PREVIEW = "outputs/automation/latest_membership_evidenc
 DEFAULT_MEMBERSHIP_EVIDENCE_SOURCE_INTAKE_STATUS = (
     "outputs/automation/latest_membership_evidence_source_intake_status.json"
 )
+DEFAULT_SP500_OFFICIAL_EXPORT_PROBE = "outputs/automation/latest_sp500_official_export_probe.json"
 DEFAULT_CURRENT_MEMBERSHIP_SOURCES = "outputs/automation/latest_sp500_current_membership_sources.json"
 DEFAULT_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS = (
     "outputs/automation/latest_sp500_current_membership_source_review_status.json"
@@ -604,7 +605,26 @@ def _membership_apply_preview_confirmation_action(apply_preview):
     }
 
 
-def _membership_evidence_supplement_action(import_plan, source_intake_status=None):
+def _official_export_probe_parts(official_export_probe):
+    official_export_probe = official_export_probe or {}
+    status = str(official_export_probe.get("status", "") or "").strip()
+    if not status:
+        return "", ""
+    http_status = _int_value(official_export_probe.get("http_status"), 0)
+    next_action = str(official_export_probe.get("next_action", "") or "").strip()
+    source = f"; official_export_probe_status:{status}"
+    if http_status:
+        source += f"; official_export_probe_http_status:{http_status}"
+    status_text = f"{status}/{http_status}" if http_status else status
+    check = (
+        "Check outputs/automation/latest_sp500_official_export_probe.md; "
+        f"official export probe is {status_text}; "
+        f"next_action={next_action or 'review_official_export_probe'}; "
+    )
+    return source, check
+
+
+def _membership_evidence_supplement_action(import_plan, source_intake_status=None, official_export_probe=None):
     if not isinstance(import_plan, dict) or not import_plan:
         return None
     source_intake_status = source_intake_status or {}
@@ -649,6 +669,7 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
             f"的 current_batch_manual_checklist，待补 {len(current_batch_checklist)} 条"
             f"（{current_batch_text}）；"
         )
+    official_probe_source, official_probe_check = _official_export_probe_parts(official_export_probe)
     return {
         "action_code": "supplement_verified_membership_evidence",
         "category": "backtest",
@@ -660,12 +681,14 @@ def _membership_evidence_supplement_action(import_plan, source_intake_status=Non
             f"invalid_source_weeks_affected:{weeks_affected}; "
             "formal_backtest_upgrade_allowed:false"
             f"{current_batch_source}"
+            f"{official_probe_source}"
         ),
         "recommended_check": (
             "检查 outputs/automation/latest_membership_evidence_supplement_queue.md，"
             "填写 outputs/automation/us_sp500_verified_membership_evidence_intake_template.csv，"
             "再检查 outputs/automation/latest_membership_evidence_source_intake_status.md，"
             f"{current_batch_check}"
+            f"{official_probe_check}"
             f"优先处理 {ticker_text}；只接受 official S&P Global 成分页或指数公告作为 verified 证据，"
             "crosscheck、ETF holdings、Wikipedia、GitHub、Kaggle 只能作为参考或交叉校验，"
             "不得自动修改 historical_membership.csv 或正式模型参数。"
@@ -1202,6 +1225,7 @@ def build_weekly_action_items(
     membership_import_plan=None,
     membership_apply_preview=None,
     membership_evidence_source_intake_status=None,
+    sp500_official_export_probe=None,
     current_membership_sources=None,
     current_membership_source_review_status=None,
     current_membership_source_inbox_status=None,
@@ -1219,6 +1243,7 @@ def build_weekly_action_items(
     import_plan = load_optional_json(membership_import_plan)
     apply_preview = load_optional_json(membership_apply_preview)
     source_intake_status = load_optional_json(membership_evidence_source_intake_status)
+    official_export_probe = load_optional_json(sp500_official_export_probe)
     current_source_status = load_optional_json(current_membership_sources)
     current_source_review_status = load_optional_json(current_membership_source_review_status)
     current_source_inbox_status = load_optional_json(current_membership_source_inbox_status)
@@ -1336,7 +1361,11 @@ def build_weekly_action_items(
         forecast_gap_action["status"] = "open"
         items.append(forecast_gap_action)
 
-    supplement_action = _membership_evidence_supplement_action(import_plan, source_intake_status)
+    supplement_action = _membership_evidence_supplement_action(
+        import_plan,
+        source_intake_status,
+        official_export_probe,
+    )
     if supplement_action and not any(
         item.get("action_code") == supplement_action["action_code"] for item in items
     ):
@@ -1362,6 +1391,7 @@ def build_weekly_action_items(
             import_plan,
             apply_preview,
             source_intake_status,
+            official_export_probe,
             current_source_status,
             current_source_review_status,
             current_source_inbox_status,
@@ -1469,6 +1499,7 @@ def main():
         "--membership-evidence-source-intake-status",
         default=DEFAULT_MEMBERSHIP_EVIDENCE_SOURCE_INTAKE_STATUS,
     )
+    parser.add_argument("--sp500-official-export-probe", default=DEFAULT_SP500_OFFICIAL_EXPORT_PROBE)
     parser.add_argument("--current-membership-sources", default=DEFAULT_CURRENT_MEMBERSHIP_SOURCES)
     parser.add_argument(
         "--current-membership-source-review-status",
@@ -1496,6 +1527,7 @@ def main():
         membership_import_plan=args.membership_import_plan,
         membership_apply_preview=args.membership_apply_preview,
         membership_evidence_source_intake_status=args.membership_evidence_source_intake_status,
+        sp500_official_export_probe=args.sp500_official_export_probe,
         current_membership_sources=args.current_membership_sources,
         current_membership_source_review_status=args.current_membership_source_review_status,
         current_membership_source_inbox_status=args.current_membership_source_inbox_status,

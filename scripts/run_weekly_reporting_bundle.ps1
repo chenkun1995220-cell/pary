@@ -44,6 +44,7 @@ $postSteps = @(
   @{ Label = "run_membership_evidence_supplement_batch"; Script = "run_membership_evidence_supplement_batch.ps1"; Critical = $true },
   @{ Label = "run_membership_evidence_source_intake_status"; Script = "run_membership_evidence_source_intake_status.ps1"; Critical = $true },
   @{ Label = "run_membership_evidence_import_plan_from_verified_intake"; Script = "run_membership_evidence_import_plan_from_verified_intake.ps1"; Critical = $true },
+  @{ Label = "run_sp500_official_export_probe"; Script = "run_sp500_official_export_probe.ps1"; Critical = $true },
   @{ Label = "run_sp500_verified_source_plan"; Script = "run_sp500_verified_source_plan.ps1"; Critical = $true },
   @{ Label = "run_membership_evidence_apply_preview"; Script = "run_membership_evidence_apply_preview.ps1"; Critical = $true },
   @{ Label = "run_membership_evidence_apply_confirmation_status"; Script = "run_membership_evidence_apply_confirmation_status.ps1"; Critical = $true },

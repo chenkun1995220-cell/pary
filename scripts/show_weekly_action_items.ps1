@@ -4,6 +4,7 @@ param(
   [string]$MembershipImportPlan = "",
   [string]$MembershipApplyPreview = "",
   [string]$MembershipEvidenceSourceIntakeStatus = "",
+  [string]$Sp500OfficialExportProbe = "",
   [string]$CurrentMembershipSources = "",
   [string]$CurrentMembershipSourceReviewStatus = "",
   [string]$CurrentMembershipSourceInboxStatus = "",
@@ -32,6 +33,9 @@ if (-not $MembershipApplyPreview) {
 }
 if (-not $MembershipEvidenceSourceIntakeStatus) {
   $MembershipEvidenceSourceIntakeStatus = Join-Path $ProjectRoot "outputs\automation\latest_membership_evidence_source_intake_status.json"
+}
+if (-not $Sp500OfficialExportProbe) {
+  $Sp500OfficialExportProbe = Join-Path $ProjectRoot "outputs\automation\latest_sp500_official_export_probe.json"
 }
 if (-not $CurrentMembershipSources) {
   $CurrentMembershipSources = Join-Path $ProjectRoot "outputs\automation\latest_sp500_current_membership_sources.json"
@@ -67,7 +71,7 @@ if (-not $Report) {
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 $Script = Join-Path $ProjectRoot "weekly_action_items.py"
 
-& $Python -B $Script --manifest $Manifest --membership-import-plan $MembershipImportPlan --membership-apply-preview $MembershipApplyPreview --membership-evidence-source-intake-status $MembershipEvidenceSourceIntakeStatus --current-membership-sources $CurrentMembershipSources --current-membership-source-review-status $CurrentMembershipSourceReviewStatus --current-membership-source-inbox-status $CurrentMembershipSourceInboxStatus --forecast-performance $ForecastPerformance --manual-review-queue $ManualReviewQueue --data-health-review $DataHealthReview --candidate-findings-review $CandidateFindingsReview --backtest-evidence-review $BacktestEvidenceReview --output $Output --report $Report
+& $Python -B $Script --manifest $Manifest --membership-import-plan $MembershipImportPlan --membership-apply-preview $MembershipApplyPreview --membership-evidence-source-intake-status $MembershipEvidenceSourceIntakeStatus --sp500-official-export-probe $Sp500OfficialExportProbe --current-membership-sources $CurrentMembershipSources --current-membership-source-review-status $CurrentMembershipSourceReviewStatus --current-membership-source-inbox-status $CurrentMembershipSourceInboxStatus --forecast-performance $ForecastPerformance --manual-review-queue $ManualReviewQueue --data-health-review $DataHealthReview --candidate-findings-review $CandidateFindingsReview --backtest-evidence-review $BacktestEvidenceReview --output $Output --report $Report
 if ($LASTEXITCODE -ne 0) {
   throw "Weekly action items report failed with exit code $LASTEXITCODE."
 }

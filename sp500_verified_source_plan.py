@@ -14,6 +14,7 @@ OFFICIAL_INDEX_PAGE = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/"
 ISHARES_IVV_PAGE = "https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf"
 SSGA_SPY_PAGE = "https://www.ssga.com/us/en/intermediary/etfs/state-street-spdr-sp-500-etf-trust-spy"
 VANGUARD_VOO_PAGE = "https://investor.vanguard.com/investment-products/etfs/profile/voo"
+DEFAULT_OFFICIAL_EXPORT_PROBE = "outputs/automation/latest_sp500_official_export_probe.json"
 
 
 def _read_json(path):
@@ -107,7 +108,27 @@ def _source_matrix(official_export_url):
     ]
 
 
-def _next_actions(ready_to_import_count, verified_candidate_count, source_file_inbox, crosscheck_active=False):
+def _probe_reason(official_probe):
+    status = str(official_probe.get("status", "") or "").strip()
+    if not status:
+        return ""
+    parts = [f"official_export_probe_status={status}"]
+    http_status = official_probe.get("http_status")
+    if http_status:
+        parts.append(f"http_status={http_status}")
+    next_action = str(official_probe.get("next_action", "") or "").strip()
+    if next_action:
+        parts.append(f"probe_next_action={next_action}")
+    return "; ".join(parts)
+
+
+def _next_actions(
+    ready_to_import_count,
+    verified_candidate_count,
+    source_file_inbox,
+    crosscheck_active=False,
+    official_probe=None,
+):
     if ready_to_import_count > 0:
         return [
             {
@@ -142,10 +163,14 @@ def _next_actions(ready_to_import_count, verified_candidate_count, source_file_i
                 },
             )
         return actions
+    probe_reason = _probe_reason(official_probe or {})
+    source_reason = "no_verified_current_membership_sources_ready"
+    if probe_reason:
+        source_reason = f"{source_reason}; {probe_reason}"
     actions = [
         {
             "action": "obtain_official_spglobal_full_constituents_file",
-            "reason": "no_verified_current_membership_sources_ready",
+            "reason": source_reason,
             "target_file": source_file_inbox or SOURCE_FILE_INBOX,
         },
         {
@@ -186,6 +211,7 @@ def build_sp500_verified_source_plan(
     current_sources=None,
     inbox_status=None,
     backtest_review=None,
+    official_export_probe=None,
     as_of_date=None,
 ):
     root = Path(project_root)
@@ -201,10 +227,14 @@ def build_sp500_verified_source_plan(
     backtest_review_path = (
         Path(backtest_review) if backtest_review else root / "outputs/automation/latest_backtest_evidence_review.json"
     )
+    official_probe_path = (
+        Path(official_export_probe) if official_export_probe else root / DEFAULT_OFFICIAL_EXPORT_PROBE
+    )
     import_payload = _read_json(import_plan_path)
     current_payload = _read_json(current_sources_path)
     inbox_payload = _read_json(inbox_status_path)
     backtest_payload = _read_json(backtest_review_path)
+    official_probe_payload = _read_json(official_probe_path)
 
     ready_to_import = _int_value(import_payload.get("ready_to_import_count"))
     verified_candidates = _int_value(import_payload.get("verified_candidate_count"))
@@ -232,6 +262,7 @@ def build_sp500_verified_source_plan(
             "current_sources": str(current_sources_path),
             "inbox_status": str(inbox_status_path),
             "backtest_review": str(backtest_review_path),
+            "official_export_probe": str(official_probe_path),
         },
         "ready_to_import_count": ready_to_import,
         "verified_candidate_count": verified_candidates,
@@ -247,6 +278,10 @@ def build_sp500_verified_source_plan(
         "source_file_inbox": source_file_inbox,
         "minimum_official_ticker_count": _int_value(inbox_payload.get("minimum_official_ticker_count"), 400),
         "official_export_url": official_export_url,
+        "official_export_probe_status": official_probe_payload.get("status", ""),
+        "official_export_probe_http_status": _int_value(official_probe_payload.get("http_status")),
+        "official_export_probe_next_action": official_probe_payload.get("next_action", ""),
+        "official_export_probe_error": official_probe_payload.get("error", ""),
         "official_full_file_required": not crosscheck_active and ready_to_import == 0,
         "source_matrix": source_matrix,
         "next_actions": _next_actions(
@@ -254,6 +289,7 @@ def build_sp500_verified_source_plan(
             verified_candidates,
             source_file_inbox,
             crosscheck_active=crosscheck_active,
+            official_probe=official_probe_payload,
         ),
         "formal_backtest_upgrade_allowed": False,
         "boundary": "只生成 S&P 500 verified 来源补强计划；不抓取网页，不导入来源，不改写 historical_membership.csv，不升级正式模型。",
@@ -261,6 +297,14 @@ def build_sp500_verified_source_plan(
 
 
 def render_sp500_verified_source_plan(payload):
+    probe_lines = [
+        "",
+        "## official_export_probe",
+        "",
+        f"- official_export_probe_status：{payload.get('official_export_probe_status', '')}",
+        f"- official_export_probe_http_status：{payload.get('official_export_probe_http_status', 0)}",
+        f"- official_export_probe_next_action：{payload.get('official_export_probe_next_action', '')}",
+    ]
     lines = [
         "# S&P 500 verified 来源补强计划",
         "",
@@ -291,6 +335,8 @@ def render_sp500_verified_source_plan(payload):
         command = item.get("command") or item.get("target_file") or ";".join(item.get("sources", []))
         lines.append(f"| {item.get('action', '')} | {item.get('reason', '')} | {command} |")
     lines.extend(["", "## 边界", "", f"- {payload.get('boundary', '')}", ""])
+    lines.extend(probe_lines)
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -318,6 +364,7 @@ def main():
     parser.add_argument("--current-sources", default="")
     parser.add_argument("--inbox-status", default="")
     parser.add_argument("--backtest-review", default="")
+    parser.add_argument("--official-export-probe", default="")
     parser.add_argument("--as-of-date", default="")
     parser.add_argument("--output", default="outputs/automation/latest_sp500_verified_source_plan.json")
     parser.add_argument("--report", default="outputs/automation/latest_sp500_verified_source_plan.md")
@@ -329,6 +376,7 @@ def main():
         current_sources=args.current_sources or None,
         inbox_status=args.inbox_status or None,
         backtest_review=args.backtest_review or None,
+        official_export_probe=args.official_export_probe or None,
         as_of_date=args.as_of_date or None,
     )
     report = render_sp500_verified_source_plan(payload)

@@ -269,6 +269,23 @@ def write_membership_source_intake_status(path):
     )
 
 
+def write_official_export_probe(path):
+    payload = {
+        "probe_schema": "sp500_official_export_probe",
+        "as_of_date": "2026-07-07",
+        "status": "forbidden",
+        "http_status": 403,
+        "official_export_url": "https://www.spglobal.com/spdji/en/idsexport/file.xls?indexId=340",
+        "next_action": "retry_with_logged_in_browser_or_manual_export",
+        "formal_backtest_upgrade_allowed": False,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_current_membership_sources(path):
     payload = {
         "source_schema": "sp500_current_membership_sources",
@@ -1115,9 +1132,11 @@ class WeeklyActionItemsTests(unittest.TestCase):
             manifest_path = root / "latest_self_analysis_manifest.json"
             import_plan_path = root / "latest_membership_evidence_import_plan.json"
             source_intake_path = root / "latest_membership_evidence_source_intake_status.json"
+            official_probe_path = root / "latest_sp500_official_export_probe.json"
             write_manifest(manifest_path)
             write_blocked_membership_import_plan(import_plan_path)
             write_membership_source_intake_status(source_intake_path)
+            write_official_export_probe(official_probe_path)
 
             from weekly_action_items import build_weekly_action_items, render_weekly_action_items
 
@@ -1125,6 +1144,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
                 manifest_path,
                 membership_import_plan=import_plan_path,
                 membership_evidence_source_intake_status=source_intake_path,
+                sp500_official_export_probe=official_probe_path,
             )
             report = render_weekly_action_items(payload)
 
@@ -1138,9 +1158,12 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("invalid_source_weeks_affected:7800", supplement_item["source"])
             self.assertIn("current_batch_id:2026-07-06-p1", supplement_item["source"])
             self.assertIn("current_batch_manual_checklist_count:5", supplement_item["source"])
+            self.assertIn("official_export_probe_status:forbidden", supplement_item["source"])
+            self.assertIn("official_export_probe_http_status:403", supplement_item["source"])
             self.assertIn("latest_membership_evidence_supplement_queue.md", supplement_item["recommended_check"])
             self.assertIn("current_batch_manual_checklist", supplement_item["recommended_check"])
             self.assertIn("ABT, ADM, AEP, BA, BMY", supplement_item["recommended_check"])
+            self.assertIn("retry_with_logged_in_browser_or_manual_export", supplement_item["recommended_check"])
             self.assertIn("official S&P Global", supplement_item["recommended_check"])
             self.assertIn("supplement_verified_membership_evidence", report)
 
@@ -1794,6 +1817,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_membership_evidence_import_plan.json"),
                     "--membership-evidence-source-intake-status",
                     str(root / "latest_membership_evidence_source_intake_status.json"),
+                    "--sp500-official-export-probe",
+                    str(root / "latest_sp500_official_export_probe.json"),
                     "--current-membership-sources",
                     str(root / "latest_sp500_current_membership_sources.json"),
                     "--forecast-performance",
@@ -1838,6 +1863,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--membership-import-plan", script)
         self.assertIn("latest_membership_evidence_source_intake_status.json", script)
         self.assertIn("--membership-evidence-source-intake-status", script)
+        self.assertIn("latest_sp500_official_export_probe.json", script)
+        self.assertIn("--sp500-official-export-probe", script)
         self.assertIn("--current-membership-sources", script)
         self.assertIn("--current-membership-source-review-status", script)
         self.assertIn("--forecast-performance", script)

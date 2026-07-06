@@ -172,6 +172,86 @@ class Sp500VerifiedSourcePlanTests(unittest.TestCase):
             self.assertNotIn("obtain_official_spglobal_full_constituents_file", actions)
             self.assertFalse(payload["formal_backtest_upgrade_allowed"])
 
+    def test_includes_official_export_probe_failure_in_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = root / "outputs" / "automation"
+            import_plan = automation / "latest_membership_evidence_import_plan.json"
+            current_sources = automation / "latest_sp500_current_membership_sources.json"
+            inbox_status = automation / "latest_sp500_current_membership_source_inbox_status.json"
+            backtest_review = automation / "latest_backtest_evidence_review.json"
+            official_probe = automation / "latest_sp500_official_export_probe.json"
+            write_json(
+                import_plan,
+                {
+                    "review_schema": "membership_evidence_import_plan",
+                    "ready_to_import_count": 0,
+                    "verified_candidate_count": 0,
+                    "invalid_source_count": 50,
+                    "blocked_by_source_policy_count": 50,
+                },
+            )
+            write_json(
+                current_sources,
+                {
+                    "source_schema": "sp500_current_membership_sources",
+                    "status": "secondary_ready",
+                    "official_export_url": "https://www.spglobal.com/spdji/en/idsexport/file.xls?indexId=340",
+                },
+            )
+            write_json(
+                inbox_status,
+                {
+                    "status_schema": "sp500_current_membership_source_inbox_status",
+                    "status": "secondary_fallback_available",
+                    "source_file_inbox": "inputs/sp500_current_membership/official_constituents.csv",
+                },
+            )
+            write_json(
+                backtest_review,
+                {
+                    "review_schema": "backtest_evidence_review",
+                    "verified_membership_ratio": 0.156,
+                    "weak_evidence_rows": 3382,
+                },
+            )
+            write_json(
+                official_probe,
+                {
+                    "probe_schema": "sp500_official_export_probe",
+                    "status": "forbidden",
+                    "http_status": 403,
+                    "official_export_url": "https://www.spglobal.com/spdji/en/idsexport/file.xls?indexId=340",
+                    "next_action": "retry_with_logged_in_browser_or_manual_export",
+                    "error": "The remote server returned an error: (403) Forbidden.",
+                },
+            )
+
+            from sp500_verified_source_plan import (
+                build_sp500_verified_source_plan,
+                render_sp500_verified_source_plan,
+            )
+
+            payload = build_sp500_verified_source_plan(
+                import_plan=import_plan,
+                current_sources=current_sources,
+                inbox_status=inbox_status,
+                backtest_review=backtest_review,
+                official_export_probe=official_probe,
+                as_of_date="2026-07-07",
+            )
+            report = render_sp500_verified_source_plan(payload)
+
+            self.assertEqual(payload["official_export_probe_status"], "forbidden")
+            self.assertEqual(payload["official_export_probe_http_status"], 403)
+            self.assertEqual(
+                payload["official_export_probe_next_action"],
+                "retry_with_logged_in_browser_or_manual_export",
+            )
+            self.assertIn("official_export_probe_status：forbidden", report)
+            self.assertIn("official_export_probe_http_status：403", report)
+            self.assertIn("official_export_probe_status=forbidden", payload["next_actions"][0]["reason"])
+
     def test_cli_writes_json_and_markdown_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -4,6 +4,7 @@ param(
   [string]$CurrentSources = "",
   [string]$InboxStatus = "",
   [string]$BacktestReview = "",
+  [string]$OfficialExportProbe = "",
   [string]$Output = "",
   [string]$Report = "",
   [switch]$DryRun
@@ -28,6 +29,9 @@ if (-not $InboxStatus) {
 if (-not $BacktestReview) {
   $BacktestReview = Join-Path $ProjectRoot "outputs\automation\latest_backtest_evidence_review.json"
 }
+if (-not $OfficialExportProbe) {
+  $OfficialExportProbe = Join-Path $ProjectRoot "outputs\automation\latest_sp500_official_export_probe.json"
+}
 if (-not $Output) {
   $Output = Join-Path $ProjectRoot "outputs\automation\latest_sp500_verified_source_plan.json"
 }
@@ -44,9 +48,10 @@ Write-Host "ImportPlan: $ImportPlan"
 Write-Host "CurrentSources: $CurrentSources"
 Write-Host "InboxStatus: $InboxStatus"
 Write-Host "BacktestReview: $BacktestReview"
+Write-Host "OfficialExportProbe: $OfficialExportProbe"
 Write-Host "Output: $Output"
 Write-Host "Report: $Report"
-Write-Host "Reads: latest_membership_evidence_import_plan.json, latest_sp500_current_membership_sources.json, latest_sp500_current_membership_source_inbox_status.json, latest_backtest_evidence_review.json"
+Write-Host "Reads: latest_membership_evidence_import_plan.json, latest_sp500_current_membership_sources.json, latest_sp500_current_membership_source_inbox_status.json, latest_backtest_evidence_review.json, latest_sp500_official_export_probe.json"
 Write-Host "Writes: latest_sp500_verified_source_plan.json, latest_sp500_verified_source_plan.md"
 
 if ($DryRun) {
@@ -54,7 +59,7 @@ if ($DryRun) {
   exit 0
 }
 
-& $Python -B $Script --project-root $ProjectRoot --import-plan $ImportPlan --current-sources $CurrentSources --inbox-status $InboxStatus --backtest-review $BacktestReview --output $Output --report $Report
+& $Python -B $Script --project-root $ProjectRoot --import-plan $ImportPlan --current-sources $CurrentSources --inbox-status $InboxStatus --backtest-review $BacktestReview --official-export-probe $OfficialExportProbe --output $Output --report $Report
 if ($LASTEXITCODE -ne 0) {
   throw "S&P 500 verified source plan failed with exit code $LASTEXITCODE."
 }
