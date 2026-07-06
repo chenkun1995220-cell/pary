@@ -29,6 +29,16 @@ class Sp500OfficialExportProbeTests(unittest.TestCase):
         self.assertEqual(payload["next_action"], "retry_with_logged_in_browser_or_manual_export")
         self.assertFalse(payload["formal_backtest_upgrade_allowed"])
         self.assertFalse(payload["downloaded"])
+        self.assertEqual(
+            payload["manual_export_target_file"],
+            "inputs/sp500_current_membership/official_constituents.csv",
+        )
+        self.assertEqual(payload["minimum_official_ticker_count"], 400)
+        self.assertIn("Symbol", payload["accepted_ticker_columns"])
+        self.assertIn("Ticker", payload["accepted_ticker_columns"])
+        self.assertIn("run_sp500_current_membership_sources.ps1", payload["manual_export_dry_run_command"])
+        self.assertIn("-DryRun", payload["manual_export_dry_run_command"])
+        self.assertIn("run_sp500_current_membership_sources.ps1", payload["manual_export_import_command"])
 
     def test_build_marks_network_failure_as_fetch_failed(self):
         from sp500_official_export_probe import build_sp500_official_export_probe
@@ -76,7 +86,10 @@ class Sp500OfficialExportProbeTests(unittest.TestCase):
             payload = json.loads(output.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["probe_schema"], "sp500_official_export_probe")
             self.assertIn(payload["status"], {"fetch_failed", "forbidden"})
-            self.assertIn("sp500_official_export_probe", report.read_text(encoding="utf-8-sig"))
+            report_text = report.read_text(encoding="utf-8-sig")
+            self.assertIn("sp500_official_export_probe", report_text)
+            self.assertIn("manual_export_target_file", report_text)
+            self.assertIn("manual_export_dry_run_command", report_text)
 
     def test_powershell_wrapper_and_weekly_bundle_include_probe_before_verified_plan(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_sp500_official_export_probe.ps1").read_text(

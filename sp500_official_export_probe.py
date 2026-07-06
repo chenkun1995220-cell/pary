@@ -11,10 +11,39 @@ from sp500_current_membership_sources import OFFICIAL_EXPORT_URL
 
 PROBE_SCHEMA = "sp500_official_export_probe"
 PROBE_VERSION = 1
+MANUAL_EXPORT_TARGET_FILE = "inputs/sp500_current_membership/official_constituents.csv"
+MINIMUM_OFFICIAL_TICKER_COUNT = 400
+ACCEPTED_TICKER_COLUMNS = [
+    "Symbol",
+    "Ticker",
+    "Ticker Symbol",
+    "Constituent Ticker",
+    "Constituent Symbol",
+]
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 )
+
+
+def _manual_export_fields():
+    dry_run = (
+        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+        "-DryRun -SourceFileInbox inputs\\sp500_current_membership\\official_constituents.csv"
+    )
+    import_command = (
+        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
+        "scripts\\run_sp500_current_membership_sources.ps1 -ProjectRoot <project_root> "
+        "-SourceFileInbox inputs\\sp500_current_membership\\official_constituents.csv"
+    )
+    return {
+        "manual_export_target_file": MANUAL_EXPORT_TARGET_FILE,
+        "manual_export_dry_run_command": dry_run,
+        "manual_export_import_command": import_command,
+        "minimum_official_ticker_count": MINIMUM_OFFICIAL_TICKER_COUNT,
+        "accepted_ticker_columns": list(ACCEPTED_TICKER_COLUMNS),
+    }
 
 
 def _default_fetcher(url, timeout=30, user_agent=""):
@@ -51,6 +80,7 @@ def _failure_payload(status, url, as_of_date, error, http_status=0, next_action=
             "Only probes the official S&P Global full constituents export URL. "
             "It does not import sources, modify historical_membership.csv, or upgrade formal backtest evidence."
         ),
+        **_manual_export_fields(),
     }
 
 
@@ -104,6 +134,7 @@ def build_sp500_official_export_probe(
             "Only confirms the official export URL responded. The downloaded content still must be saved "
             "to inputs/sp500_current_membership/official_constituents.csv and pass dry-run validation before import."
         ),
+        **_manual_export_fields(),
     }
 
 
@@ -122,6 +153,14 @@ def render_markdown(payload):
             f"- next_action: {payload.get('next_action', '')}",
             f"- formal_backtest_upgrade_allowed: {str(payload.get('formal_backtest_upgrade_allowed')).lower()}",
             f"- error: {payload.get('error', '')}",
+            "",
+            "## manual_export_handoff",
+            "",
+            f"- manual_export_target_file: {payload.get('manual_export_target_file', '')}",
+            f"- minimum_official_ticker_count: {payload.get('minimum_official_ticker_count', 0)}",
+            f"- accepted_ticker_columns: {', '.join(payload.get('accepted_ticker_columns') or [])}",
+            f"- manual_export_dry_run_command: {payload.get('manual_export_dry_run_command', '')}",
+            f"- manual_export_import_command: {payload.get('manual_export_import_command', '')}",
             "",
             "## boundary",
             "",
