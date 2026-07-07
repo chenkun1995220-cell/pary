@@ -63,6 +63,8 @@ MANUAL_WORK_PACKAGE_FIELDS = [
     "official_domain_search_query",
     "official_domain_search_url",
     "official_index_page_url",
+    "official_search_attempt_status",
+    "official_search_attempt_notes",
     "validation_command",
     "accepted_source_policy",
     "rejected_source_examples",
@@ -482,6 +484,11 @@ def _manual_work_package_items(items):
                 "official_domain_search_query": item.get("official_domain_search_query", ""),
                 "official_domain_search_url": item.get("official_domain_search_url", ""),
                 "official_index_page_url": item.get("official_index_page_url", ""),
+                "official_search_attempt_status": "manual_official_search_required",
+                "official_search_attempt_notes": (
+                    "Use official_domain_search_url to find an S&P Global/S&P DJI page; "
+                    "search result pages are not evidence."
+                ),
                 "validation_command": item.get("validation_command", DEFAULT_VALIDATION_COMMAND),
                 "accepted_source_policy": (
                     "official S&P Global HTTPS constituent page, index announcement, "
@@ -626,6 +633,7 @@ def render_manual_work_package_markdown(payload):
             "",
             "- crosscheck substitute is not verified evidence.",
             "- ETF holdings, Wikipedia, GitHub, Kaggle, Yahoo, and search result pages are reference-only.",
+            "- official_search_attempt_status defaults to manual_official_search_required until a reviewer records a verified official page.",
             "",
         ]
     )

@@ -415,6 +415,8 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertIn("https://www.google.com/search?q=", work_package[0]["official_domain_search_url"])
             self.assertIn("spglobal.com,.spglobal.com", work_package[0]["accepted_source_domains"])
             self.assertIn("crosscheck", work_package[0]["rejected_source_examples"])
+            self.assertEqual(work_package[0]["official_search_attempt_status"], "manual_official_search_required")
+            self.assertIn("search result pages are not evidence", work_package[0]["official_search_attempt_notes"])
             self.assertIn("run_membership_evidence_source_intake_status.ps1", work_package[0]["validation_command"])
 
             work_package_csv = root / "manual_work_package.csv"
@@ -425,6 +427,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertEqual(rows[0]["membership_evidence"], "verified")
             self.assertEqual(rows[0]["membership_source_url"], "")
             self.assertEqual(rows[0]["source_as_of_date"], "")
+            self.assertEqual(rows[0]["official_search_attempt_status"], "manual_official_search_required")
 
             markdown = render_manual_work_package_markdown(payload)
             self.assertIn("# S&P 500 verified evidence manual work package", markdown)
