@@ -357,6 +357,33 @@ def _data_quality_trend_text(manifest):
     return f"连续低分市场：{repeated}；分数下滑市场：{declining}"
 
 
+def _backtest_evidence_decision_text(manifest):
+    review = manifest.get("backtest_evidence_review", {})
+    if not isinstance(review, dict) or not review:
+        return "检查 latest_backtest_evidence_review.md、成员证据等级和泄漏审计，再决定是否扩大回测样本。"
+    decision = review.get("backtest_sample_expansion_decision", "unknown")
+    allowed = str(bool(review.get("backtest_sample_expansion_allowed", False))).lower()
+    reasons = ", ".join(review.get("backtest_sample_expansion_reason", []) or ["unknown"])
+    ratio = _percent_value(review.get("verified_membership_ratio"))
+    weak_rows = _int_value(review.get("weak_evidence_rows"), 0)
+    weak_weeks = _int_value(review.get("weak_evidence_weeks"), 0)
+    action_required = _int_value(review.get("membership_evidence_action_required_count"), 0)
+    required_ratio = _percent_value(review.get("required_verified_membership_ratio_for_expansion"))
+    upgrade_text = (
+        "正式模型可进入人工升级复核"
+        if review.get("formal_model_upgrade_allowed")
+        else "正式模型不得自动升级"
+    )
+    return (
+        "检查 latest_backtest_evidence_review.md；"
+        f"扩样允许={allowed}，扩样决策={decision}，原因={reasons}；"
+        f"verified_membership_ratio={ratio}，扩样门槛={required_ratio}，"
+        f"weak_evidence_rows={weak_rows}，weak_evidence_weeks={weak_weeks}，"
+        f"membership_evidence_action_required_count={action_required}；"
+        f"{upgrade_text}。"
+    )
+
+
 def _action_template(action_code, manifest):
     if action_code == "reduce_weekly_action_backlog":
         action = _backlog_reduction_action(manifest)
@@ -461,7 +488,7 @@ def _action_template(action_code, manifest):
             "title": "复查回测证据质量",
             "category": "backtest",
             "source": f"backtest_status:{manifest.get('backtest_status', 'unknown')}",
-            "recommended_check": "检查 latest_backtest_summary.md、成员证据等级和泄漏审计，再决定是否扩大回测样本。",
+            "recommended_check": _backtest_evidence_decision_text(manifest),
         },
         "review_candidate_findings": {
             "title": "复查候选结论质量",

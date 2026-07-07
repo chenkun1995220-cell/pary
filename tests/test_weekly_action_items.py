@@ -407,6 +407,16 @@ def write_backtest_evidence_review(path):
         "membership_evidence_action_required_count": 50,
         "membership_evidence_action_queue_count": 50,
         "membership_evidence_action_unqueued_count": 0,
+        "backtest_sample_expansion_allowed": False,
+        "backtest_sample_expansion_decision": "do_not_expand_backtest_sample",
+        "backtest_sample_expansion_reason": [
+            "verified_membership_ratio_below_threshold",
+            "weak_evidence_rows_present",
+        ],
+        "required_verified_membership_ratio_for_expansion": 0.5,
+        "verified_membership_ratio": 0.156,
+        "weak_evidence_rows": 3382,
+        "weak_evidence_weeks": 8,
         "membership_evidence_action_queue": [
             {
                 "ticker": "ABT",
@@ -1527,6 +1537,36 @@ class WeeklyActionItemsTests(unittest.TestCase):
 
             actions = [item["action_code"] for item in payload["items"]]
             self.assertEqual(actions, ["provide_official_constituents_csv"])
+
+    def test_backtest_review_action_uses_decision_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            backtest_path = root / "latest_backtest_evidence_review.json"
+            write_manifest(manifest_path)
+            write_backtest_evidence_review(backtest_path)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            manifest["automation_priority_actions"] = ["review_backtest_evidence"]
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                backtest_evidence_review=backtest_path,
+            )
+
+            self.assertEqual(payload["item_count"], 1)
+            item = payload["items"][0]
+            self.assertEqual(item["action_code"], "review_backtest_evidence")
+            self.assertIn("latest_backtest_evidence_review.md", item["recommended_check"])
+            self.assertIn("do_not_expand_backtest_sample", item["recommended_check"])
+            self.assertIn("verified_membership_ratio=15.60%", item["recommended_check"])
+            self.assertIn("weak_evidence_rows=3382", item["recommended_check"])
+            self.assertIn("正式模型不得自动升级", item["recommended_check"])
 
     def test_official_csv_action_includes_source_file_inbox_fingerprint_when_available(self):
         with tempfile.TemporaryDirectory() as tmp:

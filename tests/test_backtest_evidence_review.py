@@ -110,8 +110,20 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
                 payload["membership_evidence_action_queue"][0]["action_type"],
                 "supplement_official_membership_source",
             )
+            self.assertFalse(payload["backtest_sample_expansion_allowed"])
+            self.assertEqual(
+                payload["backtest_sample_expansion_decision"],
+                "do_not_expand_backtest_sample",
+            )
+            self.assertEqual(payload["required_verified_membership_ratio_for_expansion"], 0.5)
+            self.assertIn("verified_membership_ratio_below_threshold", payload["backtest_sample_expansion_reason"])
+            self.assertIn("weak_evidence_rows_present", payload["backtest_sample_expansion_reason"])
+            self.assertIn("membership_evidence_actions_open", payload["backtest_sample_expansion_reason"])
 
             self.assertIn("# 回测证据复核结论", report)
+            self.assertIn("## 回测样本扩展决策", report)
+            self.assertIn("扩样决策：do_not_expand_backtest_sample", report)
+            self.assertIn("扩样允许：false", report)
             self.assertIn("evidence_review_needed", report)
             self.assertIn("15.60%", report)
             self.assertIn("ABT", report)

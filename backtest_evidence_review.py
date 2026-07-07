@@ -8,6 +8,7 @@ from pathlib import Path
 
 REVIEW_SCHEMA = "backtest_evidence_review"
 REVIEW_VERSION = 1
+MIN_VERIFIED_RATIO_FOR_SAMPLE_EXPANSION = 0.5
 
 
 def _read_text(path):
@@ -139,6 +140,40 @@ def _decision(fields, gap_report):
     return evidence_status, fields.get("Evidence next action", "review_backtest_evidence"), False
 
 
+def _sample_expansion_decision(fields, gap_report, action_required_count):
+    weeks_failed = _int_value(fields.get("Weeks failed"))
+    weak_rows = _int_value(fields.get("Weak evidence rows"))
+    weak_weeks = _int_value(fields.get("Weak evidence weeks"))
+    ratio = _verified_ratio(fields.get("Membership evidence verified"))
+    reasons = []
+    if weeks_failed:
+        reasons.append("backtest_weeks_failed")
+    if gap_report.get("status") != "ready":
+        reasons.append("membership_gap_report_not_ready")
+    if ratio is None:
+        reasons.append("verified_membership_ratio_unknown")
+    elif ratio < MIN_VERIFIED_RATIO_FOR_SAMPLE_EXPANSION:
+        reasons.append("verified_membership_ratio_below_threshold")
+    if weak_rows:
+        reasons.append("weak_evidence_rows_present")
+    if weak_weeks:
+        reasons.append("weak_evidence_weeks_present")
+    if action_required_count:
+        reasons.append("membership_evidence_actions_open")
+
+    allowed = not reasons
+    return {
+        "backtest_sample_expansion_allowed": allowed,
+        "backtest_sample_expansion_decision": (
+            "expand_backtest_sample_after_manual_review"
+            if allowed
+            else "do_not_expand_backtest_sample"
+        ),
+        "backtest_sample_expansion_reason": reasons or ["verified_membership_evidence_sufficient"],
+        "required_verified_membership_ratio_for_expansion": MIN_VERIFIED_RATIO_FOR_SAMPLE_EXPANSION,
+    }
+
+
 def build_backtest_evidence_review(summary, as_of_date=None):
     summary_path = Path(summary)
     text = _read_text(summary_path)
@@ -151,6 +186,7 @@ def build_backtest_evidence_review(summary, as_of_date=None):
     public_gap_report = dict(gap_report)
     public_gap_report.pop("_queue_source_gaps", None)
     status, recommended_action, upgrade_allowed = _decision(fields, gap_report)
+    sample_expansion = _sample_expansion_decision(fields, gap_report, action_required_count)
     backtest_as_of_date = _as_of_date(fields)
     return {
         "review_schema": REVIEW_SCHEMA,
@@ -177,6 +213,7 @@ def build_backtest_evidence_review(summary, as_of_date=None):
         "membership_evidence_action_queue_count": action_queue_count,
         "membership_evidence_action_unqueued_count": action_unqueued_count,
         "membership_evidence_action_queue": action_queue,
+        **sample_expansion,
         "formal_model_upgrade_allowed": upgrade_allowed,
         "boundary": "只读取现有严格时点回测摘要和成员证据缺口报告，不抓取行情，不重新回测，不修改正式模型参数。",
     }
@@ -190,6 +227,8 @@ def _pct(value):
 
 def render_backtest_evidence_review(payload):
     upgrade_text = "允许进入正式升级复核" if payload.get("formal_model_upgrade_allowed") else "不得自动升级正式模型"
+    expansion_allowed = bool(payload.get("backtest_sample_expansion_allowed", False))
+    expansion_reasons = ", ".join(payload.get("backtest_sample_expansion_reason", []) or ["unknown"])
     lines = [
         "# 回测证据复核结论",
         f"- membership_evidence_action_required_count: {payload.get('membership_evidence_action_required_count', 0)}",
@@ -207,6 +246,15 @@ def render_backtest_evidence_review(payload):
         f"- 弱证据行：{payload.get('weak_evidence_rows', 0)}",
         f"- 弱证据周数：{payload.get('weak_evidence_weeks', 0)}",
         f"- 正式模型升级：{upgrade_text}",
+        "",
+        "## 回测样本扩展决策",
+        "",
+        f"- 扩样允许：{str(expansion_allowed).lower()}",
+        f"- 扩样决策：{payload.get('backtest_sample_expansion_decision', 'unknown')}",
+        f"- 扩样证据门槛：verified ratio >= {_pct(payload.get('required_verified_membership_ratio_for_expansion'))}",
+        f"- 当前 verified ratio：{_pct(payload.get('verified_membership_ratio'))}",
+        f"- 决策原因：{expansion_reasons}",
+        "- 执行动作：先补充 verified S&P Global 历史成分证据，再考虑扩大回测样本。",
         "",
         "## 证据缺口样例",
         "",
