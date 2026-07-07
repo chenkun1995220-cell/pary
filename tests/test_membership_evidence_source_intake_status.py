@@ -269,6 +269,71 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertEqual(by_ticker["ABT"]["validation_status"], "pending_manual_evidence")
             self.assertEqual(by_ticker["ABT"]["validation_reason"], "manual_evidence_missing")
 
+    def test_records_official_source_not_found_without_upgrading_membership(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue_path = root / "queue.json"
+            intake_path = root / "verified_membership_evidence_intake.csv"
+            template_path = root / "template.csv"
+            write_queue(queue_path)
+            with intake_path.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "batch_id",
+                        "batch_rank",
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "batch_id": "2026-07-07-p1",
+                        "batch_rank": "1",
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "official_source_not_found",
+                        "membership_source_url": "",
+                        "source_as_of_date": "2026-07-07",
+                        "evidence_kind": "current_constituents",
+                        "notes": "manual official-domain search found no S&P Global page showing ABT or Abbott Laboratories as a current constituent",
+                        "reviewer": "manual",
+                    }
+                )
+
+            from membership_evidence_source_intake_status import build_source_intake_status
+
+            payload = build_source_intake_status(
+                queue_path,
+                intake_path=intake_path,
+                template_path=template_path,
+                source_pack_path=root / "verified_source_pack.csv",
+                as_of_date="2026-07-07",
+            )
+
+            self.assertEqual(payload["ready_to_import_count"], 0)
+            self.assertEqual(payload["official_source_not_found_count"], 1)
+            self.assertEqual(payload["official_source_not_found_weeks_affected"], 156)
+            self.assertEqual(payload["current_batch_not_found_count"], 1)
+            self.assertFalse(payload["formal_backtest_upgrade_allowed"])
+            by_ticker = {row["ticker"]: row for row in payload["items"]}
+            self.assertEqual(by_ticker["ABT"]["validation_status"], "official_source_not_found")
+            self.assertEqual(
+                by_ticker["ABT"]["validation_reason"],
+                "official_spglobal_evidence_not_found_after_manual_search",
+            )
+            self.assertEqual(by_ticker["ABT"]["source_trust_level"], "not_verified")
+            self.assertFalse(by_ticker["ABT"]["can_upgrade_membership"])
+            with (root / "verified_source_pack.csv").open(encoding="utf-8-sig", newline="") as handle:
+                self.assertEqual(list(csv.DictReader(handle)), [])
+
     def test_summarizes_current_batch_completion_from_intake_draft(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -417,6 +482,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertIn("crosscheck", work_package[0]["rejected_source_examples"])
             self.assertEqual(work_package[0]["official_search_attempt_status"], "manual_official_search_required")
             self.assertIn("search result pages are not evidence", work_package[0]["official_search_attempt_notes"])
+            self.assertIn("official_source_not_found", work_package[0]["official_search_attempt_notes"])
             self.assertIn("run_membership_evidence_source_intake_status.ps1", work_package[0]["validation_command"])
 
             work_package_csv = root / "manual_work_package.csv"
@@ -434,6 +500,7 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             self.assertIn("current_batch_id", markdown)
             self.assertIn("ABT", markdown)
             self.assertIn("notes_example", markdown)
+            self.assertIn("official_source_not_found", markdown)
             self.assertIn("crosscheck substitute is not verified evidence", markdown)
 
     def test_rejects_invalid_or_future_source_dates(self):

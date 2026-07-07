@@ -83,6 +83,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertEqual(payload["items"][0]["membership_evidence"], "")
             self.assertEqual(payload["items"][0]["evidence_kind"], "current_constituents")
             self.assertIn("membership_evidence=verified", payload["items"][0]["manual_entry_instruction"])
+            self.assertIn("official_source_not_found", payload["items"][0]["manual_entry_instruction"])
             self.assertIn("YYYY-MM-DD", payload["items"][0]["manual_entry_instruction"])
             self.assertIn("notes must mention the ticker or company", payload["items"][0]["manual_entry_instruction"])
             self.assertIn("site:spglobal.com/spdji", payload["items"][0]["official_domain_search_query"])
@@ -95,6 +96,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertIn("run_membership_evidence_source_intake_status.ps1", payload["validation_command"])
             self.assertIn("run_membership_evidence_import_plan_from_verified_intake.ps1", payload["next_command_after_ready"])
             self.assertIn("verified_membership_evidence_intake.csv", payload["completion_condition"])
+            self.assertIn("official_source_not_found", payload["completion_condition"])
 
     def test_cli_writes_batch_json_csv_and_markdown(self):
         with tempfile.TemporaryDirectory() as tmp:

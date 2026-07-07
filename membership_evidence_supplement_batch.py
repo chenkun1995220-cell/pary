@@ -32,6 +32,8 @@ BATCH_FIELDS = [
     "official_domain_search_query",
     "official_domain_search_url",
     "official_index_page_url",
+    "official_search_attempt_status",
+    "official_search_attempt_notes",
     "manual_entry_instruction",
     "validation_command",
 ]
@@ -118,11 +120,18 @@ def _batch_item(item, batch_id, batch_rank):
         "official_domain_search_query": search_query,
         "official_domain_search_url": _official_domain_search_url(search_query),
         "official_index_page_url": OFFICIAL_INDEX_PAGE_URL,
+        "official_search_attempt_status": "manual_official_search_required",
+        "official_search_attempt_notes": (
+            "If no official S&P Global page or announcement can be found after manual search, "
+            "set membership_evidence=official_source_not_found and explain the official-domain search in notes."
+        ),
         "manual_entry_instruction": (
             f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
             f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date; "
             f"notes must mention the ticker or company as observed on the official page; "
-            f"use official_domain_search_query to find official pages, but the search query is not evidence."
+            f"use official_domain_search_query to find official pages, but the search query is not evidence. "
+            f"If no official S&P Global page or announcement can be found, set "
+            f"membership_evidence=official_source_not_found and describe the official-domain search in notes."
         ),
         "validation_command": validation_command,
     }
@@ -152,10 +161,13 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
         "batch_weeks_affected": sum(_int_value(item.get("weeks_affected"), 0) for item in batch_items),
         "completion_condition": (
             "Fill these tickers in inputs/sp500_membership_evidence/verified_membership_evidence_intake.csv "
-            "with verified S&P Global source URLs, then rerun run_membership_evidence_source_intake_status.ps1."
+            "with verified S&P Global source URLs, or record membership_evidence=official_source_not_found "
+            "when official-domain search cannot find acceptable evidence; then rerun "
+            "run_membership_evidence_source_intake_status.ps1."
         ),
         "manual_entry_rules": [
             "membership_evidence must be verified.",
+            "If official S&P Global evidence cannot be found, record membership_evidence=official_source_not_found with search notes instead of leaving the row blank.",
             "membership_source_url must be an official S&P Global HTTPS URL under spglobal.com.",
             "source_as_of_date must use YYYY-MM-DD and must not be later than the review date.",
             "notes must mention the ticker or company as observed on the official page.",

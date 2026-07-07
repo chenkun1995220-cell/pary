@@ -76,6 +76,11 @@ SOURCE_PACK_FIELDS = [
     "source_as_of_date",
     "notes",
 ]
+OFFICIAL_SOURCE_NOT_FOUND_VALUES = {
+    "official_source_not_found",
+    "official_evidence_not_found",
+    "not_found",
+}
 DEFAULT_VALIDATION_COMMAND = (
     "powershell.exe -NoProfile -ExecutionPolicy Bypass -File "
     "scripts\\run_membership_evidence_source_intake_status.ps1"
@@ -120,7 +125,9 @@ def _manual_entry_instruction(ticker, accepted_domains):
         f"Fill {ticker}: membership_evidence=verified; membership_source_url must be official S&P Global HTTPS "
         f"domain ({accepted_domains}); source_as_of_date must use YYYY-MM-DD and not be later than review date; "
         f"notes must mention the ticker or company as observed on the official page; "
-        f"use official_domain_search_query to find official pages, but the search query is not evidence."
+        f"use official_domain_search_query to find official pages, but the search query is not evidence. "
+        f"If no official S&P Global page or announcement can be found, set "
+        f"membership_evidence=official_source_not_found and describe the official-domain search in notes."
     )
 
 
@@ -284,6 +291,34 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
             "notes": intake_row.get("notes", ""),
             "reviewer": intake_row.get("reviewer", ""),
         }
+
+    if evidence in OFFICIAL_SOURCE_NOT_FOUND_VALUES:
+        return {
+            "priority": queue_item.get("priority", 0),
+            "ticker": ticker,
+            "company_name": intake_row.get("company_name") or queue_item.get("company_name", ""),
+            "effective_date": queue_item.get("effective_date", ""),
+            "weeks_affected": queue_item.get("weeks_affected", 0),
+            "membership_evidence": evidence,
+            "membership_source_url": source_url,
+            "source_as_of_date": source_as_of_date,
+            "evidence_kind": evidence_kind,
+            "source_trust_level": "not_verified",
+            "can_upgrade_membership": False,
+            "validation_status": "official_source_not_found",
+            "validation_reason": "official_spglobal_evidence_not_found_after_manual_search",
+            "batch_id": batch_id,
+            "batch_rank": batch_rank,
+            "official_domain_search_query": official_domain_search_query,
+            "official_domain_search_url": official_domain_search_url,
+            "official_index_page_url": official_index_page_url,
+            "manual_entry_instruction": manual_entry_instruction,
+            "validation_command": validation_command,
+            "accepted_source_domains": accepted_domains,
+            "notes": notes,
+            "reviewer": intake_row.get("reviewer", ""),
+        }
+
     policy = classify_membership_source(source_url, evidence_kind=evidence_kind)
     review_date = review_date if isinstance(review_date, date) else None
     is_future_source_date = bool(source_date and review_date and source_date > review_date)
@@ -350,15 +385,19 @@ def _validate_intake_row(queue_item, intake_row, review_date=None):
     }
 
 
-def _status_for_counts(ready_count, invalid_count, pending_count):
+def _status_for_counts(ready_count, invalid_count, pending_count, official_source_not_found_count=0):
     if ready_count and invalid_count:
         return "ready_with_rejections"
     if ready_count:
+        if official_source_not_found_count:
+            return "ready_with_not_verified"
         return "ready_to_preview"
     if invalid_count:
         return "needs_review"
     if pending_count:
         return "awaiting_manual_evidence"
+    if official_source_not_found_count:
+        return "official_source_not_found_recorded"
     return "clear"
 
 
@@ -401,7 +440,10 @@ def _current_batch_summary(items):
     current_items = [item for item in batch_items if item.get("batch_id") == latest_batch_id]
     ready_count = sum(1 for item in current_items if item["validation_status"] == "ready_current_source")
     pending_count = sum(1 for item in current_items if item["validation_status"] == "pending_manual_evidence")
-    invalid_count = len(current_items) - ready_count - pending_count
+    official_source_not_found_count = sum(
+        1 for item in current_items if item["validation_status"] == "official_source_not_found"
+    )
+    invalid_count = len(current_items) - ready_count - pending_count - official_source_not_found_count
     sorted_items = sorted(
         current_items,
         key=lambda row: (_int_value(row.get("batch_rank"), 0), row.get("ticker", "")),
@@ -412,6 +454,7 @@ def _current_batch_summary(items):
         "current_batch_ready_count": ready_count,
         "current_batch_pending_count": pending_count,
         "current_batch_invalid_count": invalid_count,
+        "current_batch_not_found_count": official_source_not_found_count,
         "current_batch_completion_ratio": round(ready_count / len(current_items), 4) if current_items else 0.0,
         "current_batch_tickers": [
             item.get("ticker", "")
@@ -487,7 +530,9 @@ def _manual_work_package_items(items):
                 "official_search_attempt_status": "manual_official_search_required",
                 "official_search_attempt_notes": (
                     "Use official_domain_search_url to find an S&P Global/S&P DJI page; "
-                    "search result pages are not evidence."
+                    "search result pages are not evidence. If no official S&P Global page or announcement "
+                    "can be found, set membership_evidence=official_source_not_found and describe the "
+                    "official-domain search in notes."
                 ),
                 "validation_command": item.get("validation_command", DEFAULT_VALIDATION_COMMAND),
                 "accepted_source_policy": (
@@ -518,12 +563,24 @@ def build_source_intake_status(queue, intake_path, template_path, source_pack_pa
     items = [_validate_intake_row(item, intake_lookup.get(item["ticker"]), review_date) for item in queue_items]
     ready_count = sum(1 for item in items if item["validation_status"] == "ready_current_source")
     pending_count = sum(1 for item in items if item["validation_status"] == "pending_manual_evidence")
-    invalid_count = len(items) - ready_count - pending_count
+    official_source_not_found_count = sum(
+        1 for item in items if item["validation_status"] == "official_source_not_found"
+    )
+    invalid_count = len(items) - ready_count - pending_count - official_source_not_found_count
     ready_weeks = sum(_int_value(item.get("weeks_affected"), 0) for item in items if item["validation_status"] == "ready_current_source")
+    official_source_not_found_weeks = sum(
+        _int_value(item.get("weeks_affected"), 0)
+        for item in items
+        if item["validation_status"] == "official_source_not_found"
+    )
     invalid_weeks = sum(
         _int_value(item.get("weeks_affected"), 0)
         for item in items
-        if item["validation_status"] not in {"ready_current_source", "pending_manual_evidence"}
+        if item["validation_status"] not in {
+            "ready_current_source",
+            "pending_manual_evidence",
+            "official_source_not_found",
+        }
     )
     source_pack = Path(source_pack_path) if source_pack_path else Path("outputs/automation/latest_membership_evidence_verified_source_pack.csv")
     _write_source_pack(items, source_pack)
@@ -531,7 +588,12 @@ def build_source_intake_status(queue, intake_path, template_path, source_pack_pa
         "status_schema": STATUS_SCHEMA,
         "status_version": STATUS_VERSION,
         "as_of_date": as_of_date or date.today().isoformat(),
-        "status": _status_for_counts(ready_count, invalid_count, pending_count),
+        "status": _status_for_counts(
+            ready_count,
+            invalid_count,
+            pending_count,
+            official_source_not_found_count=official_source_not_found_count,
+        ),
         "source_queue": str(Path(queue)),
         "intake_path": str(intake),
         "template_path": str(template),
@@ -544,6 +606,8 @@ def build_source_intake_status(queue, intake_path, template_path, source_pack_pa
         "invalid_count": invalid_count,
         "invalid_weeks_affected": invalid_weeks,
         "pending_count": pending_count,
+        "official_source_not_found_count": official_source_not_found_count,
+        "official_source_not_found_weeks_affected": official_source_not_found_weeks,
         **_current_batch_summary(items),
         "current_batch_manual_work_package": _manual_work_package_items(items),
         "formal_backtest_upgrade_allowed": False,
@@ -565,11 +629,13 @@ def render_markdown(payload):
         f"- ready_to_import_count: {payload.get('ready_to_import_count', 0)}",
         f"- invalid_count: {payload.get('invalid_count', 0)}",
         f"- pending_count: {payload.get('pending_count', 0)}",
+        f"- official_source_not_found_count: {payload.get('official_source_not_found_count', 0)}",
         f"- current_batch_id: {payload.get('current_batch_id', '')}",
         f"- current_batch_count: {payload.get('current_batch_count', 0)}",
         f"- current_batch_ready_count: {payload.get('current_batch_ready_count', 0)}",
         f"- current_batch_pending_count: {payload.get('current_batch_pending_count', 0)}",
         f"- current_batch_invalid_count: {payload.get('current_batch_invalid_count', 0)}",
+        f"- current_batch_not_found_count: {payload.get('current_batch_not_found_count', 0)}",
         f"- current_batch_completion_ratio: {payload.get('current_batch_completion_ratio', 0)}",
         f"- current_batch_tickers: {', '.join(payload.get('current_batch_tickers') or [])}",
         f"- template_status: {payload.get('template_status', '')}",
@@ -614,6 +680,7 @@ def render_manual_work_package_markdown(payload):
         f"- current_batch_id: {payload.get('current_batch_id', '')}",
         f"- work_package_count: {len(rows)}",
         "- boundary: fill only official S&P Global evidence; crosscheck substitute is not verified evidence.",
+        "- if official evidence is not found: set membership_evidence=official_source_not_found and describe the official-domain search in notes.",
         "",
         "| batch_rank | ticker | company | membership_evidence | source_url_to_fill | source_as_of_date_to_fill | notes_example | search_url | validation_command |",
         "|---:|---|---|---|---|---|---|---|---|",
@@ -634,6 +701,7 @@ def render_manual_work_package_markdown(payload):
             "- crosscheck substitute is not verified evidence.",
             "- ETF holdings, Wikipedia, GitHub, Kaggle, Yahoo, and search result pages are reference-only.",
             "- official_search_attempt_status defaults to manual_official_search_required until a reviewer records a verified official page.",
+            "- official_source_not_found is an audit result only; it does not upgrade historical membership evidence.",
             "",
         ]
     )
