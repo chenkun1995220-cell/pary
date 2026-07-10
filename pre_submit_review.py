@@ -23,6 +23,21 @@ LEGACY_MODEL_COLLABORATION_FIELDS = {
     "spark_execution_summary",
     "gpt55_review_checklist",
 }
+HISTORICAL_EVIDENCE_LEGACY_INPUTS = {
+    "membership_evidence_import_plan",
+    "membership_evidence_apply_preview",
+    "membership_evidence_apply_confirmation_status",
+    "membership_evidence_approved_apply_plan",
+    "membership_evidence_supplement_queue",
+    "membership_evidence_supplement_batch",
+    "membership_evidence_source_intake_status",
+}
+HISTORICAL_EVIDENCE_FORBIDDEN_ACTIONS = {
+    "review_backtest_evidence",
+    "supplement_verified_membership_evidence",
+    "run_membership_evidence_apply_preview",
+    "confirm_membership_evidence_apply_preview",
+}
 
 DEFAULT_CHECKLIST = "docs/提交前复核清单.md"
 DEFAULT_GOVERNANCE_DOC = "docs/中期目标与模型协作规范.md"
@@ -574,7 +589,14 @@ def run_pre_submit_review(
         attention_reasons.append("governance_doc_missing_terms")
 
     current_date = _parse_iso_date(today, "today") if today else date.today()
+    backtest_spec = INPUT_SPECS["backtest_evidence_review"]
+    backtest_preview = _read_json(_resolve_path(project_root, backtest_spec["path"])) or {}
+    evidence_ceiling_confirmed = _historical_evidence_ceiling_confirmed(
+        backtest_preview
+    )
     for name, spec in INPUT_SPECS.items():
+        if evidence_ceiling_confirmed and name in HISTORICAL_EVIDENCE_LEGACY_INPUTS:
+            continue
         path = _resolve_path(project_root, spec["path"])
         payload = _read_json(path)
         if payload is None:
@@ -622,11 +644,19 @@ def run_pre_submit_review(
     attention_reasons.extend(_artifact_order_reasons(input_modified_times))
     attention_reasons.extend(_data_health_review_reasons(payloads.get("data_health_review", {})))
     attention_reasons.extend(_backtest_evidence_review_reasons(payloads.get("backtest_evidence_review", {})))
+    if not evidence_ceiling_confirmed:
+        attention_reasons.extend(
+            _membership_evidence_import_plan_reasons(payloads.get("membership_evidence_import_plan", {}))
+        )
+        attention_reasons.extend(
+            _membership_evidence_apply_preview_reasons(payloads.get("membership_evidence_apply_preview", {}))
+        )
     attention_reasons.extend(
-        _membership_evidence_import_plan_reasons(payloads.get("membership_evidence_import_plan", {}))
-    )
-    attention_reasons.extend(
-        _membership_evidence_apply_preview_reasons(payloads.get("membership_evidence_apply_preview", {}))
+        _historical_evidence_ceiling_reasons(
+            payloads.get("backtest_evidence_review", {}),
+            payloads.get("weekly_action_items", {}),
+            payloads.get("medium_term_goal_review", {}),
+        )
     )
     attention_reasons.extend(
         _sp500_current_membership_source_reasons(
@@ -1332,11 +1362,81 @@ def _data_health_review_reasons(payload):
     return reasons
 
 
+def _historical_evidence_ceiling_confirmed(payload):
+    return bool(
+        isinstance(payload, dict)
+        and payload.get("status") == "evidence_ceiling_confirmed"
+        and payload.get("evidence_ceiling_status") == "evidence_ceiling_confirmed"
+        and payload.get("backtest_mode") == "limited_verified_only"
+    )
+
+
+def _historical_evidence_ceiling_reasons(
+    backtest_payload,
+    weekly_action_items,
+    medium_term_goal_review,
+):
+    if not _historical_evidence_ceiling_confirmed(backtest_payload):
+        return []
+    reasons = []
+    required_false_fields = [
+        "recurring_supplement_request_enabled",
+        "backtest_sample_expansion_allowed",
+        "historical_membership_auto_update_allowed",
+        "formal_model_upgrade_allowed",
+        "formal_model_change_allowed",
+    ]
+    if (
+        backtest_payload.get("official_source_acquisition_closed") is not True
+        or backtest_payload.get("limited_backtest_only") is not True
+        or any(backtest_payload.get(field) is not False for field in required_false_fields)
+        or backtest_payload.get("backtest_sample_expansion_decision")
+        != "do_not_expand_backtest_sample"
+        or backtest_payload.get("membership_evidence_gate_status") != "blocked"
+        or backtest_payload.get("membership_evidence_gate_decision")
+        != "verified_only_no_expansion"
+        or _int_value(backtest_payload.get("membership_evidence_action_required_count"), -1)
+        != 0
+        or _int_value(backtest_payload.get("membership_evidence_action_queue_count"), -1)
+        != 0
+    ):
+        reasons.append("historical_evidence_ceiling_boundary_unsafe")
+
+    action_codes = {
+        str(item.get("action_code", ""))
+        for item in weekly_action_items.get("items", []) or []
+        if isinstance(item, dict)
+    }
+    if action_codes.intersection(HISTORICAL_EVIDENCE_FORBIDDEN_ACTIONS):
+        reasons.append("historical_evidence_supplement_action_present")
+
+    goals = medium_term_goal_review.get("goals", []) or []
+    backtest_goal = next(
+        (
+            item
+            for item in goals
+            if isinstance(item, dict)
+            and item.get("goal_code") == "backtest_evidence_quality"
+        ),
+        {},
+    )
+    if backtest_goal and (
+        backtest_goal.get("next_action") != "maintain_limited_backtest"
+        or backtest_goal.get("completion_percent") != 100
+    ):
+        reasons.append("historical_evidence_medium_term_closeout_mismatch")
+    return reasons
+
+
 def _backtest_evidence_review_reasons(payload):
     if not payload:
         return []
     reasons = []
-    if payload.get("status") not in {"ready", "evidence_review_needed"}:
+    if payload.get("status") not in {
+        "ready",
+        "evidence_review_needed",
+        "evidence_ceiling_confirmed",
+    }:
         reasons.append("backtest_evidence_review_not_acceptable")
     if any(field not in payload for field in BACKTEST_EVIDENCE_REQUIRED_QUALITY_FIELDS):
         reasons.append("backtest_evidence_review_missing_quality_fields")

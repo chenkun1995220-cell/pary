@@ -201,15 +201,7 @@ class MembershipEvidenceApprovedApplyPlanTests(unittest.TestCase):
         self.assertIn("membership_evidence_approved_apply_plan.py", wrapper)
         self.assertIn("latest_membership_evidence_approved_apply_plan.json", wrapper)
         self.assertIn("latest_membership_evidence_approved_apply_plan.md", wrapper)
-        self.assertIn("run_membership_evidence_approved_apply_plan", bundle)
-        self.assertLess(
-            bundle.index("run_membership_evidence_apply_confirmation_status"),
-            bundle.index("run_membership_evidence_approved_apply_plan"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_approved_apply_plan"),
-            bundle.index("run_medium_term_goal_review"),
-        )
+        self.assertNotIn("run_membership_evidence_approved_apply_plan", bundle)
         self.assertIn("membership_evidence_approved_apply_plan", pre_submit)
 
 

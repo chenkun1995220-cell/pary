@@ -473,15 +473,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
         self.assertIn("latest_membership_evidence_supplement_batch.csv", wrapper)
         self.assertIn("latest_membership_evidence_supplement_batch.md", wrapper)
         self.assertIn("verified_membership_evidence_intake.csv", wrapper)
-        self.assertIn("run_membership_evidence_supplement_batch", bundle)
-        self.assertLess(
-            bundle.index("run_membership_evidence_supplement_queue"),
-            bundle.index("run_membership_evidence_supplement_batch"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_supplement_batch"),
-            bundle.index("run_membership_evidence_source_intake_status"),
-        )
+        self.assertNotIn("run_membership_evidence_supplement_batch", bundle)
         self.assertIn("membership_evidence_supplement_batch", pre_submit)
 
 

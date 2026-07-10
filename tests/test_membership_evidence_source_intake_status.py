@@ -648,20 +648,8 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
         ).read_text(encoding="utf-8-sig")
         self.assertIn("run_membership_evidence_import_plan.ps1", refresh_wrapper)
         self.assertIn("latest_membership_evidence_verified_source_pack.csv", refresh_wrapper)
-        self.assertIn("run_membership_evidence_source_intake_status", bundle)
-        self.assertIn("run_membership_evidence_import_plan_from_verified_intake", bundle)
-        self.assertLess(
-            bundle.index("run_membership_evidence_supplement_queue"),
-            bundle.index("run_membership_evidence_source_intake_status"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_source_intake_status"),
-            bundle.index("run_membership_evidence_import_plan_from_verified_intake"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_import_plan_from_verified_intake"),
-            bundle.index("run_sp500_verified_source_plan"),
-        )
+        self.assertNotIn("run_membership_evidence_source_intake_status", bundle)
+        self.assertNotIn("run_membership_evidence_import_plan_from_verified_intake", bundle)
         self.assertIn("membership_evidence_source_intake_status", pre_submit)
 
 

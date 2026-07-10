@@ -8,6 +8,29 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WeeklyAutomationTests(unittest.TestCase):
+    def test_weekly_bundle_excludes_closed_historical_evidence_pipeline(self):
+        bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        closed_steps = [
+            "run_membership_evidence_import_plan",
+            "run_membership_evidence_supplement_queue",
+            "run_membership_evidence_supplement_batch",
+            "run_membership_evidence_source_intake_status",
+            "run_membership_evidence_import_plan_from_verified_intake",
+            "run_sp500_official_export_probe",
+            "run_sp500_verified_source_plan",
+            "run_membership_evidence_apply_preview",
+            "run_membership_evidence_apply_confirmation_status",
+            "run_membership_evidence_approved_apply_plan",
+        ]
+        for step in closed_steps:
+            self.assertNotIn(step, bundle)
+
+        self.assertIn("run_sp500_current_membership_sources", bundle)
+        self.assertIn("run_backtest_evidence_review", bundle)
+
     def test_orchestrator_summary_includes_universe_refresh_status(self):
         script = (PROJECT_ROOT / "scripts" / "run_us_universe_weekly.ps1").read_text(
             encoding="utf-8-sig"

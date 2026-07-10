@@ -1097,6 +1097,135 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
 
 
 class PreSubmitReviewTests(unittest.TestCase):
+    def test_evidence_ceiling_allows_closed_historical_artifacts_to_be_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            automation = root / "outputs" / "automation"
+            backtest_path = automation / "latest_backtest_evidence_review.json"
+            backtest = json.loads(backtest_path.read_text(encoding="utf-8-sig"))
+            backtest.update(
+                {
+                    "status": "evidence_ceiling_confirmed",
+                    "evidence_ceiling_status": "evidence_ceiling_confirmed",
+                    "backtest_mode": "limited_verified_only",
+                    "official_source_acquisition_closed": True,
+                    "limited_backtest_only": True,
+                    "recurring_supplement_request_enabled": False,
+                    "membership_evidence_unresolved_gap_count": 425,
+                    "membership_evidence_action_required_count": 0,
+                    "membership_evidence_action_queue_count": 0,
+                    "membership_evidence_action_unqueued_count": 0,
+                    "membership_evidence_action_queue": [],
+                    "backtest_sample_expansion_allowed": False,
+                    "backtest_sample_expansion_decision": "do_not_expand_backtest_sample",
+                    "membership_evidence_gate_status": "blocked",
+                    "membership_evidence_gate_decision": "verified_only_no_expansion",
+                    "historical_membership_auto_update_allowed": False,
+                    "formal_model_upgrade_allowed": False,
+                    "formal_model_change_allowed": False,
+                }
+            )
+            write_json(backtest_path, backtest)
+            medium_path = automation / "latest_medium_term_goal_review.json"
+            medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
+            goal = next(
+                item
+                for item in medium["goals"]
+                if item["goal_code"] == "backtest_evidence_quality"
+            )
+            goal.update(
+                {
+                    "module": "S&P 500 受限回测证据边界",
+                    "status": "ready_for_phase_review",
+                    "completion_percent": 100,
+                    "next_action": "maintain_limited_backtest",
+                    "current": {
+                        "evidence_ceiling_status": "evidence_ceiling_confirmed",
+                        "backtest_mode": "limited_verified_only",
+                        "backtest_sample_expansion_allowed": False,
+                        "historical_membership_auto_update_allowed": False,
+                        "formal_model_upgrade_allowed": False,
+                    },
+                }
+            )
+            write_json(medium_path, medium)
+            closed_artifacts = [
+                "latest_membership_evidence_import_plan.json",
+                "latest_membership_evidence_apply_preview.json",
+                "latest_membership_evidence_apply_confirmation_status.json",
+                "latest_membership_evidence_approved_apply_plan.json",
+                "latest_membership_evidence_supplement_queue.json",
+                "latest_membership_evidence_supplement_batch.json",
+                "latest_membership_evidence_source_intake_status.json",
+            ]
+            for name in closed_artifacts:
+                path = automation / name
+                if path.exists():
+                    path.unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
+            for name in (
+                "membership_evidence_import_plan",
+                "membership_evidence_apply_preview",
+                "membership_evidence_supplement_queue",
+            ):
+                self.assertNotIn(name, result["missing_outputs"])
+
+    def test_evidence_ceiling_rejects_reopened_supplement_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            automation = root / "outputs" / "automation"
+            backtest_path = automation / "latest_backtest_evidence_review.json"
+            backtest = json.loads(backtest_path.read_text(encoding="utf-8-sig"))
+            backtest.update(
+                {
+                    "status": "evidence_ceiling_confirmed",
+                    "evidence_ceiling_status": "evidence_ceiling_confirmed",
+                    "backtest_mode": "limited_verified_only",
+                    "official_source_acquisition_closed": True,
+                    "limited_backtest_only": True,
+                    "recurring_supplement_request_enabled": False,
+                    "membership_evidence_unresolved_gap_count": 425,
+                    "membership_evidence_action_required_count": 0,
+                    "membership_evidence_action_queue_count": 0,
+                    "backtest_sample_expansion_allowed": False,
+                    "backtest_sample_expansion_decision": "do_not_expand_backtest_sample",
+                    "membership_evidence_gate_status": "blocked",
+                    "membership_evidence_gate_decision": "verified_only_no_expansion",
+                    "historical_membership_auto_update_allowed": False,
+                    "formal_model_upgrade_allowed": False,
+                    "formal_model_change_allowed": False,
+                }
+            )
+            write_json(backtest_path, backtest)
+            action_path = automation / "latest_weekly_action_items.json"
+            actions = json.loads(action_path.read_text(encoding="utf-8-sig"))
+            actions["items"].append(
+                {
+                    "action_code": "supplement_verified_membership_evidence",
+                    "category": "backtest",
+                    "status": "open",
+                }
+            )
+            actions["item_count"] = len(actions["items"])
+            write_json(action_path, actions)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "historical_evidence_supplement_action_present",
+                result["attention_reasons"],
+            )
+
     def test_secondary_current_membership_source_is_acceptable_with_upgrade_gate_closed(self):
         from pre_submit_review import _sp500_current_membership_source_reasons
 

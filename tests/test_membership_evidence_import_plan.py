@@ -392,7 +392,7 @@ class MembershipEvidenceImportPlanTests(unittest.TestCase):
             self.assertIn("ticker,membership_evidence,membership_source_url,source_as_of_date,notes", template_text)
             self.assertIn("ABT,verified,,", template_text)
 
-    def test_powershell_wrapper_and_reporting_bundle_include_import_plan(self):
+    def test_powershell_wrapper_remains_manual_and_bundle_excludes_import_plan(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_import_plan.ps1").read_text(
             encoding="utf-8-sig"
         )
@@ -408,19 +408,7 @@ class MembershipEvidenceImportPlanTests(unittest.TestCase):
         self.assertIn("latest_membership_evidence_import_plan.md", wrapper)
         self.assertIn("us_sp500_current_membership_sources_template.csv", wrapper)
         self.assertIn("run_sp500_current_membership_sources", bundle)
-        self.assertIn("run_membership_evidence_import_plan", bundle)
-        self.assertLess(
-            bundle.index("run_sp500_current_membership_sources"),
-            bundle.index("run_membership_evidence_import_plan"),
-        )
-        self.assertLess(
-            bundle.index("run_backtest_evidence_review"),
-            bundle.index("run_membership_evidence_import_plan"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_import_plan"),
-            bundle.index("run_medium_term_goal_review"),
-        )
+        self.assertNotIn("run_membership_evidence_import_plan", bundle)
 
 
 if __name__ == "__main__":

@@ -138,7 +138,7 @@ class MembershipEvidenceSupplementQueueTests(unittest.TestCase):
             self.assertIn("membership_evidence_supplement_queue", report)
             self.assertIn("official_spglobal_membership_evidence", report)
 
-    def test_powershell_wrapper_and_weekly_bundle_include_supplement_queue(self):
+    def test_powershell_wrapper_remains_manual_and_bundle_excludes_supplement_queue(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_supplement_queue.ps1").read_text(
             encoding="utf-8-sig"
         )
@@ -150,15 +150,7 @@ class MembershipEvidenceSupplementQueueTests(unittest.TestCase):
         self.assertIn("latest_membership_evidence_supplement_queue.json", wrapper)
         self.assertIn("latest_membership_evidence_supplement_queue.csv", wrapper)
         self.assertIn("latest_membership_evidence_supplement_queue.md", wrapper)
-        self.assertIn("run_membership_evidence_supplement_queue", bundle)
-        self.assertLess(
-            bundle.index("run_membership_evidence_import_plan"),
-            bundle.index("run_membership_evidence_supplement_queue"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_supplement_queue"),
-            bundle.index("run_sp500_verified_source_plan"),
-        )
+        self.assertNotIn("run_membership_evidence_supplement_queue", bundle)
 
 
 if __name__ == "__main__":

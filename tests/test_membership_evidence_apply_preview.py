@@ -205,7 +205,7 @@ class MembershipEvidenceApplyPreviewTests(unittest.TestCase):
             self.assertIn("membership_evidence_apply_preview", report)
             self.assertIn("preview_row_count: 2", report)
 
-    def test_powershell_wrapper_and_reporting_bundle_include_apply_preview(self):
+    def test_powershell_wrapper_remains_manual_and_bundle_excludes_apply_preview(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_apply_preview.ps1").read_text(
             encoding="utf-8-sig"
         )
@@ -219,15 +219,7 @@ class MembershipEvidenceApplyPreviewTests(unittest.TestCase):
         self.assertIn("latest_membership_evidence_apply_preview.json", wrapper)
         self.assertIn("latest_membership_evidence_apply_preview.csv", wrapper)
         self.assertIn("latest_membership_evidence_apply_preview.md", wrapper)
-        self.assertIn("run_membership_evidence_apply_preview", bundle)
-        self.assertLess(
-            bundle.index("run_membership_evidence_import_plan"),
-            bundle.index("run_membership_evidence_apply_preview"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_apply_preview"),
-            bundle.index("run_medium_term_goal_review"),
-        )
+        self.assertNotIn("run_membership_evidence_apply_preview", bundle)
 
 
 if __name__ == "__main__":

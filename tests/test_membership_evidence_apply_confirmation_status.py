@@ -213,15 +213,7 @@ class MembershipEvidenceApplyConfirmationStatusTests(unittest.TestCase):
         self.assertIn("latest_membership_evidence_apply_confirmation_status.json", wrapper)
         self.assertIn("membership_evidence_apply_confirmation_decisions_template.csv", wrapper)
         self.assertIn("latest_membership_evidence_approved_apply_package.csv", wrapper)
-        self.assertIn("run_membership_evidence_apply_confirmation_status", bundle)
-        self.assertLess(
-            bundle.index("run_membership_evidence_apply_preview"),
-            bundle.index("run_membership_evidence_apply_confirmation_status"),
-        )
-        self.assertLess(
-            bundle.index("run_membership_evidence_apply_confirmation_status"),
-            bundle.index("run_medium_term_goal_review"),
-        )
+        self.assertNotIn("run_membership_evidence_apply_confirmation_status", bundle)
         self.assertIn("membership_evidence_apply_confirmation_status", pre_submit)
 
 

@@ -284,7 +284,7 @@ class Sp500VerifiedSourcePlanTests(unittest.TestCase):
             self.assertFalse(payload["formal_backtest_upgrade_allowed"])
             self.assertIn("S&P 500 verified 来源补强计划", report.read_text(encoding="utf-8-sig"))
 
-    def test_powershell_wrapper_and_weekly_bundle_include_verified_source_plan(self):
+    def test_powershell_wrapper_remains_manual_and_weekly_bundle_excludes_plan(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_sp500_verified_source_plan.ps1").read_text(
             encoding="utf-8-sig"
         )
@@ -294,15 +294,7 @@ class Sp500VerifiedSourcePlanTests(unittest.TestCase):
 
         self.assertIn("sp500_verified_source_plan.py", wrapper)
         self.assertIn("latest_sp500_verified_source_plan.json", wrapper)
-        self.assertIn("run_sp500_verified_source_plan", bundle)
-        self.assertLess(
-            bundle.index("run_membership_evidence_import_plan"),
-            bundle.index("run_sp500_verified_source_plan"),
-        )
-        self.assertLess(
-            bundle.index("run_sp500_verified_source_plan"),
-            bundle.index("run_membership_evidence_apply_preview"),
-        )
+        self.assertNotIn("run_sp500_verified_source_plan", bundle)
 
 
 if __name__ == "__main__":

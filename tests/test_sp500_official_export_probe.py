@@ -91,7 +91,7 @@ class Sp500OfficialExportProbeTests(unittest.TestCase):
             self.assertIn("manual_export_target_file", report_text)
             self.assertIn("manual_export_dry_run_command", report_text)
 
-    def test_powershell_wrapper_and_weekly_bundle_include_probe_before_verified_plan(self):
+    def test_powershell_wrapper_remains_manual_and_weekly_bundle_excludes_probe(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_sp500_official_export_probe.ps1").read_text(
             encoding="utf-8-sig"
         )
@@ -101,11 +101,7 @@ class Sp500OfficialExportProbeTests(unittest.TestCase):
 
         self.assertIn("sp500_official_export_probe.py", wrapper)
         self.assertIn("latest_sp500_official_export_probe.json", wrapper)
-        self.assertIn("run_sp500_official_export_probe", bundle)
-        self.assertLess(
-            bundle.index("run_sp500_official_export_probe"),
-            bundle.index("run_sp500_verified_source_plan"),
-        )
+        self.assertNotIn("run_sp500_official_export_probe", bundle)
 
 
 if __name__ == "__main__":
