@@ -74,42 +74,76 @@ def write_fixture(root):
     return automation_dir / "latest_backtest_summary.md"
 
 
+def write_policy(root):
+    policy = root / "data" / "config" / "sp500_historical_evidence_policy.json"
+    policy.parent.mkdir(parents=True, exist_ok=True)
+    policy.write_text(
+        json.dumps(
+            {
+                "policy_schema": "sp500_historical_evidence_policy",
+                "policy_version": 1,
+                "status": "evidence_ceiling_confirmed",
+                "effective_date": "2026-07-11",
+                "official_source_acquisition_closed": True,
+                "limited_backtest_only": True,
+                "recurring_supplement_request_enabled": False,
+                "formal_backtest_expansion_allowed": False,
+                "historical_membership_auto_update_allowed": False,
+                "formal_model_change_allowed": False,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8-sig",
+    )
+    return policy
+
+
 class BacktestEvidenceReviewTests(unittest.TestCase):
     def test_builds_review_from_summary_and_membership_gap_report(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             summary = write_fixture(root)
+            policy = write_policy(root)
 
             from backtest_evidence_review import (
                 build_backtest_evidence_review,
                 render_backtest_evidence_review,
             )
 
-            payload = build_backtest_evidence_review(summary, as_of_date="2026-07-07")
+            payload = build_backtest_evidence_review(
+                summary,
+                as_of_date="2026-07-11",
+                policy=policy,
+            )
             report = render_backtest_evidence_review(payload)
 
             self.assertEqual(payload["review_schema"], "backtest_evidence_review")
             self.assertEqual(payload["review_version"], 1)
-            self.assertEqual(payload["as_of_date"], "2026-07-07")
+            self.assertEqual(payload["as_of_date"], "2026-07-11")
             self.assertEqual(payload["backtest_as_of_date"], "2026-06-28")
-            self.assertEqual(payload["status"], "evidence_review_needed")
+            self.assertEqual(payload["status"], "evidence_ceiling_confirmed")
+            self.assertEqual(payload["evidence_ceiling_status"], "evidence_ceiling_confirmed")
+            self.assertEqual(payload["evidence_ceiling_effective_date"], "2026-07-11")
+            self.assertEqual(payload["backtest_mode"], "limited_verified_only")
+            self.assertTrue(payload["official_source_acquisition_closed"])
+            self.assertTrue(payload["limited_backtest_only"])
+            self.assertFalse(payload["recurring_supplement_request_enabled"])
             self.assertEqual(payload["weeks_completed"], 8)
             self.assertEqual(payload["weeks_failed"], 0)
             self.assertEqual(payload["weak_evidence_rows"], 3382)
             self.assertEqual(payload["weak_evidence_weeks"], 8)
             self.assertEqual(payload["verified_membership_ratio"], 0.156)
             self.assertFalse(payload["formal_model_upgrade_allowed"])
-            self.assertEqual(payload["recommended_action"], "supplement_verified_membership_evidence")
+            self.assertEqual(payload["recommended_action"], "maintain_limited_backtest")
+            self.assertEqual(payload["source_evidence_next_action"], "supplement_verified_membership_evidence")
             self.assertEqual(payload["gap_report"]["gap_count"], 425)
             self.assertEqual(payload["gap_report"]["top_gaps"][0]["ticker"], "ABT")
-            self.assertEqual(payload["membership_evidence_action_required_count"], 425)
-            self.assertEqual(payload["membership_evidence_action_queue_count"], 2)
-            self.assertEqual(payload["membership_evidence_action_unqueued_count"], 423)
-            self.assertEqual(payload["membership_evidence_action_queue"][0]["ticker"], "ABT")
-            self.assertEqual(
-                payload["membership_evidence_action_queue"][0]["action_type"],
-                "supplement_official_membership_source",
-            )
+            self.assertEqual(payload["membership_evidence_unresolved_gap_count"], 425)
+            self.assertEqual(payload["membership_evidence_action_required_count"], 0)
+            self.assertEqual(payload["membership_evidence_action_queue_count"], 0)
+            self.assertEqual(payload["membership_evidence_action_unqueued_count"], 0)
+            self.assertEqual(payload["membership_evidence_action_queue"], [])
             self.assertFalse(payload["backtest_sample_expansion_allowed"])
             self.assertEqual(
                 payload["backtest_sample_expansion_decision"],
@@ -118,7 +152,8 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
             self.assertEqual(payload["required_verified_membership_ratio_for_expansion"], 0.5)
             self.assertIn("verified_membership_ratio_below_threshold", payload["backtest_sample_expansion_reason"])
             self.assertIn("weak_evidence_rows_present", payload["backtest_sample_expansion_reason"])
-            self.assertIn("membership_evidence_actions_open", payload["backtest_sample_expansion_reason"])
+            self.assertIn("evidence_ceiling_confirmed_limited_backtest_only", payload["backtest_sample_expansion_reason"])
+            self.assertNotIn("membership_evidence_actions_open", payload["backtest_sample_expansion_reason"])
             self.assertEqual(payload["membership_evidence_gate_status"], "blocked")
             self.assertEqual(payload["membership_evidence_gate_decision"], "verified_only_no_expansion")
             self.assertFalse(payload["historical_membership_auto_update_allowed"])
@@ -138,7 +173,9 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
             self.assertIn("不得自动更新 historical_membership.csv", report)
             self.assertIn("扩样决策：do_not_expand_backtest_sample", report)
             self.assertIn("扩样允许：false", report)
-            self.assertIn("evidence_review_needed", report)
+            self.assertIn("evidence_ceiling_confirmed", report)
+            self.assertIn("limited_verified_only", report)
+            self.assertIn("证据上限已确认", report)
             self.assertIn("15.60%", report)
             self.assertIn("ABT", report)
             self.assertIn("不得自动升级正式模型", report)
@@ -149,6 +186,7 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             summary = write_fixture(root)
+            policy = write_policy(root)
             output = root / "outputs" / "automation" / "latest_backtest_evidence_review.json"
             report = root / "outputs" / "automation" / "latest_backtest_evidence_review.md"
 
@@ -162,8 +200,10 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
                     str(output),
                     "--report",
                     str(report),
+                    "--policy",
+                    str(policy),
                     "--as-of-date",
-                    "2026-07-07",
+                    "2026-07-11",
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -176,9 +216,9 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
             combined = result.stdout + result.stderr
             self.assertEqual(result.returncode, 0, combined)
             payload = json.loads(output.read_text(encoding="utf-8-sig"))
-            self.assertEqual(payload["as_of_date"], "2026-07-07")
+            self.assertEqual(payload["as_of_date"], "2026-07-11")
             self.assertEqual(payload["backtest_as_of_date"], "2026-06-28")
-            self.assertEqual(payload["status"], "evidence_review_needed")
+            self.assertEqual(payload["status"], "evidence_ceiling_confirmed")
             self.assertFalse(payload["formal_model_upgrade_allowed"])
             self.assertIn("回测证据复核结论", report.read_text(encoding="utf-8-sig"))
             self.assertIn("latest_backtest_evidence_review.md", combined)
@@ -195,6 +235,7 @@ class BacktestEvidenceReviewTests(unittest.TestCase):
         self.assertIn("latest_backtest_summary.md", wrapper)
         self.assertIn("latest_backtest_evidence_review.json", wrapper)
         self.assertIn("latest_backtest_evidence_review.md", wrapper)
+        self.assertIn("sp500_historical_evidence_policy.json", wrapper)
         self.assertIn("run_backtest_evidence_review", bundle)
         self.assertLess(
             bundle.index("run_data_health_review"),

@@ -1,6 +1,7 @@
 param(
   [string]$ProjectRoot = "",
   [string]$Summary = "",
+  [string]$Policy = "",
   [string]$Output = "",
   [string]$Report = "",
   [switch]$DryRun
@@ -16,6 +17,9 @@ if (-not $ProjectRoot) {
 if (-not $Summary) {
   $Summary = Join-Path $ProjectRoot "outputs\automation\latest_backtest_summary.md"
 }
+if (-not $Policy) {
+  $Policy = Join-Path $ProjectRoot "data\config\sp500_historical_evidence_policy.json"
+}
 if (-not $Output) {
   $Output = Join-Path $ProjectRoot "outputs\automation\latest_backtest_evidence_review.json"
 }
@@ -29,9 +33,10 @@ $Script = Join-Path $ProjectRoot "backtest_evidence_review.py"
 Write-Host "Backtest evidence review"
 Write-Host "ProjectRoot: $ProjectRoot"
 Write-Host "Summary: $Summary"
+Write-Host "Policy: $Policy"
 Write-Host "Output: $Output"
 Write-Host "Report: $Report"
-Write-Host "Reads: latest_backtest_summary.md, latest_membership_evidence_gaps.json"
+Write-Host "Reads: latest_backtest_summary.md, latest_membership_evidence_gaps.json, sp500_historical_evidence_policy.json"
 Write-Host "Writes: latest_backtest_evidence_review.json, latest_backtest_evidence_review.md"
 
 if ($DryRun) {
@@ -39,7 +44,7 @@ if ($DryRun) {
   exit 0
 }
 
-& $Python -B $Script --summary $Summary --output $Output --report $Report
+& $Python -B $Script --summary $Summary --policy $Policy --output $Output --report $Report
 if ($LASTEXITCODE -ne 0) {
   throw "Backtest evidence review failed with exit code $LASTEXITCODE."
 }

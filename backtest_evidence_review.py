@@ -9,6 +9,7 @@ from pathlib import Path
 REVIEW_SCHEMA = "backtest_evidence_review"
 REVIEW_VERSION = 1
 MIN_VERIFIED_RATIO_FOR_SAMPLE_EXPANSION = 0.5
+DEFAULT_POLICY = "data/config/sp500_historical_evidence_policy.json"
 MEMBERSHIP_EVIDENCE_TIER_POLICY = {
     "verified": {
         "expansion_eligible": True,
@@ -110,6 +111,31 @@ def _load_gap_report(path):
         "_queue_source_gaps": gaps[:50],
         "path": str(gap_path),
     }
+
+
+def _load_policy(path):
+    if not path:
+        return {}
+    policy_path = Path(path)
+    if not policy_path.exists():
+        return {}
+    payload = json.loads(policy_path.read_text(encoding="utf-8-sig"))
+    payload["_path"] = str(policy_path)
+    return payload
+
+
+def _evidence_ceiling_active(policy):
+    return bool(
+        policy.get("policy_schema") == "sp500_historical_evidence_policy"
+        and policy.get("policy_version") == 1
+        and policy.get("status") == "evidence_ceiling_confirmed"
+        and policy.get("official_source_acquisition_closed") is True
+        and policy.get("limited_backtest_only") is True
+        and policy.get("recurring_supplement_request_enabled") is False
+        and policy.get("formal_backtest_expansion_allowed") is False
+        and policy.get("historical_membership_auto_update_allowed") is False
+        and policy.get("formal_model_change_allowed") is False
+    )
 
 
 def _action_type(gap):
@@ -231,19 +257,38 @@ def _sample_expansion_decision(fields, gap_report, action_required_count):
     }
 
 
-def build_backtest_evidence_review(summary, as_of_date=None):
+def build_backtest_evidence_review(summary, as_of_date=None, policy=None):
     summary_path = Path(summary)
     text = _read_text(summary_path)
     fields = _summary_fields(text)
     gap_report = _load_gap_report(_gap_report_path(summary_path))
-    action_queue = _membership_evidence_action_queue(gap_report)
-    action_required_count = _int_value(gap_report.get("gap_count"))
+    evidence_policy = _load_policy(policy)
+    evidence_ceiling_active = _evidence_ceiling_active(evidence_policy)
+    unresolved_gap_count = _int_value(gap_report.get("gap_count"))
+    action_queue = (
+        []
+        if evidence_ceiling_active
+        else _membership_evidence_action_queue(gap_report)
+    )
+    action_required_count = 0 if evidence_ceiling_active else unresolved_gap_count
     action_queue_count = len(action_queue)
     action_unqueued_count = max(action_required_count - action_queue_count, 0)
     public_gap_report = dict(gap_report)
     public_gap_report.pop("_queue_source_gaps", None)
     status, recommended_action, upgrade_allowed = _decision(fields, gap_report)
     sample_expansion = _sample_expansion_decision(fields, gap_report, action_required_count)
+    if evidence_ceiling_active:
+        status = "evidence_ceiling_confirmed"
+        recommended_action = "maintain_limited_backtest"
+        upgrade_allowed = False
+        sample_expansion["backtest_sample_expansion_allowed"] = False
+        sample_expansion["backtest_sample_expansion_decision"] = (
+            "do_not_expand_backtest_sample"
+        )
+        reasons = list(sample_expansion.get("backtest_sample_expansion_reason", []))
+        if "evidence_ceiling_confirmed_limited_backtest_only" not in reasons:
+            reasons.append("evidence_ceiling_confirmed_limited_backtest_only")
+        sample_expansion["backtest_sample_expansion_reason"] = reasons
     evidence_gate = _membership_evidence_gate(fields, gap_report, sample_expansion)
     backtest_as_of_date = _as_of_date(fields)
     return {
@@ -254,6 +299,22 @@ def build_backtest_evidence_review(summary, as_of_date=None):
         "source_summary": str(summary_path),
         "status": status,
         "recommended_action": recommended_action,
+        "evidence_ceiling_status": (
+            "evidence_ceiling_confirmed" if evidence_ceiling_active else "not_confirmed"
+        ),
+        "evidence_ceiling_effective_date": evidence_policy.get("effective_date", ""),
+        "backtest_mode": (
+            "limited_verified_only" if evidence_ceiling_active else "evidence_improvement_open"
+        ),
+        "official_source_acquisition_closed": bool(
+            evidence_policy.get("official_source_acquisition_closed")
+        ),
+        "limited_backtest_only": bool(evidence_policy.get("limited_backtest_only")),
+        "recurring_supplement_request_enabled": evidence_policy.get(
+            "recurring_supplement_request_enabled"
+        ),
+        "evidence_policy_path": evidence_policy.get("_path", ""),
+        "evidence_policy_closure_reasons": evidence_policy.get("closure_reasons", []),
         "weeks_completed": _int_value(fields.get("Weeks completed")),
         "weeks_failed": _int_value(fields.get("Weeks failed")),
         "membership_evidence_verified": fields.get("Membership evidence verified", "unknown"),
@@ -261,12 +322,14 @@ def build_backtest_evidence_review(summary, as_of_date=None):
         "weak_evidence_rows": _int_value(fields.get("Weak evidence rows")),
         "weak_evidence_weeks": _int_value(fields.get("Weak evidence weeks")),
         "evidence_status": fields.get("Evidence status", "unknown"),
-        "evidence_next_action": fields.get("Evidence next action", "unknown"),
+        "evidence_next_action": recommended_action,
+        "source_evidence_next_action": fields.get("Evidence next action", "unknown"),
         "backtest_report": fields.get("Backtest report", ""),
         "data_leakage_audit": fields.get("Data leakage audit", ""),
         "model_comparison": fields.get("Model comparison", ""),
         "log": fields.get("Log", ""),
         "gap_report": public_gap_report,
+        "membership_evidence_unresolved_gap_count": unresolved_gap_count,
         "membership_evidence_action_required_count": action_required_count,
         "membership_evidence_action_queue_count": action_queue_count,
         "membership_evidence_action_unqueued_count": action_unqueued_count,
@@ -274,6 +337,7 @@ def build_backtest_evidence_review(summary, as_of_date=None):
         **sample_expansion,
         **evidence_gate,
         "formal_model_upgrade_allowed": upgrade_allowed,
+        "formal_model_change_allowed": False,
         "boundary": "只读取现有严格时点回测摘要和成员证据缺口报告，不抓取行情，不重新回测，不修改正式模型参数。",
     }
 
@@ -290,6 +354,9 @@ def render_backtest_evidence_review(payload):
     expansion_reasons = ", ".join(payload.get("backtest_sample_expansion_reason", []) or ["unknown"])
     lines = [
         "# 回测证据复核结论",
+        f"- evidence_ceiling_status: {payload.get('evidence_ceiling_status', 'not_confirmed')}",
+        f"- backtest_mode: {payload.get('backtest_mode', 'unknown')}",
+        f"- membership_evidence_unresolved_gap_count: {payload.get('membership_evidence_unresolved_gap_count', 0)}",
         f"- membership_evidence_action_required_count: {payload.get('membership_evidence_action_required_count', 0)}",
         f"- membership_evidence_action_queue_count: {payload.get('membership_evidence_action_queue_count', 0)}",
         f"- membership_evidence_action_unqueued_count: {payload.get('membership_evidence_action_unqueued_count', 0)}",
@@ -313,7 +380,11 @@ def render_backtest_evidence_review(payload):
         f"- 扩样证据门槛：verified ratio >= {_pct(payload.get('required_verified_membership_ratio_for_expansion'))}",
         f"- 当前 verified ratio：{_pct(payload.get('verified_membership_ratio'))}",
         f"- 决策原因：{expansion_reasons}",
-        "- 执行动作：先补充 verified S&P Global 历史成分证据，再考虑扩大回测样本。",
+        (
+            "- 执行动作：证据上限已确认，仅保留受限回测；不得重复生成官方历史来源补充任务。"
+            if payload.get("evidence_ceiling_status") == "evidence_ceiling_confirmed"
+            else "- 执行动作：先补充 verified S&P Global 历史成分证据，再考虑扩大回测样本。"
+        ),
         "",
         "## 成员证据分层闸门",
         "",
@@ -396,12 +467,17 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Build backtest evidence review from automation summary.")
     parser.add_argument("--summary", default="outputs/automation/latest_backtest_summary.md")
+    parser.add_argument("--policy", default=DEFAULT_POLICY)
     parser.add_argument("--output", default="outputs/automation/latest_backtest_evidence_review.json")
     parser.add_argument("--report", default="outputs/automation/latest_backtest_evidence_review.md")
     parser.add_argument("--as-of-date", default="")
     args = parser.parse_args()
 
-    payload = build_backtest_evidence_review(args.summary, as_of_date=args.as_of_date or None)
+    payload = build_backtest_evidence_review(
+        args.summary,
+        as_of_date=args.as_of_date or None,
+        policy=args.policy,
+    )
     report = render_backtest_evidence_review(payload)
     if args.output:
         write_json(payload, args.output)

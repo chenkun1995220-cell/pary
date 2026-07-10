@@ -1,0 +1,18 @@
+{
+  "policy_schema": "sp500_historical_evidence_policy",
+  "policy_version": 1,
+  "status": "evidence_ceiling_confirmed",
+  "effective_date": "2026-07-11",
+  "official_source_acquisition_closed": true,
+  "limited_backtest_only": true,
+  "recurring_supplement_request_enabled": false,
+  "formal_backtest_expansion_allowed": false,
+  "historical_membership_auto_update_allowed": false,
+  "formal_model_change_allowed": false,
+  "closure_reasons": [
+    "official_full_historical_membership_source_not_obtainable",
+    "announcement_reconstruction_cannot_prove_complete_current_history",
+    "secondary_and_etf_sources_not_eligible_for_verified_upgrade"
+  ],
+  "reopen_policy": "manual_policy_version_change_after_new_official_historical_evidence_review"
+}
