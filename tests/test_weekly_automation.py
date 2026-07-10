@@ -36,6 +36,14 @@ class WeeklyAutomationTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
 
+        self.assertIn('$Quotes = Join-Path $OutputRoot "market_quotes.csv"', script)
+        self.assertNotIn('data\\samples\\us_universe_quotes.csv', script)
+        self.assertIn("Quote snapshot policy: runtime_output_only", script)
+        self.assertIn("Quote snapshot file", script)
+        self.assertIn("Quote snapshot rows", script)
+        self.assertIn("Quote date min", script)
+        self.assertIn("Quote date max", script)
+        self.assertIn("Quote snapshot sha256", script)
         self.assertIn("sp500_refresh_metadata.json", script)
         self.assertIn("Universe count", script)
         self.assertIn("Constituent refresh status", script)

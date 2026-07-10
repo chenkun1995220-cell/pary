@@ -15,7 +15,7 @@ if (-not $OutputRoot) {
 
 $Symbols = Join-Path $ProjectRoot "data\config\us_universe_symbols.csv"
 $Companies = Join-Path $ProjectRoot "data\samples\us_universe_companies.csv"
-$Quotes = Join-Path $ProjectRoot "data\samples\us_universe_quotes.csv"
+$Quotes = Join-Path $OutputRoot "market_quotes.csv"
 $Sp500Cache = Join-Path $ProjectRoot "data\cache\sp500"
 $SecCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
 $PowerShell = (Get-Command powershell.exe).Source
@@ -141,6 +141,11 @@ try {
   $tickers = @($candidateRows | ForEach-Object { $_.ticker }) -join ", "
   if (-not $tickers) { $tickers = "None" }
   $universeRows = if (Test-Path $Companies) { @(Import-Csv -LiteralPath $Companies) } else { @() }
+  $quoteRows = if (Test-Path $Quotes) { @(Import-Csv -LiteralPath $Quotes) } else { @() }
+  $quoteDates = @($quoteRows | ForEach-Object { $_.quote_date } | Where-Object { $_ } | Sort-Object -Unique)
+  $quoteDateMin = if ($quoteDates.Count -gt 0) { $quoteDates[0] } else { "none" }
+  $quoteDateMax = if ($quoteDates.Count -gt 0) { $quoteDates[-1] } else { "none" }
+  $quoteSnapshotSha256 = if (Test-Path $Quotes) { (Get-FileHash -LiteralPath $Quotes -Algorithm SHA256).Hash.ToLowerInvariant() } else { "none" }
   $refreshMetadataPath = Join-Path $Sp500Cache "sp500_refresh_metadata.json"
   $refreshStatus = "unknown"
   if (Test-Path $refreshMetadataPath) {
@@ -160,6 +165,12 @@ try {
     "- Candidate count: $($candidateRows.Count)",
     "- Candidate tickers: $tickers",
     "- Candidate file: $candidatePath",
+    "- Quote snapshot policy: runtime_output_only",
+    "- Quote snapshot file: $Quotes",
+    "- Quote snapshot rows: $($quoteRows.Count)",
+    "- Quote date min: $quoteDateMin",
+    "- Quote date max: $quoteDateMax",
+    "- Quote snapshot sha256: $quoteSnapshotSha256",
     "- Valuation model: valuation_trend_v1",
     "- Valuation targets: $(Join-Path $OutputRoot 'valuation_targets.csv')",
     "- Valuation report: $(Join-Path $OutputRoot 'valuation_report.md')",
