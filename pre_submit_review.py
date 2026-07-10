@@ -210,6 +210,13 @@ INPUT_SPECS = {
         "version_field": "review_version",
         "version_value": 1,
     },
+    "candidate_risk_resolution_review": {
+        "path": "outputs/automation/latest_candidate_risk_resolution_review.json",
+        "schema_field": "review_schema",
+        "schema_value": "candidate_risk_resolution_review",
+        "version_field": "review_version",
+        "version_value": 1,
+    },
     "forecast_performance_review": {
         "path": "outputs/automation/latest_forecast_performance_review.json",
         "schema_field": "review_schema",
@@ -358,6 +365,19 @@ CANDIDATE_FINDINGS_REQUIRED_QUALITY_FIELDS = [
     "risk_missing_count",
     "risk_review_count",
     "formal_model_change_allowed",
+]
+
+CANDIDATE_RISK_RESOLUTION_REQUIRED_QUALITY_FIELDS = [
+    "risk_action_total_count",
+    "resolved_or_routed_count",
+    "auto_routed_count",
+    "manual_pending_count",
+    "manual_pending_limit",
+    "cap_applied_count",
+    "cap_applied_ratio",
+    "issues",
+    "formal_model_change_allowed",
+    "items",
 ]
 
 DATA_HEALTH_REQUIRED_QUALITY_FIELDS = [
@@ -741,6 +761,12 @@ def run_pre_submit_review(
         )
     )
     attention_reasons.extend(_candidate_findings_review_reasons(payloads.get("candidate_findings_review", {})))
+    attention_reasons.extend(
+        _candidate_risk_resolution_review_reasons(
+            payloads.get("candidate_risk_resolution_review", {}),
+            payloads.get("candidate_findings_review", {}),
+        )
+    )
     attention_reasons.extend(_forecast_performance_review_reasons(payloads.get("forecast_performance_review", {})))
     attention_reasons.extend(
         _one_week_forecast_shadow_review_reasons(payloads.get("one_week_forecast_shadow_review", {}))
@@ -2951,6 +2977,68 @@ def _candidate_findings_review_reasons(payload):
     if payload.get("formal_model_change_allowed"):
         reasons.append("candidate_findings_formal_model_change_unsafe")
     return reasons
+
+
+def _candidate_risk_resolution_review_reasons(payload, candidate_findings=None):
+    if not payload:
+        return []
+    reasons = []
+    if payload.get("status") != "ready":
+        reasons.append("candidate_risk_resolution_review_not_ready")
+    if any(
+        field not in payload
+        for field in CANDIDATE_RISK_RESOLUTION_REQUIRED_QUALITY_FIELDS
+    ):
+        reasons.append("candidate_risk_resolution_review_missing_quality_fields")
+
+    total = _int_value(payload.get("risk_action_total_count"), 0)
+    routed = _int_value(payload.get("resolved_or_routed_count"), 0)
+    auto_routed = _int_value(payload.get("auto_routed_count"), 0)
+    manual_pending = _int_value(payload.get("manual_pending_count"), 0)
+    manual_limit = _int_value(payload.get("manual_pending_limit"), 0)
+    if manual_limit > 5 or manual_pending > manual_limit or manual_pending > 5:
+        reasons.append("candidate_risk_resolution_manual_pending_exceeds_limit")
+    if total != routed + manual_pending or routed != auto_routed:
+        reasons.append("candidate_risk_resolution_count_mismatch")
+    source_total = _int_value(
+        (candidate_findings or {}).get("risk_action_required_count"),
+        total,
+    )
+    if total != source_total:
+        reasons.append("candidate_risk_resolution_source_total_mismatch")
+    issues = payload.get("issues", [])
+    if not isinstance(issues, list) or issues:
+        reasons.append("candidate_risk_resolution_has_issues")
+    if payload.get("formal_model_change_allowed") is not False:
+        reasons.append("candidate_risk_resolution_formal_model_change_unsafe")
+
+    items = payload.get("items", [])
+    if not isinstance(items, list) or len(items) != total:
+        reasons.append("candidate_risk_resolution_items_count_mismatch")
+    elif any(not _candidate_risk_resolution_item_complete(item) for item in items):
+        reasons.append("candidate_risk_resolution_research_conditions_incomplete")
+    return reasons
+
+
+def _candidate_risk_resolution_item_complete(item):
+    if not isinstance(item, dict):
+        return False
+    sensitivity = item.get("sensitivity", {})
+    return (
+        bool(str(item.get("ticker", "")).strip())
+        and bool(str(item.get("disposition", "")).strip())
+        and isinstance(sensitivity, dict)
+        and all(key in sensitivity for key in ("low", "base", "high"))
+        and all(
+            isinstance(item.get(field), list) and bool(item.get(field))
+            for field in (
+                "core_risks",
+                "buy_conditions",
+                "abandon_conditions",
+                "reopen_conditions",
+            )
+        )
+    )
 
 
 def _forecast_performance_review_reasons(payload):

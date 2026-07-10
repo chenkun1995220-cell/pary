@@ -905,6 +905,21 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 },
             )
             write_json(
+                automation / "latest_candidate_risk_resolution_review.json",
+                {
+                    "status": "ready",
+                    "as_of_date": "2026-06-28",
+                    "risk_action_total_count": 15,
+                    "resolved_or_routed_count": 10,
+                    "auto_routed_count": 10,
+                    "manual_pending_count": 5,
+                    "manual_pending_limit": 5,
+                    "cap_applied_count": 9,
+                    "cap_applied_ratio": 0.6,
+                    "formal_model_change_allowed": False,
+                },
+            )
+            write_json(
                 automation / "latest_one_week_forecast_shadow_review.json",
                 {
                     "status": "shadow_review_needed",
@@ -985,6 +1000,10 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(payload["recommended_action"], "review_backtest_evidence")
             self.assertEqual(summary["candidate_risk_status"], "action_required")
             self.assertEqual(summary["candidate_risk_action_required_count"], 15)
+            self.assertEqual(summary["candidate_risk_resolution_status"], "ready")
+            self.assertEqual(summary["candidate_risk_auto_routed_count"], 10)
+            self.assertEqual(summary["candidate_risk_manual_pending_count"], 5)
+            self.assertEqual(summary["candidate_risk_cap_applied_count"], 9)
             self.assertEqual(summary["forecast_shadow_status"], "shadow_review_needed")
             self.assertEqual(summary["forecast_shadow_diagnosis_status"], "review_needed")
             self.assertIn("direction_mapping_issue", summary["forecast_shadow_diagnosis_reasons"])
@@ -998,7 +1017,10 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertFalse(summary["formal_model_change_allowed"])
 
             self.assertIn("## 一屏结论", markdown)
-            self.assertIn("| 候选风险 | action_required | action_required=15", markdown)
+            self.assertIn(
+                "| 候选风险 | ready | raw_actions=15; auto_routed=10; manual_pending=5; cap_applied=9",
+                markdown,
+            )
             self.assertIn("| 预测影子诊断 | shadow_review_needed | samples=179; hit=21.8%; diagnosis=direction_mapping_issue, down_signal_reversal_risk", markdown)
             self.assertIn("| 回测证据边界 | evidence_ceiling_confirmed | mode=limited_verified_only; unresolved_gaps=425; decision=verified_only_no_expansion", markdown)
             self.assertIn("| 数据健康 | monitor_only | candidate_blocking=0; refetch_required=0; monitor_only=74", markdown)

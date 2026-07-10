@@ -8,6 +8,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WeeklyAutomationTests(unittest.TestCase):
+    def test_weekly_bundle_runs_candidate_risk_resolution_after_research_review(self):
+        bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("run_candidate_risk_resolution_review.ps1", bundle)
+        self.assertLess(
+            bundle.index("run_candidate_risk_priority_research_review.ps1"),
+            bundle.index("run_candidate_risk_resolution_review.ps1"),
+        )
+        self.assertLess(
+            bundle.index("run_candidate_risk_resolution_review.ps1"),
+            bundle.index("run_forecast_performance_review.ps1"),
+        )
+
     def test_weekly_bundle_excludes_closed_historical_evidence_pipeline(self):
         bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
             encoding="utf-8-sig"

@@ -911,7 +911,42 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "risk_coverage_count": 64,
             "risk_missing_count": 0,
             "risk_review_count": 33,
+            "risk_action_required_count": 15,
+            "risk_action_queue_count": 15,
+            "risk_action_unqueued_count": 0,
             "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
+        root / "outputs" / "automation" / "latest_candidate_risk_resolution_review.json",
+        {
+            "review_schema": "candidate_risk_resolution_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "risk_action_total_count": 15,
+            "resolved_or_routed_count": 10,
+            "auto_routed_count": 10,
+            "manual_pending_count": 5,
+            "manual_pending_limit": 5,
+            "cap_applied_count": 9,
+            "cap_applied_ratio": 0.6,
+            "issues": [],
+            "formal_model_change_allowed": False,
+            "items": [
+                {
+                    "ticker": f"TEST{index}",
+                    "disposition": (
+                        "manual_deep_dive_required" if index <= 5 else "continue_tracking"
+                    ),
+                    "sensitivity": {"low": 80.0, "base": 100.0, "high": 120.0},
+                    "core_risks": ["test risk"],
+                    "buy_conditions": ["test buy condition"],
+                    "abandon_conditions": ["test abandon condition"],
+                    "reopen_conditions": ["test reopen condition"],
+                }
+                for index in range(1, 16)
+            ],
         },
     )
     write_json(
@@ -4418,6 +4453,86 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn("missing_outputs", result["attention_reasons"])
             self.assertIn("candidate_findings_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_candidate_risk_resolution_review_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_candidate_risk_resolution_review.json"
+            ).unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("missing_outputs", result["attention_reasons"])
+            self.assertIn("candidate_risk_resolution_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_candidate_risk_manual_pending_exceeds_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            review_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_candidate_risk_resolution_review.json"
+            )
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+            review["resolved_or_routed_count"] = 9
+            review["auto_routed_count"] = 9
+            review["manual_pending_count"] = 6
+            write_json(review_path, review)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "candidate_risk_resolution_manual_pending_exceeds_limit",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_candidate_risk_total_mismatches_findings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            findings_path = (
+                root / "outputs" / "automation" / "latest_candidate_findings_review.json"
+            )
+            findings = json.loads(findings_path.read_text(encoding="utf-8-sig"))
+            findings["risk_action_required_count"] = 16
+            write_json(findings_path, findings)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "candidate_risk_resolution_source_total_mismatch",
+                result["attention_reasons"],
+            )
+
+    def test_review_accepts_candidate_risk_resolution_with_five_manual_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
+            self.assertFalse(
+                any(reason.startswith("candidate_risk_resolution_") for reason in result["attention_reasons"])
+            )
 
     def test_review_needs_attention_when_forecast_performance_review_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:

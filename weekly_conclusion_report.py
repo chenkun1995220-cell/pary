@@ -32,6 +32,7 @@ LIGHT_REVIEW_AUTOMATION_STATUS_KEYS = {
     "data_quality_history",
     "forecast_performance",
     "candidate_findings_review",
+    "candidate_risk_resolution_review",
 }
 
 DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
@@ -42,6 +43,9 @@ MANUAL_REVIEW_DECISIONS_PATH = "outputs/automation/manual_review_decisions.csv"
 MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT = "outputs/automation/manual_review_decisions_template.csv"
 MANUAL_REVIEW_MERGE_SUMMARY_PATH = "outputs/automation/latest_manual_review_decision_merge.json"
 CANDIDATE_FINDINGS_REVIEW_PATH = "outputs/automation/latest_candidate_findings_review.json"
+CANDIDATE_RISK_RESOLUTION_REVIEW_PATH = (
+    "outputs/automation/latest_candidate_risk_resolution_review.json"
+)
 ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH = "outputs/automation/latest_one_week_forecast_shadow_review.json"
 ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH = (
     "outputs/automation/latest_one_week_forecast_shadow_disposition.json"
@@ -221,6 +225,16 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             project_root,
             candidate_review,
             project_root / CANDIDATE_FINDINGS_REVIEW_PATH,
+        )
+
+    candidate_risk_resolution = read_json(
+        project_root / CANDIDATE_RISK_RESOLUTION_REVIEW_PATH
+    )
+    if isinstance(candidate_risk_resolution, dict):
+        state["candidate_risk_resolution_review"] = normalize_candidate_risk_resolution_review(
+            project_root,
+            candidate_risk_resolution,
+            project_root / CANDIDATE_RISK_RESOLUTION_REVIEW_PATH,
         )
 
     forecast_shadow_review = read_json(project_root / ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH)
@@ -475,6 +489,21 @@ def normalize_candidate_findings_review(project_root, payload, path):
         "risk_reduction_status": payload.get("risk_reduction_status") or payload.get("status", "unknown"),
         "risk_reduction_decision": payload.get("risk_reduction_decision", ""),
         "priority_market": first_present(payload, "priority_market", "risk_reduction_priority_market"),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "path": relative_path(project_root, path),
+    }
+
+
+def normalize_candidate_risk_resolution_review(project_root, payload, path):
+    return {
+        "status": payload.get("status", "unknown"),
+        "as_of_date": payload.get("as_of_date"),
+        "risk_action_total_count": to_int(payload.get("risk_action_total_count")),
+        "auto_routed_count": to_int(payload.get("auto_routed_count")),
+        "manual_pending_count": to_int(payload.get("manual_pending_count")),
+        "manual_pending_limit": to_int(payload.get("manual_pending_limit")),
+        "cap_applied_count": to_int(payload.get("cap_applied_count")),
+        "cap_applied_ratio": payload.get("cap_applied_ratio"),
         "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
         "path": relative_path(project_root, path),
     }
@@ -753,6 +782,7 @@ def render_automation_section(payload):
 
 def build_integrated_review_summary(automation, candidates, priority_actions, candidate_action_summary):
     candidate_review = automation.get("candidate_findings_review", {})
+    candidate_risk_resolution = automation.get("candidate_risk_resolution_review", {})
     forecast_shadow = automation.get("one_week_forecast_shadow_review", {})
     forecast_disposition = automation.get("forecast_shadow_disposition", {})
     backtest_review = automation.get("backtest_evidence_review", {})
@@ -760,6 +790,7 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
     data_health_counts = data_health.get("data_health_triage_counts", {}) or {}
     formal_flags = [
         candidate_review.get("formal_model_change_allowed"),
+        candidate_risk_resolution.get("formal_model_change_allowed"),
         forecast_shadow.get("formal_model_change_allowed"),
         forecast_disposition.get("formal_model_change_allowed"),
         backtest_review.get("formal_model_change_allowed"),
@@ -775,6 +806,12 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         "candidate_risk_decision": candidate_review.get("risk_reduction_decision", ""),
         "candidate_risk_action_required_count": to_int(candidate_review.get("risk_action_required_count")),
         "candidate_risk_priority_market": candidate_review.get("priority_market", ""),
+        "candidate_risk_resolution_status": candidate_risk_resolution.get("status", "missing"),
+        "candidate_risk_auto_routed_count": to_int(candidate_risk_resolution.get("auto_routed_count")),
+        "candidate_risk_manual_pending_count": to_int(candidate_risk_resolution.get("manual_pending_count")),
+        "candidate_risk_manual_pending_limit": to_int(candidate_risk_resolution.get("manual_pending_limit")),
+        "candidate_risk_cap_applied_count": to_int(candidate_risk_resolution.get("cap_applied_count")),
+        "candidate_risk_cap_applied_ratio": candidate_risk_resolution.get("cap_applied_ratio"),
         "forecast_shadow_status": forecast_shadow.get("status", "unknown"),
         "forecast_shadow_diagnosis_status": forecast_shadow.get("shadow_diagnosis_status", "unknown"),
         "forecast_shadow_diagnosis_reasons": forecast_shadow.get("shadow_diagnosis_reasons", []),
@@ -828,10 +865,12 @@ def render_integrated_review_summary_section(payload):
         "|---|---|---|---|",
     ]
     lines.append(
-        "| 候选风险 | {status} | action_required={required}; priority_market={market} | {decision} |".format(
-            status=escape_cell(summary.get("candidate_risk_status", "unknown")),
+        "| 候选风险 | {status} | raw_actions={required}; auto_routed={routed}; manual_pending={pending}; cap_applied={cap} | {decision} |".format(
+            status=escape_cell(summary.get("candidate_risk_resolution_status", "missing")),
             required=escape_cell(summary.get("candidate_risk_action_required_count", 0)),
-            market=escape_cell(summary.get("candidate_risk_priority_market") or "-"),
+            routed=escape_cell(summary.get("candidate_risk_auto_routed_count", 0)),
+            pending=escape_cell(summary.get("candidate_risk_manual_pending_count", 0)),
+            cap=escape_cell(summary.get("candidate_risk_cap_applied_count", 0)),
             decision=escape_cell(summary.get("candidate_risk_decision") or "按风险压降队列处理"),
         )
     )

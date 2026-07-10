@@ -135,6 +135,21 @@ def write_review_fixtures(root):
         },
     )
     write_json(
+        automation / "latest_candidate_risk_resolution_review.json",
+        {
+            "as_of_date": "2026-06-29",
+            "status": "ready",
+            "risk_action_total_count": 14,
+            "resolved_or_routed_count": 9,
+            "auto_routed_count": 9,
+            "manual_pending_count": 5,
+            "manual_pending_limit": 5,
+            "cap_applied_count": 8,
+            "cap_applied_ratio": 0.571429,
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
         automation / "latest_forecast_performance_review.json",
         {
             "as_of_date": "2026-06-29",
@@ -504,7 +519,31 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             )
             self.assertEqual(goals["data_quality_convergence"]["status"], "on_track")
             self.assertEqual(goals["candidate_review_convergence"]["status"], "on_track")
-            self.assertEqual(goals["candidate_review_convergence"]["completion_percent"], 85)
+            self.assertEqual(goals["candidate_review_convergence"]["completion_percent"], 90)
+            self.assertEqual(
+                goals["candidate_review_convergence"]["current"]["risk_manual_pending_count"],
+                5,
+            )
+            self.assertEqual(
+                goals["candidate_review_convergence"]["current"]["risk_auto_routed_count"],
+                9,
+            )
+            self.assertEqual(
+                goals["candidate_review_convergence"]["current"]["risk_action_total_count"],
+                goals["candidate_review_convergence"]["current"]["risk_action_required_count"],
+            )
+            self.assertEqual(
+                goals["candidate_review_convergence"]["current"]["risk_cap_applied_count"],
+                8,
+            )
+            self.assertEqual(
+                goals["candidate_review_convergence"]["next_action"],
+                "complete_top_candidate_deep_dives",
+            )
+            self.assertIn(
+                "待人工深研项不超过 5",
+                goals["candidate_review_convergence"]["target"],
+            )
             self.assertEqual(
                 goals["candidate_review_convergence"]["current"]["risk_action_queue_by_action"],
                 {"defer_research": 8, "manual_fundamental_review": 6},
@@ -856,7 +895,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 snapshot["current_module"],
                 goals["candidate_review_convergence"]["module"],
             )
-            self.assertEqual(snapshot["module_completion_percent"], 85)
+            self.assertEqual(snapshot["module_completion_percent"], 90)
             self.assertEqual(
                 snapshot["medium_term_overall_completion_percent"],
                 payload["overall_completion_percent"],

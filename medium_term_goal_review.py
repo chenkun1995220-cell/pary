@@ -32,6 +32,7 @@ INPUT_FILES = {
     "weekly_action_items": "latest_weekly_action_items.json",
     "data_health": "latest_data_health_review.json",
     "candidate_findings": "latest_candidate_findings_review.json",
+    "candidate_risk_resolution": "latest_candidate_risk_resolution_review.json",
     "forecast_performance": "latest_forecast_performance_review.json",
     "backtest_evidence": "latest_backtest_evidence_review.json",
     "membership_evidence_import_plan": "latest_membership_evidence_import_plan.json",
@@ -226,9 +227,10 @@ def _goal_completion_percent(goal):
             and _int_value(current.get("risk_missing_count")) == 0
             and _int_value(current.get("risk_unclassified_count")) == 0
             and _int_value(current.get("risk_action_unqueued_count")) == 0
-            and _int_value(current.get("risk_action_required_count")) <= 20
+            and current.get("risk_resolution_status") == "ready"
+            and _int_value(current.get("risk_manual_pending_count")) <= 5
         ):
-            percent = max(percent, 85)
+            percent = max(percent, 90)
     elif goal_code == "model_governance_handoff" and status == "on_track":
         if (
             current.get("governance_status") == "ready"
@@ -459,7 +461,7 @@ def _data_quality_goal(data_health, automation_check):
     )
 
 
-def _candidate_review_goal(candidate_findings):
+def _candidate_review_goal(candidate_findings, risk_resolution):
     candidate_count = _int_value(candidate_findings.get("candidate_count"))
     complete = _int_value(candidate_findings.get("field_complete_count"))
     missing = _int_value(candidate_findings.get("missing_field_count"))
@@ -473,14 +475,32 @@ def _candidate_review_goal(candidate_findings):
     risk_action_unqueued = _int_value(
         candidate_findings.get("risk_action_unqueued_count", risk_action_required)
     )
+    risk_resolution_status = risk_resolution.get("status", "missing")
+    risk_action_total = _int_value(risk_resolution.get("risk_action_total_count"))
+    risk_auto_routed = _int_value(risk_resolution.get("auto_routed_count"))
+    risk_manual_pending = _int_value(risk_resolution.get("manual_pending_count"))
+    risk_manual_pending_limit = _int_value(risk_resolution.get("manual_pending_limit"), 5)
+    risk_cap_applied = _int_value(risk_resolution.get("cap_applied_count"))
+    risk_cap_applied_ratio = risk_resolution.get("cap_applied_ratio", 0.0)
     risks_resolved = risk_review <= 20 or (
         risk_review > 0 and risk_unclassified == 0 and risk_action_unqueued == 0
     )
-    status = "on_track" if candidate_count and complete == candidate_count and missing == 0 and risk_missing == 0 and risks_resolved else "needs_work"
+    resolution_ready = (
+        risk_resolution_status == "ready"
+        and risk_manual_pending_limit <= 5
+        and risk_manual_pending <= risk_manual_pending_limit
+        and risk_action_total == risk_action_required
+        and risk_action_total == risk_auto_routed + risk_manual_pending
+    )
+    status = "on_track" if candidate_count and complete == candidate_count and missing == 0 and risk_missing == 0 and risks_resolved and resolution_ready else "needs_work"
     if risk_unclassified:
         next_action = "classify_candidate_risks"
     elif risk_action_unqueued:
         next_action = "review_candidate_action_required_risks"
+    elif not resolution_ready or risk_manual_pending > 5:
+        next_action = "reduce_candidate_risk_manual_pending"
+    elif risk_manual_pending:
+        next_action = "complete_top_candidate_deep_dives"
     else:
         next_action = "continue_candidate_review_monitoring"
     return _goal(
@@ -499,8 +519,15 @@ def _candidate_review_goal(candidate_findings):
             "risk_action_queue_count": risk_action_queue,
             "risk_action_queue_by_action": risk_action_queue_by_action,
             "risk_action_unqueued_count": risk_action_unqueued,
+            "risk_resolution_status": risk_resolution_status,
+            "risk_action_total_count": risk_action_total,
+            "risk_auto_routed_count": risk_auto_routed,
+            "risk_manual_pending_count": risk_manual_pending,
+            "risk_manual_pending_limit": risk_manual_pending_limit,
+            "risk_cap_applied_count": risk_cap_applied,
+            "risk_cap_applied_ratio": risk_cap_applied_ratio,
         },
-        "候选字段完整率保持 100%，风险提示全覆盖，风险复核项完成分类并逐步降至 20 以下。",
+        "候选字段完整率保持 100%，风险提示全覆盖，保留原始风险行动数，并将待人工深研项不超过 5。",
         next_action,
     )
 
@@ -995,6 +1022,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
     weekly_action_items = inputs["weekly_action_items"]
     data_health = inputs["data_health"]
     candidate_findings = inputs["candidate_findings"]
+    candidate_risk_resolution = inputs["candidate_risk_resolution"]
     forecast_performance = inputs["forecast_performance"]
     backtest_evidence = inputs["backtest_evidence"]
     membership_import_plan = inputs["membership_evidence_import_plan"]
@@ -1018,7 +1046,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
             weekly_delivery_history,
         ),
         _data_quality_goal(data_health, automation_check),
-        _candidate_review_goal(candidate_findings),
+        _candidate_review_goal(candidate_findings, candidate_risk_resolution),
         _forecast_goal(forecast_performance),
         _backtest_goal(
             backtest_evidence,
