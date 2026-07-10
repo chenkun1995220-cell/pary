@@ -84,6 +84,13 @@ INPUT_SPECS = {
         "version_field": "delivery_check_version",
         "version_value": 1,
     },
+    "weekly_artifact_consistency": {
+        "path": "outputs/automation/latest_weekly_artifact_consistency.json",
+        "schema_field": "consistency_schema",
+        "schema_value": "weekly_artifact_consistency",
+        "version_field": "consistency_version",
+        "version_value": 1,
+    },
     "weekly_ops_check": {
         "path": "outputs/automation/latest_weekly_ops_check.json",
         "schema_field": "ops_check_schema",
@@ -501,6 +508,16 @@ WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS = [
     "attention_reasons",
 ]
 
+WEEKLY_ARTIFACT_CONSISTENCY_REQUIRED_FIELDS = [
+    "markets",
+    "candidate_count_total",
+    "conclusion_candidate_count_total",
+    "delivery_candidate_count_total",
+    "runtime_quote_snapshot",
+    "issues",
+    "formal_model_change_allowed",
+]
+
 WEEKLY_OPS_REQUIRED_QUALITY_FIELDS = [
     "automation_audit_status",
     "automation_check_status",
@@ -629,6 +646,11 @@ def run_pre_submit_review(
         _delivery_reasons(
             payloads.get("weekly_delivery_check", {}),
             payloads.get("weekly_conclusion", {}),
+        )
+    )
+    attention_reasons.extend(
+        _weekly_artifact_consistency_reasons(
+            payloads.get("weekly_artifact_consistency", {})
         )
     )
     attention_reasons.extend(_ops_reasons(payloads.get("weekly_ops_check", {})))
@@ -1030,6 +1052,24 @@ def _delivery_reasons(payload, weekly_conclusion=None):
     return reasons
 
 
+def _weekly_artifact_consistency_reasons(payload):
+    if not payload:
+        return []
+    reasons = []
+    if any(
+        field not in payload
+        for field in WEEKLY_ARTIFACT_CONSISTENCY_REQUIRED_FIELDS
+    ):
+        reasons.append("weekly_artifact_consistency_missing_quality_fields")
+    if payload.get("status") != "ready":
+        reasons.append("weekly_artifact_consistency_needs_attention")
+    if payload.get("issues"):
+        reasons.append("weekly_artifact_consistency_has_issues")
+    if payload.get("formal_model_change_allowed") is not False:
+        reasons.append("weekly_artifact_consistency_model_boundary_unsafe")
+    return reasons
+
+
 def _delivery_external_input_blockers_missing(delivery, weekly_conclusion):
     expected = _weekly_conclusion_external_input_gaps(weekly_conclusion)
     if not expected:
@@ -1309,6 +1349,7 @@ def _artifact_order_reasons(input_modified_times):
     conclusion_mtime = input_modified_times.get("weekly_conclusion")
     action_items_mtime = input_modified_times.get("weekly_action_items")
     delivery_mtime = input_modified_times.get("weekly_delivery_check")
+    consistency_mtime = input_modified_times.get("weekly_artifact_consistency")
     if (
         conclusion_mtime is not None
         and action_items_mtime is not None
@@ -1327,6 +1368,12 @@ def _artifact_order_reasons(input_modified_times):
         and delivery_mtime < action_items_mtime
     ):
         reasons.append("weekly_delivery_check_older_than_weekly_action_items")
+    if (
+        consistency_mtime is not None
+        and delivery_mtime is not None
+        and consistency_mtime < delivery_mtime
+    ):
+        reasons.append("weekly_artifact_consistency_older_than_delivery_check")
     return reasons
 
 

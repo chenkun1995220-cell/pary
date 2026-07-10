@@ -30,6 +30,14 @@ class WeeklyAutomationTests(unittest.TestCase):
 
         self.assertIn("run_sp500_current_membership_sources", bundle)
         self.assertIn("run_backtest_evidence_review", bundle)
+        self.assertLess(
+            bundle.index("run_weekly_delivery_check.ps1"),
+            bundle.index("run_weekly_artifact_consistency.ps1"),
+        )
+        self.assertLess(
+            bundle.index("run_weekly_artifact_consistency.ps1"),
+            bundle.index("run_pre_submit_review.ps1"),
+        )
 
     def test_orchestrator_summary_includes_universe_refresh_status(self):
         script = (PROJECT_ROOT / "scripts" / "run_us_universe_weekly.ps1").read_text(

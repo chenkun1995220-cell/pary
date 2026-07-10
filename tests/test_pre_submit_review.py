@@ -1086,6 +1086,47 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             ],
         },
     )
+    write_json(
+        root / "outputs" / "automation" / "latest_weekly_artifact_consistency.json",
+        {
+            "consistency_schema": "weekly_artifact_consistency",
+            "consistency_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "markets": [
+                {
+                    "market": "US",
+                    "run_date": as_of_date,
+                    "summary_candidate_count": 2,
+                    "candidate_file_count": 2,
+                },
+                {
+                    "market": "CN",
+                    "run_date": as_of_date,
+                    "summary_candidate_count": 1,
+                    "candidate_file_count": 1,
+                },
+                {
+                    "market": "HK",
+                    "run_date": as_of_date,
+                    "summary_candidate_count": 1,
+                    "candidate_file_count": 1,
+                },
+            ],
+            "candidate_count_total": 4,
+            "conclusion_candidate_count_total": 4,
+            "delivery_candidate_count_total": 4,
+            "runtime_quote_snapshot": {
+                "git_policy": "runtime_output_only",
+                "path": "outputs/us_universe/market_quotes.csv",
+                "row_count": 503,
+                "quote_date_max": as_of_date,
+                "sha256": "b" * 64,
+            },
+            "issues": [],
+            "formal_model_change_allowed": False,
+        },
+    )
     conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
     action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
     if conclusion_path.exists() and action_items_path.exists():
@@ -1094,9 +1135,51 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         delivery_path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
         if delivery_path.exists():
             os.utime(delivery_path, (action_mtime + 2, action_mtime + 2))
+            consistency_path = (
+                root / "outputs" / "automation" / "latest_weekly_artifact_consistency.json"
+            )
+            if consistency_path.exists():
+                os.utime(consistency_path, (action_mtime + 3, action_mtime + 3))
 
 
 class PreSubmitReviewTests(unittest.TestCase):
+    def test_requires_ready_weekly_artifact_consistency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+
+            from pre_submit_review import run_pre_submit_review
+
+            ready = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+            self.assertEqual(ready["input_statuses"]["weekly_artifact_consistency"], "ready")
+
+            consistency_path = (
+                root / "outputs" / "automation" / "latest_weekly_artifact_consistency.json"
+            )
+            consistency = json.loads(consistency_path.read_text(encoding="utf-8-sig"))
+            consistency["status"] = "needs_attention"
+            consistency["issues"] = ["us_summary_candidate_count_mismatch"]
+            write_json(consistency_path, consistency)
+
+            blocked = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+            self.assertEqual(blocked["status"], "needs_attention")
+            self.assertIn("weekly_artifact_consistency_needs_attention", blocked["attention_reasons"])
+
+    def test_missing_weekly_artifact_consistency_blocks_pre_submit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (
+                root / "outputs" / "automation" / "latest_weekly_artifact_consistency.json"
+            ).unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("weekly_artifact_consistency", result["missing_outputs"])
+
     def test_evidence_ceiling_allows_closed_historical_artifacts_to_be_absent(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

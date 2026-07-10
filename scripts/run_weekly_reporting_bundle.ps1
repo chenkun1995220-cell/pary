@@ -58,6 +58,7 @@ $postSteps = @(
   @{ Label = "show_weekly_ops_history"; Script = "show_weekly_ops_history.ps1"; Critical = $true },
   @{ Label = "show_weekly_conclusion"; Script = "show_weekly_conclusion.ps1"; Critical = $true },
   @{ Label = "run_weekly_delivery_check"; Script = "run_weekly_delivery_check.ps1"; Critical = $true },
+  @{ Label = "run_weekly_artifact_consistency"; Script = "run_weekly_artifact_consistency.ps1"; Critical = $true },
   @{ Label = "show_weekly_delivery_history"; Script = "show_weekly_delivery_history.ps1"; Critical = $true },
   @{ Label = "run_pre_submit_review"; Script = "run_pre_submit_review.ps1"; Critical = $false },
   @{ Label = "show_development_closeout"; Script = "show_development_closeout.ps1"; Critical = $true }
