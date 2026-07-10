@@ -65,6 +65,7 @@ try {
     throw "Another weekly screening run is already in progress."
   }
 
+  $runStartedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
   New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
   $runStamp = Get-Date -Format "yyyyMMdd_HHmmss"
   $logPath = Join-Path $OutputRoot "run_$runStamp.log"
@@ -158,6 +159,7 @@ try {
   $summary = @(
     "# US Weekly Screening Run Summary",
     "",
+    "- Run start time: $runStartedAt",
     "- Run time: $runTime",
     "- Universe count: $($universeRows.Count)",
     "- Constituent refresh status: $refreshStatus",

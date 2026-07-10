@@ -8,6 +8,26 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WeeklyAutomationTests(unittest.TestCase):
+    def test_market_weekly_summaries_include_run_start_time(self):
+        scripts = [
+            PROJECT_ROOT / "scripts" / "run_us_universe_weekly.ps1",
+            PROJECT_ROOT / "scripts" / "run_cn_weekly.ps1",
+            PROJECT_ROOT / "scripts" / "run_hk_weekly.ps1",
+        ]
+
+        for path in scripts:
+            script = path.read_text(encoding="utf-8-sig")
+            with self.subTest(script=path.name):
+                self.assertIn(
+                    '$runStartedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"',
+                    script,
+                )
+                self.assertIn('"- Run start time: $runStartedAt"', script)
+                self.assertGreater(
+                    script.index("$runStartedAt = Get-Date"),
+                    script.index("if ($DryRun)"),
+                )
+
     def test_weekly_bundle_runs_candidate_risk_resolution_after_research_review(self):
         bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
             encoding="utf-8-sig"

@@ -39,6 +39,7 @@ $transcriptStarted = $false
 try {
   $hasLock = $mutex.WaitOne(0)
   if (-not $hasLock) { throw "Another HK weekly run is already in progress." }
+  $runStartedAt = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
   New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
   $logPath = Join-Path $OutputRoot ("run_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".log")
   Start-Transcript -Path $logPath | Out-Null
@@ -181,6 +182,7 @@ try {
   $summary = @(
     "# HK Weekly Data Summary",
     "",
+    "- Run start time: $runStartedAt",
     "- Run time: $runTime",
     "- Universe: HSLI and HSMI",
     "- Company count: $($rows.Count)",
