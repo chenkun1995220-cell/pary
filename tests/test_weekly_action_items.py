@@ -417,6 +417,10 @@ def write_backtest_evidence_review(path):
         "verified_membership_ratio": 0.156,
         "weak_evidence_rows": 3382,
         "weak_evidence_weeks": 8,
+        "membership_evidence_gate_status": "blocked",
+        "membership_evidence_gate_decision": "verified_only_no_expansion",
+        "membership_evidence_blocking_tiers": ["secondary", "weak"],
+        "historical_membership_auto_update_allowed": False,
         "membership_evidence_action_queue": [
             {
                 "ticker": "ABT",
@@ -1600,6 +1604,10 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("do_not_expand_backtest_sample", item["recommended_check"])
             self.assertIn("verified_membership_ratio=15.60%", item["recommended_check"])
             self.assertIn("weak_evidence_rows=3382", item["recommended_check"])
+            self.assertIn("evidence_gate=blocked", item["recommended_check"])
+            self.assertIn("gate_decision=verified_only_no_expansion", item["recommended_check"])
+            self.assertIn("blocking_tiers=secondary,weak", item["recommended_check"])
+            self.assertIn("不得自动更新 historical_membership.csv", item["recommended_check"])
             self.assertIn("正式模型不得自动升级", item["recommended_check"])
 
     def test_official_csv_action_includes_source_file_inbox_fingerprint_when_available(self):

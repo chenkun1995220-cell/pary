@@ -393,6 +393,21 @@ def _backtest_evidence_decision_text(manifest):
     weak_weeks = _int_value(review.get("weak_evidence_weeks"), 0)
     action_required = _int_value(review.get("membership_evidence_action_required_count"), 0)
     required_ratio = _percent_value(review.get("required_verified_membership_ratio_for_expansion"))
+    gate_status = str(review.get("membership_evidence_gate_status", "") or "").strip()
+    gate_decision = str(review.get("membership_evidence_gate_decision", "") or "").strip()
+    blocking_tiers = [
+        str(tier).strip()
+        for tier in review.get("membership_evidence_blocking_tiers", []) or []
+        if str(tier).strip()
+    ]
+    gate_text = ""
+    if gate_status or gate_decision or blocking_tiers:
+        gate_text = (
+            f"evidence_gate={gate_status or 'unknown'}，"
+            f"gate_decision={gate_decision or 'unknown'}，"
+            f"blocking_tiers={','.join(blocking_tiers) or 'none'}；"
+            "不得自动更新 historical_membership.csv；"
+        )
     upgrade_text = (
         "正式模型可进入人工升级复核"
         if review.get("formal_model_upgrade_allowed")
@@ -404,6 +419,7 @@ def _backtest_evidence_decision_text(manifest):
         f"verified_membership_ratio={ratio}，扩样门槛={required_ratio}，"
         f"weak_evidence_rows={weak_rows}，weak_evidence_weeks={weak_weeks}，"
         f"membership_evidence_action_required_count={action_required}；"
+        f"{gate_text}"
         f"{upgrade_text}。"
     )
 

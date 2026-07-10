@@ -9,6 +9,23 @@ from pathlib import Path
 REVIEW_SCHEMA = "backtest_evidence_review"
 REVIEW_VERSION = 1
 MIN_VERIFIED_RATIO_FOR_SAMPLE_EXPANSION = 0.5
+MEMBERSHIP_EVIDENCE_TIER_POLICY = {
+    "verified": {
+        "expansion_eligible": True,
+        "use": "eligible_for_sample_expansion_after_other_gates_clear",
+        "required_source": "official_s_and_p_global_membership_evidence",
+    },
+    "secondary": {
+        "expansion_eligible": False,
+        "use": "crosscheck_only_not_formal_expansion_evidence",
+        "required_source": "replace_with_official_s_and_p_global_source",
+    },
+    "insufficient": {
+        "expansion_eligible": False,
+        "use": "blocked_until_source_supplied",
+        "required_source": "supply_verified_membership_evidence",
+    },
+}
 
 
 def _read_text(path):
@@ -123,6 +140,46 @@ def _membership_evidence_action_queue(gap_report):
     return queue
 
 
+def _membership_evidence_tier_counts(gap_report):
+    counts = {
+        "verified_rows": _int_value(gap_report.get("verified_rows")),
+        "weak_rows": _int_value(gap_report.get("weak_rows")),
+        "total_rows": _int_value(gap_report.get("total_rows")),
+    }
+    gap_counts = {}
+    for gap in gap_report.get("_queue_source_gaps", []) or []:
+        tier = str(gap.get("current_evidence", "") or "insufficient")
+        gap_counts[tier] = gap_counts.get(tier, 0) + 1
+    for tier, count in gap_counts.items():
+        counts[f"{tier}_gap_tickers"] = count
+    return counts
+
+
+def _membership_evidence_gate(fields, gap_report, sample_expansion):
+    weak_rows = _int_value(fields.get("Weak evidence rows"))
+    blocking_tiers = []
+    for gap in gap_report.get("_queue_source_gaps", []) or []:
+        tier = str(gap.get("current_evidence", "") or "insufficient")
+        if not MEMBERSHIP_EVIDENCE_TIER_POLICY.get(tier, {}).get("expansion_eligible", False):
+            if tier not in blocking_tiers:
+                blocking_tiers.append(tier)
+    if weak_rows and "weak" not in blocking_tiers:
+        blocking_tiers.append("weak")
+    allowed = bool(sample_expansion.get("backtest_sample_expansion_allowed")) and not blocking_tiers
+    return {
+        "membership_evidence_gate_status": "clear" if allowed else "blocked",
+        "membership_evidence_gate_decision": (
+            "verified_only_expansion_review_allowed"
+            if allowed
+            else "verified_only_no_expansion"
+        ),
+        "membership_evidence_tier_policy": MEMBERSHIP_EVIDENCE_TIER_POLICY,
+        "membership_evidence_blocking_tiers": blocking_tiers,
+        "membership_evidence_tier_counts": _membership_evidence_tier_counts(gap_report),
+        "historical_membership_auto_update_allowed": False,
+    }
+
+
 def _decision(fields, gap_report):
     evidence_status = fields.get("Evidence status", "unknown")
     weak_rows = _int_value(fields.get("Weak evidence rows"))
@@ -187,6 +244,7 @@ def build_backtest_evidence_review(summary, as_of_date=None):
     public_gap_report.pop("_queue_source_gaps", None)
     status, recommended_action, upgrade_allowed = _decision(fields, gap_report)
     sample_expansion = _sample_expansion_decision(fields, gap_report, action_required_count)
+    evidence_gate = _membership_evidence_gate(fields, gap_report, sample_expansion)
     backtest_as_of_date = _as_of_date(fields)
     return {
         "review_schema": REVIEW_SCHEMA,
@@ -214,6 +272,7 @@ def build_backtest_evidence_review(summary, as_of_date=None):
         "membership_evidence_action_unqueued_count": action_unqueued_count,
         "membership_evidence_action_queue": action_queue,
         **sample_expansion,
+        **evidence_gate,
         "formal_model_upgrade_allowed": upgrade_allowed,
         "boundary": "只读取现有严格时点回测摘要和成员证据缺口报告，不抓取行情，不重新回测，不修改正式模型参数。",
     }
@@ -256,11 +315,37 @@ def render_backtest_evidence_review(payload):
         f"- 决策原因：{expansion_reasons}",
         "- 执行动作：先补充 verified S&P Global 历史成分证据，再考虑扩大回测样本。",
         "",
+        "## 成员证据分层闸门",
+        "",
+        f"- gate_status：{payload.get('membership_evidence_gate_status', 'unknown')}",
+        f"- gate_decision：{payload.get('membership_evidence_gate_decision', 'unknown')}",
+        f"- blocking_tiers：{', '.join(payload.get('membership_evidence_blocking_tiers', []) or []) or 'none'}",
+        f"- historical_membership_auto_update_allowed：{str(bool(payload.get('historical_membership_auto_update_allowed', False))).lower()}",
+        "- 执行边界：不得自动更新 historical_membership.csv；secondary 只作为交叉校验，不得作为正式扩样证据。",
+        "",
+        "| 证据等级 | 可用于扩样 | 用途 | 需要来源 |",
+        "|---|---|---|---|",
+    ]
+    for tier, policy in (payload.get("membership_evidence_tier_policy", {}) or {}).items():
+        lines.append(
+            f"| {tier} | {str(bool(policy.get('expansion_eligible'))).lower()} | "
+            f"{policy.get('use', '')} | {policy.get('required_source', '')} |"
+        )
+    counts = payload.get("membership_evidence_tier_counts", {}) or {}
+    lines.extend(
+        [
+            "",
+            f"- verified_rows：{counts.get('verified_rows', 0)}",
+            f"- weak_rows：{counts.get('weak_rows', 0)}",
+            f"- total_rows：{counts.get('total_rows', 0)}",
+            f"- secondary_gap_tickers：{counts.get('secondary_gap_tickers', 0)}",
+            "",
         "## 证据缺口样例",
         "",
         "| 排名 | 股票 | 公司 | 证据等级 | 影响周数 | 建议动作 |",
         "|---:|---|---|---|---:|---|",
-    ]
+        ]
+    )
     gaps = payload.get("gap_report", {}).get("top_gaps", []) or []
     if not gaps:
         lines.append("| - | - | - | - | - | 无证据缺口样例 |")
