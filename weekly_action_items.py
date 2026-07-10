@@ -287,6 +287,16 @@ def _shadow_review_actions_text(*reviews):
             decision_text += f", priority_review_market={priority_market}"
         if blockers:
             decision_text += f", blockers={','.join(blockers)}"
+        diagnosis_status = str(review.get("shadow_diagnosis_status", "") or "").strip()
+        diagnosis_reasons = [
+            str(item.get("reason_code", "")).strip()
+            for item in review.get("shadow_diagnosis_reasons", []) or []
+            if isinstance(item, dict) and str(item.get("reason_code", "")).strip()
+        ]
+        if diagnosis_status:
+            decision_text += f", diagnosis_status={diagnosis_status}"
+        if diagnosis_reasons:
+            decision_text += f", diagnosis={','.join(diagnosis_reasons)}"
         parts.append(decision_text)
     if not parts:
         return ""

@@ -498,6 +498,21 @@ def write_one_week_shadow_review(path):
             "direction_hit_rate_below_threshold",
             "opposite_miss_count_positive",
         ],
+        "shadow_diagnosis_status": "review_needed",
+        "shadow_diagnosis_reasons": [
+            {
+                "reason_code": "down_signal_reversal_risk",
+                "priority_market": "港股周筛",
+                "recommended_shadow_action": "review_down_signal_mapping_shadow_only",
+                "formal_model_change_allowed": False,
+            },
+            {
+                "reason_code": "neutral_band_too_narrow",
+                "priority_market": "港股周筛",
+                "recommended_shadow_action": "review_neutral_band_shadow_only",
+                "formal_model_change_allowed": False,
+            },
+        ],
     }
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(
@@ -950,6 +965,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("formal_model_change_decision=keep_formal_model_unchanged", forecast["recommended_check"])
             self.assertIn("priority_review_market=港股周筛", forecast["recommended_check"])
             self.assertIn("blockers=direction_hit_rate_below_threshold,opposite_miss_count_positive", forecast["recommended_check"])
+            self.assertIn("diagnosis_status=review_needed", forecast["recommended_check"])
+            self.assertIn("diagnosis=down_signal_reversal_risk,neutral_band_too_narrow", forecast["recommended_check"])
             self.assertIn("latest_one_week_forecast_calibration_review.json", forecast["recommended_check"])
             self.assertIn("review_down_signal_mapping_shadow_only", forecast["recommended_check"])
             self.assertIn("formal_model_change_allowed:false", forecast["source"])

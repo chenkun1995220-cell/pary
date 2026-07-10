@@ -144,11 +144,28 @@ class OneWeekForecastShadowReviewTests(unittest.TestCase):
             self.assertEqual(payload["priority_review_market"], "港股周筛")
             self.assertIn("direction_hit_rate_below_threshold", payload["formal_model_change_blockers"])
             self.assertIn("opposite_miss_count_positive", payload["formal_model_change_blockers"])
+            self.assertEqual(payload["shadow_diagnosis_status"], "review_needed")
+            diagnosis_codes = [item["reason_code"] for item in payload["shadow_diagnosis_reasons"]]
+            self.assertIn("direction_mapping_issue", diagnosis_codes)
+            self.assertIn("down_signal_reversal_risk", diagnosis_codes)
+            self.assertIn("neutral_band_too_narrow", diagnosis_codes)
+            self.assertIn("market_specific_review", diagnosis_codes)
+            down_signal = next(
+                item
+                for item in payload["shadow_diagnosis_reasons"]
+                if item["reason_code"] == "down_signal_reversal_risk"
+            )
+            self.assertEqual(down_signal["priority_market"], "港股周筛")
+            self.assertEqual(down_signal["recommended_shadow_action"], "review_down_signal_mapping_shadow_only")
+            self.assertFalse(down_signal["formal_model_change_allowed"])
             self.assertEqual(payload["markets"][0]["one_week_evaluated_count"], 2)
+            self.assertEqual(payload["markets"][1]["direction_pair_counts"]["down->up"], 1)
             self.assertEqual(payload["markets"][1]["opposite_miss_count"], 1)
             self.assertEqual(payload["weak_samples"][0]["ticker"], "00123.HK")
             self.assertIn("1周预测影子分析", report)
             self.assertIn("## 正式模型保护结论", report)
+            self.assertIn("## 影子原因归类", report)
+            self.assertIn("down_signal_reversal_risk", report)
             self.assertIn("formal_model_change_decision：keep_formal_model_unchanged", report)
             self.assertIn("priority_review_market：港股周筛", report)
             self.assertIn("review_direction_mapping", report)

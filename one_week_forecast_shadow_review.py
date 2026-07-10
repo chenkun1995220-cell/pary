@@ -60,6 +60,16 @@ def _one_week_evaluated(rows):
     ]
 
 
+def _direction_pair_counts(rows):
+    counts = {}
+    for row in rows:
+        predicted = row.get("predicted_direction", "") or "unknown"
+        actual = row.get("actual_direction", "") or "unknown"
+        key = f"{predicted}->{actual}"
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 def _sample(row, market_name):
     miss_type = "hit" if _is_hit(row) else "miss"
     if _is_opposite_miss(row):
@@ -108,6 +118,7 @@ def _market_review(project_root, name, relative_path):
             "direction_hit_rate": None,
             "opposite_miss_count": 0,
             "neutral_miss_count": 0,
+            "direction_pair_counts": {},
             "average_return": None,
             "average_excess_return": None,
             "weak_samples": [],
@@ -132,6 +143,7 @@ def _market_review(project_root, name, relative_path):
         "direction_hit_rate": len(hits) / count if count else None,
         "opposite_miss_count": len(opposite),
         "neutral_miss_count": len(neutral),
+        "direction_pair_counts": _direction_pair_counts(one_week),
         "average_return": _average(_float_value(row.get("actual_return")) for row in one_week),
         "average_excess_return": _average(_float_value(row.get("excess_return")) for row in one_week),
         "weak_samples": weak_sorted[:10],
@@ -186,6 +198,76 @@ def _formal_model_blockers(total, hit_rate, opposite_misses, neutral_misses):
     return blockers
 
 
+def _max_pair_count(markets, pair_key):
+    candidates = [
+        item
+        for item in markets
+        if item.get("status") == "ready" and item.get("one_week_evaluated_count", 0) > 0
+    ]
+    if not candidates:
+        return "", 0
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            -int((item.get("direction_pair_counts") or {}).get(pair_key, 0)),
+            item.get("name", ""),
+        ),
+    )
+    return ranked[0].get("name", ""), int((ranked[0].get("direction_pair_counts") or {}).get(pair_key, 0))
+
+
+def _shadow_diagnosis_reasons(markets, total, hit_rate, opposite_misses, neutral_misses):
+    reasons = []
+    priority_market = _priority_review_market(markets)
+    if total and hit_rate is not None and hit_rate < 0.35:
+        reasons.append(
+            {
+                "reason_code": "direction_mapping_issue",
+                "priority_market": priority_market,
+                "evidence": f"direction_hit_rate={hit_rate:.2%}; threshold=35.00%",
+                "recommended_shadow_action": "review_direction_mapping_shadow_only",
+                "formal_model_change_allowed": False,
+            }
+        )
+    down_up_market, down_up_count = _max_pair_count(markets, "down->up")
+    if opposite_misses > 0 and down_up_count > 0:
+        reasons.append(
+            {
+                "reason_code": "down_signal_reversal_risk",
+                "priority_market": down_up_market,
+                "evidence": f"down->up_misses={down_up_count}; total_opposite_misses={opposite_misses}",
+                "recommended_shadow_action": "review_down_signal_mapping_shadow_only",
+                "formal_model_change_allowed": False,
+            }
+        )
+    if total and neutral_misses / total >= 0.25:
+        reasons.append(
+            {
+                "reason_code": "neutral_band_too_narrow",
+                "priority_market": priority_market,
+                "evidence": f"neutral_miss_rate={neutral_misses / total:.2%}; threshold=25.00%",
+                "recommended_shadow_action": "review_neutral_band_shadow_only",
+                "formal_model_change_allowed": False,
+            }
+        )
+    market = next((item for item in markets if item.get("name") == priority_market), None)
+    if market and market.get("direction_hit_rate") is not None and market.get("direction_hit_rate") < 0.2:
+        reasons.append(
+            {
+                "reason_code": "market_specific_review",
+                "priority_market": priority_market,
+                "evidence": (
+                    f"market_hit_rate={market.get('direction_hit_rate'):.2%}; "
+                    f"opposite_misses={market.get('opposite_miss_count', 0)}; "
+                    f"neutral_misses={market.get('neutral_miss_count', 0)}"
+                ),
+                "recommended_shadow_action": "review_market_signal_mapping_shadow_only",
+                "formal_model_change_allowed": False,
+            }
+        )
+    return reasons
+
+
 def build_one_week_forecast_shadow_review(project_root=".", markets=None, as_of_date=None):
     market_specs = markets or DEFAULT_MARKETS
     reviewed = sorted(
@@ -202,6 +284,13 @@ def build_one_week_forecast_shadow_review(project_root=".", markets=None, as_of_
     average_excess = _average(item.get("average_excess_return") for item in reviewed)
     recommended_actions = _recommended_actions(total, hit_rate, opposite, neutral)
     formal_model_blockers = _formal_model_blockers(total, hit_rate, opposite, neutral)
+    shadow_diagnosis_reasons = _shadow_diagnosis_reasons(
+        reviewed,
+        total,
+        hit_rate,
+        opposite,
+        neutral,
+    )
     status = (
         "shadow_review_needed"
         if any(action.startswith("review_") for action in recommended_actions)
@@ -232,6 +321,8 @@ def build_one_week_forecast_shadow_review(project_root=".", markets=None, as_of_
         "shadow_review_decision": "shadow_review_only",
         "priority_review_market": _priority_review_market(reviewed),
         "formal_model_change_blockers": formal_model_blockers,
+        "shadow_diagnosis_status": "review_needed" if shadow_diagnosis_reasons else "clear",
+        "shadow_diagnosis_reasons": shadow_diagnosis_reasons,
         "markets": reviewed,
         "weak_samples": weak_samples,
         "boundary": "只做1周预测表现影子分析，不重新评分，不修改正式模型参数。",
@@ -263,11 +354,31 @@ def render_one_week_forecast_shadow_review(payload):
         f"- priority_review_market：{payload.get('priority_review_market', '')}",
         f"- formal_model_change_blockers：{', '.join(payload.get('formal_model_change_blockers', []))}",
         "",
+        "## 影子原因归类",
+        "",
+        f"- shadow_diagnosis_status：{payload.get('shadow_diagnosis_status', 'unknown')}",
+        "",
+        "| 原因 | 优先市场 | 证据 | 影子动作 | 正式模型修改 |",
+        "|---|---|---|---|---|",
+    ]
+    if payload.get("shadow_diagnosis_reasons"):
+        for item in payload.get("shadow_diagnosis_reasons", []):
+            lines.append(
+                f"| {item.get('reason_code', '')} | {item.get('priority_market', '')} | "
+                f"{item.get('evidence', '')} | {item.get('recommended_shadow_action', '')} | "
+                f"{'允许' if item.get('formal_model_change_allowed') else '不允许'} |"
+            )
+    else:
+        lines.append("| - | - | 无需影子原因归类 | - | 不允许 |")
+    lines.extend(
+        [
+            "",
         "## 市场分布",
         "",
         "| 市场 | 状态 | 1周样本 | 命中 | 命中率 | 反向误差 | neutral误差 | 平均超额 |",
         "|---|---|---:|---:|---:|---:|---:|---:|",
-    ]
+        ]
+    )
     for item in payload.get("markets", []):
         lines.append(
             f"| {item.get('name', '')} | {item.get('status', '')} | "
