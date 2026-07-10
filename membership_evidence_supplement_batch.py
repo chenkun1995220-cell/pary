@@ -38,6 +38,12 @@ BATCH_FIELDS = [
     "validation_command",
 ]
 OFFICIAL_INDEX_PAGE_URL = "https://www.spglobal.com/spdji/en/indices/equity/sp-500/"
+COMPLETED_INTAKE_EVIDENCE_VALUES = {
+    "verified",
+    "official_source_not_found",
+    "official_evidence_not_found",
+    "not_found",
+}
 
 
 def _read_json(path):
@@ -76,6 +82,32 @@ def _queue_items(payload):
         row["weeks_affected"] = _int_value(row.get("weeks_affected"), 0)
         items.append(row)
     return sorted(items, key=lambda row: (_int_value(row.get("priority"), 0), row.get("ticker", "")))
+
+
+def _batch_id_for_selection(current_date, selected, intake_rows):
+    selected_tickers = {
+        normalize_ticker(item.get("ticker"))
+        for item in selected
+        if normalize_ticker(item.get("ticker"))
+    }
+    existing_same_day_ids = []
+    selected_existing_ids = set()
+    for row in intake_rows:
+        batch_id = str(row.get("batch_id", "") or "").strip()
+        if not batch_id.startswith(f"{current_date}-p"):
+            continue
+        try:
+            existing_same_day_ids.append(int(batch_id.rsplit("-p", 1)[1]))
+        except (IndexError, ValueError):
+            continue
+        ticker = normalize_ticker(row.get("ticker"))
+        evidence = str(row.get("membership_evidence", "") or "").strip().lower()
+        if ticker in selected_tickers and evidence not in COMPLETED_INTAKE_EVIDENCE_VALUES:
+            selected_existing_ids.add(batch_id)
+    if len(selected_existing_ids) == 1:
+        return next(iter(selected_existing_ids))
+    next_index = (max(existing_same_day_ids) + 1) if existing_same_day_ids else 1
+    return f"{current_date}-p{next_index}"
 
 
 def _official_domain_search_query(ticker, company_name):
@@ -137,13 +169,22 @@ def _batch_item(item, batch_id, batch_rank):
     }
 
 
-def build_supplement_batch(queue, batch_size=10, as_of_date=None):
+def build_supplement_batch(queue, batch_size=10, as_of_date=None, intake_path=None):
     queue_payload = _read_json(queue)
-    items = _queue_items(queue_payload)
+    queue_items = _queue_items(queue_payload)
+    intake_rows = _read_csv(intake_path) if intake_path else []
+    completed_tickers = {
+        normalize_ticker(row.get("ticker"))
+        for row in intake_rows
+        if normalize_ticker(row.get("ticker"))
+        and str(row.get("membership_evidence", "") or "").strip().lower()
+        in COMPLETED_INTAKE_EVIDENCE_VALUES
+    }
+    items = [item for item in queue_items if item.get("ticker") not in completed_tickers]
     size = max(1, _int_value(batch_size, 10))
     selected = items[:size]
     current_date = as_of_date or date.today().isoformat()
-    batch_id = f"{current_date}-p1"
+    batch_id = _batch_id_for_selection(current_date, selected, intake_rows)
     batch_items = [_batch_item(item, batch_id, index) for index, item in enumerate(selected, start=1)]
     return {
         "batch_schema": BATCH_SCHEMA,
@@ -153,7 +194,8 @@ def build_supplement_batch(queue, batch_size=10, as_of_date=None):
         "source_queue": str(Path(queue)),
         "batch_id": batch_id,
         "batch_size": size,
-        "queue_count": len(items),
+        "queue_count": len(queue_items),
+        "completed_intake_count": len(completed_tickers),
         "selected_count": len(batch_items),
         "preserved_manual_evidence_count": 0,
         "remaining_after_batch_count": max(len(items) - len(batch_items), 0),
@@ -283,6 +325,27 @@ def write_csv(payload, path):
         writer.writerows(payload.get("items", []) or [])
 
 
+def write_intake_draft(payload, path):
+    destination = Path(path)
+    existing_rows = _read_csv(destination)
+    selected_tickers = {
+        normalize_ticker(item.get("ticker"))
+        for item in payload.get("items", []) or []
+        if normalize_ticker(item.get("ticker"))
+    }
+    retained_rows = [
+        row
+        for row in existing_rows
+        if normalize_ticker(row.get("ticker")) not in selected_tickers
+    ]
+    output_rows = retained_rows + list(payload.get("items", []) or [])
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=BATCH_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(output_rows)
+
+
 def write_text(text, path):
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -302,7 +365,12 @@ def main():
     parser.add_argument("--intake-draft", default="")
     args = parser.parse_args()
 
-    payload = build_supplement_batch(args.queue, batch_size=args.batch_size, as_of_date=args.as_of_date or None)
+    payload = build_supplement_batch(
+        args.queue,
+        batch_size=args.batch_size,
+        as_of_date=args.as_of_date or None,
+        intake_path=args.intake_draft or None,
+    )
     if args.intake_draft:
         payload["intake_draft_path"] = str(Path(args.intake_draft))
         payload = preserve_manual_intake_fields(payload, args.intake_draft)
@@ -310,7 +378,7 @@ def main():
     write_json(payload, args.output_json)
     write_csv(payload, args.output_csv)
     if args.intake_draft:
-        write_csv(payload, args.intake_draft)
+        write_intake_draft(payload, args.intake_draft)
     write_text(report, args.output_md)
     print(report)
 

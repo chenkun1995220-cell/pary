@@ -1397,6 +1397,45 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("继续生成或处理下一批", supplement_item["recommended_check"])
             self.assertNotIn("优先处理 ABT, ADM, AEP, BA, BMY", supplement_item["recommended_check"])
 
+    def test_omits_supplement_action_when_official_search_queue_is_exhausted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            import_plan_path = root / "latest_membership_evidence_import_plan.json"
+            source_intake_path = root / "latest_membership_evidence_source_intake_status.json"
+            write_manifest(manifest_path)
+            write_blocked_membership_import_plan(import_plan_path)
+            write_membership_source_intake_status(source_intake_path)
+            source_intake = json.loads(source_intake_path.read_text(encoding="utf-8-sig"))
+            source_intake.update(
+                {
+                    "status": "official_source_not_found_recorded",
+                    "ready_to_import_count": 0,
+                    "pending_count": 0,
+                    "official_source_not_found_count": 50,
+                    "current_batch_pending_count": 0,
+                    "current_batch_not_found_count": 10,
+                    "current_batch_manual_checklist": [],
+                }
+            )
+            source_intake_path.write_text(
+                json.dumps(source_intake, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                membership_import_plan=import_plan_path,
+                membership_evidence_source_intake_status=source_intake_path,
+            )
+
+            self.assertNotIn(
+                "supplement_verified_membership_evidence",
+                [item["action_code"] for item in payload["items"]],
+            )
+
     def test_adds_current_membership_source_review_action_when_missing_tickers_remain(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

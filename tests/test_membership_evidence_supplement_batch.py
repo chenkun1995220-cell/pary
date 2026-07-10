@@ -235,7 +235,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
                     {
                         "ticker": "ABT",
                         "company_name": "Abbott Laboratories",
-                        "membership_evidence": "verified",
+                        "membership_evidence": "",
                         "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
                         "source_as_of_date": "2026-07-07",
                         "evidence_kind": "current_constituents",
@@ -275,7 +275,7 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             with intake_draft.open(encoding="utf-8-sig", newline="") as handle:
                 rows = {row["ticker"]: row for row in csv.DictReader(handle)}
             self.assertEqual(rows["ABT"]["batch_id"], "2026-07-08-p1")
-            self.assertEqual(rows["ABT"]["membership_evidence"], "verified")
+            self.assertEqual(rows["ABT"]["membership_evidence"], "")
             self.assertEqual(
                 rows["ABT"]["membership_source_url"],
                 "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
@@ -287,6 +287,177 @@ class MembershipEvidenceSupplementBatchTests(unittest.TestCase):
             self.assertEqual(rows["ADM"]["membership_evidence"], "")
             payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["preserved_manual_evidence_count"], 1)
+
+    def test_cli_skips_completed_intake_rows_when_selecting_next_batch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue = root / "queue.json"
+            output_json = root / "batch.json"
+            output_csv = root / "batch.csv"
+            output_md = root / "batch.md"
+            intake_draft = root / "inputs" / "sp500_membership_evidence" / "verified_membership_evidence_intake.csv"
+            write_queue(queue)
+            intake_draft.parent.mkdir(parents=True, exist_ok=True)
+            with intake_draft.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "official_source_not_found",
+                        "membership_source_url": "",
+                        "source_as_of_date": "",
+                        "evidence_kind": "current_constituents",
+                        "notes": "official-domain search found no company-specific source",
+                        "reviewer": "codex",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "ticker": "ADM",
+                        "company_name": "Archer Daniels Midland",
+                        "membership_evidence": "verified",
+                        "membership_source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/",
+                        "source_as_of_date": "2026-07-08",
+                        "evidence_kind": "current_constituents",
+                        "notes": "official page shows ADM",
+                        "reviewer": "manual",
+                    }
+                )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "membership_evidence_supplement_batch.py"),
+                    "--queue",
+                    str(queue),
+                    "--batch-size",
+                    "2",
+                    "--as-of-date",
+                    "2026-07-10",
+                    "--output-json",
+                    str(output_json),
+                    "--output-csv",
+                    str(output_csv),
+                    "--output-md",
+                    str(output_md),
+                    "--intake-draft",
+                    str(intake_draft),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["completed_intake_count"], 2)
+            self.assertEqual(payload["batch_tickers"], ["AEP"])
+            self.assertEqual(payload["selected_count"], 1)
+            self.assertEqual(payload["remaining_after_batch_count"], 0)
+            with intake_draft.open(encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual([row["ticker"] for row in rows], ["ABT", "ADM", "AEP"])
+            by_ticker = {row["ticker"]: row for row in rows}
+            self.assertEqual(by_ticker["ABT"]["membership_evidence"], "official_source_not_found")
+            self.assertEqual(by_ticker["ADM"]["membership_evidence"], "verified")
+            self.assertEqual(by_ticker["AEP"]["membership_evidence"], "")
+
+    def test_cli_increments_same_day_batch_id_after_completed_batch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue = root / "queue.json"
+            output_json = root / "batch.json"
+            output_csv = root / "batch.csv"
+            output_md = root / "batch.md"
+            intake_draft = root / "inputs" / "sp500_membership_evidence" / "verified_membership_evidence_intake.csv"
+            write_queue(queue)
+            intake_draft.parent.mkdir(parents=True, exist_ok=True)
+            with intake_draft.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "batch_id",
+                        "batch_rank",
+                        "queue_priority",
+                        "ticker",
+                        "company_name",
+                        "membership_evidence",
+                        "membership_source_url",
+                        "source_as_of_date",
+                        "evidence_kind",
+                        "notes",
+                        "reviewer",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "batch_id": "2026-07-10-p1",
+                        "batch_rank": "1",
+                        "queue_priority": "1",
+                        "ticker": "ABT",
+                        "company_name": "Abbott Laboratories",
+                        "membership_evidence": "official_source_not_found",
+                        "membership_source_url": "",
+                        "source_as_of_date": "",
+                        "evidence_kind": "current_constituents",
+                        "notes": "official-domain search found no company-specific source",
+                        "reviewer": "codex",
+                    }
+                )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "membership_evidence_supplement_batch.py"),
+                    "--queue",
+                    str(queue),
+                    "--batch-size",
+                    "2",
+                    "--as-of-date",
+                    "2026-07-10",
+                    "--output-json",
+                    str(output_json),
+                    "--output-csv",
+                    str(output_csv),
+                    "--output-md",
+                    str(output_md),
+                    "--intake-draft",
+                    str(intake_draft),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(output_json.read_text(encoding="utf-8-sig"))
+            self.assertEqual(payload["batch_id"], "2026-07-10-p2")
+            self.assertEqual(payload["batch_tickers"], ["ADM", "AEP"])
+            with intake_draft.open(encoding="utf-8-sig", newline="") as handle:
+                rows = {row["ticker"]: row for row in csv.DictReader(handle)}
+            self.assertEqual(rows["ADM"]["batch_id"], "2026-07-10-p2")
+            self.assertEqual(rows["AEP"]["batch_id"], "2026-07-10-p2")
 
     def test_wrapper_bundle_and_pre_submit_include_supplement_batch(self):
         wrapper = (PROJECT_ROOT / "scripts" / "run_membership_evidence_supplement_batch.ps1").read_text(

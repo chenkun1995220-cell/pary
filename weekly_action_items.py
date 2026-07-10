@@ -742,6 +742,12 @@ def _membership_evidence_supplement_action(
     if not isinstance(import_plan, dict) or not import_plan:
         return None
     source_intake_status = source_intake_status or {}
+    if (
+        str(source_intake_status.get("status", "") or "") == "official_source_not_found_recorded"
+        and _int_value(source_intake_status.get("pending_count"), 0) == 0
+        and _int_value(source_intake_status.get("ready_to_import_count"), 0) == 0
+    ):
+        return None
     if _int_value(import_plan.get("ready_to_import_count"), 0) > 0:
         return None
     if str(import_plan.get("next_action", "") or "") != "supplement_verified_membership_evidence":
