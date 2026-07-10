@@ -36,6 +36,10 @@ WEEKLY_ACTION_ITEMS_PATH = "outputs/automation/latest_weekly_action_items.json"
 MANUAL_REVIEW_DECISIONS_PATH = "outputs/automation/manual_review_decisions.csv"
 MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT = "outputs/automation/manual_review_decisions_template.csv"
 MANUAL_REVIEW_MERGE_SUMMARY_PATH = "outputs/automation/latest_manual_review_decision_merge.json"
+CANDIDATE_FINDINGS_REVIEW_PATH = "outputs/automation/latest_candidate_findings_review.json"
+ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH = "outputs/automation/latest_one_week_forecast_shadow_review.json"
+BACKTEST_EVIDENCE_REVIEW_PATH = "outputs/automation/latest_backtest_evidence_review.json"
+DATA_HEALTH_REVIEW_PATH = "outputs/automation/latest_data_health_review.json"
 
 ACTION_DETAILS = {
     "review_manual_queue": {
@@ -190,6 +194,38 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             "backlog_reduction_plan": weekly_action_items.get("backlog_reduction_plan", []),
             "path": relative_path(project_root, weekly_action_items_path),
         }
+
+    candidate_review = read_json(project_root / CANDIDATE_FINDINGS_REVIEW_PATH)
+    if isinstance(candidate_review, dict):
+        state["candidate_findings_review"] = normalize_candidate_findings_review(
+            project_root,
+            candidate_review,
+            project_root / CANDIDATE_FINDINGS_REVIEW_PATH,
+        )
+
+    forecast_shadow_review = read_json(project_root / ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH)
+    if isinstance(forecast_shadow_review, dict):
+        state["one_week_forecast_shadow_review"] = normalize_forecast_shadow_review(
+            project_root,
+            forecast_shadow_review,
+            project_root / ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH,
+        )
+
+    backtest_review = read_json(project_root / BACKTEST_EVIDENCE_REVIEW_PATH)
+    if isinstance(backtest_review, dict):
+        state["backtest_evidence_review"] = normalize_backtest_evidence_review(
+            project_root,
+            backtest_review,
+            project_root / BACKTEST_EVIDENCE_REVIEW_PATH,
+        )
+
+    data_health_review = read_json(project_root / DATA_HEALTH_REVIEW_PATH)
+    if isinstance(data_health_review, dict):
+        state["data_health_review"] = normalize_data_health_review(
+            project_root,
+            data_health_review,
+            project_root / DATA_HEALTH_REVIEW_PATH,
+        )
 
     check = state.get("automation_check", {})
     check_date = parse_iso_date(check.get("as_of_date"))
@@ -399,6 +435,69 @@ def read_forecast_performance_state(project_root, check_payload, check_path):
     }
 
 
+def normalize_candidate_findings_review(project_root, payload, path):
+    return {
+        "status": payload.get("status", "unknown"),
+        "as_of_date": payload.get("as_of_date"),
+        "candidate_count": to_int(first_present(payload, "candidate_count_total", "candidate_count")),
+        "risk_action_required_count": to_int(payload.get("risk_action_required_count")),
+        "risk_action_queue_count": to_int(payload.get("risk_action_queue_count")),
+        "risk_reduction_status": payload.get("risk_reduction_status") or payload.get("status", "unknown"),
+        "risk_reduction_decision": payload.get("risk_reduction_decision", ""),
+        "priority_market": first_present(payload, "priority_market", "risk_reduction_priority_market"),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "path": relative_path(project_root, path),
+    }
+
+
+def normalize_forecast_shadow_review(project_root, payload, path):
+    return {
+        "status": payload.get("status", "unknown"),
+        "as_of_date": payload.get("as_of_date"),
+        "one_week_samples": to_int(first_present(payload, "one_week_samples", "one_week_evaluated_count")),
+        "direction_hit_rate": payload.get("direction_hit_rate"),
+        "shadow_diagnosis_status": payload.get("shadow_diagnosis_status", "unknown"),
+        "shadow_diagnosis_reasons": normalize_reason_list(payload.get("shadow_diagnosis_reasons", [])),
+        "priority_review_market": payload.get("priority_review_market", ""),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "formal_model_change_decision": payload.get("formal_model_change_decision", ""),
+        "path": relative_path(project_root, path),
+    }
+
+
+def normalize_backtest_evidence_review(project_root, payload, path):
+    return {
+        "status": payload.get("status") or payload.get("evidence_status") or "unknown",
+        "as_of_date": payload.get("as_of_date"),
+        "membership_evidence_gate_status": payload.get("membership_evidence_gate_status", "unknown"),
+        "membership_evidence_gate_decision": payload.get("membership_evidence_gate_decision", ""),
+        "membership_evidence_blocking_tiers": normalize_reason_list(payload.get("membership_evidence_blocking_tiers", [])),
+        "verified_membership_ratio": payload.get("verified_membership_ratio"),
+        "backtest_sample_expansion_allowed": bool(payload.get("backtest_sample_expansion_allowed")),
+        "formal_model_change_allowed": bool(
+            payload.get("formal_model_change_allowed") or payload.get("formal_model_upgrade_allowed")
+        ),
+        "path": relative_path(project_root, path),
+    }
+
+
+def normalize_data_health_review(project_root, payload, path):
+    counts = payload.get("data_health_triage_counts") if isinstance(payload.get("data_health_triage_counts"), dict) else {}
+    return {
+        "status": payload.get("status", "unknown"),
+        "as_of_date": payload.get("as_of_date"),
+        "data_health_triage_status": payload.get("data_health_triage_status", "unknown"),
+        "data_health_triage_decision": payload.get("data_health_triage_decision", ""),
+        "candidate_delivery_blocked": bool(payload.get("candidate_delivery_blocked")),
+        "data_health_triage_counts": {
+            "candidate_blocking": to_int(counts.get("candidate_blocking")),
+            "refetch_required": to_int(counts.get("refetch_required")),
+            "monitor_only": to_int(counts.get("monitor_only")),
+        },
+        "path": relative_path(project_root, path),
+    }
+
+
 def resolve_optional_path(project_root, path):
     resolved = Path(path)
     if not resolved.is_absolute():
@@ -515,6 +614,12 @@ def build_payload(
     health = summarize_health(status, automation, missing_inputs, warnings, manual_review_decisions)
     candidates = annotate_candidate_actions(candidates)
     candidate_action_summary = summarize_candidate_actions(candidates)
+    integrated_review_summary = build_integrated_review_summary(
+        automation,
+        candidates,
+        priority_actions,
+        candidate_action_summary,
+    )
     return {
         "conclusion_schema": "weekly_conclusion",
         "conclusion_version": 1,
@@ -532,6 +637,7 @@ def build_payload(
         "manual_review_merge_summary": manual_review_merge_summary,
         "candidate_count_total": len(candidates),
         "candidate_action_summary": candidate_action_summary,
+        "integrated_review_summary": integrated_review_summary,
         "candidates": candidates,
         "missing_inputs": sorted(set(missing_inputs)),
         "warnings": sorted(set(warnings)),
@@ -546,6 +652,7 @@ def build_payload(
 def render_markdown(payload, per_market_limit=10):
     lines = ["# 每周低估候选统一结论", ""]
     lines.extend(render_automation_section(payload))
+    lines.extend(render_integrated_review_summary_section(payload))
     lines.extend(render_priority_actions_section(payload))
     lines.extend(render_backlog_reduction_section(payload))
     lines.extend(render_market_section(payload))
@@ -588,6 +695,110 @@ def render_automation_section(payload):
         if key == "forecast_performance" and entry:
             status = format_forecast_performance_status(entry)
         lines.append(f"- {key}：{status} ({entry.get('path', '')})")
+    lines.append("")
+    return lines
+
+
+def build_integrated_review_summary(automation, candidates, priority_actions, candidate_action_summary):
+    candidate_review = automation.get("candidate_findings_review", {})
+    forecast_shadow = automation.get("one_week_forecast_shadow_review", {})
+    backtest_review = automation.get("backtest_evidence_review", {})
+    data_health = automation.get("data_health_review", {})
+    data_health_counts = data_health.get("data_health_triage_counts", {}) or {}
+    formal_flags = [
+        candidate_review.get("formal_model_change_allowed"),
+        forecast_shadow.get("formal_model_change_allowed"),
+        backtest_review.get("formal_model_change_allowed"),
+    ]
+    return {
+        "candidate_count_total": to_int(candidate_review.get("candidate_count")) or len(candidates),
+        "candidate_action_tiers": {
+            group.get("tier"): group.get("count", 0)
+            for group in candidate_action_summary.get("groups", [])
+            if group.get("tier")
+        },
+        "candidate_risk_status": candidate_review.get("risk_reduction_status") or candidate_review.get("status", "unknown"),
+        "candidate_risk_decision": candidate_review.get("risk_reduction_decision", ""),
+        "candidate_risk_action_required_count": to_int(candidate_review.get("risk_action_required_count")),
+        "candidate_risk_priority_market": candidate_review.get("priority_market", ""),
+        "forecast_shadow_status": forecast_shadow.get("status", "unknown"),
+        "forecast_shadow_diagnosis_status": forecast_shadow.get("shadow_diagnosis_status", "unknown"),
+        "forecast_shadow_diagnosis_reasons": forecast_shadow.get("shadow_diagnosis_reasons", []),
+        "forecast_shadow_samples": to_int(forecast_shadow.get("one_week_samples")),
+        "forecast_shadow_direction_hit_rate": forecast_shadow.get("direction_hit_rate"),
+        "forecast_shadow_priority_market": forecast_shadow.get("priority_review_market", ""),
+        "backtest_evidence_gate_status": backtest_review.get("membership_evidence_gate_status", "unknown"),
+        "backtest_evidence_gate_decision": backtest_review.get("membership_evidence_gate_decision", ""),
+        "backtest_evidence_blocking_tiers": backtest_review.get("membership_evidence_blocking_tiers", []),
+        "verified_membership_ratio": backtest_review.get("verified_membership_ratio"),
+        "backtest_sample_expansion_allowed": bool(backtest_review.get("backtest_sample_expansion_allowed")),
+        "data_health_triage_status": data_health.get("data_health_triage_status", "unknown"),
+        "data_health_triage_decision": data_health.get("data_health_triage_decision", ""),
+        "candidate_delivery_blocked": bool(data_health.get("candidate_delivery_blocked")),
+        "data_health_triage_counts": {
+            "candidate_blocking": to_int(data_health_counts.get("candidate_blocking")),
+            "refetch_required": to_int(data_health_counts.get("refetch_required")),
+            "monitor_only": to_int(data_health_counts.get("monitor_only")),
+        },
+        "weekly_action_item_count": to_int(automation.get("weekly_action_items", {}).get("item_count")),
+        "priority_action_count": len(priority_actions or []),
+        "formal_model_change_allowed": any(flag is True for flag in formal_flags),
+    }
+
+
+def render_integrated_review_summary_section(payload):
+    summary = payload.get("integrated_review_summary", {})
+    counts = summary.get("data_health_triage_counts", {}) or {}
+    lines = [
+        "## 一屏结论",
+        "",
+        "| 模块 | 状态 | 关键数字 | 处理边界 |",
+        "|---|---|---|---|",
+    ]
+    lines.append(
+        "| 候选风险 | {status} | action_required={required}; priority_market={market} | {decision} |".format(
+            status=escape_cell(summary.get("candidate_risk_status", "unknown")),
+            required=escape_cell(summary.get("candidate_risk_action_required_count", 0)),
+            market=escape_cell(summary.get("candidate_risk_priority_market") or "-"),
+            decision=escape_cell(summary.get("candidate_risk_decision") or "按风险压降队列处理"),
+        )
+    )
+    lines.append(
+        "| 预测影子诊断 | {status} | samples={samples}; hit={hit}; diagnosis={diagnosis} | shadow_only; formal_model_unchanged |".format(
+            status=escape_cell(summary.get("forecast_shadow_status", "unknown")),
+            samples=escape_cell(summary.get("forecast_shadow_samples", 0)),
+            hit=escape_cell(format_percent(summary.get("forecast_shadow_direction_hit_rate"))),
+            diagnosis=escape_cell(", ".join(summary.get("forecast_shadow_diagnosis_reasons", []) or []) or "-"),
+        )
+    )
+    lines.append(
+        "| 回测证据闸门 | {status} | decision={decision}; blocking={blocking}; verified_ratio={ratio} | no_sample_expansion |".format(
+            status=escape_cell(summary.get("backtest_evidence_gate_status", "unknown")),
+            decision=escape_cell(summary.get("backtest_evidence_gate_decision") or "-"),
+            blocking=escape_cell(", ".join(summary.get("backtest_evidence_blocking_tiers", []) or []) or "-"),
+            ratio=escape_cell(format_percent(summary.get("verified_membership_ratio"))),
+        )
+    )
+    lines.append(
+        "| 数据健康 | {status} | candidate_blocking={candidate_blocking}; refetch_required={refetch_required}; monitor_only={monitor_only} | candidate_delivery_blocked={blocked} |".format(
+            status=escape_cell(summary.get("data_health_triage_status", "unknown")),
+            candidate_blocking=escape_cell(counts.get("candidate_blocking", 0)),
+            refetch_required=escape_cell(counts.get("refetch_required", 0)),
+            monitor_only=escape_cell(counts.get("monitor_only", 0)),
+            blocked=str(bool(summary.get("candidate_delivery_blocked"))).lower(),
+        )
+    )
+    lines.append(
+        "| 每周待办 | open | action_items={items}; priority_actions={actions} | 先处理最高风险待办 |".format(
+            items=escape_cell(summary.get("weekly_action_item_count", 0)),
+            actions=escape_cell(summary.get("priority_action_count", 0)),
+        )
+    )
+    lines.append(
+        "| 正式模型 | protected | formal_model_change_allowed={allowed} | 不抓取行情、不重新评分、不自动改参数 |".format(
+            allowed=str(bool(summary.get("formal_model_change_allowed"))).lower(),
+        )
+    )
     lines.append("")
     return lines
 
@@ -1093,6 +1304,20 @@ def to_int(value):
         return 0
 
 
+def normalize_reason_list(value):
+    if not isinstance(value, list):
+        return []
+    reasons = []
+    for item in value:
+        if isinstance(item, dict):
+            reason = first_present(item, "reason_code", "reason", "code", "name")
+        else:
+            reason = str(item or "")
+        if reason:
+            reasons.append(reason)
+    return reasons
+
+
 def build_queue_action_guidance(by_review_type):
     guidance = []
     for item in by_review_type:
@@ -1192,6 +1417,12 @@ def is_acceptable_status(status):
         "partial_sample_accumulating",
         "performance_review_needed",
         "manual_review_needed",
+        "action_required",
+        "shadow_review_needed",
+        "evidence_review_needed",
+        "acceptable_with_monitoring",
+        "monitor_only",
+        "blocked",
     }
 
 
@@ -1415,7 +1646,9 @@ def relative_path(project_root, path):
 
 
 def escape_cell(value):
-    return str(value or "").replace("|", "\\|")
+    if value is None:
+        return ""
+    return str(value).replace("|", "\\|")
 
 
 def main(argv=None):

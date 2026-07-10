@@ -845,6 +845,119 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("next 1m 2026-07-28", markdown)
             self.assertIn("next 1m count 43", markdown)
 
+    def test_includes_integrated_review_summary_from_current_week_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            automation = root / "outputs" / "automation"
+            write_json(
+                automation / "latest_candidate_findings_review.json",
+                {
+                    "status": "manual_review_needed",
+                    "candidate_count_total": 63,
+                    "risk_action_required_count": 15,
+                    "risk_reduction_status": "action_required",
+                    "risk_reduction_decision": "manual_review_queue_ready",
+                    "priority_market": "港股周筛",
+                    "formal_model_change_allowed": False,
+                    "path": "outputs/automation/latest_candidate_findings_review.json",
+                },
+            )
+            write_json(
+                automation / "latest_one_week_forecast_shadow_review.json",
+                {
+                    "status": "shadow_review_needed",
+                    "shadow_diagnosis_status": "review_needed",
+                    "shadow_diagnosis_reasons": [
+                        {"reason_code": "direction_mapping_issue"},
+                        {"reason_code": "down_signal_reversal_risk"},
+                    ],
+                    "one_week_samples": 179,
+                    "direction_hit_rate": 0.2179,
+                    "priority_review_market": "港股周筛",
+                    "formal_model_change_allowed": False,
+                    "formal_model_change_decision": "keep_formal_model_unchanged",
+                    "path": "outputs/automation/latest_one_week_forecast_shadow_review.json",
+                },
+            )
+            write_json(
+                automation / "latest_backtest_evidence_review.json",
+                {
+                    "status": "evidence_review_needed",
+                    "membership_evidence_gate_status": "blocked",
+                    "membership_evidence_gate_decision": "verified_only_no_expansion",
+                    "membership_evidence_blocking_tiers": ["secondary", "weak"],
+                    "verified_membership_ratio": 0.156,
+                    "backtest_sample_expansion_allowed": False,
+                    "formal_model_change_allowed": False,
+                    "path": "outputs/automation/latest_backtest_evidence_review.json",
+                },
+            )
+            write_json(
+                automation / "latest_data_health_review.json",
+                {
+                    "status": "acceptable_with_monitoring",
+                    "data_health_triage_status": "monitor_only",
+                    "data_health_triage_decision": "monitor_next_run",
+                    "candidate_delivery_blocked": False,
+                    "data_health_triage_counts": {
+                        "candidate_blocking": 0,
+                        "refetch_required": 0,
+                        "monitor_only": 74,
+                    },
+                    "path": "outputs/automation/latest_data_health_review.json",
+                },
+            )
+            write_json(
+                automation / "latest_weekly_action_items.json",
+                {
+                    "action_items_schema": "weekly_action_items",
+                    "as_of_date": "2026-06-28",
+                    "item_count": 4,
+                    "items": [
+                        {"action_code": "review_backtest_evidence", "title": "复查回测证据质量"},
+                        {"action_code": "review_forecast_performance", "title": "复核预测表现"},
+                    ],
+                    "backlog_reduction_plan": [
+                        {
+                            "category": "backtest",
+                            "count": 2,
+                            "actions": [
+                                "review_backtest_evidence",
+                                "supplement_verified_membership_evidence",
+                            ],
+                        }
+                    ],
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+
+            summary = payload["integrated_review_summary"]
+            self.assertEqual(payload["status"], "ready")
+            self.assertEqual(payload["recommended_action"], "review_backtest_evidence")
+            self.assertEqual(summary["candidate_risk_status"], "action_required")
+            self.assertEqual(summary["candidate_risk_action_required_count"], 15)
+            self.assertEqual(summary["forecast_shadow_status"], "shadow_review_needed")
+            self.assertEqual(summary["forecast_shadow_diagnosis_status"], "review_needed")
+            self.assertIn("direction_mapping_issue", summary["forecast_shadow_diagnosis_reasons"])
+            self.assertEqual(summary["backtest_evidence_gate_status"], "blocked")
+            self.assertEqual(summary["backtest_evidence_gate_decision"], "verified_only_no_expansion")
+            self.assertEqual(summary["data_health_triage_status"], "monitor_only")
+            self.assertEqual(summary["data_health_triage_counts"]["monitor_only"], 74)
+            self.assertFalse(summary["formal_model_change_allowed"])
+
+            self.assertIn("## 一屏结论", markdown)
+            self.assertIn("| 候选风险 | action_required | action_required=15", markdown)
+            self.assertIn("| 预测影子诊断 | shadow_review_needed | samples=179; hit=21.8%; diagnosis=direction_mapping_issue, down_signal_reversal_risk", markdown)
+            self.assertIn("| 回测证据闸门 | blocked | decision=verified_only_no_expansion; blocking=secondary, weak", markdown)
+            self.assertIn("| 数据健康 | monitor_only | candidate_blocking=0; refetch_required=0; monitor_only=74", markdown)
+            self.assertIn("| 正式模型 | protected | formal_model_change_allowed=false", markdown)
+
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
