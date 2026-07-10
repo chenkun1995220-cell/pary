@@ -584,11 +584,22 @@ def write_manual_review_queue(path):
 
 
 def write_data_health_review(path, refetch_gap_action_required_count=2):
+    triage_status = "refetch_required" if refetch_gap_action_required_count else "monitor_only"
     payload = {
         "review_schema": "data_health_review",
         "as_of_date": "2026-06-29",
         "status": "acceptable_with_monitoring",
         "blocked_candidate_count": 0,
+        "candidate_delivery_blocked": False,
+        "data_health_triage_status": triage_status,
+        "data_health_triage_decision": "refetch_or_supplement_quote"
+        if refetch_gap_action_required_count
+        else "monitor_next_run",
+        "data_health_triage_counts": {
+            "candidate_blocking": 0,
+            "refetch_required": refetch_gap_action_required_count,
+            "monitor_only": 2 if not refetch_gap_action_required_count else 0,
+        },
         "refetch_gap_count": 2,
         "refetch_gap_action_required_count": refetch_gap_action_required_count,
         "markets": [
@@ -843,6 +854,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("00754.HK", data_health["recommended_check"])
             self.assertIn("HOPSON DEV HOLD", data_health["recommended_check"])
             self.assertIn("price;pe", data_health["recommended_check"])
+            self.assertIn("triage_status=refetch_required", data_health["recommended_check"])
+            self.assertIn("candidate_blocking=0", data_health["recommended_check"])
+            self.assertIn("refetch_required=2", data_health["recommended_check"])
             self.assertIn("00823.HK", data_health["recommended_check"])
             self.assertIn("LINK REIT", data_health["recommended_check"])
             self.assertIn("pe;pb", data_health["recommended_check"])

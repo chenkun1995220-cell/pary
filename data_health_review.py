@@ -132,6 +132,46 @@ def _manual_review_category_counts(rows):
     return counts
 
 
+def _triage_counts(
+    blocked_candidate_count,
+    refetch_gap_action_required_count,
+    refetch_gap_unresolved_non_candidate_count,
+    active_manual_financial_review_count,
+    closed_manual_financial_review_count,
+):
+    candidate_blocking = int(blocked_candidate_count or 0)
+    refetch_required = max(int(refetch_gap_action_required_count or 0) - candidate_blocking, 0)
+    monitor_only = (
+        int(refetch_gap_unresolved_non_candidate_count or 0)
+        + int(active_manual_financial_review_count or 0)
+        + int(closed_manual_financial_review_count or 0)
+    )
+    return {
+        "candidate_blocking": candidate_blocking,
+        "refetch_required": refetch_required,
+        "monitor_only": monitor_only,
+    }
+
+
+def _triage_status(counts):
+    if counts.get("candidate_blocking", 0):
+        return "candidate_blocking"
+    if counts.get("refetch_required", 0):
+        return "refetch_required"
+    if counts.get("monitor_only", 0):
+        return "monitor_only"
+    return "clear"
+
+
+def _triage_decision(status):
+    return {
+        "candidate_blocking": "block_candidate_delivery_until_refetch",
+        "refetch_required": "refetch_or_supplement_quote",
+        "monitor_only": "monitor_next_run",
+        "clear": "continue_monitoring",
+    }.get(status, "review_data_health")
+
+
 def _gap_payload(row, candidate_tickers, retry_results=None):
     ticker = row.get("ticker", "")
     retry = (retry_results or {}).get(ticker.strip().upper(), {})
@@ -181,6 +221,14 @@ def _market_review(health_row, candidate_tickers):
     active_manual = [row for row in manual_financial if _manual_review_is_active(row)]
     closed_manual = [row for row in manual_financial if not _manual_review_is_active(row)]
     blocked_count = len(candidate_refetch)
+    triage_counts = _triage_counts(
+        blocked_count,
+        len(action_required_refetch),
+        len(unresolved_non_candidate_refetch),
+        len(active_manual),
+        len(closed_manual),
+    )
+    triage_status = _triage_status(triage_counts)
     return {
         "name": health_row.get("name", "unknown"),
         "status": health_row.get("status", "unknown"),
@@ -203,6 +251,10 @@ def _market_review(health_row, candidate_tickers):
         ),
         "manual_financial_review_by_category": _manual_review_category_counts(manual_financial),
         "blocked_candidate_count": blocked_count,
+        "candidate_delivery_blocked": blocked_count > 0,
+        "data_health_triage_status": triage_status,
+        "data_health_triage_decision": _triage_decision(triage_status),
+        "data_health_triage_counts": triage_counts,
         "refetch_gaps": current_refetch_gaps,
         "refetch_gap_unresolved_non_candidate_samples": unresolved_non_candidate_refetch[:5],
         "manual_financial_review_samples": manual_financial[:5],
@@ -261,6 +313,14 @@ def build_data_health_review(manifest):
     candidate_manual_financial_review_unclassified_count = sum(
         item["candidate_manual_financial_review_unclassified_count"] for item in markets
     )
+    triage_counts = _triage_counts(
+        blocked_candidate_count,
+        refetch_gap_action_required_count,
+        refetch_gap_unresolved_non_candidate_count,
+        active_manual_financial_review_count,
+        closed_manual_financial_review_count,
+    )
+    triage_status = _triage_status(triage_counts)
     return {
         "review_schema": REVIEW_SCHEMA,
         "review_version": REVIEW_VERSION,
@@ -270,6 +330,10 @@ def build_data_health_review(manifest):
         "status": status,
         "recommended_action": recommended_action,
         "blocked_candidate_count": blocked_candidate_count,
+        "candidate_delivery_blocked": blocked_candidate_count > 0,
+        "data_health_triage_status": triage_status,
+        "data_health_triage_decision": _triage_decision(triage_status),
+        "data_health_triage_counts": triage_counts,
         "refetch_gap_count": refetch_gap_count,
         "refetch_gap_attempted_count": refetch_gap_attempted_count,
         "refetch_gap_action_required_count": refetch_gap_action_required_count,
@@ -314,6 +378,18 @@ def render_data_health_review(payload):
         f"- 财务/估值口径复核：{payload.get('manual_financial_review_count', 0)}",
         f"- active_manual_financial_review_count：{payload.get('active_manual_financial_review_count', payload.get('manual_financial_review_count', 0))}",
         f"- closed_manual_financial_review_count：{payload.get('closed_manual_financial_review_count', 0)}",
+        "",
+        "## 数据健康三层分流",
+        "",
+        f"- data_health_triage_status：{payload.get('data_health_triage_status', 'unknown')}",
+        f"- data_health_triage_decision：{payload.get('data_health_triage_decision', 'unknown')}",
+        f"- candidate_delivery_blocked：{str(bool(payload.get('candidate_delivery_blocked', False))).lower()}",
+        "",
+        "| 层级 | 数量 | 处理方式 |",
+        "|---|---:|---|",
+        f"| candidate_blocking | {(payload.get('data_health_triage_counts', {}) or {}).get('candidate_blocking', 0)} | 先补齐候选相关行情，再进入交付 |",
+        f"| refetch_required | {(payload.get('data_health_triage_counts', {}) or {}).get('refetch_required', 0)} | 补抓或补充行情源 |",
+        f"| monitor_only | {(payload.get('data_health_triage_counts', {}) or {}).get('monitor_only', 0)} | 保留下周监控，不阻断本周候选 |",
         "",
         "## 市场概览",
         "",

@@ -328,6 +328,18 @@ def _quote_retry_text(quote_retry_results):
 def _data_health_refetch_gap_text(data_health, quote_retry_results=None):
     if not isinstance(data_health, dict):
         return ""
+    triage = data_health.get("data_health_triage_counts", {})
+    if not isinstance(triage, dict):
+        triage = {}
+    triage_text = ""
+    triage_status = str(data_health.get("data_health_triage_status", "") or "").strip()
+    if triage_status or triage:
+        triage_text = (
+            f"；三层分流：triage_status={triage_status or 'unknown'}，"
+            f"candidate_blocking={_int_value(triage.get('candidate_blocking'), 0)}，"
+            f"refetch_required={_int_value(triage.get('refetch_required'), 0)}，"
+            f"monitor_only={_int_value(triage.get('monitor_only'), 0)}"
+        )
     gaps = []
     for market in data_health.get("markets", []) or []:
         if not isinstance(market, dict):
@@ -345,8 +357,13 @@ def _data_health_refetch_gap_text(data_health, quote_retry_results=None):
             if detail:
                 gaps.append(detail)
     if not gaps:
-        return _quote_retry_text(quote_retry_results)
-    return "；当前可重抓缺口：" + "；".join(gaps[:3]) + _quote_retry_text(quote_retry_results)
+        return triage_text + _quote_retry_text(quote_retry_results)
+    return (
+        triage_text
+        + "；当前可重抓缺口："
+        + "；".join(gaps[:3])
+        + _quote_retry_text(quote_retry_results)
+    )
 
 
 def _data_quality_text(manifest):
