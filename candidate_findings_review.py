@@ -218,6 +218,27 @@ def _merge_queue_action_counts(markets):
     return merged
 
 
+def _risk_reduction_queue(markets):
+    queue = []
+    for market in markets:
+        for item in market.get("risk_action_queue", []) or []:
+            row = dict(item)
+            row["market"] = market.get("name", "")
+            queue.append(row)
+    return queue
+
+
+def _risk_reduction_priority_market(markets):
+    ranked = sorted(
+        markets,
+        key=lambda item: item.get("risk_action_queue_count", 0),
+        reverse=True,
+    )
+    if not ranked or ranked[0].get("risk_action_queue_count", 0) <= 0:
+        return "none"
+    return ranked[0].get("name", "unknown")
+
+
 def _market_review(name, path):
     market_path = Path(path)
     rows = _read_csv_rows(market_path / "valuation_targets.csv")
@@ -303,6 +324,9 @@ def build_candidate_findings_review(markets=None):
     reviewed = [_market_review(item["name"], item["path"]) for item in market_specs]
     as_of_dates = [item["as_of_date"] for item in reviewed if item["as_of_date"] != "unknown"]
     status = _overall_status(reviewed)
+    risk_reduction_queue = _risk_reduction_queue(reviewed)
+    risk_reduction_action_count = len(risk_reduction_queue)
+    risk_reduction_status = "action_required" if risk_reduction_action_count else "clear"
     return {
         "review_schema": REVIEW_SCHEMA,
         "review_version": REVIEW_VERSION,
@@ -321,6 +345,20 @@ def build_candidate_findings_review(markets=None):
         "risk_action_queue_count": sum(item["risk_action_queue_count"] for item in reviewed),
         "risk_action_unqueued_count": sum(item["risk_action_unqueued_count"] for item in reviewed),
         "risk_action_queue_by_action": _merge_queue_action_counts(reviewed),
+        "risk_reduction_status": risk_reduction_status,
+        "risk_reduction_decision": (
+            "manual_review_queue_ready"
+            if risk_reduction_status == "action_required"
+            else "monitor_only"
+        ),
+        "risk_reduction_priority_market": _risk_reduction_priority_market(reviewed),
+        "risk_reduction_target_action_count_after_close": 0,
+        "risk_reduction_close_condition": (
+            "关闭全部风险行动项：defer_research 记录暂缓原因，manual_fundamental_review 记录基本面复核结论；正式模型保持不变。"
+            if risk_reduction_status == "action_required"
+            else "无待关闭风险行动项，继续监控即可。"
+        ),
+        "risk_reduction_queue": risk_reduction_queue[:50],
         "risk_category_counts": _merge_category_counts(reviewed),
         "negative_return_count": sum(item["negative_return_count"] for item in reviewed),
         "weak_trend_count": sum(item["weak_trend_count"] for item in reviewed),
@@ -365,6 +403,44 @@ def render_candidate_findings_review(payload):
             f"{item.get('risk_review_count', 0)} | {item.get('negative_return_count', 0)} | "
             f"{item.get('weak_trend_count', 0)} | {item.get('low_confidence_count', 0)} |"
         )
+    lines.extend(
+        [
+            "",
+            "## 风险压降清单",
+            "",
+            f"- risk_reduction_status: {payload.get('risk_reduction_status', 'unknown')}",
+            f"- risk_reduction_decision: {payload.get('risk_reduction_decision', 'unknown')}",
+            f"- priority_market: {payload.get('risk_reduction_priority_market', 'unknown')}",
+            f"- target_action_count_after_close: {payload.get('risk_reduction_target_action_count_after_close', 0)}",
+            f"- close_condition: {payload.get('risk_reduction_close_condition', '')}",
+            "",
+            "| action | count |",
+            "|---|---:|",
+        ]
+    )
+    action_counts = payload.get("risk_action_queue_by_action", {}) or {}
+    if action_counts:
+        for action, count in sorted(action_counts.items()):
+            lines.append(f"| {action} | {count} |")
+    else:
+        lines.append("| - | 0 |")
+    lines.extend(
+        [
+            "",
+            "| 市场 | 股票 | 公司 | 队列动作 | 建议动作 | 风险分类 |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    queue = payload.get("risk_reduction_queue", []) or []
+    if queue:
+        for item in queue[:20]:
+            lines.append(
+                f"| {item.get('market', '')} | {item.get('ticker', '')} | {item.get('company', '')} | "
+                f"{item.get('queue_action', '')} | {item.get('recommended_action', '')} | "
+                f"{', '.join(item.get('risk_categories', []) or [])} |"
+            )
+    else:
+        lines.append("| - | - | - | 无待处理风险行动 | - | - |")
     lines.extend(
         [
             "",
