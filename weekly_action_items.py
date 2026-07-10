@@ -34,6 +34,7 @@ DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
 DEFAULT_CANDIDATE_FINDINGS_REVIEW = "outputs/automation/latest_candidate_findings_review.json"
 DEFAULT_BACKTEST_EVIDENCE_REVIEW = "outputs/automation/latest_backtest_evidence_review.json"
 DEFAULT_HK_QUOTE_RETRY_RESULTS = "outputs/hk_universe/quote_retry_results.json"
+DEFAULT_WEEKLY_DELIVERY_HISTORY = "outputs/automation/latest_weekly_delivery_history_summary.json"
 DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
     "Symbol",
     "Ticker",
@@ -1390,6 +1391,7 @@ def build_weekly_action_items(
     candidate_findings_review=None,
     backtest_evidence_review=None,
     quote_retry_results=None,
+    weekly_delivery_history=None,
 ):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
@@ -1408,6 +1410,7 @@ def build_weekly_action_items(
     candidate_findings_payload = load_optional_json(candidate_findings_review)
     backtest_evidence_payload = load_optional_json(backtest_evidence_review)
     quote_retry_payload = load_optional_json(quote_retry_results)
+    weekly_delivery_history_payload = load_optional_json(weekly_delivery_history)
     if manual_review_rows:
         source["manual_review_queue_items"] = manual_review_rows
     if data_health_payload:
@@ -1418,6 +1421,8 @@ def build_weekly_action_items(
         source["backtest_evidence_review"] = backtest_evidence_payload
     if quote_retry_payload:
         source["quote_retry_results"] = quote_retry_payload
+    if weekly_delivery_history_payload:
+        source["weekly_delivery_history"] = weekly_delivery_history_payload
     if forecast_performance_review:
         manifest_forecast = source.get("forecast_performance", {})
         if not isinstance(manifest_forecast, dict):
@@ -1674,6 +1679,7 @@ def main():
     parser.add_argument("--candidate-findings-review", default=DEFAULT_CANDIDATE_FINDINGS_REVIEW)
     parser.add_argument("--backtest-evidence-review", default=DEFAULT_BACKTEST_EVIDENCE_REVIEW)
     parser.add_argument("--quote-retry-results", default=DEFAULT_HK_QUOTE_RETRY_RESULTS)
+    parser.add_argument("--weekly-delivery-history", default=DEFAULT_WEEKLY_DELIVERY_HISTORY)
     args = parser.parse_args()
 
     payload = build_weekly_action_items(
@@ -1693,6 +1699,7 @@ def main():
         candidate_findings_review=args.candidate_findings_review,
         backtest_evidence_review=args.backtest_evidence_review,
         quote_retry_results=args.quote_retry_results,
+        weekly_delivery_history=args.weekly_delivery_history,
     )
     report = render_weekly_action_items(payload)
     if args.output:

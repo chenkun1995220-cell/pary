@@ -1066,6 +1066,47 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertNotIn("manual_review_pending", delivery["source"])
             self.assertIn("data_quality_history:manual_review_needed", delivery["source"])
 
+    def test_external_delivery_history_overrides_stale_manifest_manual_review_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            delivery_history_path = Path(tmp) / "latest_weekly_delivery_history_summary.json"
+            write_manifest(manifest_path)
+            payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            payload["manual_review_queue_count"] = 0
+            payload["automation_priority_actions"] = ["review_manual_review_backlog"]
+            payload["weekly_delivery_history"] = {
+                "latest_manual_review_pending_count": 1,
+                "latest_conclusion_health_reasons": ["manual_review_pending:1"],
+                "recurring_health_reasons": [{"reason": "manual_review_pending:1", "count": 2}],
+            }
+            manifest_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+            delivery_history_path.write_text(
+                json.dumps(
+                    {
+                        "latest_manual_review_pending_count": 0,
+                        "latest_conclusion_health_reasons": [],
+                        "recurring_health_reasons": [
+                            {"reason": "manual_review_pending:1", "count": 2}
+                        ],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            result = build_weekly_action_items(
+                manifest_path,
+                weekly_delivery_history=delivery_history_path,
+            )
+
+            self.assertEqual(result["items"], [])
+
     def test_skips_delivery_health_issue_when_it_only_duplicates_data_quality(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
