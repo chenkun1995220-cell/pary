@@ -170,6 +170,61 @@ class OneWeekForecastShadowParameterValidationTests(unittest.TestCase):
             self.assertEqual(by_action["shadow_review_hk_down_signal"]["affected_count"], 2)
             self.assertEqual(by_action["shadow_widen_neutral_band"]["validation_status"], "not_evaluable_current_fields")
 
+    def test_validation_includes_accumulable_market_metrics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = root / "plan.json"
+            write_plan(plan)
+            write_csv_rows(
+                root / "outputs" / "hk_universe" / "forecast_evaluations.csv",
+                [
+                    {
+                        "market": "HK",
+                        "ticker": "00001.HK",
+                        "company_name": "Neutral After Shadow",
+                        "generated_date": "2026-06-28",
+                        "as_of_date": "2026-07-05",
+                        "prediction_horizon": "1w",
+                        "evaluation_status": "evaluated",
+                        "predicted_direction": "down",
+                        "actual_direction": "neutral",
+                        "actual_return": "0.01",
+                        "excess_return": "0.02",
+                    },
+                    {
+                        "market": "HK",
+                        "ticker": "00002.HK",
+                        "company_name": "Opposite Miss",
+                        "generated_date": "2026-06-28",
+                        "as_of_date": "2026-07-05",
+                        "prediction_horizon": "1w",
+                        "evaluation_status": "evaluated",
+                        "predicted_direction": "down",
+                        "actual_direction": "up",
+                        "actual_return": "0.05",
+                        "excess_return": "0.03",
+                    },
+                ],
+            )
+
+            from one_week_forecast_shadow_parameter_validation import build_shadow_parameter_validation
+
+            payload = build_shadow_parameter_validation(root, plan, as_of_date="2026-07-06")
+            result = next(
+                item
+                for item in payload["candidate_results"]
+                if item["action_code"] == "shadow_demote_down_signal_to_neutral"
+            )
+
+            self.assertEqual(result["evaluation_sample_count"], 2)
+            self.assertEqual(result["baseline_hit_count"], 0)
+            self.assertEqual(result["shadow_hit_count"], 1)
+            self.assertEqual(result["affected_market_count"], 1)
+            self.assertEqual(result["market_results"][0]["affected_count"], 2)
+            self.assertEqual(result["baseline_opposite_miss_count"], 1)
+            self.assertEqual(result["shadow_opposite_miss_count"], 0)
+            self.assertFalse(result["formal_model_change_allowed"])
+
     def test_cli_writes_json_and_markdown(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -77,9 +77,73 @@ def _hit_rate(rows, direction_field="predicted_direction"):
     return hits / len(rows)
 
 
+def _hit_count(rows, direction_field="predicted_direction"):
+    return sum(
+        _direction(row, direction_field) == _direction(row, "actual_direction")
+        for row in rows
+    )
+
+
+def _is_opposite(predicted, actual):
+    return (predicted, actual) in {("up", "down"), ("down", "up")}
+
+
+def _error_counts(rows, direction_field):
+    opposite = 0
+    neutral = 0
+    for row in rows:
+        predicted = _direction(row, direction_field)
+        actual = _direction(row, "actual_direction")
+        if predicted == actual:
+            continue
+        if _is_opposite(predicted, actual):
+            opposite += 1
+        elif "neutral" in {predicted, actual}:
+            neutral += 1
+    return opposite, neutral
+
+
+def _rate(hit_count, sample_count):
+    return hit_count / sample_count if sample_count else None
+
+
+def _market_results(rows, adjusted_rows, affected_flags):
+    results = []
+    markets = sorted({str(row.get("_market_label", "") or "") for row in rows})
+    for market in markets:
+        indexes = [index for index, row in enumerate(rows) if row.get("_market_label", "") == market]
+        market_rows = [rows[index] for index in indexes]
+        market_adjusted = [adjusted_rows[index] for index in indexes]
+        sample_count = len(market_rows)
+        baseline_hit_count = _hit_count(market_rows)
+        shadow_hit_count = _hit_count(market_adjusted, "shadow_predicted_direction")
+        baseline_opposite, baseline_neutral = _error_counts(market_rows, "predicted_direction")
+        shadow_opposite, shadow_neutral = _error_counts(market_adjusted, "shadow_predicted_direction")
+        baseline_hit_rate = _rate(baseline_hit_count, sample_count)
+        shadow_hit_rate = _rate(shadow_hit_count, sample_count)
+        results.append(
+            {
+                "market": market,
+                "sample_count": sample_count,
+                "affected_count": sum(bool(affected_flags[index]) for index in indexes),
+                "baseline_hit_count": baseline_hit_count,
+                "shadow_hit_count": shadow_hit_count,
+                "baseline_hit_rate": baseline_hit_rate,
+                "shadow_hit_rate": shadow_hit_rate,
+                "hit_rate_delta": shadow_hit_rate - baseline_hit_rate,
+                "baseline_opposite_miss_count": baseline_opposite,
+                "shadow_opposite_miss_count": shadow_opposite,
+                "baseline_neutral_miss_count": baseline_neutral,
+                "shadow_neutral_miss_count": shadow_neutral,
+            }
+        )
+    return results
+
+
 def _baseline(rows):
     return {
         "sample_count": len(rows),
+        "hit_count": _hit_count(rows),
         "direction_hit_rate": _hit_rate(rows),
         "average_actual_return": _mean(rows, "actual_return"),
         "average_excess_return": _mean(rows, "excess_return"),
@@ -109,24 +173,39 @@ def _apply_candidate(row, action_code, target):
 def _validate_candidate(rows, candidate, baseline_hit_rate):
     action_code = candidate.get("action_code", "")
     if action_code == "shadow_widen_neutral_band":
+        baseline_opposite, baseline_neutral = _error_counts(rows, "predicted_direction")
         return {
             "action_code": action_code,
             "validation_status": "not_evaluable_current_fields",
             "reason": "prediction_score_or_threshold_distance_missing",
+            "evaluation_sample_count": len(rows),
             "affected_count": 0,
+            "affected_market_count": 0,
+            "baseline_hit_count": _hit_count(rows),
+            "shadow_hit_count": None,
             "baseline_hit_rate": baseline_hit_rate,
             "shadow_hit_rate": None,
             "hit_rate_delta": None,
+            "baseline_opposite_miss_count": baseline_opposite,
+            "shadow_opposite_miss_count": None,
+            "baseline_neutral_miss_count": baseline_neutral,
+            "shadow_neutral_miss_count": None,
+            "market_results": [],
             "formal_model_change_allowed": False,
         }
 
     adjusted_rows = []
-    affected_count = 0
+    affected_flags = []
     for row in rows:
         adjusted, affected = _apply_candidate(row, action_code, candidate.get("target", ""))
         adjusted_rows.append(adjusted)
-        if affected:
-            affected_count += 1
+        affected_flags.append(affected)
+    affected_count = sum(bool(affected) for affected in affected_flags)
+    baseline_hit_count = _hit_count(rows)
+    shadow_hit_count = _hit_count(adjusted_rows, direction_field="shadow_predicted_direction")
+    baseline_opposite, baseline_neutral = _error_counts(rows, "predicted_direction")
+    shadow_opposite, shadow_neutral = _error_counts(adjusted_rows, "shadow_predicted_direction")
+    market_results = _market_results(rows, adjusted_rows, affected_flags)
     shadow_hit_rate = _hit_rate(adjusted_rows, direction_field="shadow_predicted_direction")
     delta = None if baseline_hit_rate is None or shadow_hit_rate is None else shadow_hit_rate - baseline_hit_rate
     status = "validated" if affected_count else "not_applicable"
@@ -134,10 +213,19 @@ def _validate_candidate(rows, candidate, baseline_hit_rate):
         "action_code": action_code,
         "validation_status": status,
         "reason": "" if affected_count else "no_matching_rows",
+        "evaluation_sample_count": len(rows),
         "affected_count": affected_count,
+        "affected_market_count": sum(1 for item in market_results if item["affected_count"] > 0),
+        "baseline_hit_count": baseline_hit_count,
+        "shadow_hit_count": shadow_hit_count,
         "baseline_hit_rate": baseline_hit_rate,
         "shadow_hit_rate": shadow_hit_rate,
         "hit_rate_delta": delta,
+        "baseline_opposite_miss_count": baseline_opposite,
+        "shadow_opposite_miss_count": shadow_opposite,
+        "baseline_neutral_miss_count": baseline_neutral,
+        "shadow_neutral_miss_count": shadow_neutral,
+        "market_results": market_results,
         "formal_model_change_allowed": False,
     }
 
