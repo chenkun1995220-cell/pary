@@ -149,6 +149,24 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
             self.assertIn("hk_run_summary_stale", payload["issues"])
             self.assertIn("closure_as_of_date_mismatch", payload["issues"])
 
+    def test_blocks_fresh_market_summaries_from_different_batch_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            write_summary(
+                root / "outputs" / "hk_universe" / "latest_run_summary.md",
+                2,
+                run_time="2026-07-10 14:15:00",
+            )
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            payload = build_weekly_artifact_consistency(root, "2026-07-11", max_age_days=8)
+
+            self.assertEqual(payload["status"], "needs_attention")
+            self.assertIn("market_run_date_mismatch", payload["issues"])
+            self.assertEqual(payload["market_run_dates"], ["2026-07-10", "2026-07-11"])
+
     def test_blocks_conclusion_delivery_and_market_count_mismatches(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

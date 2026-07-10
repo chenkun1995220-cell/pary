@@ -12,7 +12,7 @@
 
 - 不自动提交或推送运行数据。
 - 不修改正式估值、筛选或预测模型参数。
-- 三市场运行时刻可以不同，但每个市场必须在 8 天新鲜度窗口内。
+- 三市场运行时刻可以不同，但运行日期必须属于同一自然日，且每个市场必须在 8 天新鲜度窗口内。
 - 候选数必须在运行摘要、候选池、统一结论和交付验收之间一致。
 - 主工作区已有未提交改动不得进入本任务提交。
 
@@ -96,7 +96,7 @@ Expected: import failure because the module does not exist.
 
 - [ ] **Step 4: Implement parser and checks**
 
-Use standard-library `csv`, `hashlib`, `json`, `datetime` and `pathlib`. Parse Markdown list fields with a strict `- Key: Value` mapping. Return per-market evidence with `run_date`, `age_days`, `summary_candidate_count`, `candidate_file_count`, and issue codes. Treat any issue as blocking.
+Use standard-library `csv`, `hashlib`, `json`, `datetime` and `pathlib`. Parse Markdown list fields with a strict `- Key: Value` mapping. Return per-market evidence with `run_date`, `age_days`, `summary_candidate_count`, `candidate_file_count`, and issue codes. Require all non-empty market run dates to resolve to one natural date. Treat any issue as blocking.
 
 - [ ] **Step 5: Add CLI and PowerShell wrapper**
 

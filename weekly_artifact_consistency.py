@@ -188,6 +188,12 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
         markets.append(evidence)
         summary_fields[market] = fields
 
+    market_run_dates = sorted(
+        {row["run_date"] for row in markets if row.get("run_date")}
+    )
+    if len(market_run_dates) > 1:
+        issues.append("market_run_date_mismatch")
+
     candidate_counts = {row["market"]: row["candidate_file_count"] for row in markets}
     candidate_count_total = sum(candidate_counts.values())
     conclusion = _read_json(project_root / "outputs" / "automation" / "latest_weekly_conclusion.json")
@@ -227,6 +233,7 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
         "status": "ready" if not issues else "needs_attention",
         "max_age_days": max_age_days,
         "markets": markets,
+        "market_run_dates": market_run_dates,
         "candidate_count_total": candidate_count_total,
         "conclusion_candidate_count_total": conclusion_total,
         "delivery_candidate_count_total": delivery_total,
