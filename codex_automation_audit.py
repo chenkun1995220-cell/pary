@@ -8,37 +8,39 @@ EXPECTED_AUTOMATIONS = [
         "id": "automation",
         "name": "美股低估公司每周筛选",
         "minute": 5,
+        "model": "gpt-5.6-terra",
         "required_prompt_terms": [
             "scripts\\run_us_universe_weekly.ps1",
-            "latest_automation_check.json",
-            "不要运行或引用",
+            "不提前运行三市场统一收口",
+            "market_quotes.csv",
         ],
+        "forbidden_prompt_terms": ["-RunPostChecks"],
     },
     {
         "id": "a-300-3",
         "name": "A股沪深300每周筛选",
         "minute": 10,
+        "model": "gpt-5.6-terra",
         "required_prompt_terms": [
             "scripts\\run_cn_weekly.ps1",
-            "latest_automation_check.json",
-            "不要运行或引用",
+            "不提前运行三市场统一收口",
         ],
+        "forbidden_prompt_terms": ["-RunPostChecks"],
     },
     {
         "id": "automation-5",
         "name": "港股大中盘每周筛选",
         "minute": 15,
+        "model": "gpt-5.6-terra",
         "required_prompt_terms": [
             "scripts\\run_hk_weekly.ps1",
-            "scripts\\run_self_analysis.ps1",
-            "scripts\\show_automation_check.ps1",
-            "scripts\\run_weekly_ops_check.ps1",
-            "scripts\\show_weekly_ops_history.ps1",
-            "scripts\\show_weekly_conclusion.ps1",
-            "scripts\\run_weekly_delivery_check.ps1",
-            "scripts\\show_weekly_delivery_history.ps1",
-            "scripts\\run_pre_submit_review.ps1",
+            "-RunPostChecks",
+            "scripts\\run_weekly_reporting_bundle.ps1",
+            "latest_weekly_artifact_consistency.json",
+            "latest_pre_submit_review.json",
+            "同一自然日",
         ],
+        "forbidden_prompt_terms": [],
     },
 ]
 
@@ -70,15 +72,20 @@ def _check_automation(root, expected):
         issues.append(f"rrule expected {expected_rrule} got {data.get('rrule', '')}")
     if data.get("execution_environment") != "local":
         issues.append(f"execution_environment expected local got {data.get('execution_environment', '')}")
+    if data.get("model") != expected["model"]:
+        issues.append(f"model expected {expected['model']} got {data.get('model', '')}")
     if "F:\\chatgptssd\\project2" not in data.get("cwds", []):
         issues.append("cwds missing F:\\chatgptssd\\project2")
     prompt = data.get("prompt", "")
     for term in expected["required_prompt_terms"]:
         if term not in prompt:
-            if term == "scripts\\show_weekly_conclusion.ps1":
-                issues.append(f"weekly_conclusion_report_missing: prompt missing {term}")
+            if expected["id"] == "automation-5":
+                issues.append(f"weekly_bundle_contract_missing: prompt missing {term}")
             else:
                 issues.append(f"prompt missing {term}")
+    for term in expected.get("forbidden_prompt_terms", []):
+        if term in prompt:
+            issues.append(f"prompt must not run {term} before the final HK task")
     return {
         "id": expected["id"],
         "name": data.get("name", expected["name"]),
@@ -124,8 +131,9 @@ def render_audit_report(result):
         [
             "",
             "## 验收重点",
-            "- 美股和 A 股任务不得提前引用旧 latest_automation_check.json。",
-            "- 港股任务必须在三市场完成后运行 run_self_analysis.ps1、show_automation_check.ps1、run_weekly_ops_check.ps1、show_weekly_ops_history.ps1、show_weekly_conclusion.ps1、run_weekly_delivery_check.ps1、show_weekly_delivery_history.ps1 和 run_pre_submit_review.ps1。",
+            "- 美股和 A 股任务只生成各自市场产物，不得提前运行 -RunPostChecks。",
+            "- 港股任务必须使用 -RunPostChecks 调用 run_weekly_reporting_bundle.ps1，并读取 latest_weekly_artifact_consistency.json 和 latest_pre_submit_review.json。",
+            "- 三条任务使用当前支持的 gpt-5.6-terra；开发治理与提示词不绑定旧模型协作习惯。",
         ]
     )
     return "\n".join(lines) + "\n"
