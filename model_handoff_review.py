@@ -5,8 +5,19 @@ from pathlib import Path
 
 
 HANDOFF_SCHEMA = "model_handoff_review"
-HANDOFF_VERSION = 1
-EXPECTED_COLLABORATION_EXECUTION_MODE = "single_codex_with_gpt55_review_checklist"
+HANDOFF_VERSION = 2
+EXPECTED_DEVELOPMENT_EXECUTION_PROFILE = "capability_adaptive_single_agent"
+EXPECTED_REVIEW_POLICY = "risk_based_independent_verification"
+EXPECTED_ENVIRONMENT_COMPATIBILITY_POLICY = (
+    "runtime_capability_detection_with_safe_fallback"
+)
+LEGACY_MODEL_COLLABORATION_FIELDS = {
+    "automatic_multi_model_collaboration_enabled",
+    "collaboration_execution_mode",
+    "collaboration_boundary_note",
+    "spark_execution_summary",
+    "gpt55_review_checklist",
+}
 DEFAULT_MEDIUM_TERM_REVIEW = "outputs/automation/latest_medium_term_goal_review.json"
 DEFAULT_SP500_CURRENT_MEMBERSHIP_SOURCES = (
     "outputs/automation/latest_sp500_current_membership_sources.json"
@@ -122,21 +133,32 @@ def build_model_handoff_review(
     if medium_term and not goal:
         reasons.append("missing_goal_in_medium_term_review")
 
-    auto_collaboration = bool(
-        medium_term.get("automatic_multi_model_collaboration_enabled")
-    )
-    collaboration_mode = medium_term.get(
-        "collaboration_execution_mode",
+    execution_profile = medium_term.get("development_execution_profile", "unknown")
+    review_policy = medium_term.get("review_policy", "unknown")
+    compatibility_policy = medium_term.get(
+        "environment_compatibility_policy",
         "unknown",
     )
-    collaboration_note = str(medium_term.get("collaboration_boundary_note", ""))
+    model_version_pinned = medium_term.get("model_version_pinned")
+    upgrade_compatibility_required = medium_term.get(
+        "upgrade_compatibility_required"
+    )
+    governance_note = str(medium_term.get("development_governance_note", ""))
 
-    if auto_collaboration:
-        reasons.append("automatic_multi_model_collaboration_claimed")
-    if collaboration_mode != EXPECTED_COLLABORATION_EXECUTION_MODE:
-        reasons.append("unexpected_collaboration_execution_mode")
-    if medium_term and "未启用自动多模型协作" not in collaboration_note:
-        reasons.append("missing_no_auto_collaboration_boundary")
+    if LEGACY_MODEL_COLLABORATION_FIELDS.intersection(medium_term):
+        reasons.append("legacy_model_collaboration_fields_present")
+    if execution_profile != EXPECTED_DEVELOPMENT_EXECUTION_PROFILE:
+        reasons.append("unexpected_development_execution_profile")
+    if review_policy != EXPECTED_REVIEW_POLICY:
+        reasons.append("unexpected_review_policy")
+    if compatibility_policy != EXPECTED_ENVIRONMENT_COMPATIBILITY_POLICY:
+        reasons.append("unexpected_environment_compatibility_policy")
+    if model_version_pinned is not False:
+        reasons.append("model_version_pinned")
+    if upgrade_compatibility_required is not True:
+        reasons.append("upgrade_compatibility_not_required")
+    if medium_term and "不绑定具体模型" not in governance_note:
+        reasons.append("missing_model_agnostic_governance_boundary")
 
     current = goal.get("current", {}) if isinstance(goal, dict) else {}
     if not isinstance(current, dict):
@@ -168,8 +190,11 @@ def build_model_handoff_review(
         "strategy_code": medium_term.get("strategy_code", "unknown"),
         "strategy_title": medium_term.get("strategy_title", "unknown"),
         "development_priority_actions": _priority_actions(medium_term),
-        "automatic_multi_model_collaboration_enabled": auto_collaboration,
-        "collaboration_execution_mode": collaboration_mode,
+        "development_execution_profile": execution_profile,
+        "review_policy": review_policy,
+        "environment_compatibility_policy": compatibility_policy,
+        "model_version_pinned": model_version_pinned,
+        "upgrade_compatibility_required": upgrade_compatibility_required,
         "sp500_current_source_inbox_external_input_required": bool(
             current.get("sp500_current_source_inbox_external_input_required")
         ),
@@ -259,16 +284,25 @@ def build_model_handoff_review(
         "forecast_formal_model_change_allowed": bool(
             forecast.get("formal_model_change_allowed", False)
         ),
-        "collaboration_boundary_note": collaboration_note,
-        "spark_execution_summary": "单 Codex 按 gpt5.3-codex-spark 的小步实现习惯推进，并保留可回放证据。",
-        "gpt55_review_checklist": [
-            "gpt5.5 口径复核：不声称已启用自动双模型协作。",
-            "gpt5.5 口径复核：不自动修改正式模型参数或正式评分权重。",
-            "gpt5.5 口径复核：提交前必须能追溯当前模块完成度和整体完成度。",
+        "development_governance_note": governance_note,
+        "execution_summary": (
+            "执行主体根据当前运行环境能力按最小可验证单元推进，并保留输入、输出、测试和失败边界等可回放证据。"
+        ),
+        "quality_review_checklist": [
+            "确认运行环境能力与限制已记录，能力不足时采用安全降级或明确失败。",
+            "确认数据新鲜度、候选数量和交付结论在各报告之间一致。",
+            "确认不自动修改正式模型参数或正式评分权重。",
+            "确认高风险变更具有独立验证证据、完整测试和失败回退路径。",
+            "确认模型或环境升级后重跑相同质量闸门，不降低验收标准。",
         ],
+        "compatibility_contract": {
+            "no_model_name_dependency": model_version_pinned is False,
+            "revalidate_after_upgrade": upgrade_compatibility_required is True,
+            "quality_gates_may_not_decrease": True,
+        },
         "validation_commands": validation_commands,
         "risk_notes": [
-            "当前仍为单 Codex 执行 + gpt5.5 复核清单模拟，不是真正的自动双模型协作。",
+            "开发治理不绑定具体模型名称或版本；模型和运行环境变化不得绕过现有质量闸门。",
         ],
         "formal_release_allowed": status == "ready",
         "attention_reasons": reasons,
@@ -291,25 +325,28 @@ def build_model_handoff_review(
 
 def render_model_handoff_review(result):
     lines = [
-        "# 模型交接复核包",
+        "# 开发治理交接复核",
         "",
         f"- 状态：{result.get('status', 'unknown')}",
         f"- 当前模块：{result.get('current_module', 'unknown')}",
         f"- 模块完成度：{result.get('module_completion_percent', 0)}%",
         f"- 中期目标整体完成度：{result.get('medium_term_overall_completion_percent', 0)}%",
         f"- 当前目标总完成度：{result.get('current_target_total_completion_percent', 0)}%",
-        f"- 自动双模型协作：{'已启用' if result.get('automatic_multi_model_collaboration_enabled') else '未启用自动双模型协作'}",
-        f"- 真实执行模式：{result.get('collaboration_execution_mode', 'unknown')}",
-        f"- 边界：{result.get('collaboration_boundary_note', 'unknown')}",
+        f"- 执行配置：{result.get('development_execution_profile', 'unknown')}",
+        f"- 复核策略：{result.get('review_policy', 'unknown')}",
+        f"- 环境兼容策略：{result.get('environment_compatibility_policy', 'unknown')}",
+        f"- 模型版本固定：{'是' if result.get('model_version_pinned') else '否'}",
+        f"- 升级后必须重验：{'是' if result.get('upgrade_compatibility_required') else '否'}",
+        f"- 边界：{result.get('development_governance_note', 'unknown')}",
         "",
-        "## 快速实现口径",
+        "## 能力自适应执行摘要",
         "",
-        result.get("spark_execution_summary", "unknown"),
+        result.get("execution_summary", "unknown"),
         "",
-        "## gpt5.5 复核清单",
+        "## 质量复核清单",
         "",
     ]
-    for item in result.get("gpt55_review_checklist", []) or []:
+    for item in result.get("quality_review_checklist", []) or []:
         lines.append(f"- {item}")
     lines.extend(["", "## 验证命令", ""])
     for command in result.get("validation_commands", []) or []:

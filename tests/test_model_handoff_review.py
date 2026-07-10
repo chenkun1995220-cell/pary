@@ -27,15 +27,18 @@ class ModelHandoffReviewTests(unittest.TestCase):
                         "continue_sample_accumulation",
                         "provide_official_constituents_csv_or_fix_network_permission",
                     ],
-                    "automatic_multi_model_collaboration_enabled": False,
-                    "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
-                    "collaboration_boundary_note": (
-                        "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。"
+                    "development_execution_profile": "capability_adaptive_single_agent",
+                    "review_policy": "risk_based_independent_verification",
+                    "environment_compatibility_policy": "runtime_capability_detection_with_safe_fallback",
+                    "model_version_pinned": False,
+                    "upgrade_compatibility_required": True,
+                    "development_governance_note": (
+                        "开发流程不绑定具体模型名称或版本；根据运行环境能力执行，并保留独立复核、完整测试和失败回退。"
                     ),
                     "goals": [
                         {
                             "goal_code": "model_governance_handoff",
-                            "module": "模型治理与多模型协作准备",
+                            "module": "模型无关开发治理",
                             "completion_percent": 75,
                             "status": "on_track",
                             "next_action": "continue_governance_handoff",
@@ -55,8 +58,9 @@ class ModelHandoffReviewTests(unittest.TestCase):
             report = render_model_handoff_review(result)
 
             self.assertEqual(result["handoff_schema"], "model_handoff_review")
+            self.assertEqual(result["handoff_version"], 2)
             self.assertEqual(result["status"], "ready")
-            self.assertEqual(result["current_module"], "模型治理与多模型协作准备")
+            self.assertEqual(result["current_module"], "模型无关开发治理")
             self.assertEqual(result["module_completion_percent"], 75)
             self.assertEqual(result["medium_term_overall_completion_percent"], 61)
             self.assertEqual(result["current_target_total_completion_percent"], 61)
@@ -67,15 +71,29 @@ class ModelHandoffReviewTests(unittest.TestCase):
                     "provide_official_constituents_csv_or_fix_network_permission",
                 ],
             )
-            self.assertFalse(result["automatic_multi_model_collaboration_enabled"])
             self.assertEqual(
-                result["collaboration_execution_mode"],
-                "single_codex_with_gpt55_review_checklist",
+                result["development_execution_profile"],
+                "capability_adaptive_single_agent",
             )
-            self.assertIn("gpt5.5", " ".join(result["gpt55_review_checklist"]))
+            self.assertEqual(
+                result["review_policy"],
+                "risk_based_independent_verification",
+            )
+            self.assertFalse(result["model_version_pinned"])
+            self.assertTrue(result["upgrade_compatibility_required"])
+            self.assertTrue(result["compatibility_contract"]["no_model_name_dependency"])
+            self.assertTrue(result["compatibility_contract"]["revalidate_after_upgrade"])
+            self.assertTrue(result["compatibility_contract"]["quality_gates_may_not_decrease"])
+            self.assertTrue(result["quality_review_checklist"])
+            self.assertNotIn("automatic_multi_model_collaboration_enabled", result)
+            self.assertNotIn("collaboration_execution_mode", result)
+            self.assertNotIn("spark_execution_summary", result)
+            self.assertNotIn("gpt55_review_checklist", result)
             self.assertIn("development_priority_actions", report)
             self.assertIn("provide_official_constituents_csv_or_fix_network_permission", report)
-            self.assertIn("未启用自动双模型协作", report)
+            self.assertIn("开发治理交接复核", report)
+            self.assertIn("能力自适应执行摘要", report)
+            self.assertIn("质量复核清单", report)
 
     def test_defaults_to_medium_term_closeout_goal_when_goal_code_is_omitted(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -89,9 +107,12 @@ class ModelHandoffReviewTests(unittest.TestCase):
                     "strategy_code": "steady_delivery_evidence_first",
                     "strategy_title": "稳交付 + 补证据 + 等预测样本成熟",
                     "overall_completion_percent": 61,
-                    "automatic_multi_model_collaboration_enabled": False,
-                    "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
-                    "collaboration_boundary_note": "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。",
+                    "development_execution_profile": "capability_adaptive_single_agent",
+                    "review_policy": "risk_based_independent_verification",
+                    "environment_compatibility_policy": "runtime_capability_detection_with_safe_fallback",
+                    "model_version_pinned": False,
+                    "upgrade_compatibility_required": True,
+                    "development_governance_note": "开发流程不绑定具体模型名称或版本；根据运行环境能力执行，并保留独立复核、完整测试和失败回退。",
                     "task_closeout_snapshot": {
                         "goal_code": "backtest_evidence_quality",
                         "current_module": "S&P 500 成分证据补强",
@@ -101,7 +122,7 @@ class ModelHandoffReviewTests(unittest.TestCase):
                     "goals": [
                         {
                             "goal_code": "model_governance_handoff",
-                            "module": "模型治理与多模型协作准备",
+                            "module": "模型无关开发治理",
                             "completion_percent": 75,
                             "status": "on_track",
                         },
@@ -271,6 +292,43 @@ class ModelHandoffReviewTests(unittest.TestCase):
             self.assertIn("forecast_next_one_week_evaluation_count=42", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
             self.assertIn("forecast_next_one_month_evaluation_count=42", report)
+
+    def test_rejects_legacy_fixed_model_collaboration_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_json(
+                root / "outputs" / "automation" / "latest_medium_term_goal_review.json",
+                {
+                    "review_schema": "medium_term_goal_review",
+                    "review_version": 1,
+                    "overall_completion_percent": 75,
+                    "development_execution_profile": "capability_adaptive_single_agent",
+                    "review_policy": "risk_based_independent_verification",
+                    "environment_compatibility_policy": "runtime_capability_detection_with_safe_fallback",
+                    "model_version_pinned": False,
+                    "upgrade_compatibility_required": True,
+                    "development_governance_note": "开发流程不绑定具体模型名称或版本。",
+                    "collaboration_execution_mode": "legacy_fixed_model_roles",
+                    "goals": [
+                        {
+                            "goal_code": "model_governance_handoff",
+                            "module": "模型无关开发治理",
+                            "completion_percent": 85,
+                            "status": "on_track",
+                        }
+                    ],
+                },
+            )
+
+            from model_handoff_review import build_model_handoff_review
+
+            result = build_model_handoff_review(root, today="2026-07-11")
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "legacy_model_collaboration_fields_present",
+                result["attention_reasons"],
+            )
 
     def test_weekly_bundle_runs_handoff_before_pre_submit_review(self):
         project_root = Path(__file__).resolve().parents[1]
