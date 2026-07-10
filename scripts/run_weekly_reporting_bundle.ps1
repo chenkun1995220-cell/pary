@@ -51,8 +51,6 @@ $postSteps = @(
   @{ Label = "run_one_week_forecast_shadow_parameter_validation"; Script = "run_one_week_forecast_shadow_parameter_validation.ps1"; Critical = $true },
   @{ Label = "run_one_week_forecast_shadow_disposition"; Script = "run_one_week_forecast_shadow_disposition.ps1"; Critical = $true },
   @{ Label = "refresh_self_analysis_after_shadow_disposition"; Script = "run_self_analysis.ps1"; Critical = $true },
-  @{ Label = "run_medium_term_goal_review"; Script = "run_medium_term_goal_review.ps1"; Critical = $true },
-  @{ Label = "run_model_handoff_review"; Script = "run_model_handoff_review.ps1"; Critical = $true },
   @{ Label = "show_automation_check"; Script = "show_automation_check.ps1"; Critical = $true },
   @{ Label = "show_weekly_action_items"; Script = "show_weekly_action_items.ps1"; Critical = $true },
   @{ Label = "run_weekly_ops_check"; Script = "run_weekly_ops_check.ps1"; Critical = $true },
@@ -61,7 +59,11 @@ $postSteps = @(
   @{ Label = "run_weekly_delivery_check"; Script = "run_weekly_delivery_check.ps1"; Critical = $true },
   @{ Label = "run_weekly_artifact_consistency"; Script = "run_weekly_artifact_consistency.ps1"; Critical = $true },
   @{ Label = "show_weekly_delivery_history"; Script = "show_weekly_delivery_history.ps1"; Critical = $true },
-  @{ Label = "run_pre_submit_review"; Script = "run_pre_submit_review.ps1"; Critical = $false },
+  @{ Label = "run_pre_submit_review_for_streak"; Script = "run_pre_submit_review.ps1"; Critical = $false },
+  @{ Label = "run_weekly_delivery_streak_review"; Script = "run_weekly_delivery_streak_review.ps1"; Critical = $true },
+  @{ Label = "refresh_medium_term_goal_after_delivery_streak"; Script = "run_medium_term_goal_review.ps1"; Critical = $true },
+  @{ Label = "refresh_model_handoff_after_delivery_streak"; Script = "run_model_handoff_review.ps1"; Critical = $true },
+  @{ Label = "run_pre_submit_review_final"; Script = "run_pre_submit_review.ps1"; Critical = $false },
   @{ Label = "show_development_closeout"; Script = "show_development_closeout.ps1"; Critical = $true }
 )
 

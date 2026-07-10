@@ -28,6 +28,32 @@ class WeeklyAutomationTests(unittest.TestCase):
                     script.index("if ($DryRun)"),
                 )
 
+    def test_weekly_delivery_streak_wrapper_and_bundle_tail_order(self):
+        wrapper = (
+            PROJECT_ROOT / "scripts" / "run_weekly_delivery_streak_review.ps1"
+        ).read_text(encoding="utf-8-sig")
+        bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("weekly_delivery_streak_review.py", wrapper)
+        self.assertIn("latest_weekly_delivery_streak_review.json", wrapper)
+        self.assertIn("weekly_delivery_streak_history.jsonl", wrapper)
+        ordered_labels = [
+            "run_weekly_artifact_consistency",
+            "show_weekly_delivery_history",
+            "run_pre_submit_review_for_streak",
+            "run_weekly_delivery_streak_review",
+            "refresh_medium_term_goal_after_delivery_streak",
+            "refresh_model_handoff_after_delivery_streak",
+            "run_pre_submit_review_final",
+            "show_development_closeout",
+        ]
+        positions = [bundle.index(f'Label = "{label}"') for label in ordered_labels]
+        self.assertEqual(positions, sorted(positions))
+        self.assertNotIn('Label = "run_medium_term_goal_review"', bundle)
+        self.assertNotIn('Label = "run_model_handoff_review"', bundle)
+
     def test_weekly_bundle_runs_candidate_risk_resolution_after_research_review(self):
         bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
             encoding="utf-8-sig"

@@ -102,6 +102,8 @@ def _market_evidence(project_root, market, directory, current_date, max_age_days
     return {
         "market": market,
         "run_date": run_date.isoformat() if run_date else "",
+        "run_started_at": fields.get("Run start time", ""),
+        "run_completed_at": fields.get("Run time", ""),
         "age_days": age_days,
         "summary_candidate_count": summary_count,
         "candidate_file_count": len(candidate_rows),

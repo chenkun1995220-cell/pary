@@ -341,8 +341,8 @@ class ModelHandoffReviewTests(unittest.TestCase):
 
         self.assertIn("run_model_handoff_review.ps1", bundle)
         self.assertLess(
-            bundle.index("run_model_handoff_review.ps1"),
-            bundle.index("run_pre_submit_review.ps1"),
+            bundle.index('Label = "refresh_model_handoff_after_delivery_streak"'),
+            bundle.index('Label = "run_pre_submit_review_final"'),
         )
         self.assertIn("if ($GoalCode)", wrapper)
 

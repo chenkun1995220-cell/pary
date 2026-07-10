@@ -28,8 +28,15 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def write_summary(path, candidate_count, extra=None, run_time="2026-07-11 14:05:00"):
+def write_summary(
+    path,
+    candidate_count,
+    extra=None,
+    run_time="2026-07-11 14:25:00",
+    run_start_time="2026-07-11 14:05:00",
+):
     fields = {
+        "Run start time": run_start_time,
         "Run time": run_time,
         "Candidate count": str(candidate_count),
     }
@@ -117,6 +124,9 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
             self.assertEqual(payload["candidate_count_total"], 6)
             self.assertEqual(payload["runtime_quote_snapshot"]["git_policy"], "runtime_output_only")
             self.assertEqual(payload["runtime_quote_snapshot"]["row_count"], 2)
+            market_rows = {row["market"]: row for row in payload["markets"]}
+            self.assertEqual(market_rows["US"]["run_started_at"], "2026-07-11 14:05:00")
+            self.assertEqual(market_rows["US"]["run_completed_at"], "2026-07-11 14:25:00")
             self.assertEqual(payload["issues"], [])
 
     def test_blocks_summary_candidate_count_mismatch(self):
