@@ -74,15 +74,14 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             [
                 "# 中期目标与模型协作规范",
                 "",
-                "gpt5.3-codex-spark 负责快速迭代。",
-                "gpt5.5 负责关键复核和正式收口。",
-                "组合开发习惯要求保留证据三件套。",
-                "每次迭代必须是可回放改动，先完成收敛迭代，再进入正式发布判断。",
-                "每次改动前明确回退策略。",
+                "开发流程不绑定具体模型名称或版本。",
+                "执行前识别运行环境能力和限制。",
+                "按最小可验证单元完成收敛迭代并保留证据三件套。",
+                "按风险分级复核，关键变更必须具有独立验证证据和完整测试。",
+                "每次改动前明确失败回退策略。",
+                "模型或环境升级后必须重跑相同质量闸门，不得降低验收标准。",
                 "所有模型优化建议先进入影子层。",
                 "不得自动修改正式模型参数。",
-                "当前未启用自动多模型协作。",
-                "真实执行模式为 single_codex_with_gpt55_review_checklist。",
             ]
         )
         + "\n",
@@ -104,21 +103,29 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         root / "outputs" / "automation" / "latest_model_handoff_review.json",
         {
             "handoff_schema": "model_handoff_review",
-            "handoff_version": 1,
+            "handoff_version": 2,
             "as_of_date": as_of_date,
             "status": "ready",
             "goal_code": "backtest_evidence_quality",
             "current_module": "S&P 500 成分证据补强",
             "module_completion_percent": 30,
             "medium_term_overall_completion_percent": 61,
-            "automatic_multi_model_collaboration_enabled": False,
-            "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
-            "collaboration_boundary_note": "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。",
-            "spark_execution_summary": "小步实现并保留验证证据。",
-            "gpt55_review_checklist": [
+            "development_execution_profile": "capability_adaptive_single_agent",
+            "review_policy": "risk_based_independent_verification",
+            "environment_compatibility_policy": "runtime_capability_detection_with_safe_fallback",
+            "model_version_pinned": False,
+            "upgrade_compatibility_required": True,
+            "development_governance_note": "开发流程不绑定具体模型名称或版本；根据运行环境能力执行并进行风险分级复核。",
+            "execution_summary": "按最小可验证单元实现并保留验证证据。",
+            "quality_review_checklist": [
                 "确认未自动修改正式模型参数",
-                "确认输出不声称已启用自动双模型协作",
+                "确认高风险变更具有独立验证证据和完整测试",
             ],
+            "compatibility_contract": {
+                "no_model_name_dependency": True,
+                "revalidate_after_upgrade": True,
+                "quality_gates_may_not_decrease": True,
+            },
             "validation_commands": [
                 "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\run_pre_submit_review.ps1 -MaxAgeDays 8",
                 "python -m unittest discover -s tests",
@@ -1031,9 +1038,12 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
                 "continue_sample_accumulation",
                 "provide_official_constituents_csv_or_fix_network_permission",
             ],
-            "automatic_multi_model_collaboration_enabled": False,
-            "collaboration_execution_mode": "single_codex_with_gpt55_review_checklist",
-            "collaboration_boundary_note": "当前未启用自动多模型协作；实际由单 Codex 执行并通过清单模拟复核。",
+            "development_execution_profile": "capability_adaptive_single_agent",
+            "review_policy": "risk_based_independent_verification",
+            "environment_compatibility_policy": "runtime_capability_detection_with_safe_fallback",
+            "model_version_pinned": False,
+            "upgrade_compatibility_required": True,
+            "development_governance_note": "开发流程不绑定具体模型名称或版本；根据运行环境能力执行并进行风险分级复核。",
             "development_completion_policy": {
                 "required_in_task_closeout": True,
                 "closeout_fields": [
@@ -1210,12 +1220,21 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["development_closeout"]["current_target_total_completion_percent"],
                 61,
             )
-            self.assertFalse(
-                result["development_closeout"]["automatic_multi_model_collaboration_enabled"]
+            self.assertEqual(
+                result["development_closeout"]["development_execution_profile"],
+                "capability_adaptive_single_agent",
             )
             self.assertEqual(
-                result["development_closeout"]["collaboration_execution_mode"],
-                "single_codex_with_gpt55_review_checklist",
+                result["development_closeout"]["review_policy"],
+                "risk_based_independent_verification",
+            )
+            self.assertFalse(result["development_closeout"]["model_version_pinned"])
+            self.assertTrue(
+                result["development_closeout"]["upgrade_compatibility_required"]
+            )
+            self.assertNotIn(
+                "collaboration_execution_mode",
+                result["development_closeout"],
             )
             self.assertTrue(
                 result["development_closeout"][
@@ -1265,7 +1284,7 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertIn("medium_term_overall_completion_percent=61", report)
             self.assertIn("current_target_total_completion_percent=61", report)
             self.assertIn(
-                "collaboration_execution_mode=single_codex_with_gpt55_review_checklist",
+                "development_execution_profile=capability_adaptive_single_agent",
                 report,
             )
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
@@ -1549,13 +1568,13 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
-    def test_review_needs_attention_when_medium_term_collaboration_mode_is_missing(self):
+    def test_review_needs_attention_when_medium_term_execution_profile_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_ready_review_inputs(root)
             medium_path = root / "outputs" / "automation" / "latest_medium_term_goal_review.json"
             medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
-            medium.pop("collaboration_execution_mode")
+            medium.pop("development_execution_profile")
             write_json(medium_path, medium)
 
             from pre_submit_review import run_pre_submit_review
@@ -1564,17 +1583,17 @@ class PreSubmitReviewTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
-                "medium_term_goal_review_missing_collaboration_boundary",
+                "medium_term_goal_review_missing_adaptive_governance_fields",
                 result["attention_reasons"],
             )
 
-    def test_review_needs_attention_when_medium_term_collaboration_mode_claims_automatic(self):
+    def test_review_needs_attention_when_medium_term_execution_profile_is_unsafe(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_ready_review_inputs(root)
             medium_path = root / "outputs" / "automation" / "latest_medium_term_goal_review.json"
             medium = json.loads(medium_path.read_text(encoding="utf-8-sig"))
-            medium["collaboration_execution_mode"] = "automatic_multi_model_collaboration"
+            medium["development_execution_profile"] = "fixed_model_role_pipeline"
             write_json(medium_path, medium)
 
             from pre_submit_review import run_pre_submit_review
@@ -1583,7 +1602,7 @@ class PreSubmitReviewTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
-                "medium_term_goal_review_collaboration_mode_unsafe",
+                "medium_term_goal_review_adaptive_governance_mode_unsafe",
                 result["attention_reasons"],
             )
 
@@ -4450,7 +4469,7 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertEqual(result["governance_status"], "needs_attention")
             self.assertIn("governance_doc_missing_terms", result["attention_reasons"])
-            self.assertIn("gpt5.3-codex-spark", result["governance_missing_terms"])
+            self.assertIn("不绑定具体模型名称或版本", result["governance_missing_terms"])
 
     def test_review_needs_attention_when_governance_doc_missing_combined_development_habits(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -4461,9 +4480,10 @@ class PreSubmitReviewTests(unittest.TestCase):
                 "\n".join(
                     [
                         "# 中期目标与模型协作规范",
-                        "gpt5.3-codex-spark 负责快速迭代。",
-                        "gpt5.5 负责关键复核和正式收口。",
-                        "组合开发习惯要求保留证据三件套。",
+                        "开发流程不绑定具体模型名称或版本。",
+                        "执行前识别运行环境能力和限制。",
+                        "按最小可验证单元完成收敛迭代并保留证据三件套。",
+                        "按风险分级复核，关键变更必须具有独立验证证据。",
                         "所有模型优化建议先进入影子层。",
                         "不得自动修改正式模型参数。",
                     ]
@@ -4478,9 +4498,9 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertEqual(result["governance_status"], "needs_attention")
             self.assertIn("governance_doc_missing_terms", result["attention_reasons"])
-            self.assertIn("可回放", result["governance_missing_terms"])
-            self.assertIn("回退策略", result["governance_missing_terms"])
-            self.assertIn("收敛迭代", result["governance_missing_terms"])
+            self.assertIn("完整测试", result["governance_missing_terms"])
+            self.assertIn("失败回退策略", result["governance_missing_terms"])
+            self.assertIn("升级后必须重跑", result["governance_missing_terms"])
 
     def test_review_needs_attention_when_model_handoff_review_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -5475,7 +5495,7 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
 
-    def test_review_needs_attention_when_model_handoff_claims_auto_collaboration(self):
+    def test_review_needs_attention_when_model_handoff_contains_legacy_collaboration_field(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_ready_review_inputs(root)
@@ -5486,7 +5506,7 @@ class PreSubmitReviewTests(unittest.TestCase):
                 / "latest_model_handoff_review.json"
             )
             handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
-            handoff["automatic_multi_model_collaboration_enabled"] = True
+            handoff["collaboration_execution_mode"] = "legacy_fixed_model_roles"
             write_json(handoff_path, handoff)
 
             from pre_submit_review import run_pre_submit_review
@@ -5495,7 +5515,45 @@ class PreSubmitReviewTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
-                "model_handoff_review_auto_collaboration_boundary_unsafe",
+                "model_handoff_review_legacy_model_collaboration_fields_present",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_model_version_is_pinned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = root / "outputs" / "automation" / "latest_model_handoff_review.json"
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            handoff["model_version_pinned"] = True
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_model_version_pinned",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_upgrade_compatibility_contract_is_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            handoff_path = root / "outputs" / "automation" / "latest_model_handoff_review.json"
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8-sig"))
+            handoff["compatibility_contract"]["revalidate_after_upgrade"] = False
+            write_json(handoff_path, handoff)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "model_handoff_review_upgrade_compatibility_contract_unsafe",
                 result["attention_reasons"],
             )
 

@@ -1262,6 +1262,17 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 summary["current_target_total_completion_percent"],
                 review["overall_completion_percent"],
             )
+            self.assertEqual(
+                summary["development_execution_profile"],
+                "capability_adaptive_single_agent",
+            )
+            self.assertEqual(
+                summary["review_policy"],
+                "risk_based_independent_verification",
+            )
+            self.assertFalse(summary["model_version_pinned"])
+            self.assertTrue(summary["upgrade_compatibility_required"])
+            self.assertNotIn("collaboration_execution_mode", summary)
             self.assertTrue(summary["sp500_current_source_inbox_external_input_required"])
             self.assertEqual(summary["sp500_current_source_inbox_size_bytes"], 12345)
             self.assertEqual(summary["sp500_current_source_inbox_sha256"], "a" * 64)
@@ -1289,6 +1300,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("该模块完成度：30%", report)
             self.assertIn("中期目标整体完成度：", report)
             self.assertIn("当前目标总完成度：", report)
+            self.assertIn("执行配置：capability_adaptive_single_agent", report)
 
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
             self.assertIn("sp500_current_source_inbox_size_bytes=12345", report)

@@ -11,7 +11,18 @@ PRE_SUBMIT_REVIEW_SCHEMA = "pre_submit_review"
 PRE_SUBMIT_REVIEW_VERSION = 1
 HISTORY_SCHEMA = "pre_submit_review_history"
 HISTORY_VERSION = 1
-EXPECTED_COLLABORATION_EXECUTION_MODE = "single_codex_with_gpt55_review_checklist"
+EXPECTED_DEVELOPMENT_EXECUTION_PROFILE = "capability_adaptive_single_agent"
+EXPECTED_REVIEW_POLICY = "risk_based_independent_verification"
+EXPECTED_ENVIRONMENT_COMPATIBILITY_POLICY = (
+    "runtime_capability_detection_with_safe_fallback"
+)
+LEGACY_MODEL_COLLABORATION_FIELDS = {
+    "automatic_multi_model_collaboration_enabled",
+    "collaboration_execution_mode",
+    "collaboration_boundary_note",
+    "spark_execution_summary",
+    "gpt55_review_checklist",
+}
 
 DEFAULT_CHECKLIST = "docs/提交前复核清单.md"
 DEFAULT_GOVERNANCE_DOC = "docs/中期目标与模型协作规范.md"
@@ -27,21 +38,19 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_STATUS_REPORT = (
 )
 
 GOVERNANCE_REQUIRED_TERMS = [
-    "gpt5.3-codex-spark",
-    "gpt5.5",
-    "快速迭代",
-    "关键复核",
-    "正式收口",
-    "组合开发习惯",
+    "不绑定具体模型名称或版本",
+    "运行环境能力",
+    "最小可验证单元",
+    "风险分级复核",
+    "独立验证证据",
+    "完整测试",
     "证据三件套",
-    "可回放",
-    "回退策略",
+    "失败回退策略",
     "收敛迭代",
-    "正式发布判断",
+    "升级后必须重跑",
+    "不得降低验收标准",
     "影子层",
     "不得自动修改正式模型参数",
-    "未启用自动多模型协作",
-    "single_codex_with_gpt55_review_checklist",
 ]
 
 CHECKLIST_REQUIRED_EXTERNAL_INPUT_SYNC_TERMS = [
@@ -233,7 +242,7 @@ INPUT_SPECS = {
         "schema_field": "handoff_schema",
         "schema_value": "model_handoff_review",
         "version_field": "handoff_version",
-        "version_value": 1,
+        "version_value": 2,
     },
 }
 
@@ -286,9 +295,12 @@ MEDIUM_TERM_GOAL_REVIEW_REQUIRED_FIELDS = [
     "development_completion_policy",
     "task_closeout_snapshot",
     "goals",
-    "automatic_multi_model_collaboration_enabled",
-    "collaboration_execution_mode",
-    "collaboration_boundary_note",
+    "development_execution_profile",
+    "review_policy",
+    "environment_compatibility_policy",
+    "model_version_pinned",
+    "upgrade_compatibility_required",
+    "development_governance_note",
 ]
 
 MEDIUM_TERM_CLOSEOUT_REQUIRED_FIELDS = [
@@ -302,11 +314,15 @@ MODEL_HANDOFF_REQUIRED_FIELDS = [
     "current_module",
     "module_completion_percent",
     "medium_term_overall_completion_percent",
-    "automatic_multi_model_collaboration_enabled",
-    "collaboration_execution_mode",
-    "collaboration_boundary_note",
-    "spark_execution_summary",
-    "gpt55_review_checklist",
+    "development_execution_profile",
+    "review_policy",
+    "environment_compatibility_policy",
+    "model_version_pinned",
+    "upgrade_compatibility_required",
+    "development_governance_note",
+    "execution_summary",
+    "quality_review_checklist",
+    "compatibility_contract",
     "validation_commands",
     "risk_notes",
     "formal_release_allowed",
@@ -870,8 +886,11 @@ def render_pre_submit_review(result):
                 f"- current_target_total_completion_percent={closeout.get('current_target_total_completion_percent', 0)}",
                 f"- strategy_code={closeout.get('strategy_code', 'unknown')}",
                 f"- medium_term_status={closeout.get('medium_term_status', 'unknown')}",
-                f"- automatic_multi_model_collaboration_enabled={closeout.get('automatic_multi_model_collaboration_enabled', False)}",
-                f"- collaboration_execution_mode={closeout.get('collaboration_execution_mode', 'unknown')}",
+                f"- development_execution_profile={closeout.get('development_execution_profile', 'unknown')}",
+                f"- review_policy={closeout.get('review_policy', 'unknown')}",
+                f"- environment_compatibility_policy={closeout.get('environment_compatibility_policy', 'unknown')}",
+                f"- model_version_pinned={closeout.get('model_version_pinned', False)}",
+                f"- upgrade_compatibility_required={closeout.get('upgrade_compatibility_required', False)}",
                 f"- sp500_current_source_inbox_external_input_required={closeout.get('sp500_current_source_inbox_external_input_required', False)}",
                 f"- sp500_current_source_inbox_size_bytes={closeout.get('sp500_current_source_inbox_size_bytes', 0)}",
                 f"- sp500_current_source_inbox_sha256={closeout.get('sp500_current_source_inbox_sha256', '')}",
@@ -2917,18 +2936,33 @@ def _medium_term_goal_review_reasons(payload):
             -2,
         ):
             reasons.append("medium_term_goal_review_closeout_module_mismatch")
-    collaboration_mode = payload.get("collaboration_execution_mode")
-    collaboration_note = str(payload.get("collaboration_boundary_note", ""))
+    adaptive_fields = {
+        "development_execution_profile",
+        "review_policy",
+        "environment_compatibility_policy",
+        "model_version_pinned",
+        "upgrade_compatibility_required",
+        "development_governance_note",
+    }
+    if any(field not in payload for field in adaptive_fields):
+        reasons.append("medium_term_goal_review_missing_adaptive_governance_fields")
+    if LEGACY_MODEL_COLLABORATION_FIELDS.intersection(payload):
+        reasons.append("medium_term_goal_review_legacy_model_collaboration_fields_present")
     if (
-        not collaboration_mode
-        or "未启用自动多模型协作" not in collaboration_note
-        or "单 Codex" not in collaboration_note
+        payload.get("development_execution_profile")
+        != EXPECTED_DEVELOPMENT_EXECUTION_PROFILE
+        or payload.get("review_policy") != EXPECTED_REVIEW_POLICY
+        or payload.get("environment_compatibility_policy")
+        != EXPECTED_ENVIRONMENT_COMPATIBILITY_POLICY
     ):
-        reasons.append("medium_term_goal_review_missing_collaboration_boundary")
-    elif collaboration_mode != EXPECTED_COLLABORATION_EXECUTION_MODE:
-        reasons.append("medium_term_goal_review_collaboration_mode_unsafe")
-    if payload.get("automatic_multi_model_collaboration_enabled") is not False:
-        reasons.append("medium_term_goal_review_auto_collaboration_boundary_unsafe")
+        reasons.append("medium_term_goal_review_adaptive_governance_mode_unsafe")
+    if payload.get("model_version_pinned") is not False:
+        reasons.append("medium_term_goal_review_model_version_pinned")
+    if payload.get("upgrade_compatibility_required") is not True:
+        reasons.append("medium_term_goal_review_upgrade_compatibility_not_required")
+    governance_note = str(payload.get("development_governance_note", ""))
+    if "不绑定具体模型" not in governance_note or "运行环境能力" not in governance_note:
+        reasons.append("medium_term_goal_review_missing_adaptive_governance_boundary")
     return reasons
 
 
@@ -2942,15 +2976,33 @@ def _model_handoff_review_reasons(payload, medium_term_goal_review=None):
         reasons.append("model_handoff_review_not_ready")
     if any(field not in payload for field in MODEL_HANDOFF_REQUIRED_FIELDS):
         reasons.append("model_handoff_review_missing_quality_fields")
-    if payload.get("automatic_multi_model_collaboration_enabled") is not False:
-        reasons.append("model_handoff_review_auto_collaboration_boundary_unsafe")
-    if payload.get("collaboration_execution_mode") != EXPECTED_COLLABORATION_EXECUTION_MODE:
-        reasons.append("model_handoff_review_collaboration_mode_unsafe")
-    collaboration_note = str(payload.get("collaboration_boundary_note", ""))
-    if "未启用自动多模型协作" not in collaboration_note and "未启用自动双模型协作" not in collaboration_note:
-        reasons.append("model_handoff_review_missing_collaboration_boundary")
-    if not isinstance(payload.get("gpt55_review_checklist"), list) or not payload.get("gpt55_review_checklist"):
-        reasons.append("model_handoff_review_missing_gpt55_checklist")
+    if LEGACY_MODEL_COLLABORATION_FIELDS.intersection(payload):
+        reasons.append("model_handoff_review_legacy_model_collaboration_fields_present")
+    if (
+        payload.get("development_execution_profile")
+        != EXPECTED_DEVELOPMENT_EXECUTION_PROFILE
+        or payload.get("review_policy") != EXPECTED_REVIEW_POLICY
+        or payload.get("environment_compatibility_policy")
+        != EXPECTED_ENVIRONMENT_COMPATIBILITY_POLICY
+    ):
+        reasons.append("model_handoff_review_adaptive_governance_mode_unsafe")
+    if payload.get("model_version_pinned") is not False:
+        reasons.append("model_handoff_review_model_version_pinned")
+    if payload.get("upgrade_compatibility_required") is not True:
+        reasons.append("model_handoff_review_upgrade_compatibility_not_required")
+    governance_note = str(payload.get("development_governance_note", ""))
+    if "不绑定具体模型" not in governance_note:
+        reasons.append("model_handoff_review_missing_adaptive_governance_boundary")
+    if not isinstance(payload.get("quality_review_checklist"), list) or not payload.get("quality_review_checklist"):
+        reasons.append("model_handoff_review_missing_quality_review_checklist")
+    compatibility_contract = payload.get("compatibility_contract", {})
+    if (
+        not isinstance(compatibility_contract, dict)
+        or compatibility_contract.get("no_model_name_dependency") is not True
+        or compatibility_contract.get("revalidate_after_upgrade") is not True
+        or compatibility_contract.get("quality_gates_may_not_decrease") is not True
+    ):
+        reasons.append("model_handoff_review_upgrade_compatibility_contract_unsafe")
     if (
         not isinstance(validation_commands, list)
         or not validation_commands
@@ -3160,15 +3212,26 @@ def _development_closeout_summary(medium_term_goal_review, closeout_goal_code=""
         "strategy_code": medium_term_goal_review.get("strategy_code", "unknown"),
         "strategy_title": medium_term_goal_review.get("strategy_title", "unknown"),
         "medium_term_status": medium_term_goal_review.get("status", "unknown"),
-        "automatic_multi_model_collaboration_enabled": bool(
-            medium_term_goal_review.get("automatic_multi_model_collaboration_enabled")
-        ),
-        "collaboration_execution_mode": medium_term_goal_review.get(
-            "collaboration_execution_mode",
+        "development_execution_profile": medium_term_goal_review.get(
+            "development_execution_profile",
             "unknown",
         ),
-        "collaboration_boundary_note": medium_term_goal_review.get(
-            "collaboration_boundary_note",
+        "review_policy": medium_term_goal_review.get(
+            "review_policy",
+            "unknown",
+        ),
+        "environment_compatibility_policy": medium_term_goal_review.get(
+            "environment_compatibility_policy",
+            "unknown",
+        ),
+        "model_version_pinned": medium_term_goal_review.get(
+            "model_version_pinned",
+        ),
+        "upgrade_compatibility_required": medium_term_goal_review.get(
+            "upgrade_compatibility_required",
+        ),
+        "development_governance_note": medium_term_goal_review.get(
+            "development_governance_note",
             "unknown",
         ),
         "sp500_current_source_inbox_external_input_required": bool(

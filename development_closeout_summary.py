@@ -63,12 +63,18 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
         "medium_term_status": review.get("status", "unknown"),
         "strategy_code": review.get("strategy_code", "unknown"),
         "strategy_title": review.get("strategy_title", "unknown"),
-        "automatic_multi_model_collaboration_enabled": bool(
-            review.get("automatic_multi_model_collaboration_enabled")
-        ),
-        "collaboration_execution_mode": review.get(
-            "collaboration_execution_mode",
+        "development_execution_profile": review.get(
+            "development_execution_profile",
             "unknown",
+        ),
+        "review_policy": review.get("review_policy", "unknown"),
+        "environment_compatibility_policy": review.get(
+            "environment_compatibility_policy",
+            "unknown",
+        ),
+        "model_version_pinned": review.get("model_version_pinned"),
+        "upgrade_compatibility_required": review.get(
+            "upgrade_compatibility_required"
         ),
         "sp500_current_source_inbox_external_input_required": bool(
             current.get("sp500_current_source_inbox_external_input_required")
@@ -100,8 +106,8 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
             "sp500_current_source_inbox_import_command",
             "",
         ),
-        "collaboration_boundary_note": review.get(
-            "collaboration_boundary_note",
+        "development_governance_note": review.get(
+            "development_governance_note",
             "unknown",
         ),
         "boundary": "只读取最新中期目标看板，不抓取行情，不重新评分，不修改正式模型参数。",
@@ -109,11 +115,6 @@ def build_development_closeout_summary(review_path, goal_code="", module=""):
 
 
 def render_development_closeout_summary(summary):
-    collaboration = (
-        "已启用"
-        if summary.get("automatic_multi_model_collaboration_enabled")
-        else "未启用，当前为单 Codex 执行 + gpt5.5 复核清单模拟"
-    )
     lines = [
         "# 开发收尾摘要",
         "",
@@ -123,9 +124,12 @@ def render_development_closeout_summary(summary):
         f"- 当前目标总完成度：{summary.get('current_target_total_completion_percent', 0)}%",
         f"- 中期目标方案：{summary.get('strategy_title', 'unknown')}",
         f"- 中期目标状态：{summary.get('medium_term_status', 'unknown')}",
-        f"- 自动双模型协作：{collaboration}",
-        f"- 真实执行模式：{summary.get('collaboration_execution_mode', 'unknown')}",
-        f"- 协作边界：{summary.get('collaboration_boundary_note', 'unknown')}",
+        f"- 执行配置：{summary.get('development_execution_profile', 'unknown')}",
+        f"- 复核策略：{summary.get('review_policy', 'unknown')}",
+        f"- 环境兼容策略：{summary.get('environment_compatibility_policy', 'unknown')}",
+        f"- 模型版本固定：{'是' if summary.get('model_version_pinned') else '否'}",
+        f"- 升级后必须重验：{'是' if summary.get('upgrade_compatibility_required') else '否'}",
+        f"- 开发治理边界：{summary.get('development_governance_note', 'unknown')}",
         "",
         "## 边界",
         f"- {summary.get('boundary', '')}",
