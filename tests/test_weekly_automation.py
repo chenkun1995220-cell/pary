@@ -366,6 +366,12 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("run_membership_evidence_apply_preview.ps1", doc)
         self.assertIn("latest_membership_evidence_apply_preview.json", doc)
         self.assertIn("latest_membership_evidence_apply_preview.md", doc)
+        self.assertIn("sp500_historical_evidence_policy.json", doc)
+        self.assertIn("evidence_ceiling_confirmed", doc)
+        self.assertIn("limited_verified_only", doc)
+        self.assertIn("maintain_limited_backtest", doc)
+        self.assertIn("仅保留为人工调查工具", doc)
+        self.assertIn("不再进入每周固定链路", doc)
         self.assertIn("data_leakage_audit.md", doc)
         self.assertIn("us_sp500_membership_evidence.csv", doc)
         self.assertIn("Evidence status", doc)
@@ -386,10 +392,11 @@ class WeeklyAutomationTests(unittest.TestCase):
         evidence_doc = (PROJECT_ROOT / "docs" / "回测成分证据补强队列.md").read_text(
             encoding="utf-8-sig"
         )
-        self.assertIn("sp500_current_membership_source_file_request.md", evidence_doc)
-        self.assertIn("source_file_inbox_size_bytes: 当前值", evidence_doc)
-        self.assertIn("source_file_inbox_sha256: 当前值或 none", evidence_doc)
-        self.assertIn("source_file_inbox_modified_at: 当前值或 none", evidence_doc)
+        self.assertIn("evidence_ceiling_confirmed", evidence_doc)
+        self.assertIn("limited_verified_only", evidence_doc)
+        self.assertIn("membership_evidence_action_required_count=0", evidence_doc)
+        self.assertIn("maintain_limited_backtest", evidence_doc)
+        self.assertIn("当前成分股交叉校验仍按周运行", evidence_doc)
 
     def test_self_analysis_docs_describe_summary_entrypoint(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
