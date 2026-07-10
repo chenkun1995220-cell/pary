@@ -1321,6 +1321,8 @@ def _backtest_evidence_issue_is_actionable(backtest_evidence, current_source_sta
         return True
     if _int_value(backtest_evidence.get("weeks_failed"), 0) > 0:
         return True
+    if backtest_evidence.get("evidence_ceiling_status") == "evidence_ceiling_confirmed":
+        return False
     if not _current_source_requires_official_csv(current_source_status):
         return True
     queue = [
@@ -1514,8 +1516,20 @@ def build_weekly_action_items(
     if not actions:
         actions = [source.get("automation_recommended_action", "") or "continue_monitoring"]
 
+    evidence_ceiling_confirmed = (
+        backtest_evidence_payload.get("evidence_ceiling_status")
+        == "evidence_ceiling_confirmed"
+    )
+    historical_evidence_actions = {
+        "review_backtest_evidence",
+        "supplement_verified_membership_evidence",
+        "run_membership_evidence_apply_preview",
+        "confirm_membership_evidence_apply_preview",
+    }
     items = []
     for index, action_code in enumerate(actions, start=1):
+        if evidence_ceiling_confirmed and action_code in historical_evidence_actions:
+            continue
         if action_code == "review_manual_review_backlog":
             history = _delivery_history(source)
             if _manual_review_count(source, history) <= 0:
@@ -1554,7 +1568,11 @@ def build_weekly_action_items(
             }
         )
 
-    membership_action = _membership_import_plan_action(import_plan)
+    membership_action = (
+        None
+        if evidence_ceiling_confirmed
+        else _membership_import_plan_action(import_plan)
+    )
     if membership_action and not any(
         item.get("action_code") == membership_action["action_code"] for item in items
     ):
@@ -1563,7 +1581,11 @@ def build_weekly_action_items(
         membership_action["status"] = "open"
         items.append(membership_action)
 
-    apply_preview_action = _membership_apply_preview_confirmation_action(apply_preview)
+    apply_preview_action = (
+        None
+        if evidence_ceiling_confirmed
+        else _membership_apply_preview_confirmation_action(apply_preview)
+    )
     if apply_preview_action and not any(
         item.get("action_code") == apply_preview_action["action_code"] for item in items
     ):
@@ -1594,12 +1616,14 @@ def build_weekly_action_items(
         forecast_gap_action["status"] = "open"
         items.append(forecast_gap_action)
 
-    supplement_action = _membership_evidence_supplement_action(
-        import_plan,
-        source_intake_status,
-        official_export_probe,
-        current_source_status,
-    )
+    supplement_action = None
+    if not evidence_ceiling_confirmed:
+        supplement_action = _membership_evidence_supplement_action(
+            import_plan,
+            source_intake_status,
+            official_export_probe,
+            current_source_status,
+        )
     if supplement_action and not any(
         item.get("action_code") == supplement_action["action_code"] for item in items
     ):

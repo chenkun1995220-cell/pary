@@ -682,6 +682,23 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                     ]
                 ),
             )
+            write_text(
+                root / "outputs" / "automation" / "latest_backtest_evidence_review.json",
+                json.dumps(
+                    {
+                        "status": "evidence_ceiling_confirmed",
+                        "evidence_ceiling_status": "evidence_ceiling_confirmed",
+                        "backtest_mode": "limited_verified_only",
+                        "recommended_action": "maintain_limited_backtest",
+                        "membership_evidence_unresolved_gap_count": 425,
+                        "membership_evidence_action_required_count": 0,
+                        "backtest_sample_expansion_allowed": False,
+                        "historical_membership_auto_update_allowed": False,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+            )
 
             result = run_self_analysis(root, as_of_date="2026-06-25")
 
@@ -701,21 +718,24 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(manifest["model_audit_sample_accumulating_count"], 2)
             self.assertEqual(manifest["model_audit_shadow_ready_count"], 1)
             self.assertEqual(manifest["model_audit_statuses"]["A股周筛"], "shadow_analysis_ready")
-            self.assertEqual(manifest["backtest_status"], "evidence_review_needed")
-            self.assertEqual(manifest["backtest_recommended_action"], "review_backtest_evidence")
+            self.assertEqual(manifest["backtest_status"], "evidence_ceiling_confirmed")
+            self.assertEqual(manifest["backtest_recommended_action"], "maintain_limited_backtest")
+            self.assertEqual(manifest["backtest_mode"], "limited_verified_only")
+            self.assertEqual(manifest["backtest_unresolved_gap_count"], 425)
             self.assertEqual(manifest["backtest_weeks_completed"], "8")
             self.assertEqual(manifest["backtest_weeks_failed"], "0")
             self.assertEqual(manifest["backtest_weak_rows"], "5")
             self.assertEqual(manifest["backtest_membership_verified"], "35/40 (87.5%)")
-            self.assertEqual(manifest["backtest_evidence_status"], "evidence_review_needed")
+            self.assertEqual(manifest["backtest_evidence_status"], "evidence_ceiling_confirmed")
             self.assertEqual(manifest["backtest_weak_evidence_weeks"], "8")
             self.assertEqual(
                 manifest["backtest_evidence_next_action"],
-                "supplement_verified_membership_evidence",
+                "maintain_limited_backtest",
             )
             self.assertEqual(manifest["automation_status"], "manual_review_needed")
             self.assertEqual(manifest["automation_recommended_action"], "review_data_health")
-            self.assertIn("review_backtest_evidence", manifest["automation_priority_actions"])
+            self.assertNotIn("review_backtest_evidence", manifest["automation_priority_actions"])
+            self.assertNotIn("maintain_limited_backtest", manifest["automation_priority_actions"])
             self.assertIn("continue_sample_accumulation", manifest["automation_priority_actions"])
             check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
             self.assertEqual(check["check_schema"], "weekly_automation_check")
@@ -735,9 +755,9 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("候选数：2", text)
             self.assertIn("成员证据 verified：35/40 (87.5%)", text)
             self.assertIn("弱证据行：5", text)
-            self.assertIn("证据状态：evidence_review_needed", text)
+            self.assertIn("证据状态：evidence_ceiling_confirmed", text)
             self.assertIn("弱证据周数：8", text)
-            self.assertIn("继续补充历史成分 verified 证据", text)
+            self.assertIn("证据上限已确认，维持受限回测", text)
 
     def test_self_analysis_summarizes_forecast_performance_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:

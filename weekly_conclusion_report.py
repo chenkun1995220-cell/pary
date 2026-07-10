@@ -520,6 +520,11 @@ def normalize_backtest_evidence_review(project_root, payload, path):
         "membership_evidence_blocking_tiers": normalize_reason_list(payload.get("membership_evidence_blocking_tiers", [])),
         "verified_membership_ratio": payload.get("verified_membership_ratio"),
         "backtest_sample_expansion_allowed": bool(payload.get("backtest_sample_expansion_allowed")),
+        "evidence_ceiling_status": payload.get("evidence_ceiling_status", "not_confirmed"),
+        "backtest_mode": payload.get("backtest_mode", "unknown"),
+        "membership_evidence_unresolved_gap_count": to_int(
+            payload.get("membership_evidence_unresolved_gap_count")
+        ),
         "formal_model_change_allowed": bool(
             payload.get("formal_model_change_allowed") or payload.get("formal_model_upgrade_allowed")
         ),
@@ -792,6 +797,13 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         "backtest_evidence_blocking_tiers": backtest_review.get("membership_evidence_blocking_tiers", []),
         "verified_membership_ratio": backtest_review.get("verified_membership_ratio"),
         "backtest_sample_expansion_allowed": bool(backtest_review.get("backtest_sample_expansion_allowed")),
+        "backtest_evidence_ceiling_status": backtest_review.get(
+            "evidence_ceiling_status", "not_confirmed"
+        ),
+        "backtest_mode": backtest_review.get("backtest_mode", "unknown"),
+        "backtest_unresolved_gap_count": to_int(
+            backtest_review.get("membership_evidence_unresolved_gap_count")
+        ),
         "data_health_triage_status": data_health.get("data_health_triage_status", "unknown"),
         "data_health_triage_decision": data_health.get("data_health_triage_decision", ""),
         "candidate_delivery_blocked": bool(data_health.get("candidate_delivery_blocked")),
@@ -840,14 +852,24 @@ def render_integrated_review_summary_section(payload):
             next_date=escape_cell(summary.get("forecast_disposition_next_one_week_evaluation_date") or "-"),
         )
     )
-    lines.append(
-        "| 回测证据闸门 | {status} | decision={decision}; blocking={blocking}; verified_ratio={ratio} | no_sample_expansion |".format(
-            status=escape_cell(summary.get("backtest_evidence_gate_status", "unknown")),
-            decision=escape_cell(summary.get("backtest_evidence_gate_decision") or "-"),
-            blocking=escape_cell(", ".join(summary.get("backtest_evidence_blocking_tiers", []) or []) or "-"),
-            ratio=escape_cell(format_percent(summary.get("verified_membership_ratio"))),
+    if summary.get("backtest_evidence_ceiling_status") == "evidence_ceiling_confirmed":
+        lines.append(
+            "| 回测证据边界 | {status} | mode={mode}; unresolved_gaps={gaps}; decision={decision} | no_sample_expansion |".format(
+                status=escape_cell(summary.get("backtest_evidence_ceiling_status")),
+                mode=escape_cell(summary.get("backtest_mode", "unknown")),
+                gaps=summary.get("backtest_unresolved_gap_count", 0),
+                decision=escape_cell(summary.get("backtest_evidence_gate_decision") or "-"),
+            )
         )
-    )
+    else:
+        lines.append(
+            "| 回测证据闸门 | {status} | decision={decision}; blocking={blocking}; verified_ratio={ratio} | no_sample_expansion |".format(
+                status=escape_cell(summary.get("backtest_evidence_gate_status", "unknown")),
+                decision=escape_cell(summary.get("backtest_evidence_gate_decision") or "-"),
+                blocking=escape_cell(", ".join(summary.get("backtest_evidence_blocking_tiers", []) or []) or "-"),
+                ratio=escape_cell(format_percent(summary.get("verified_membership_ratio"))),
+            )
+        )
     lines.append(
         "| 数据健康 | {status} | candidate_blocking={candidate_blocking}; refetch_required={refetch_required}; monitor_only={monitor_only} | candidate_delivery_blocked={blocked} |".format(
             status=escape_cell(summary.get("data_health_triage_status", "unknown")),
@@ -1489,6 +1511,7 @@ def is_acceptable_status(status):
         "action_required",
         "shadow_review_needed",
         "evidence_review_needed",
+        "evidence_ceiling_confirmed",
         "acceptable_with_monitoring",
         "monitor_only",
         "blocked",

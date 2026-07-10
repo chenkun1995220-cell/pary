@@ -924,7 +924,10 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             write_json(
                 automation / "latest_backtest_evidence_review.json",
                 {
-                    "status": "evidence_review_needed",
+                    "status": "evidence_ceiling_confirmed",
+                    "evidence_ceiling_status": "evidence_ceiling_confirmed",
+                    "backtest_mode": "limited_verified_only",
+                    "membership_evidence_unresolved_gap_count": 425,
                     "membership_evidence_gate_status": "blocked",
                     "membership_evidence_gate_decision": "verified_only_no_expansion",
                     "membership_evidence_blocking_tiers": ["secondary", "weak"],
@@ -987,6 +990,9 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("direction_mapping_issue", summary["forecast_shadow_diagnosis_reasons"])
             self.assertEqual(summary["backtest_evidence_gate_status"], "blocked")
             self.assertEqual(summary["backtest_evidence_gate_decision"], "verified_only_no_expansion")
+            self.assertEqual(summary["backtest_evidence_ceiling_status"], "evidence_ceiling_confirmed")
+            self.assertEqual(summary["backtest_mode"], "limited_verified_only")
+            self.assertEqual(summary["backtest_unresolved_gap_count"], 425)
             self.assertEqual(summary["data_health_triage_status"], "monitor_only")
             self.assertEqual(summary["data_health_triage_counts"]["monitor_only"], 74)
             self.assertFalse(summary["formal_model_change_allowed"])
@@ -994,7 +1000,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("## 一屏结论", markdown)
             self.assertIn("| 候选风险 | action_required | action_required=15", markdown)
             self.assertIn("| 预测影子诊断 | shadow_review_needed | samples=179; hit=21.8%; diagnosis=direction_mapping_issue, down_signal_reversal_risk", markdown)
-            self.assertIn("| 回测证据闸门 | blocked | decision=verified_only_no_expansion; blocking=secondary, weak", markdown)
+            self.assertIn("| 回测证据边界 | evidence_ceiling_confirmed | mode=limited_verified_only; unresolved_gaps=425; decision=verified_only_no_expansion", markdown)
             self.assertIn("| 数据健康 | monitor_only | candidate_blocking=0; refetch_required=0; monitor_only=74", markdown)
             self.assertIn("| 正式模型 | protected | formal_model_change_allowed=false", markdown)
 

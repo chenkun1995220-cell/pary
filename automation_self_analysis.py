@@ -162,6 +162,12 @@ def _market_snapshot(project_root, config):
 
 def _backtest_snapshot(project_root):
     path = Path(project_root) / "outputs" / "automation" / "latest_backtest_summary.md"
+    review_path = (
+        Path(project_root)
+        / "outputs"
+        / "automation"
+        / "latest_backtest_evidence_review.json"
+    )
     text = _read_text(path)
     if not text:
         return {
@@ -176,7 +182,7 @@ def _backtest_snapshot(project_root):
             "summary_path": str(path),
         }
     fields = _summary_fields(text)
-    return {
+    snapshot = {
         "status": "ready",
         "weeks_completed": fields.get("Weeks completed", "unknown"),
         "weeks_failed": fields.get("Weeks failed", "unknown"),
@@ -187,6 +193,24 @@ def _backtest_snapshot(project_root):
         "evidence_next_action": fields.get("Evidence next action", "unknown"),
         "summary_path": str(path),
     }
+    if review_path.exists():
+        try:
+            review = json.loads(review_path.read_text(encoding="utf-8-sig"))
+        except (json.JSONDecodeError, OSError):
+            review = {}
+        if review.get("evidence_ceiling_status") == "evidence_ceiling_confirmed":
+            snapshot.update(
+                {
+                    "evidence_status": "evidence_ceiling_confirmed",
+                    "evidence_next_action": "maintain_limited_backtest",
+                    "backtest_mode": review.get("backtest_mode", "limited_verified_only"),
+                    "unresolved_gap_count": _as_int(
+                        review.get("membership_evidence_unresolved_gap_count")
+                    ),
+                    "evidence_review_path": str(review_path),
+                }
+            )
+    return snapshot
 
 
 def _weekly_ops_history_snapshot(project_root):
@@ -1459,7 +1483,10 @@ def _manifest_candidate_review_status(candidate_reviews):
 def _manifest_backtest_status(backtest):
     failed_weeks = _as_int(backtest.get("weeks_failed"))
     weak_rows = _as_int(backtest.get("weak_rows"))
-    if backtest.get("status") != "ready":
+    if backtest.get("evidence_status") == "evidence_ceiling_confirmed":
+        status = "evidence_ceiling_confirmed"
+        action = "maintain_limited_backtest"
+    elif backtest.get("status") != "ready":
         status = "missing"
         action = "run_point_in_time_backtest"
     elif failed_weeks and failed_weeks > 0:
@@ -1481,6 +1508,8 @@ def _manifest_backtest_status(backtest):
         "backtest_evidence_status": backtest.get("evidence_status", ""),
         "backtest_weak_evidence_weeks": backtest.get("weak_evidence_weeks", ""),
         "backtest_evidence_next_action": backtest.get("evidence_next_action", ""),
+        "backtest_mode": backtest.get("backtest_mode", ""),
+        "backtest_unresolved_gap_count": _as_int(backtest.get("unresolved_gap_count")),
         "backtest_summary_path": backtest.get("summary_path", ""),
     }
 
@@ -1606,8 +1635,8 @@ def _manifest_automation_decision(
     priority_actions = []
     for status, action in action_candidates:
         if (
-            status in {"clear", "missing", "ready"}
-            or action in {"", "none", "monitor_next_run"}
+            status in {"clear", "missing", "ready", "evidence_ceiling_confirmed"}
+            or action in {"", "none", "monitor_next_run", "maintain_limited_backtest"}
             or action in priority_actions
         ):
             continue
@@ -1644,8 +1673,13 @@ def _recommendations(risks, backtest, manual_queue=None):
         item.get("type") == "估值口径" for item in manual_queue
     ):
         recommendations.append("优先人工复核估值复核清单，确认亏损、非正净资产或特殊行业估值口径后再解读候选缺口。")
-    if _as_int(backtest.get("weak_rows")):
+    if (
+        _as_int(backtest.get("weak_rows"))
+        and backtest.get("evidence_status") != "evidence_ceiling_confirmed"
+    ):
         recommendations.append("继续补充历史成分 verified 证据，降低严格时点回测的数据质量风险。")
+    if backtest.get("evidence_status") == "evidence_ceiling_confirmed":
+        recommendations.append("证据上限已确认，维持受限回测且不得扩大正式回测样本。")
     if any("样本积累" in risk for risk in risks):
         recommendations.append("继续积累 4/12/26/52 周评价样本，暂不升级正式模型。")
     if not recommendations:

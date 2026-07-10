@@ -350,6 +350,56 @@ class MediumTermGoalReviewTests(unittest.TestCase):
 
         self.assertFalse(requires)
 
+    def test_evidence_ceiling_completes_limited_backtest_goal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            backtest_path = automation / "latest_backtest_evidence_review.json"
+            backtest = json.loads(backtest_path.read_text(encoding="utf-8-sig"))
+            backtest.update(
+                {
+                    "status": "evidence_ceiling_confirmed",
+                    "evidence_ceiling_status": "evidence_ceiling_confirmed",
+                    "evidence_ceiling_effective_date": "2026-07-11",
+                    "backtest_mode": "limited_verified_only",
+                    "official_source_acquisition_closed": True,
+                    "limited_backtest_only": True,
+                    "recurring_supplement_request_enabled": False,
+                    "membership_evidence_unresolved_gap_count": 425,
+                    "membership_evidence_action_required_count": 0,
+                    "membership_evidence_action_queue_count": 0,
+                    "membership_evidence_action_unqueued_count": 0,
+                    "backtest_sample_expansion_allowed": False,
+                    "backtest_sample_expansion_decision": "do_not_expand_backtest_sample",
+                    "historical_membership_auto_update_allowed": False,
+                    "formal_model_upgrade_allowed": False,
+                }
+            )
+            write_json(backtest_path, backtest)
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(root)
+            goal = next(
+                item
+                for item in payload["goals"]
+                if item["goal_code"] == "backtest_evidence_quality"
+            )
+
+            self.assertEqual(goal["module"], "S&P 500 受限回测证据边界")
+            self.assertEqual(goal["status"], "ready_for_phase_review")
+            self.assertEqual(goal["completion_percent"], 100)
+            self.assertEqual(goal["next_action"], "maintain_limited_backtest")
+            self.assertEqual(goal["current"]["backtest_mode"], "limited_verified_only")
+            self.assertEqual(
+                goal["current"]["membership_evidence_unresolved_gap_count"],
+                425,
+            )
+            self.assertNotIn(
+                "supplement_verified_membership_evidence",
+                payload["priority_next_actions"],
+            )
+
     def test_builds_medium_term_goal_dashboard_from_existing_reviews(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

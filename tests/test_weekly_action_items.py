@@ -438,6 +438,35 @@ def write_backtest_evidence_review(path):
     )
 
 
+def write_closed_backtest_evidence_review(path):
+    payload = {
+        "review_schema": "backtest_evidence_review",
+        "review_version": 1,
+        "as_of_date": "2026-07-11",
+        "status": "evidence_ceiling_confirmed",
+        "evidence_ceiling_status": "evidence_ceiling_confirmed",
+        "backtest_mode": "limited_verified_only",
+        "recommended_action": "maintain_limited_backtest",
+        "weeks_failed": 0,
+        "membership_evidence_unresolved_gap_count": 425,
+        "membership_evidence_action_required_count": 0,
+        "membership_evidence_action_queue_count": 0,
+        "membership_evidence_action_unqueued_count": 0,
+        "membership_evidence_action_queue": [],
+        "backtest_sample_expansion_allowed": False,
+        "backtest_sample_expansion_decision": "do_not_expand_backtest_sample",
+        "membership_evidence_gate_status": "blocked",
+        "membership_evidence_gate_decision": "verified_only_no_expansion",
+        "historical_membership_auto_update_allowed": False,
+        "formal_model_upgrade_allowed": False,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8-sig",
+    )
+
+
 def write_forecast_performance_review(
     path,
     prediction_unavailable=87,
@@ -1809,6 +1838,35 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("blocking_tiers=secondary,weak", item["recommended_check"])
             self.assertIn("不得自动更新 historical_membership.csv", item["recommended_check"])
             self.assertIn("正式模型不得自动升级", item["recommended_check"])
+
+    def test_evidence_ceiling_suppresses_historical_evidence_actions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            backtest_path = root / "latest_backtest_evidence_review.json"
+            import_plan_path = root / "latest_membership_evidence_import_plan.json"
+            write_manifest(manifest_path)
+            write_closed_backtest_evidence_review(backtest_path)
+            write_membership_import_plan(import_plan_path)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            manifest["automation_priority_actions"] = ["review_backtest_evidence"]
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                membership_import_plan=import_plan_path,
+                backtest_evidence_review=backtest_path,
+            )
+
+            action_codes = [item["action_code"] for item in payload["items"]]
+            self.assertNotIn("review_backtest_evidence", action_codes)
+            self.assertNotIn("supplement_verified_membership_evidence", action_codes)
+            self.assertNotIn("run_membership_evidence_apply_preview", action_codes)
 
     def test_official_csv_action_includes_source_file_inbox_fingerprint_when_available(self):
         with tempfile.TemporaryDirectory() as tmp:

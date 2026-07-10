@@ -172,6 +172,15 @@ def _goal_completion_percent(goal):
     percent = STATUS_COMPLETION.get(status, 0)
     current = goal.get("current", {}) or {}
     goal_code = goal.get("goal_code", "")
+    if (
+        goal_code == "backtest_evidence_quality"
+        and current.get("evidence_ceiling_status") == "evidence_ceiling_confirmed"
+        and current.get("backtest_mode") == "limited_verified_only"
+        and current.get("backtest_sample_expansion_allowed") is False
+        and current.get("historical_membership_auto_update_allowed") is False
+        and current.get("formal_model_upgrade_allowed") is False
+    ):
+        return 100
     if goal_code == "weekly_delivery_stability" and status == "on_track":
         action_count = _int_value(current.get("weekly_action_items_count"))
         percent = 85 if action_count <= 8 else 75
@@ -236,7 +245,16 @@ def _goal_completion_percent(goal):
 
 def _attach_goal_progress(goals):
     for goal in goals:
-        goal["module"] = GOAL_MODULES.get(goal.get("goal_code"), goal.get("title", "unknown"))
+        if (
+            goal.get("goal_code") == "backtest_evidence_quality"
+            and (goal.get("current") or {}).get("evidence_ceiling_status")
+            == "evidence_ceiling_confirmed"
+        ):
+            goal["module"] = "S&P 500 受限回测证据边界"
+        else:
+            goal["module"] = GOAL_MODULES.get(
+                goal.get("goal_code"), goal.get("title", "unknown")
+            )
         goal["completion_percent"] = _goal_completion_percent(goal)
         goal["target_completion_percent"] = GOAL_TARGET_COMPLETION.get(goal.get("goal_code"), 100)
         goal["completion_gap_percent"] = max(
@@ -612,6 +630,47 @@ def _backtest_goal(
     current_membership_sources = current_membership_sources or {}
     current_membership_source_review_status = current_membership_source_review_status or {}
     current_membership_source_inbox_status = current_membership_source_inbox_status or {}
+    if backtest_evidence.get("evidence_ceiling_status") == "evidence_ceiling_confirmed":
+        return _goal(
+            "backtest_evidence_quality",
+            "确认历史证据上限并维持受限回测",
+            "ready_for_phase_review",
+            {
+                "evidence_ceiling_status": "evidence_ceiling_confirmed",
+                "evidence_ceiling_effective_date": backtest_evidence.get(
+                    "evidence_ceiling_effective_date", ""
+                ),
+                "backtest_mode": backtest_evidence.get(
+                    "backtest_mode", "limited_verified_only"
+                ),
+                "verified_membership_ratio": _float_value(
+                    backtest_evidence.get("verified_membership_ratio")
+                ),
+                "membership_evidence_unresolved_gap_count": _int_value(
+                    backtest_evidence.get("membership_evidence_unresolved_gap_count")
+                ),
+                "membership_evidence_action_required_count": _int_value(
+                    backtest_evidence.get("membership_evidence_action_required_count")
+                ),
+                "official_source_acquisition_closed": bool(
+                    backtest_evidence.get("official_source_acquisition_closed")
+                ),
+                "recurring_supplement_request_enabled": bool(
+                    backtest_evidence.get("recurring_supplement_request_enabled")
+                ),
+                "backtest_sample_expansion_allowed": bool(
+                    backtest_evidence.get("backtest_sample_expansion_allowed")
+                ),
+                "historical_membership_auto_update_allowed": bool(
+                    backtest_evidence.get("historical_membership_auto_update_allowed")
+                ),
+                "formal_model_upgrade_allowed": bool(
+                    backtest_evidence.get("formal_model_upgrade_allowed")
+                ),
+            },
+            "证据缺口保留为审计事实，不再生成官方历史来源补充任务；仅维持 verified 范围内的受限回测。",
+            "maintain_limited_backtest",
+        )
     ratio = _float_value(backtest_evidence.get("verified_membership_ratio"))
     weak_rows = _int_value(backtest_evidence.get("weak_evidence_rows"))
     status = "on_track" if ratio >= 0.5 and weak_rows == 0 else "needs_work"
