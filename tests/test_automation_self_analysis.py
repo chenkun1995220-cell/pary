@@ -1021,18 +1021,58 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                     ],
                     [],
                 )
+            write_text(
+                root
+                / "outputs"
+                / "automation"
+                / "latest_one_week_forecast_shadow_disposition.json",
+                json.dumps(
+                    {
+                        "disposition_schema": "one_week_forecast_shadow_disposition",
+                        "disposition_version": 1,
+                        "as_of_date": "2026-06-28",
+                        "status": "ready",
+                        "recommended_action": "continue_shadow_validation",
+                        "disposition_counts": {
+                            "continue_observation": 3,
+                            "rejected": 0,
+                            "pending_human_approval": 0,
+                        },
+                        "candidate_dispositions": [],
+                        "next_one_week_evaluation_date": "2026-07-05",
+                        "next_one_week_evaluation_count": 30,
+                        "formal_model_change_allowed": False,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
 
             result = run_self_analysis(root, as_of_date="2026-06-28")
             manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
             check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
 
             self.assertEqual(manifest["forecast_performance_status"], "performance_review_needed")
-            self.assertEqual(manifest["forecast_performance_recommended_action"], "review_forecast_performance")
+            self.assertEqual(manifest["forecast_performance_recommended_action"], "continue_shadow_validation")
             self.assertEqual(manifest["forecast_performance"]["mature_evaluations"], 30)
             self.assertEqual(manifest["forecast_performance"]["direction_hit_rate"], 0.0)
             self.assertAlmostEqual(manifest["forecast_performance"]["average_excess_return"], -0.04)
-            self.assertIn("review_forecast_performance", manifest["automation_priority_actions"])
+            self.assertEqual(
+                manifest["one_week_forecast_shadow_disposition"]["recommended_action"],
+                "continue_shadow_validation",
+            )
+            self.assertIn("continue_shadow_validation", manifest["automation_priority_actions"])
+            self.assertNotIn("review_forecast_performance", manifest["automation_priority_actions"])
             self.assertEqual(check["forecast_performance_status"], "performance_review_needed")
+
+    def test_missing_shadow_disposition_requests_input_repair(self):
+        from automation_self_analysis import _one_week_forecast_shadow_disposition_snapshot
+
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot = _one_week_forecast_shadow_disposition_snapshot(Path(tmp))
+
+        self.assertEqual(snapshot["status"], "missing")
+        self.assertEqual(snapshot["recommended_action"], "repair_shadow_disposition_inputs")
+        self.assertFalse(snapshot["formal_model_change_allowed"])
 
     def test_missing_inputs_are_reported_without_failing(self):
         with tempfile.TemporaryDirectory() as tmp:

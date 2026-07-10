@@ -245,6 +245,24 @@ class OneWeekForecastShadowDispositionTests(unittest.TestCase):
             self.assertIn("continue_observation", report.read_text(encoding="utf-8-sig"))
             self.assertFalse(payload["formal_model_change_allowed"])
 
+    def test_wrapper_and_reporting_bundle_order_shadow_disposition_before_refresh(self):
+        wrapper = (
+            PROJECT_ROOT / "scripts" / "run_one_week_forecast_shadow_disposition.ps1"
+        ).read_text(encoding="utf-8-sig")
+        bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("one_week_forecast_shadow_disposition.py", wrapper)
+        self.assertLess(
+            bundle.index("run_one_week_forecast_shadow_parameter_validation"),
+            bundle.index("run_one_week_forecast_shadow_disposition"),
+        )
+        self.assertLess(
+            bundle.index("run_one_week_forecast_shadow_disposition"),
+            bundle.index("refresh_self_analysis_after_shadow_disposition"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

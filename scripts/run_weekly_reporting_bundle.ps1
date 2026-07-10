@@ -58,6 +58,8 @@ $postSteps = @(
   @{ Label = "run_one_week_forecast_calibration_review"; Script = "run_one_week_forecast_calibration_review.ps1"; Critical = $true },
   @{ Label = "run_one_week_forecast_shadow_parameter_plan"; Script = "run_one_week_forecast_shadow_parameter_plan.ps1"; Critical = $true },
   @{ Label = "run_one_week_forecast_shadow_parameter_validation"; Script = "run_one_week_forecast_shadow_parameter_validation.ps1"; Critical = $true },
+  @{ Label = "run_one_week_forecast_shadow_disposition"; Script = "run_one_week_forecast_shadow_disposition.ps1"; Critical = $true },
+  @{ Label = "refresh_self_analysis_after_shadow_disposition"; Script = "run_self_analysis.ps1"; Critical = $true },
   @{ Label = "run_medium_term_goal_review"; Script = "run_medium_term_goal_review.ps1"; Critical = $true },
   @{ Label = "run_model_handoff_review"; Script = "run_model_handoff_review.ps1"; Critical = $true },
   @{ Label = "show_automation_check"; Script = "show_automation_check.ps1"; Critical = $true },

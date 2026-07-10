@@ -553,6 +553,25 @@ def write_one_week_calibration_review(path):
     )
 
 
+def shadow_disposition_payload(action="continue_shadow_validation"):
+    return {
+        "disposition_schema": "one_week_forecast_shadow_disposition",
+        "disposition_version": 1,
+        "as_of_date": "2026-06-28",
+        "status": "ready",
+        "recommended_action": action,
+        "disposition_counts": {
+            "continue_observation": 3,
+            "rejected": 0,
+            "pending_human_approval": 0,
+        },
+        "candidate_dispositions": [],
+        "next_one_week_evaluation_date": "2026-07-07",
+        "next_one_week_evaluation_count": 42,
+        "formal_model_change_allowed": False,
+    }
+
+
 def write_manual_review_queue(path):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -988,6 +1007,33 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("latest_one_week_forecast_calibration_review.json", forecast["recommended_check"])
             self.assertIn("review_down_signal_mapping_shadow_only", forecast["recommended_check"])
             self.assertIn("formal_model_change_allowed:false", forecast["source"])
+
+    def test_disposition_routes_forecast_action_to_specific_shadow_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
+            write_manifest(manifest_path)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            manifest["automation_priority_actions"] = ["continue_shadow_validation"]
+            manifest["one_week_forecast_shadow_disposition"] = shadow_disposition_payload()
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(manifest_path)
+            actions = [item["action_code"] for item in payload["items"]]
+            item = next(
+                item for item in payload["items"] if item["action_code"] == "continue_shadow_validation"
+            )
+
+            self.assertIn("continue_shadow_validation", actions)
+            self.assertNotIn("review_forecast_performance", actions)
+            self.assertEqual(item["category"], "forecast_performance")
+            self.assertIn("继续观察=3", item["recommended_check"])
+            self.assertIn("2026-07-07", item["recommended_check"])
+            self.assertIn("formal_model_change_allowed=false", item["source"])
 
     def test_skips_data_health_action_when_review_only_requires_monitoring(self):
         with tempfile.TemporaryDirectory() as tmp:

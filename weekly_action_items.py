@@ -237,6 +237,17 @@ def _percent_value(value):
         return "unknown"
 
 
+def _shadow_disposition_text(disposition):
+    counts = disposition.get("disposition_counts", {}) or {}
+    return (
+        f"继续观察={_int_value(counts.get('continue_observation'), 0)}，"
+        f"已驳回={_int_value(counts.get('rejected'), 0)}，"
+        f"待人工审批={_int_value(counts.get('pending_human_approval'), 0)}；"
+        f"下一批1周评价={disposition.get('next_one_week_evaluation_date', 'unknown')} "
+        f"({_int_value(disposition.get('next_one_week_evaluation_count'), 0)} samples)。"
+    )
+
+
 def _forecast_maturity_schedule_text(forecast_performance):
     one_week = forecast_performance.get("next_one_week_evaluation_date", "unknown")
     one_month = forecast_performance.get("next_one_month_evaluation_date", "unknown")
@@ -479,6 +490,14 @@ def _action_template(action_code, manifest):
         one_week_shadow_review,
         one_week_calibration_review,
     )
+    shadow_disposition = manifest.get("one_week_forecast_shadow_disposition", {})
+    if not isinstance(shadow_disposition, dict):
+        shadow_disposition = {}
+    shadow_disposition_source = (
+        f"shadow_disposition_status:{shadow_disposition.get('status', 'missing')}; "
+        f"recommended_action:{shadow_disposition.get('recommended_action', 'repair_shadow_disposition_inputs')}; "
+        "formal_model_change_allowed=false"
+    )
     data_health_review = manifest.get("data_health_review", {})
     if not isinstance(data_health_review, dict):
         data_health_review = {}
@@ -570,6 +589,36 @@ def _action_template(action_code, manifest):
                 f"平均超额收益 {_percent_value(forecast_performance.get('average_excess_return'))}。"
                 "仅生成影子分析或人工复核建议，不自动修改正式模型参数。"
                 f"{shadow_review_text}"
+            ),
+        },
+        "continue_shadow_validation": {
+            "title": "继续积累1周预测影子验证批次",
+            "category": "forecast_performance",
+            "source": shadow_disposition_source,
+            "recommended_check": (
+                "检查 latest_one_week_forecast_shadow_disposition.json；"
+                f"{_shadow_disposition_text(shadow_disposition)}"
+                "继续等待独立周批次、受影响样本和市场覆盖达到门槛，不自动修改正式模型参数。"
+            ),
+        },
+        "review_shadow_candidate_approval": {
+            "title": "审批已达门槛的影子候选",
+            "category": "forecast_performance",
+            "source": shadow_disposition_source,
+            "recommended_check": (
+                "检查 latest_one_week_forecast_shadow_disposition.json；"
+                f"{_shadow_disposition_text(shadow_disposition)}"
+                "人工审批只允许进入后续正式回测设计，不直接修改正式模型参数。"
+            ),
+        },
+        "repair_shadow_disposition_inputs": {
+            "title": "修复影子候选处置输入",
+            "category": "forecast_performance",
+            "source": shadow_disposition_source,
+            "recommended_check": (
+                "检查影子参数计划、最新批次验证、验证历史和预测表现复核的 schema、日期与动作码；"
+                f"{_shadow_disposition_text(shadow_disposition)}"
+                "修复前不得把任何影子候选送入人工审批或修改正式模型。"
             ),
         },
         "continue_sample_accumulation": {

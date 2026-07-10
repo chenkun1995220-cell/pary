@@ -611,6 +611,42 @@ def _forecast_performance_snapshot(project_root):
     }
 
 
+def _one_week_forecast_shadow_disposition_snapshot(project_root):
+    path = (
+        Path(project_root)
+        / "outputs"
+        / "automation"
+        / "latest_one_week_forecast_shadow_disposition.json"
+    )
+    payload = _read_json(path)
+    if payload.get("disposition_schema") != "one_week_forecast_shadow_disposition":
+        return {
+            "status": "missing",
+            "recommended_action": "repair_shadow_disposition_inputs",
+            "disposition_counts": {
+                "continue_observation": 0,
+                "rejected": 0,
+                "pending_human_approval": 0,
+            },
+            "candidate_dispositions": [],
+            "next_one_week_evaluation_date": "",
+            "next_one_week_evaluation_count": 0,
+            "formal_model_change_allowed": False,
+            "path": str(path),
+        }
+    snapshot = dict(payload)
+    snapshot["path"] = str(path)
+    if payload.get("formal_model_change_allowed") is True or payload.get("status") != "ready":
+        snapshot["status"] = "needs_attention"
+        snapshot["recommended_action"] = "repair_shadow_disposition_inputs"
+    snapshot.setdefault("disposition_counts", {})
+    snapshot.setdefault("candidate_dispositions", [])
+    snapshot.setdefault("next_one_week_evaluation_date", "")
+    snapshot.setdefault("next_one_week_evaluation_count", 0)
+    snapshot.setdefault("formal_model_change_allowed", False)
+    return snapshot
+
+
 def _format_rate(value):
     return "unknown" if value is None else f"{value:.2%}"
 
@@ -1569,7 +1605,11 @@ def _manifest_automation_decision(
         action_candidates.append(("manual_review_needed", action))
     priority_actions = []
     for status, action in action_candidates:
-        if status in {"clear", "missing", "ready"} or action == "monitor_next_run" or action in priority_actions:
+        if (
+            status in {"clear", "missing", "ready"}
+            or action in {"", "none", "monitor_next_run"}
+            or action in priority_actions
+        ):
             continue
         priority_actions.append(action)
     if not priority_actions:
@@ -1930,6 +1970,13 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
     forecast_performance = _forecast_performance_snapshot(project_root)
+    shadow_disposition = _one_week_forecast_shadow_disposition_snapshot(project_root)
+    if forecast_performance.get("status") == "performance_review_needed":
+        forecast_performance = dict(forecast_performance)
+        forecast_performance["recommended_action"] = shadow_disposition.get(
+            "recommended_action",
+            "repair_shadow_disposition_inputs",
+        )
     sp500_current_source_inbox_status = _sp500_current_source_inbox_status_summary(project_root)
     data_quality_summary = _data_quality_summary(health)
     weekly_ops_history = _weekly_ops_history_snapshot(project_root)
@@ -1998,6 +2045,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "forecast_performance": forecast_performance,
         "forecast_performance_status": forecast_performance.get("status", "unknown"),
         "forecast_performance_recommended_action": forecast_performance.get("recommended_action", "unknown"),
+        "one_week_forecast_shadow_disposition": shadow_disposition,
         "health": _manifest_health(health),
         **data_health_status,
         "data_quality_summary": data_quality_summary,
@@ -2047,6 +2095,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "manual_review_history": str(manual_review_history_output),
             "manual_review_repeats": str(manual_review_repeats_output),
             "data_quality_history": str(data_quality_history_output),
+            "one_week_forecast_shadow_disposition": shadow_disposition.get("path", ""),
         },
     }
     _write_self_analysis_manifest(manifest_output, manifest)
@@ -2066,6 +2115,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "markets": markets,
         "backtest": backtest,
         "forecast_performance": forecast_performance,
+        "one_week_forecast_shadow_disposition": shadow_disposition,
         "data_quality_summary": data_quality_summary,
         "data_quality_history": data_quality_history,
         "health": health,
@@ -2092,6 +2142,7 @@ REQUIRED_SELF_ANALYSIS_MANIFEST_FIELDS = [
     "forecast_performance",
     "forecast_performance_status",
     "forecast_performance_recommended_action",
+    "one_week_forecast_shadow_disposition",
     "health",
     "data_health_status",
     "data_health_recommended_action",
