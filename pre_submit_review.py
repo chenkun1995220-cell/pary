@@ -214,6 +214,13 @@ INPUT_SPECS = {
         "version_field": "validation_version",
         "version_value": 1,
     },
+    "one_week_forecast_shadow_disposition": {
+        "path": "outputs/automation/latest_one_week_forecast_shadow_disposition.json",
+        "schema_field": "disposition_schema",
+        "schema_value": "one_week_forecast_shadow_disposition",
+        "version_field": "disposition_version",
+        "version_value": 1,
+    },
     "medium_term_goal_review": {
         "path": "outputs/automation/latest_medium_term_goal_review.json",
         "schema_field": "review_schema",
@@ -247,6 +254,22 @@ ONE_WEEK_FORECAST_SHADOW_REQUIRED_FIELDS = [
     "recommended_shadow_actions",
     "formal_model_change_allowed",
 ]
+
+ONE_WEEK_FORECAST_SHADOW_DISPOSITION_REQUIRED_FIELDS = [
+    "status",
+    "recommended_action",
+    "disposition_counts",
+    "candidate_dispositions",
+    "next_one_week_evaluation_date",
+    "next_one_week_evaluation_count",
+    "formal_model_change_allowed",
+]
+
+VALID_SHADOW_DISPOSITIONS = {
+    "continue_observation",
+    "rejected",
+    "pending_human_approval",
+}
 
 ONE_WEEK_FORECAST_CALIBRATION_REQUIRED_FIELDS = [
     "one_week_evaluated_count",
@@ -657,6 +680,11 @@ def run_pre_submit_review(
     attention_reasons.extend(
         _one_week_forecast_calibration_review_reasons(
             payloads.get("one_week_forecast_calibration_review", {})
+        )
+    )
+    attention_reasons.extend(
+        _one_week_forecast_shadow_disposition_reasons(
+            payloads.get("one_week_forecast_shadow_disposition", {})
         )
     )
     attention_reasons.extend(_medium_term_goal_review_reasons(payloads.get("medium_term_goal_review", {})))
@@ -2799,6 +2827,37 @@ def _one_week_forecast_calibration_review_reasons(payload):
         reasons.append("one_week_forecast_calibration_review_missing_fields")
     if payload.get("formal_model_change_allowed"):
         reasons.append("one_week_forecast_calibration_formal_model_change_unsafe")
+    return reasons
+
+
+def _one_week_forecast_shadow_disposition_reasons(payload):
+    if not payload:
+        return []
+    reasons = []
+    if payload.get("status") != "ready":
+        reasons.append("one_week_forecast_shadow_disposition_not_acceptable")
+    if any(field not in payload for field in ONE_WEEK_FORECAST_SHADOW_DISPOSITION_REQUIRED_FIELDS):
+        reasons.append("one_week_forecast_shadow_disposition_missing_fields")
+    counts = payload.get("disposition_counts")
+    if not isinstance(counts, dict) or any(value not in counts for value in VALID_SHADOW_DISPOSITIONS):
+        reasons.append("one_week_forecast_shadow_disposition_missing_fields")
+    candidates = payload.get("candidate_dispositions")
+    if not isinstance(candidates, list):
+        reasons.append("one_week_forecast_shadow_disposition_missing_fields")
+        candidates = []
+    invalid_candidate = any(
+        not isinstance(candidate, dict)
+        or not candidate.get("action_code")
+        or candidate.get("disposition") not in VALID_SHADOW_DISPOSITIONS
+        for candidate in candidates
+    )
+    if invalid_candidate:
+        reasons.append("one_week_forecast_shadow_disposition_invalid_candidate_status")
+    if payload.get("formal_model_change_allowed") or any(
+        isinstance(candidate, dict) and candidate.get("formal_model_change_allowed")
+        for candidate in candidates
+    ):
+        reasons.append("one_week_forecast_shadow_disposition_formal_model_change_unsafe")
     return reasons
 
 

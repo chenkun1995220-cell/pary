@@ -991,6 +991,31 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root / "outputs" / "automation" / "latest_one_week_forecast_shadow_disposition.json",
+        {
+            "disposition_schema": "one_week_forecast_shadow_disposition",
+            "disposition_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "recommended_action": "continue_shadow_validation",
+            "disposition_counts": {
+                "continue_observation": 1,
+                "rejected": 0,
+                "pending_human_approval": 0,
+            },
+            "candidate_dispositions": [
+                {
+                    "action_code": "shadow_demote_down_signal_to_neutral",
+                    "disposition": "continue_observation",
+                    "formal_model_change_allowed": False,
+                }
+            ],
+            "next_one_week_evaluation_date": "2026-07-07",
+            "next_one_week_evaluation_count": 42,
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_medium_term_goal_review.json",
         {
             "review_schema": "medium_term_goal_review",
@@ -4327,6 +4352,57 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn("one_week_forecast_shadow_formal_model_change_unsafe", result["attention_reasons"])
             self.assertIn("one_week_forecast_calibration_review", result["missing_outputs"])
+
+    def test_review_needs_attention_when_shadow_disposition_allows_formal_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            path = root / "outputs" / "automation" / "latest_one_week_forecast_shadow_disposition.json"
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+            payload["formal_model_change_allowed"] = True
+            write_json(path, payload)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "one_week_forecast_shadow_disposition_formal_model_change_unsafe",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_shadow_disposition_candidate_is_invalid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            path = root / "outputs" / "automation" / "latest_one_week_forecast_shadow_disposition.json"
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+            payload["candidate_dispositions"][0]["disposition"] = "auto_apply"
+            write_json(path, payload)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "one_week_forecast_shadow_disposition_invalid_candidate_status",
+                result["attention_reasons"],
+            )
+
+    def test_review_requires_shadow_disposition_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            (root / "outputs" / "automation" / "latest_one_week_forecast_shadow_disposition.json").unlink()
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("one_week_forecast_shadow_disposition", result["missing_outputs"])
 
     def test_review_needs_attention_when_backtest_review_allows_upgrade_with_weak_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:

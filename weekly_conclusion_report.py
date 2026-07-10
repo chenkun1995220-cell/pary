@@ -43,6 +43,9 @@ MANUAL_REVIEW_DECISIONS_TEMPLATE_OUTPUT = "outputs/automation/manual_review_deci
 MANUAL_REVIEW_MERGE_SUMMARY_PATH = "outputs/automation/latest_manual_review_decision_merge.json"
 CANDIDATE_FINDINGS_REVIEW_PATH = "outputs/automation/latest_candidate_findings_review.json"
 ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH = "outputs/automation/latest_one_week_forecast_shadow_review.json"
+ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH = (
+    "outputs/automation/latest_one_week_forecast_shadow_disposition.json"
+)
 BACKTEST_EVIDENCE_REVIEW_PATH = "outputs/automation/latest_backtest_evidence_review.json"
 DATA_HEALTH_REVIEW_PATH = "outputs/automation/latest_data_health_review.json"
 
@@ -82,6 +85,18 @@ ACTION_DETAILS = {
     "review_forecast_performance": {
         "label": "复核预测表现",
         "description": "检查 forecast_evaluations.csv、performance_report.md 和预测方向阈值，确认成熟样本表现是否需要进入影子参数评估。",
+    },
+    "continue_shadow_validation": {
+        "label": "继续影子验证",
+        "description": "继续累计独立周批次、受影响样本和市场覆盖，正式模型保持不变。",
+    },
+    "review_shadow_candidate_approval": {
+        "label": "审批影子候选",
+        "description": "人工复核已达门槛的影子候选，只决定是否进入后续正式回测设计。",
+    },
+    "repair_shadow_disposition_inputs": {
+        "label": "修复影子处置输入",
+        "description": "修复影子计划、验证、历史或日期契约，再重新生成候选处置。",
     },
     "review_delivery_health_issues": {
         "label": "复查最终交付健康提示",
@@ -214,6 +229,16 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             project_root,
             forecast_shadow_review,
             project_root / ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH,
+        )
+
+    forecast_shadow_disposition = read_json(
+        project_root / ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH
+    )
+    if isinstance(forecast_shadow_disposition, dict):
+        state["forecast_shadow_disposition"] = normalize_forecast_shadow_disposition(
+            project_root,
+            forecast_shadow_disposition,
+            project_root / ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH,
         )
 
     backtest_review = read_json(project_root / BACKTEST_EVIDENCE_REVIEW_PATH)
@@ -470,6 +495,22 @@ def normalize_forecast_shadow_review(project_root, payload, path):
     }
 
 
+def normalize_forecast_shadow_disposition(project_root, payload, path):
+    counts = payload.get("disposition_counts", {}) or {}
+    return {
+        "status": payload.get("status", "unknown"),
+        "as_of_date": payload.get("as_of_date"),
+        "recommended_action": payload.get("recommended_action", ""),
+        "continue_observation_count": to_int(counts.get("continue_observation")),
+        "rejected_count": to_int(counts.get("rejected")),
+        "pending_human_approval_count": to_int(counts.get("pending_human_approval")),
+        "next_one_week_evaluation_date": payload.get("next_one_week_evaluation_date", ""),
+        "next_one_week_evaluation_count": to_int(payload.get("next_one_week_evaluation_count")),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "path": relative_path(project_root, path),
+    }
+
+
 def normalize_backtest_evidence_review(project_root, payload, path):
     return {
         "status": payload.get("status") or payload.get("evidence_status") or "unknown",
@@ -688,6 +729,7 @@ def render_automation_section(payload):
         "data_quality",
         "data_quality_history",
         "forecast_performance",
+        "forecast_shadow_disposition",
         "weekly_action_items",
         "weekly_ops_check",
         "weekly_ops_history",
@@ -707,12 +749,14 @@ def render_automation_section(payload):
 def build_integrated_review_summary(automation, candidates, priority_actions, candidate_action_summary):
     candidate_review = automation.get("candidate_findings_review", {})
     forecast_shadow = automation.get("one_week_forecast_shadow_review", {})
+    forecast_disposition = automation.get("forecast_shadow_disposition", {})
     backtest_review = automation.get("backtest_evidence_review", {})
     data_health = automation.get("data_health_review", {})
     data_health_counts = data_health.get("data_health_triage_counts", {}) or {}
     formal_flags = [
         candidate_review.get("formal_model_change_allowed"),
         forecast_shadow.get("formal_model_change_allowed"),
+        forecast_disposition.get("formal_model_change_allowed"),
         backtest_review.get("formal_model_change_allowed"),
     ]
     return {
@@ -732,6 +776,17 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         "forecast_shadow_samples": to_int(forecast_shadow.get("one_week_samples")),
         "forecast_shadow_direction_hit_rate": forecast_shadow.get("direction_hit_rate"),
         "forecast_shadow_priority_market": forecast_shadow.get("priority_review_market", ""),
+        "forecast_disposition_status": forecast_disposition.get("status", "unknown"),
+        "forecast_disposition_continue_observation_count": to_int(
+            forecast_disposition.get("continue_observation_count")
+        ),
+        "forecast_disposition_rejected_count": to_int(forecast_disposition.get("rejected_count")),
+        "forecast_disposition_pending_human_approval_count": to_int(
+            forecast_disposition.get("pending_human_approval_count")
+        ),
+        "forecast_disposition_next_one_week_evaluation_date": forecast_disposition.get(
+            "next_one_week_evaluation_date", ""
+        ),
         "backtest_evidence_gate_status": backtest_review.get("membership_evidence_gate_status", "unknown"),
         "backtest_evidence_gate_decision": backtest_review.get("membership_evidence_gate_decision", ""),
         "backtest_evidence_blocking_tiers": backtest_review.get("membership_evidence_blocking_tiers", []),
@@ -774,6 +829,15 @@ def render_integrated_review_summary_section(payload):
             samples=escape_cell(summary.get("forecast_shadow_samples", 0)),
             hit=escape_cell(format_percent(summary.get("forecast_shadow_direction_hit_rate"))),
             diagnosis=escape_cell(", ".join(summary.get("forecast_shadow_diagnosis_reasons", []) or []) or "-"),
+        )
+    )
+    lines.append(
+        "| 预测影子处置 | {status} | 继续观察={observing}; 已驳回={rejected}; 待人工审批={approval}; 下一批={next_date} | shadow_only; formal_model_unchanged |".format(
+            status=escape_cell(summary.get("forecast_disposition_status", "unknown")),
+            observing=escape_cell(summary.get("forecast_disposition_continue_observation_count", 0)),
+            rejected=escape_cell(summary.get("forecast_disposition_rejected_count", 0)),
+            approval=escape_cell(summary.get("forecast_disposition_pending_human_approval_count", 0)),
+            next_date=escape_cell(summary.get("forecast_disposition_next_one_week_evaluation_date") or "-"),
         )
     )
     lines.append(

@@ -214,6 +214,46 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| US | MSFT | Microsoft | 82.5 | 120.00 | 96.00 | 24.5% | uptrend_watch | 上行 / 偏强 | 震荡偏强 / 温和偏强 |", markdown)
             self.assertIn("研究筛选和人工复核用途", markdown)
 
+    def test_weekly_conclusion_shows_shadow_disposition_counts_and_next_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root
+                / "outputs"
+                / "automation"
+                / "latest_one_week_forecast_shadow_disposition.json",
+                {
+                    "disposition_schema": "one_week_forecast_shadow_disposition",
+                    "disposition_version": 1,
+                    "as_of_date": "2026-06-28",
+                    "status": "ready",
+                    "recommended_action": "continue_shadow_validation",
+                    "disposition_counts": {
+                        "continue_observation": 3,
+                        "rejected": 0,
+                        "pending_human_approval": 0,
+                    },
+                    "candidate_dispositions": [],
+                    "next_one_week_evaluation_date": "2026-07-13",
+                    "next_one_week_evaluation_count": 37,
+                    "formal_model_change_allowed": False,
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            markdown = render_markdown(payload)
+            disposition = payload["automation"]["forecast_shadow_disposition"]
+
+            self.assertEqual(disposition["continue_observation_count"], 3)
+            self.assertEqual(disposition["pending_human_approval_count"], 0)
+            self.assertIn("预测影子处置", markdown)
+            self.assertIn("继续观察=3", markdown)
+            self.assertIn("2026-07-13", markdown)
+
     def test_adds_candidate_action_tiers_to_weekly_conclusion(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
