@@ -152,6 +152,26 @@ class CandidateValuationTests(unittest.TestCase):
         self.assertEqual(result["target_price"], 160.0)
         self.assertEqual(result["buy_price"], 128.0)
         self.assertEqual(result["margin_of_safety"], 0.20)
+        self.assertTrue(result["target_cap_applied"])
+        self.assertEqual(result["target_cap_price"], 160.0)
+        self.assertGreater(result["uncapped_target_price"], result["target_cap_price"])
+        self.assertGreater(result["target_cap_ratio"], 1.0)
+        self.assertLessEqual(result["sensitivity_low_price"], result["sensitivity_base_price"])
+        self.assertLessEqual(result["sensitivity_base_price"], result["sensitivity_high_price"])
+        self.assertIn("保护上限", result["target_cap_note"])
+        self.assertIn("不是精确收益预测", result["target_cap_note"])
+
+    def test_uncapped_target_keeps_existing_formal_target_and_empty_cap_note(self):
+        result = value_candidate(
+            self.base_row(),
+            {"trend_label": "中性", "confidence": "high"},
+        )
+
+        self.assertFalse(result["target_cap_applied"])
+        self.assertEqual(result["target_price"], 157.5)
+        self.assertEqual(result["uncapped_target_price"], 157.5)
+        self.assertEqual(result["target_cap_price"], 160.0)
+        self.assertEqual(result["target_cap_note"], "")
 
     def test_rounded_target_never_exceeds_cap(self):
         result = value_candidate(

@@ -13,6 +13,9 @@ TARGET_FIELDS = [
     "market", "ticker", "company_name", "currency", "current_price",
     "target_price", "buy_price", "expected_return", "pe_fair_price",
     "pb_fair_price", "fcf_fair_price", "quality_factor",
+    "uncapped_target_price", "target_cap_price", "target_cap_applied",
+    "target_cap_ratio", "sensitivity_low_price", "sensitivity_base_price",
+    "sensitivity_high_price", "target_cap_note",
     "margin_of_safety", "trend_label", "trend_confidence",
     "one_week_trend_label", "one_week_trend_confidence", "one_week_expected_direction",
     "one_month_trend_label", "one_month_trend_confidence", "one_month_expected_direction",
@@ -117,7 +120,10 @@ def value_candidate(row, trend):
     }
     weighted_fair = sum(fair_values[key] * used_weights[key] for key in fair_values)
     quality_factor = _quality_factor(row)
-    target_price = min(weighted_fair * quality_factor, price * 1.60)
+    uncapped_target = weighted_fair * quality_factor
+    target_cap_price = price * 1.60
+    target_price = min(uncapped_target, target_cap_price)
+    target_cap_applied = uncapped_target > target_cap_price + 1e-9
 
     confidence = _lower_confidence(
         row.get("confidence", "low"), trend.get("confidence", "low")
@@ -148,6 +154,18 @@ def value_candidate(row, trend):
         "pb_weight_used": used_weights["pb"],
         "fcf_weight_used": used_weights["fcf"],
         "quality_factor": round(quality_factor, 6),
+        "uncapped_target_price": round(uncapped_target, 2),
+        "target_cap_price": round(target_cap_price, 2),
+        "target_cap_applied": target_cap_applied,
+        "target_cap_ratio": round(uncapped_target / target_cap_price, 6),
+        "sensitivity_low_price": round(min(fair_values.values()) * quality_factor, 2),
+        "sensitivity_base_price": round(uncapped_target, 2),
+        "sensitivity_high_price": round(max(fair_values.values()) * quality_factor, 2),
+        "target_cap_note": (
+            "目标价触及60%保护上限；该上限用于控制模型外推，不是精确收益预测"
+            if target_cap_applied
+            else ""
+        ),
         "valuation_confidence": confidence,
         "margin_of_safety": margin,
         "price_action": price_action,
@@ -393,12 +411,15 @@ def _merge_inputs(candidates, medians, quotes):
 def _format_reason(result, trend):
     if result.get("valuation_status") != "ready":
         return "估值输入不足，暂不提供目标价"
-    return (
+    reason = (
         f"混合估值目标价 {result['target_price']}；"
         f"安全边际 {result['margin_of_safety']:.0%}；"
         f"走势 {trend.get('trend_label', '数据不足')}；"
         f"估值置信度 {result['valuation_confidence']}"
     )
+    if result.get("target_cap_applied"):
+        reason += "；目标价触及60%保护上限，不是精确收益预测"
+    return reason
 
 
 def run_candidate_valuation(
@@ -438,6 +459,14 @@ def run_candidate_valuation(
             "pb_fair_price": valuation.get("pb_fair_price"),
             "fcf_fair_price": valuation.get("fcf_fair_price"),
             "quality_factor": valuation.get("quality_factor"),
+            "uncapped_target_price": valuation.get("uncapped_target_price"),
+            "target_cap_price": valuation.get("target_cap_price"),
+            "target_cap_applied": valuation.get("target_cap_applied"),
+            "target_cap_ratio": valuation.get("target_cap_ratio"),
+            "sensitivity_low_price": valuation.get("sensitivity_low_price"),
+            "sensitivity_base_price": valuation.get("sensitivity_base_price"),
+            "sensitivity_high_price": valuation.get("sensitivity_high_price"),
+            "target_cap_note": valuation.get("target_cap_note", ""),
             "margin_of_safety": valuation.get("margin_of_safety"),
             "trend_label": trend.get("trend_label"),
             "trend_confidence": trend.get("confidence"),
