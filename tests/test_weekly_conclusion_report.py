@@ -958,6 +958,63 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertIn("| 数据健康 | monitor_only | candidate_blocking=0; refetch_required=0; monitor_only=74", markdown)
             self.assertIn("| 正式模型 | protected | formal_model_change_allowed=false", markdown)
 
+    def test_known_review_signals_keep_conclusion_health_at_review_level(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_manual_review_queue(root)
+            automation = root / "outputs" / "automation"
+            write_json(
+                automation / "latest_automation_check.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "manual_review_needed",
+                    "recommended_action": "review_manual_queue",
+                    "priority_actions": [
+                        "review_manual_queue",
+                        "review_backtest_evidence",
+                        "review_forecast_performance",
+                    ],
+                    "data_quality_history_status": "manual_review_needed",
+                    "forecast_performance_status": "performance_review_needed",
+                    "forecast_performance": {
+                        "mature_evaluations": 179,
+                        "direction_hit_rate": 0.2179,
+                        "average_excess_return": 0.0249,
+                    },
+                },
+            )
+            write_json(
+                automation / "latest_weekly_ops_check.json",
+                {"as_of_date": "2026-06-28", "status": "ready"},
+            )
+            write_json(
+                automation / "latest_weekly_ops_history_summary.json",
+                {"latest_as_of_date": "2026-06-28", "latest_status": "ready"},
+            )
+            write_json(
+                automation / "latest_weekly_delivery_history_summary.json",
+                {"latest_as_of_date": "2026-06-28", "latest_status": "ready"},
+            )
+            write_json(
+                automation / "latest_candidate_findings_review.json",
+                {
+                    "status": "manual_review_needed",
+                    "risk_reduction_status": "action_required",
+                    "risk_action_required_count": 15,
+                    "formal_model_change_allowed": False,
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(payload["status"], "ready")
+            self.assertEqual(payload["health"]["status"], "needs_review")
+            self.assertGreaterEqual(payload["health"]["score"], 60)
+            self.assertIn("manual_review_pending:2", payload["health"]["reasons"])
+
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

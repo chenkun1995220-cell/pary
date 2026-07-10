@@ -28,6 +28,11 @@ AUTOMATION_FILES = {
     "weekly_delivery_history": "latest_weekly_delivery_history_summary.json",
 }
 NON_BLOCKING_AUTOMATION_STATUS_KEYS = {"weekly_delivery_history"}
+LIGHT_REVIEW_AUTOMATION_STATUS_KEYS = {
+    "data_quality_history",
+    "forecast_performance",
+    "candidate_findings_review",
+}
 
 DEFAULT_MARKDOWN_OUTPUT = "outputs/automation/latest_weekly_conclusion.md"
 DEFAULT_JSON_OUTPUT = "outputs/automation/latest_weekly_conclusion.json"
@@ -348,7 +353,7 @@ def summarize_health(status, automation, missing_inputs, warnings, manual_review
             continue
         entry_status = entry.get("status", "unknown")
         if entry_status in {"manual_review_needed", "performance_review_needed"}:
-            score -= 10
+            score -= 5 if key in LIGHT_REVIEW_AUTOMATION_STATUS_KEYS else 10
             reasons.append(f"{key}:{entry_status}")
         elif not is_acceptable_status(entry_status):
             score -= 25
