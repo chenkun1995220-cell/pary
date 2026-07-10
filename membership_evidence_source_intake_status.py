@@ -46,6 +46,15 @@ STATUS_FIELDS = [
     "notes",
     "reviewer",
 ]
+MANUAL_ACTION_STATUS_VALUES = {
+    "pending_manual_evidence",
+    "invalid_evidence_status",
+    "invalid_missing_source_date",
+    "invalid_source_date",
+    "invalid_future_source_date",
+    "invalid_generic_official_source",
+    "invalid_source_policy",
+}
 MANUAL_WORK_PACKAGE_FIELDS = [
     "batch_id",
     "batch_rank",
@@ -475,7 +484,7 @@ def _current_batch_summary(items):
                 "validation_command": item.get("validation_command", ""),
             }
             for item in sorted_items
-            if item.get("validation_status") != "ready_current_source"
+            if item.get("validation_status") in MANUAL_ACTION_STATUS_VALUES
         ],
     }
 
@@ -493,7 +502,7 @@ def _manual_work_package_items(items):
     actionable = [
         item
         for item in candidates
-        if item.get("validation_status") != "ready_current_source"
+        if item.get("validation_status") in MANUAL_ACTION_STATUS_VALUES
     ]
     sorted_items = sorted(
         actionable,

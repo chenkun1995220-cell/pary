@@ -1337,6 +1337,66 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("crosscheck substitute", supplement_item["recommended_check"])
             self.assertIn("official S&P Global", supplement_item["recommended_check"])
 
+    def test_supplement_action_prompts_next_batch_when_current_batch_search_is_recorded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            import_plan_path = root / "latest_membership_evidence_import_plan.json"
+            source_intake_path = root / "latest_membership_evidence_source_intake_status.json"
+            current_source_path = root / "latest_sp500_current_membership_sources.json"
+            write_manifest(manifest_path)
+            write_blocked_membership_import_plan(import_plan_path)
+            write_membership_source_intake_status(source_intake_path)
+            write_current_membership_sources(current_source_path)
+            source_intake = json.loads(source_intake_path.read_text(encoding="utf-8-sig"))
+            source_intake.update(
+                {
+                    "pending_count": 40,
+                    "official_source_not_found_count": 10,
+                    "current_batch_pending_count": 0,
+                    "current_batch_not_found_count": 10,
+                    "current_batch_manual_checklist": [],
+                }
+            )
+            source_intake_path.write_text(
+                json.dumps(source_intake, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+            current_source = json.loads(current_source_path.read_text(encoding="utf-8-sig"))
+            current_source.update(
+                {
+                    "status": "crosscheck_substitute_ready",
+                    "source_trust_level": "crosscheck_substitute",
+                    "membership_evidence": "secondary",
+                    "recommended_followup": "refresh_crosscheck_substitute_weekly",
+                }
+            )
+            current_source_path.write_text(
+                json.dumps(current_source, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            payload = build_weekly_action_items(
+                manifest_path,
+                membership_import_plan=import_plan_path,
+                membership_evidence_source_intake_status=source_intake_path,
+                current_membership_sources=current_source_path,
+            )
+
+            supplement_item = next(
+                item
+                for item in payload["items"]
+                if item["action_code"] == "supplement_verified_membership_evidence"
+            )
+            self.assertIn("current_batch_manual_checklist_count:0", supplement_item["source"])
+            self.assertIn("official_source_not_found_count:10", supplement_item["source"])
+            self.assertIn("pending_count:40", supplement_item["source"])
+            self.assertIn("当前批次官方检索已记录", supplement_item["recommended_check"])
+            self.assertIn("继续生成或处理下一批", supplement_item["recommended_check"])
+            self.assertNotIn("优先处理 ABT, ADM, AEP, BA, BMY", supplement_item["recommended_check"])
+
     def test_adds_current_membership_source_review_action_when_missing_tickers_remain(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

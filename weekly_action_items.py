@@ -759,6 +759,13 @@ def _membership_evidence_supplement_action(
     ]
     ticker_text = ", ".join(sample_tickers[:5]) or "blocked membership evidence items"
     current_batch_id = str(source_intake_status.get("current_batch_id", "") or "").strip()
+    intake_pending_count = _int_value(source_intake_status.get("pending_count"), 0)
+    official_source_not_found_count = _int_value(
+        source_intake_status.get("official_source_not_found_count"), 0
+    )
+    current_batch_not_found_count = _int_value(
+        source_intake_status.get("current_batch_not_found_count"), 0
+    )
     current_batch_checklist = [
         item
         for item in source_intake_status.get("current_batch_manual_checklist", []) or []
@@ -792,6 +799,12 @@ def _membership_evidence_supplement_action(
             f"; current_batch_id:{current_batch_id or 'unknown'}; "
             f"current_batch_manual_checklist_count:{len(current_batch_checklist)}"
         )
+        if official_source_not_found_count:
+            current_batch_source += (
+                f"; official_source_not_found_count:{official_source_not_found_count}"
+            )
+        if intake_pending_count:
+            current_batch_source += f"; pending_count:{intake_pending_count}"
     current_batch_check = ""
     if current_batch_checklist:
         current_batch_check = (
@@ -806,6 +819,13 @@ def _membership_evidence_supplement_action(
             )
         if current_batch_search_url:
             current_batch_check += f"official_domain_search_url={current_batch_search_url}; "
+    elif current_batch_id and current_batch_not_found_count and intake_pending_count:
+        current_batch_check = (
+            f"当前批次官方检索已记录 {current_batch_not_found_count} 条 official_source_not_found；"
+            f"仍有 {intake_pending_count} 条 pending，继续生成或处理下一批 "
+            "verified evidence intake；"
+        )
+        ticker_text = "下一批 pending 项"
     uses_crosscheck_substitute = _current_membership_uses_crosscheck_substitute(
         current_source_status
     )

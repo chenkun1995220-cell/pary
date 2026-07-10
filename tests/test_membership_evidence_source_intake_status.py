@@ -331,6 +331,8 @@ class MembershipEvidenceSourceIntakeStatusTests(unittest.TestCase):
             )
             self.assertEqual(by_ticker["ABT"]["source_trust_level"], "not_verified")
             self.assertFalse(by_ticker["ABT"]["can_upgrade_membership"])
+            self.assertEqual(payload["current_batch_manual_checklist"], [])
+            self.assertEqual(payload["current_batch_manual_work_package"], [])
             with (root / "verified_source_pack.csv").open(encoding="utf-8-sig", newline="") as handle:
                 self.assertEqual(list(csv.DictReader(handle)), [])
 
