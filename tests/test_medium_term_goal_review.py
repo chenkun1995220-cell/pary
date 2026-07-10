@@ -53,6 +53,19 @@ def write_review_fixtures(root):
         },
     )
     write_json(
+        automation / "latest_weekly_delivery_streak_review.json",
+        {
+            "as_of_date": "2026-06-29",
+            "status": "accumulating",
+            "acceptance_start_date": "2026-07-12",
+            "required_consecutive_sundays": 3,
+            "consecutive_sunday_ready_count": 0,
+            "successful_sunday_dates": [],
+            "first_hk_1415_validation_status": "pending",
+            "formal_model_change_allowed": False,
+        },
+    )
+    write_json(
         automation / "latest_weekly_action_items.json",
         {
             "action_items_schema": "weekly_action_items",
@@ -943,6 +956,23 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                     "latest_freshness_status": "fresh",
                 },
             )
+            write_json(
+                automation / "latest_weekly_delivery_streak_review.json",
+                {
+                    "as_of_date": "2026-07-26",
+                    "status": "ready",
+                    "acceptance_start_date": "2026-07-12",
+                    "required_consecutive_sundays": 3,
+                    "consecutive_sunday_ready_count": 3,
+                    "successful_sunday_dates": [
+                        "2026-07-12",
+                        "2026-07-19",
+                        "2026-07-26",
+                    ],
+                    "first_hk_1415_validation_status": "ready",
+                    "formal_model_change_allowed": False,
+                },
+            )
 
             from medium_term_goal_review import build_medium_term_goal_review
 
@@ -956,6 +986,37 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(current["weekly_delivery_history_window_size"], 4)
             self.assertEqual(current["weekly_ops_history_ready_count"], 4)
             self.assertEqual(current["weekly_ops_history_window_size"], 4)
+            self.assertEqual(current["consecutive_sunday_ready_count"], 3)
+            self.assertEqual(current["first_hk_1415_validation_status"], "ready")
+
+    def test_weekly_delivery_stays_below_target_while_sunday_streak_accumulates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            streak_path = automation / "latest_weekly_delivery_streak_review.json"
+            streak = json.loads(streak_path.read_text(encoding="utf-8-sig"))
+            streak.update(
+                {
+                    "as_of_date": "2026-07-12",
+                    "status": "accumulating",
+                    "consecutive_sunday_ready_count": 1,
+                    "successful_sunday_dates": ["2026-07-12"],
+                    "first_hk_1415_validation_status": "ready",
+                }
+            )
+            write_json(streak_path, streak)
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(root)
+            goal = next(
+                item for item in payload["goals"]
+                if item["goal_code"] == "weekly_delivery_stability"
+            )
+
+            self.assertLess(goal["completion_percent"], 90)
+            self.assertEqual(goal["current"]["consecutive_sunday_ready_count"], 1)
+            self.assertEqual(goal["next_action"], "continue_consecutive_sunday_validation")
 
     def test_ignores_refreshable_pre_submit_closeout_mismatch_for_core_delivery(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1306,12 +1367,12 @@ class MediumTermGoalReviewTests(unittest.TestCase):
         self.assertIn("latest_medium_term_goal_review.md", wrapper)
         self.assertIn("run_medium_term_goal_review", bundle)
         self.assertLess(
-            bundle.index("run_forecast_performance_review"),
-            bundle.index("run_medium_term_goal_review"),
+            bundle.index('Label = "run_weekly_delivery_streak_review"'),
+            bundle.index('Label = "refresh_medium_term_goal_after_delivery_streak"'),
         )
         self.assertLess(
-            bundle.index("run_medium_term_goal_review"),
-            bundle.index("show_automation_check"),
+            bundle.index('Label = "refresh_medium_term_goal_after_delivery_streak"'),
+            bundle.index('Label = "refresh_model_handoff_after_delivery_streak"'),
         )
 
     def test_development_closeout_summary_reports_module_and_overall_progress(self):

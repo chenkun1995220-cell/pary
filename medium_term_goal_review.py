@@ -29,6 +29,7 @@ INPUT_FILES = {
     "weekly_ops": "latest_weekly_ops_check.json",
     "weekly_ops_history": "latest_weekly_ops_history_summary.json",
     "weekly_delivery_history": "latest_weekly_delivery_history_summary.json",
+    "weekly_delivery_streak": "latest_weekly_delivery_streak_review.json",
     "weekly_action_items": "latest_weekly_action_items.json",
     "data_health": "latest_data_health_review.json",
     "candidate_findings": "latest_candidate_findings_review.json",
@@ -187,14 +188,14 @@ def _goal_completion_percent(goal):
         percent = 85 if action_count <= 8 else 75
         if (
             percent >= 85
-            and _int_value(current.get("weekly_delivery_history_ready_count")) >= 4
-            and _int_value(current.get("weekly_delivery_history_window_size")) >= 4
+            and current.get("weekly_delivery_streak_status") == "ready"
+            and _int_value(current.get("consecutive_sunday_ready_count"))
+            >= _int_value(current.get("required_consecutive_sundays"), 3)
+            and current.get("first_hk_1415_validation_status") == "ready"
             and _int_value(current.get("weekly_delivery_history_needs_attention_count")) == 0
             and _int_value(current.get("weekly_delivery_history_stale_count")) == 0
             and _int_value(current.get("weekly_delivery_history_action_items_problem_count")) == 0
             and _int_value(current.get("weekly_delivery_history_conclusion_signal_problem_count")) == 0
-            and _int_value(current.get("weekly_ops_history_ready_count")) >= 4
-            and _int_value(current.get("weekly_ops_history_window_size")) >= 4
             and _int_value(current.get("weekly_ops_history_needs_attention_count")) == 0
             and _int_value(current.get("weekly_ops_history_stale_count")) == 0
         ):
@@ -322,22 +323,31 @@ def _weekly_delivery_goal(
     weekly_action_items=None,
     weekly_ops_history=None,
     weekly_delivery_history=None,
+    weekly_delivery_streak=None,
 ):
     weekly_action_items = weekly_action_items or {}
     weekly_ops_history = weekly_ops_history or {}
     weekly_delivery_history = weekly_delivery_history or {}
+    weekly_delivery_streak = weekly_delivery_streak or {}
     backlog_plan = weekly_action_items.get("backlog_reduction_plan", [])
     core = _status_for_core(pre_submit, weekly_ops, automation_check)
     backlog_plan_status = _backlog_reduction_plan_status(weekly_action_items)
     if core != "ready":
         status = "blocked"
         next_action = "restore_weekly_delivery_ready_state"
+    elif weekly_delivery_streak.get("status") in {"missing", "needs_attention"}:
+        status = "needs_work"
+        next_action = "repair_current_sunday_delivery_evidence"
     elif backlog_plan_status == "missing":
         status = "needs_work"
         next_action = "review_weekly_action_backlog_reduction_plan"
     else:
         status = "on_track"
-        next_action = "continue_weekly_delivery_monitoring"
+        next_action = (
+            "continue_weekly_delivery_monitoring"
+            if weekly_delivery_streak.get("status") == "ready"
+            else "continue_consecutive_sunday_validation"
+        )
     return _goal(
         "weekly_delivery_stability",
         "稳定每周三市场交付",
@@ -391,8 +401,23 @@ def _weekly_delivery_goal(
             "weekly_ops_history_stale_count": _int_value(
                 weekly_ops_history.get("stale_count")
             ),
+            "weekly_delivery_streak_status": weekly_delivery_streak.get("status", "missing"),
+            "consecutive_sunday_ready_count": _int_value(
+                weekly_delivery_streak.get("consecutive_sunday_ready_count")
+            ),
+            "required_consecutive_sundays": _int_value(
+                weekly_delivery_streak.get("required_consecutive_sundays"), 3
+            ),
+            "successful_sunday_dates": weekly_delivery_streak.get(
+                "successful_sunday_dates", []
+            )
+            if isinstance(weekly_delivery_streak.get("successful_sunday_dates", []), list)
+            else [],
+            "first_hk_1415_validation_status": weekly_delivery_streak.get(
+                "first_hk_1415_validation_status", "pending"
+            ),
         },
-        "连续 4-6 周保持三市场 ready，提交前复核 ready，关键产物无缺失或过期。",
+        "从 2026-07-12 起连续 3 个周日保持三市场同日、交付与提交前复核 ready，候选数一致；首次港股 14:15 启动验收通过。",
         next_action,
     )
 
@@ -1019,6 +1044,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
     weekly_ops = inputs["weekly_ops"]
     weekly_ops_history = inputs["weekly_ops_history"]
     weekly_delivery_history = inputs["weekly_delivery_history"]
+    weekly_delivery_streak = inputs["weekly_delivery_streak"]
     weekly_action_items = inputs["weekly_action_items"]
     data_health = inputs["data_health"]
     candidate_findings = inputs["candidate_findings"]
@@ -1044,6 +1070,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
             weekly_action_items,
             weekly_ops_history,
             weekly_delivery_history,
+            weekly_delivery_streak,
         ),
         _data_quality_goal(data_health, automation_check),
         _candidate_review_goal(candidate_findings, candidate_risk_resolution),
