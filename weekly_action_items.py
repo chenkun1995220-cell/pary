@@ -264,16 +264,30 @@ def _shadow_review_actions_text(*reviews):
             for action in review.get("recommended_shadow_actions", []) or []
             if str(action).strip()
         ]
+        formal_decision = str(review.get("formal_model_change_decision", "") or "").strip()
+        priority_market = str(review.get("priority_review_market", "") or "").strip()
+        blockers = [
+            str(blocker).strip()
+            for blocker in review.get("formal_model_change_blockers", []) or []
+            if str(blocker).strip()
+        ]
         path = (
             "latest_one_week_forecast_calibration_review.json"
             if schema == "one_week_forecast_calibration_review"
             else "latest_one_week_forecast_shadow_review.json"
         )
-        parts.append(
+        decision_text = (
             f"{path}: status={status}, one_week_samples={sample_count}, "
             f"actions={','.join(actions) or 'none'}, "
             f"formal_model_change_allowed:{formal_allowed}"
         )
+        if formal_decision:
+            decision_text += f", formal_model_change_decision={formal_decision}"
+        if priority_market:
+            decision_text += f", priority_review_market={priority_market}"
+        if blockers:
+            decision_text += f", blockers={','.join(blockers)}"
+        parts.append(decision_text)
     if not parts:
         return ""
     return " 影子复核证据：" + "；".join(parts) + "。"

@@ -139,10 +139,18 @@ class OneWeekForecastShadowReviewTests(unittest.TestCase):
             self.assertEqual(payload["recommended_shadow_actions"][0], "review_direction_mapping")
             self.assertIn("review_neutral_band", payload["recommended_shadow_actions"])
             self.assertFalse(payload["formal_model_change_allowed"])
+            self.assertEqual(payload["formal_model_change_decision"], "keep_formal_model_unchanged")
+            self.assertEqual(payload["shadow_review_decision"], "shadow_review_only")
+            self.assertEqual(payload["priority_review_market"], "港股周筛")
+            self.assertIn("direction_hit_rate_below_threshold", payload["formal_model_change_blockers"])
+            self.assertIn("opposite_miss_count_positive", payload["formal_model_change_blockers"])
             self.assertEqual(payload["markets"][0]["one_week_evaluated_count"], 2)
             self.assertEqual(payload["markets"][1]["opposite_miss_count"], 1)
             self.assertEqual(payload["weak_samples"][0]["ticker"], "00123.HK")
             self.assertIn("1周预测影子分析", report)
+            self.assertIn("## 正式模型保护结论", report)
+            self.assertIn("formal_model_change_decision：keep_formal_model_unchanged", report)
+            self.assertIn("priority_review_market：港股周筛", report)
             self.assertIn("review_direction_mapping", report)
 
     def test_cli_writes_json_and_markdown_outputs(self):

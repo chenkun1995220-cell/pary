@@ -150,6 +150,42 @@ def _recommended_actions(total, hit_rate, opposite_misses, neutral_misses):
     return actions
 
 
+def _priority_review_market(markets):
+    candidates = [
+        item
+        for item in markets
+        if item.get("status") == "ready" and item.get("one_week_evaluated_count", 0) > 0
+    ]
+    if not candidates:
+        return ""
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            item.get("direction_hit_rate") is None,
+            item.get("direction_hit_rate") if item.get("direction_hit_rate") is not None else 1,
+            -item.get("opposite_miss_count", 0),
+            -item.get("neutral_miss_count", 0),
+            item.get("name", ""),
+        ),
+    )
+    return ranked[0].get("name", "")
+
+
+def _formal_model_blockers(total, hit_rate, opposite_misses, neutral_misses):
+    blockers = ["shadow_review_only"]
+    if total < 30:
+        blockers.append("sample_count_below_minimum")
+    if hit_rate is None:
+        blockers.append("direction_hit_rate_unknown")
+    elif hit_rate < 0.35:
+        blockers.append("direction_hit_rate_below_threshold")
+    if opposite_misses > 0:
+        blockers.append("opposite_miss_count_positive")
+    if total and neutral_misses / total >= 0.25:
+        blockers.append("neutral_miss_rate_high")
+    return blockers
+
+
 def build_one_week_forecast_shadow_review(project_root=".", markets=None, as_of_date=None):
     market_specs = markets or DEFAULT_MARKETS
     reviewed = sorted(
@@ -165,6 +201,7 @@ def build_one_week_forecast_shadow_review(project_root=".", markets=None, as_of_
     average_return = _average(item.get("average_return") for item in reviewed)
     average_excess = _average(item.get("average_excess_return") for item in reviewed)
     recommended_actions = _recommended_actions(total, hit_rate, opposite, neutral)
+    formal_model_blockers = _formal_model_blockers(total, hit_rate, opposite, neutral)
     status = (
         "shadow_review_needed"
         if any(action.startswith("review_") for action in recommended_actions)
@@ -191,6 +228,10 @@ def build_one_week_forecast_shadow_review(project_root=".", markets=None, as_of_
         "average_excess_return": average_excess,
         "recommended_shadow_actions": recommended_actions,
         "formal_model_change_allowed": False,
+        "formal_model_change_decision": "keep_formal_model_unchanged",
+        "shadow_review_decision": "shadow_review_only",
+        "priority_review_market": _priority_review_market(reviewed),
+        "formal_model_change_blockers": formal_model_blockers,
         "markets": reviewed,
         "weak_samples": weak_samples,
         "boundary": "只做1周预测表现影子分析，不重新评分，不修改正式模型参数。",
@@ -214,6 +255,13 @@ def render_one_week_forecast_shadow_review(payload):
         f"- 平均超额收益：{_pct(payload.get('average_excess_return'))}",
         f"- shadow_actions：{', '.join(payload.get('recommended_shadow_actions', []))}",
         "- 正式模型修改：不允许",
+        "",
+        "## 正式模型保护结论",
+        "",
+        f"- formal_model_change_decision：{payload.get('formal_model_change_decision', 'unknown')}",
+        f"- shadow_review_decision：{payload.get('shadow_review_decision', 'unknown')}",
+        f"- priority_review_market：{payload.get('priority_review_market', '')}",
+        f"- formal_model_change_blockers：{', '.join(payload.get('formal_model_change_blockers', []))}",
         "",
         "## 市场分布",
         "",

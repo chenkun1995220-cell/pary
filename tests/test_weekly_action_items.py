@@ -491,6 +491,13 @@ def write_one_week_shadow_review(path):
             "keep_formal_model_unchanged",
         ],
         "formal_model_change_allowed": False,
+        "formal_model_change_decision": "keep_formal_model_unchanged",
+        "shadow_review_decision": "shadow_review_only",
+        "priority_review_market": "港股周筛",
+        "formal_model_change_blockers": [
+            "direction_hit_rate_below_threshold",
+            "opposite_miss_count_positive",
+        ],
     }
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(
@@ -512,6 +519,13 @@ def write_one_week_calibration_review(path):
             "keep_formal_model_unchanged",
         ],
         "formal_model_change_allowed": False,
+        "formal_model_change_decision": "keep_formal_model_unchanged",
+        "shadow_review_decision": "shadow_review_only",
+        "priority_review_market": "港股周筛",
+        "formal_model_change_blockers": [
+            "down_signal_opposite_misses",
+            "neutral_band_review_needed",
+        ],
     }
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(
@@ -933,6 +947,9 @@ class WeeklyActionItemsTests(unittest.TestCase):
             )
             self.assertIn("latest_one_week_forecast_shadow_review.json", forecast["recommended_check"])
             self.assertIn("review_direction_mapping", forecast["recommended_check"])
+            self.assertIn("formal_model_change_decision=keep_formal_model_unchanged", forecast["recommended_check"])
+            self.assertIn("priority_review_market=港股周筛", forecast["recommended_check"])
+            self.assertIn("blockers=direction_hit_rate_below_threshold,opposite_miss_count_positive", forecast["recommended_check"])
             self.assertIn("latest_one_week_forecast_calibration_review.json", forecast["recommended_check"])
             self.assertIn("review_down_signal_mapping_shadow_only", forecast["recommended_check"])
             self.assertIn("formal_model_change_allowed:false", forecast["source"])
