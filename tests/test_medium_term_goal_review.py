@@ -376,12 +376,24 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(payload["market_count"], 3)
             self.assertFalse(payload["formal_model_change_allowed"])
             self.assertFalse(payload["formal_model_upgrade_allowed"])
-            self.assertFalse(payload["automatic_multi_model_collaboration_enabled"])
             self.assertEqual(
-                payload["collaboration_execution_mode"],
-                "single_codex_with_gpt55_review_checklist",
+                payload["development_execution_profile"],
+                "capability_adaptive_single_agent",
             )
-            self.assertIn("未启用自动多模型协作", payload["collaboration_boundary_note"])
+            self.assertEqual(
+                payload["review_policy"],
+                "risk_based_independent_verification",
+            )
+            self.assertEqual(
+                payload["environment_compatibility_policy"],
+                "runtime_capability_detection_with_safe_fallback",
+            )
+            self.assertFalse(payload["model_version_pinned"])
+            self.assertTrue(payload["upgrade_compatibility_required"])
+            self.assertIn("不绑定具体模型", payload["development_governance_note"])
+            self.assertNotIn("automatic_multi_model_collaboration_enabled", payload)
+            self.assertNotIn("collaboration_execution_mode", payload)
+            self.assertNotIn("collaboration_boundary_note", payload)
             self.assertTrue(payload["development_completion_policy"]["required_in_task_closeout"])
             self.assertEqual(
                 payload["development_completion_policy"]["closeout_fields"],
@@ -715,19 +727,21 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(goals["model_governance_handoff"]["completion_percent"], 85)
             self.assertEqual(
                 goals["model_governance_handoff"]["title"],
-                "建立多模型协作治理准备",
-            )
-            self.assertFalse(
-                goals["model_governance_handoff"]["current"]["automatic_multi_model_collaboration_enabled"]
+                "建立能力自适应开发治理",
             )
             self.assertEqual(
                 goals["model_governance_handoff"]["current"]["governance_mode"],
-                "single_codex_with_gpt55_review_checklist",
+                "capability_adaptive_single_agent",
             )
-            self.assertIn(
-                "当前不是自动双模型协作",
-                goals["model_governance_handoff"]["current"]["collaboration_boundary_note"],
+            governance_current = goals["model_governance_handoff"]["current"]
+            self.assertEqual(
+                governance_current["review_policy"],
+                "risk_based_independent_verification",
             )
+            self.assertTrue(governance_current["runtime_capability_check_required"])
+            self.assertTrue(governance_current["independent_review_required"])
+            self.assertTrue(governance_current["evidence_replay_required"])
+            self.assertNotIn("collaboration_execution_mode", governance_current)
             self.assertEqual(
                 payload["task_closeout_snapshot"]["current_module"],
                 "S&P 500 成分证据补强",
@@ -1248,11 +1262,6 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                 summary["current_target_total_completion_percent"],
                 review["overall_completion_percent"],
             )
-            self.assertFalse(summary["automatic_multi_model_collaboration_enabled"])
-            self.assertEqual(
-                summary["collaboration_execution_mode"],
-                "single_codex_with_gpt55_review_checklist",
-            )
             self.assertTrue(summary["sp500_current_source_inbox_external_input_required"])
             self.assertEqual(summary["sp500_current_source_inbox_size_bytes"], 12345)
             self.assertEqual(summary["sp500_current_source_inbox_sha256"], "a" * 64)
@@ -1280,7 +1289,6 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertIn("该模块完成度：30%", report)
             self.assertIn("中期目标整体完成度：", report)
             self.assertIn("当前目标总完成度：", report)
-            self.assertIn("真实执行模式：single_codex_with_gpt55_review_checklist", report)
 
             self.assertIn("sp500_current_source_inbox_external_input_required=True", report)
             self.assertIn("sp500_current_source_inbox_size_bytes=12345", report)

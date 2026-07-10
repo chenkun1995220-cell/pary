@@ -9,11 +9,16 @@ REVIEW_VERSION = 1
 PERIOD = "8 weeks"
 STRATEGY_CODE = "evidence_prediction_decision_maturity"
 STRATEGY_TITLE = "证据、预测与决策成熟化"
-AUTOMATIC_MULTI_MODEL_COLLABORATION_ENABLED = False
-COLLABORATION_EXECUTION_MODE = "single_codex_with_gpt55_review_checklist"
-COLLABORATION_BOUNDARY_NOTE = (
-    "当前未启用自动多模型协作；当前不是自动双模型协作，实际由单 Codex 执行，"
-    "并通过清单模拟 gpt5.5 的关键复核角色。"
+DEVELOPMENT_EXECUTION_PROFILE = "capability_adaptive_single_agent"
+REVIEW_POLICY = "risk_based_independent_verification"
+ENVIRONMENT_COMPATIBILITY_POLICY = (
+    "runtime_capability_detection_with_safe_fallback"
+)
+MODEL_VERSION_PINNED = False
+UPGRADE_COMPATIBILITY_REQUIRED = True
+DEVELOPMENT_GOVERNANCE_NOTE = (
+    "开发流程不绑定具体模型名称或版本；当前执行主体根据运行环境能力完成小步实现，"
+    "并按风险等级执行独立复核、完整测试和失败回退。模型升级或切换不得降低既有验收门槛。"
 )
 AUTOMATION_DIR = Path("outputs") / "automation"
 
@@ -43,7 +48,7 @@ GOAL_MODULES = {
     "candidate_review_convergence": "候选公司研究清单成熟化",
     "forecast_tracking_maturity": "1周和1个月走势预测评估",
     "backtest_evidence_quality": "S&P 500 成分证据补强",
-    "model_governance_handoff": "模型治理与多模型协作准备",
+    "model_governance_handoff": "模型无关开发治理",
 }
 
 GOAL_TARGET_COMPLETION = {
@@ -219,9 +224,11 @@ def _goal_completion_percent(goal):
         if (
             current.get("governance_status") == "ready"
             and current.get("pre_submit_status") in {"ready", "ready_refresh_required"}
-            and current.get("collaboration_execution_mode")
-            == "single_codex_with_gpt55_review_checklist"
-            and current.get("automatic_multi_model_collaboration_enabled") is False
+            and current.get("governance_mode") == DEVELOPMENT_EXECUTION_PROFILE
+            and current.get("review_policy") == REVIEW_POLICY
+            and current.get("runtime_capability_check_required") is True
+            and current.get("independent_review_required") is True
+            and current.get("evidence_replay_required") is True
         ):
             percent = max(percent, 85)
     return max(0, min(100, percent))
@@ -872,18 +879,24 @@ def _governance_goal(pre_submit):
     status = "on_track" if pre_submit.get("governance_status") == "ready" else "needs_work"
     return _goal(
         "model_governance_handoff",
-        "建立多模型协作治理准备",
+        "建立能力自适应开发治理",
         status,
         {
             "governance_status": pre_submit.get("governance_status", "missing"),
             "pre_submit_status": _pre_submit_status_for_medium_term(pre_submit),
-            "governance_mode": COLLABORATION_EXECUTION_MODE,
-            "collaboration_execution_mode": COLLABORATION_EXECUTION_MODE,
-            "collaboration_boundary_note": COLLABORATION_BOUNDARY_NOTE,
-            "automatic_multi_model_collaboration_enabled": AUTOMATIC_MULTI_MODEL_COLLABORATION_ENABLED,
+            "governance_mode": DEVELOPMENT_EXECUTION_PROFILE,
+            "development_execution_profile": DEVELOPMENT_EXECUTION_PROFILE,
+            "review_policy": REVIEW_POLICY,
+            "environment_compatibility_policy": ENVIRONMENT_COMPATIBILITY_POLICY,
+            "model_version_pinned": MODEL_VERSION_PINNED,
+            "upgrade_compatibility_required": UPGRADE_COMPATIBILITY_REQUIRED,
+            "development_governance_note": DEVELOPMENT_GOVERNANCE_NOTE,
+            "runtime_capability_check_required": True,
+            "independent_review_required": True,
+            "evidence_replay_required": True,
             "task_closeout_progress_required": True,
         },
-        "建立面向多模型协作的治理流程；当前阶段由单 Codex 执行，并通过二次审查清单模拟 gpt5.5 复核角色，具备自动调度能力后再升级为真正自动协作。",
+        "建立不绑定具体模型的开发治理流程；运行时识别环境能力，按风险等级执行独立复核，并在模型或环境升级后重跑相同质量闸门。",
         "review_governance_handoff" if status != "on_track" else "continue_governance_handoff",
     )
 
@@ -1002,9 +1015,12 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
         "priority_next_actions": _priority_actions(goals),
         "formal_model_change_allowed": False,
         "formal_model_upgrade_allowed": False,
-        "automatic_multi_model_collaboration_enabled": AUTOMATIC_MULTI_MODEL_COLLABORATION_ENABLED,
-        "collaboration_execution_mode": COLLABORATION_EXECUTION_MODE,
-        "collaboration_boundary_note": COLLABORATION_BOUNDARY_NOTE,
+        "development_execution_profile": DEVELOPMENT_EXECUTION_PROFILE,
+        "review_policy": REVIEW_POLICY,
+        "environment_compatibility_policy": ENVIRONMENT_COMPATIBILITY_POLICY,
+        "model_version_pinned": MODEL_VERSION_PINNED,
+        "upgrade_compatibility_required": UPGRADE_COMPATIBILITY_REQUIRED,
+        "development_governance_note": DEVELOPMENT_GOVERNANCE_NOTE,
         "development_completion_policy": _development_completion_policy(),
         "task_closeout_snapshot": _task_closeout_snapshot(
             goals,
@@ -1104,9 +1120,12 @@ def render_medium_term_goal_review(payload):
             f"- 主交付链路：{payload.get('core_delivery_status', 'unknown')}",
         f"- 三市场 ready：{payload.get('markets_ready_count', 0)}/{payload.get('market_count', 0)}",
         f"- 候选公司数：{payload.get('candidate_count_total', 0)}",
-        f"- 自动双模型协作：{'已启用' if payload.get('automatic_multi_model_collaboration_enabled') else '未启用，当前为单 Codex 执行 + gpt5.5 复核清单模拟'}",
-        f"- 真实执行模式：{payload.get('collaboration_execution_mode', 'unknown')}",
-        f"- 协作边界：{payload.get('collaboration_boundary_note', 'unknown')}",
+        f"- 执行配置：{payload.get('development_execution_profile', 'unknown')}",
+        f"- 复核策略：{payload.get('review_policy', 'unknown')}",
+        f"- 环境兼容策略：{payload.get('environment_compatibility_policy', 'unknown')}",
+        f"- 模型版本固定：{'是' if payload.get('model_version_pinned') else '否'}",
+        f"- 升级后必须重验：{'是' if payload.get('upgrade_compatibility_required') else '否'}",
+        f"- 开发治理边界：{payload.get('development_governance_note', 'unknown')}",
         f"- 正式模型变更：{'允许' if payload.get('formal_model_change_allowed') else '不允许'}",
         f"- 正式模型升级：{'允许' if payload.get('formal_model_upgrade_allowed') else '不允许'}",
         "",
