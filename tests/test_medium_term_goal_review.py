@@ -61,7 +61,7 @@ def write_review_fixtures(root):
             "required_consecutive_sundays": 3,
             "consecutive_sunday_ready_count": 0,
             "successful_sunday_dates": [],
-            "first_hk_1415_validation_status": "pending",
+            "first_hk_1430_validation_status": "pending",
             "formal_model_change_allowed": False,
         },
     )
@@ -969,7 +969,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                         "2026-07-19",
                         "2026-07-26",
                     ],
-                    "first_hk_1415_validation_status": "ready",
+                    "first_hk_1430_validation_status": "ready",
                     "formal_model_change_allowed": False,
                 },
             )
@@ -987,7 +987,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
             self.assertEqual(current["weekly_ops_history_ready_count"], 4)
             self.assertEqual(current["weekly_ops_history_window_size"], 4)
             self.assertEqual(current["consecutive_sunday_ready_count"], 3)
-            self.assertEqual(current["first_hk_1415_validation_status"], "ready")
+            self.assertEqual(current["first_hk_1430_validation_status"], "ready")
 
     def test_weekly_delivery_stays_below_target_while_sunday_streak_accumulates(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1001,7 +1001,7 @@ class MediumTermGoalReviewTests(unittest.TestCase):
                     "status": "accumulating",
                     "consecutive_sunday_ready_count": 1,
                     "successful_sunday_dates": ["2026-07-12"],
-                    "first_hk_1415_validation_status": "ready",
+                    "first_hk_1430_validation_status": "ready",
                 }
             )
             write_json(streak_path, streak)

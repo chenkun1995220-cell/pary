@@ -9,8 +9,8 @@ REVIEW_SCHEMA = "weekly_delivery_streak_review"
 REVIEW_VERSION = 1
 ACCEPTANCE_START_DATE = date(2026, 7, 12)
 REQUIRED_CONSECUTIVE_SUNDAYS = 3
-HK_START_MIN = time(14, 15, 0)
-HK_START_MAX = time(14, 30, 0)
+HK_START_MIN = time(14, 30, 0)
+HK_START_MAX = time(14, 45, 0)
 
 
 def _read_json(path):
@@ -138,9 +138,9 @@ def _current_record(consistency, delivery, pre_submit, current_date):
         if HK_START_MIN <= hk_started.time() <= HK_START_MAX:
             hk_window_status = "ready"
         else:
-            issues.append("hk_run_start_outside_1415_window")
+            issues.append("hk_run_start_outside_1430_window")
     elif "hk_run_timing_missing" not in issues:
-        issues.append("hk_run_start_outside_1415_window")
+        issues.append("hk_run_start_outside_1430_window")
 
     if consistency.get("formal_model_change_allowed") is not False:
         issues.append("consistency_formal_model_change_unsafe")
@@ -202,7 +202,7 @@ def build_weekly_delivery_streak_review(
         "required_consecutive_sundays": REQUIRED_CONSECUTIVE_SUNDAYS,
         "consecutive_sunday_ready_count": ready_count,
         "successful_sunday_dates": success_dates,
-        "first_hk_1415_validation_status": first_hk_status,
+        "first_hk_1430_validation_status": first_hk_status,
         "history_record_count": len(logical_rows),
         "latest_record": record,
         "issues": issues,
@@ -220,7 +220,7 @@ def render_markdown(payload):
         f"- 状态：{payload.get('status', '')}",
         f"- 连续成功：{payload.get('consecutive_sunday_ready_count', 0)}/{payload.get('required_consecutive_sundays', 3)}",
         f"- 成功周日：{', '.join(payload.get('successful_sunday_dates', [])) or '无'}",
-        f"- 港股 14:15 首次启动验收：{payload.get('first_hk_1415_validation_status', 'pending')}",
+        f"- 港股 14:30 首次启动验收：{payload.get('first_hk_1430_validation_status', 'pending')}",
         f"- 当周候选总数：{latest.get('candidate_count_total', 0)}",
         "- 正式模型修改：不允许",
         "",

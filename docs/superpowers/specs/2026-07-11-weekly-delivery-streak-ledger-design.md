@@ -2,7 +2,7 @@
 
 ## 目标
 
-从 2026-07-12 起，连续验证 3 个真实周日的美股、A 股、港股及统一收口。每周必须使用当次产物，交付检查和提交前复核为 `ready`，候选数量在市场摘要、候选文件、统一结论和交付验收之间一致；首次还要证明港股任务在 14:15 后的合理窗口启动并完成收口。
+从 2026-07-12 起，连续验证 3 个真实周日的美股、A 股、港股及统一收口。每周必须使用当次产物，交付检查和提交前复核为 `ready`，候选数量在市场摘要、候选文件、统一结论和交付验收之间一致；首次还要证明港股任务在计划的 14:30 后合理窗口内启动并完成收口。
 
 ## 采用方案
 
@@ -17,7 +17,7 @@
 
 三个市场入口在开始实际工作前记录 `Run start time`，成功结束时继续使用现有 `Run time` 作为完成时间。
 
-- 港股首次自动化启动窗口为本地时间 14:15:00 至 14:30:00。
+- 港股首次自动化启动窗口为本地时间 14:30:00 至 14:45:00。
 - 开始日期、完成日期和一致性复核日期必须等于验收周日。
 - 开始时间不得晚于完成时间。
 - Dry-run 不写入开始时间或验收历史。
@@ -32,7 +32,7 @@
 - `outputs/automation/latest_weekly_delivery_streak_review.md`
 - `outputs/automation/weekly_delivery_streak_history.jsonl`
 
-核心字段包括 `status`、`acceptance_start_date`、`required_consecutive_sundays`、`consecutive_sunday_ready_count`、`successful_sunday_dates`、`latest_record`、`first_hk_1415_validation_status`、`issues` 和 `formal_model_change_allowed=false`。
+核心字段包括 `status`、`acceptance_start_date`、`required_consecutive_sundays`、`consecutive_sunday_ready_count`、`successful_sunday_dates`、`latest_record`、`first_hk_1430_validation_status`、`issues` 和 `formal_model_change_allowed=false`。
 
 ## 单周成功条件
 
@@ -40,7 +40,7 @@
 2. 一致性复核为 `ready` 且无问题。
 3. 三市场运行日期均等于该周日。
 4. 三市场开始和完成时间完整且顺序正确。
-5. 港股开始时间处于 14:15:00 至 14:30:00。
+5. 港股开始时间处于 14:30:00 至 14:45:00。
 6. 交付验收和提交前复核均为 `ready`。
 7. 三市场候选文件合计、统一结论和交付验收候选总数一致。
 
@@ -61,6 +61,6 @@
 - 同日重跑不增加连续周数；周六或起始日前运行不写历史。
 - 三个连续成功周日达到 `ready`。
 - 日期断档、失败周、候选数不一致或状态异常会中断连续计数。
-- 港股缺少开始时间、早于 14:15 或晚于 14:30 均不能通过。
+- 港股缺少开始时间、早于 14:30 或晚于 14:45 均不能通过。
 - 周度链顺序、包装器、提交前与看板字段均有测试。
 - 不修改筛选、估值、预测、评分或正式模型参数。
