@@ -86,6 +86,21 @@ def write_fixture(root):
             {"ticker": "BBB", "price": "20", "quote_date": "2026-07-11"},
         ],
     )
+    identity_audit_path = root / "outputs" / "us_universe" / "sec_identity_audit.csv"
+    write_csv(
+        identity_audit_path,
+        [
+            {
+                "ticker": "XOM",
+                "configured_cik": "34088",
+                "sec_candidate_ciks": "2115436",
+                "selected_cik": "34088",
+                "configured_company_name": "ExxonMobil",
+                "sec_candidate_names": "ExxonMobil Holdings Corp",
+                "resolution": "configured_identity_preserved",
+            }
+        ],
+    )
     write_summary(
         root / "outputs" / "us_universe" / "latest_run_summary.md",
         2,
@@ -96,6 +111,8 @@ def write_fixture(root):
             "Quote date min": "2026-07-10",
             "Quote date max": "2026-07-11",
             "Quote snapshot sha256": sha256(quote_path),
+            "SEC identity conflict count": "1",
+            "SEC identity audit": str(identity_audit_path),
         },
     )
 
@@ -143,10 +160,59 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
             self.assertEqual(payload["candidate_count_total"], 6)
             self.assertEqual(payload["runtime_quote_snapshot"]["git_policy"], "runtime_output_only")
             self.assertEqual(payload["runtime_quote_snapshot"]["row_count"], 2)
+            self.assertEqual(payload["sec_identity_audit"]["row_count"], 1)
+            self.assertEqual(payload["sec_identity_audit"]["summary_row_count"], 1)
+            self.assertEqual(payload["sec_identity_audit"]["unresolved_count"], 0)
             market_rows = {row["market"]: row for row in payload["markets"]}
             self.assertEqual(market_rows["US"]["run_started_at"], "2026-07-11 14:05:00")
             self.assertEqual(market_rows["US"]["run_completed_at"], "2026-07-11 14:25:00")
             self.assertEqual(payload["issues"], [])
+
+    def test_blocks_missing_or_unresolved_sec_identity_audit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            audit_path = root / "outputs" / "us_universe" / "sec_identity_audit.csv"
+            audit_path.unlink()
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            missing = build_weekly_artifact_consistency(root, "2026-07-11")
+            self.assertIn("sec_identity_audit_missing", missing["issues"])
+
+            write_csv(
+                audit_path,
+                [
+                    {
+                        "ticker": "XOM",
+                        "configured_cik": "34088",
+                        "sec_candidate_ciks": "2115436",
+                        "selected_cik": "2115436",
+                        "configured_company_name": "ExxonMobil",
+                        "sec_candidate_names": "ExxonMobil Holdings Corp",
+                        "resolution": "unresolved",
+                    }
+                ],
+            )
+            unresolved = build_weekly_artifact_consistency(root, "2026-07-11")
+            self.assertIn("sec_identity_audit_unresolved_conflicts", unresolved["issues"])
+            self.assertEqual(unresolved["sec_identity_audit"]["unresolved_count"], 1)
+
+    def test_blocks_sec_identity_audit_summary_count_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            summary_path = root / "outputs" / "us_universe" / "latest_run_summary.md"
+            text = summary_path.read_text(encoding="utf-8-sig")
+            summary_path.write_text(
+                text.replace("- SEC identity conflict count: 1", "- SEC identity conflict count: 0"),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            payload = build_weekly_artifact_consistency(root, "2026-07-11")
+            self.assertIn("sec_identity_audit_row_count_mismatch", payload["issues"])
 
     def test_blocks_summary_candidate_count_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:

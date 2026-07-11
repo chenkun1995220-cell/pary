@@ -213,6 +213,43 @@ def _runtime_quote_snapshot(project_root, fields, current_date, max_age_days, is
     }
 
 
+def _sec_identity_audit(project_root, fields, issues):
+    expected_path = (
+        project_root / "outputs" / "us_universe" / "sec_identity_audit.csv"
+    ).resolve()
+    raw_path = fields.get("SEC identity audit", "")
+    summary_path = Path(raw_path) if raw_path else expected_path
+    if not summary_path.is_absolute():
+        summary_path = project_root / summary_path
+    summary_path = summary_path.resolve()
+    rows = _csv_rows(expected_path)
+    summary_rows = _int_value(fields.get("SEC identity conflict count"))
+    unresolved = [
+        row
+        for row in rows
+        if row.get("configured_cik", "").strip() != row.get("selected_cik", "").strip()
+        or row.get("resolution", "").strip() != "configured_identity_preserved"
+    ]
+
+    if summary_path != expected_path:
+        issues.append("sec_identity_audit_path_invalid")
+    if not expected_path.exists():
+        issues.append("sec_identity_audit_missing")
+    if summary_rows != len(rows):
+        issues.append("sec_identity_audit_row_count_mismatch")
+    if unresolved:
+        issues.append("sec_identity_audit_unresolved_conflicts")
+
+    return {
+        "path": str(expected_path),
+        "summary_path": str(summary_path),
+        "row_count": len(rows),
+        "summary_row_count": summary_rows,
+        "unresolved_count": len(unresolved),
+        "unresolved_tickers": [row.get("ticker", "") for row in unresolved],
+    }
+
+
 def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_days=8):
     project_root = Path(project_root)
     current_date = _iso_date(as_of_date or date.today().isoformat())
@@ -270,6 +307,11 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
         max_age_days,
         issues,
     )
+    identity_audit = _sec_identity_audit(
+        project_root,
+        summary_fields.get("US", {}),
+        issues,
+    )
     issues = _unique(issues)
     return {
         "consistency_schema": CONSISTENCY_SCHEMA,
@@ -285,6 +327,7 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
         "conclusion_as_of_date": conclusion_date,
         "delivery_as_of_date": delivery_date,
         "runtime_quote_snapshot": runtime_snapshot,
+        "sec_identity_audit": identity_audit,
         "issues": issues,
         "formal_model_change_allowed": False,
         "boundary": "只读取现有运行产物，不抓取行情、不重新评分、不修改正式模型参数。",
@@ -323,12 +366,22 @@ def render_weekly_artifact_consistency(payload):
             f"- 行数：{snapshot.get('row_count', 0)}",
             f"- 行情日期：{snapshot.get('quote_date_min', '')} 至 {snapshot.get('quote_date_max', '')}",
             f"- SHA-256：{snapshot.get('sha256', '')}",
+        ]
+    )
+    identity_audit = payload.get("sec_identity_audit", {})
+    lines.extend(
+        [
             "",
-            "## 问题",
+            "## 美股 SEC 身份审计",
             "",
+            f"- 路径：{identity_audit.get('path', '')}",
+            f"- 冲突数：{identity_audit.get('row_count', 0)}",
+            f"- 摘要冲突数：{identity_audit.get('summary_row_count', -1)}",
+            f"- 未解决冲突：{identity_audit.get('unresolved_count', 0)}",
         ]
     )
     issues = payload.get("issues", [])
+    lines.extend(["", "## 问题", ""])
     lines.extend([f"- {issue}" for issue in issues] or ["- 无"])
     lines.extend(["", "## 边界", "", f"- {payload.get('boundary', '')}"])
     return "\n".join(lines).rstrip() + "\n"
