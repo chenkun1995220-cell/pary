@@ -110,6 +110,19 @@ class WeeklyAutomationTests(unittest.TestCase):
                 self.assertIn('$refreshMetadata.status -ne "online"', script)
                 self.assertIn(message, script)
 
+    def test_market_weekly_scripts_reject_price_history_cache_fallbacks(self):
+        for script_name in (
+            "run_us_universe_weekly.ps1",
+            "run_cn_weekly.ps1",
+            "run_hk_weekly.ps1",
+        ):
+            script = (PROJECT_ROOT / "scripts" / script_name).read_text(
+                encoding="utf-8-sig"
+            )
+            with self.subTest(script=script_name):
+                self.assertEqual(script.count("candidate_price_history.py"), 3)
+                self.assertEqual(script.count("--fail-on-cache-fallback"), 3)
+
     def test_weekly_delivery_streak_wrapper_and_bundle_tail_order(self):
         wrapper = (
             PROJECT_ROOT / "scripts" / "run_weekly_delivery_streak_review.ps1"

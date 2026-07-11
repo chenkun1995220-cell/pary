@@ -230,6 +230,7 @@ def run_price_history(
     market,
     minimum_coverage=0.80,
     cache_max_age_days=10,
+    fail_on_cache_fallback=False,
     fetcher=None,
 ):
     market = str(market).upper()
@@ -269,6 +270,10 @@ def run_price_history(
         raise RuntimeError(
             f"price history coverage {coverage:.2%} below required {minimum_coverage:.2%}"
         )
+    if fail_on_cache_fallback and cache_fallbacks:
+        raise RuntimeError(
+            f"price history cache fallback used for {cache_fallbacks} ticker(s)"
+        )
 
     _write_history_csv(output_path, all_rows)
     return {
@@ -292,6 +297,7 @@ def main():
     parser.add_argument("--cache-dir", required=True)
     parser.add_argument("--minimum-coverage", type=float, default=0.80)
     parser.add_argument("--cache-max-age-days", type=float, default=10)
+    parser.add_argument("--fail-on-cache-fallback", action="store_true")
     args = parser.parse_args()
     result = run_price_history(
         args.candidates,
@@ -300,6 +306,7 @@ def main():
         args.market,
         minimum_coverage=args.minimum_coverage,
         cache_max_age_days=args.cache_max_age_days,
+        fail_on_cache_fallback=args.fail_on_cache_fallback,
     )
     print(f"Price history coverage: {result['ready']}/{result['candidates']}")
     print(f"Cache fallbacks: {result['cache_fallbacks']}")

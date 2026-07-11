@@ -202,6 +202,32 @@ class CandidatePriceHistoryTests(unittest.TestCase):
                 row = next(csv.DictReader(stream))
             self.assertEqual(row["close"], "99.5")
 
+    def test_strict_mode_rejects_fresh_cache_and_preserves_formal_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidates = root / "candidates.csv"
+            output = root / "price_history.csv"
+            cache = root / "cache"
+            cache.mkdir()
+            write_candidates(candidates, ["600519.SH"])
+            (cache / "600519.SS.json").write_text(
+                json.dumps(yahoo_payload(closes=(99.5,), timestamps=(1704067200,))),
+                encoding="utf-8",
+            )
+            output.write_text("existing-output", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "cache fallback used for 1 ticker"):
+                run_price_history(
+                    candidates,
+                    output,
+                    cache,
+                    "CN",
+                    fail_on_cache_fallback=True,
+                    fetcher=lambda url: (_ for _ in ()).throw(OSError("network down")),
+                )
+
+            self.assertEqual(output.read_text(encoding="utf-8"), "existing-output")
+
     def test_network_failure_rejects_stale_cache_and_preserves_formal_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
