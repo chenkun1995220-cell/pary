@@ -1107,6 +1107,24 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertEqual(payload["status"], "ready")
             self.assertNotEqual(payload["health"]["status"], "needs_fix")
 
+    def test_clear_data_quality_history_is_an_acceptable_lifecycle_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            automation_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            automation = json.loads(automation_path.read_text(encoding="utf-8-sig"))
+            automation["data_quality_history_status"] = "clear"
+            write_json(automation_path, automation)
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(payload["status"], "ready")
+            self.assertNotIn("data_quality_history:clear", payload["health"]["reasons"])
+            self.assertNotEqual(payload["health"]["status"], "needs_fix")
+
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

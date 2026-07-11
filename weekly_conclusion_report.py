@@ -1631,6 +1631,7 @@ def is_acceptable_status(status):
         "success",
         "completed",
         "fresh",
+        "clear",
         "needs_review",
         "collecting",
         "sample_accumulating",
