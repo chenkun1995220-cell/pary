@@ -412,12 +412,13 @@ def run_auto_fill_quotes(
     quote_max_age_days=7,
     max_workers=12,
     share_overrides_path=DEFAULT_SHARE_OVERRIDES_PATH,
+    reuse_existing_quotes=True,
 ):
     companies = load_sec_config(companies_path)
     share_overrides = load_share_overrides(share_overrides_path)
     cached_quotes = (
         {}
-        if price_fixture_dir
+        if price_fixture_dir or not reuse_existing_quotes
         else load_fresh_quotes(
             output_path,
             as_of_date,
@@ -489,6 +490,7 @@ def main():
     parser.add_argument("--cache-dir", default=None)
     parser.add_argument("--share-overrides", default=DEFAULT_SHARE_OVERRIDES_PATH)
     parser.add_argument("--max-workers", type=int, default=12)
+    parser.add_argument("--no-quote-cache", action="store_true")
     args = parser.parse_args()
 
     result = run_auto_fill_quotes(
@@ -500,6 +502,7 @@ def main():
         cache_dir=args.cache_dir,
         max_workers=args.max_workers,
         share_overrides_path=args.share_overrides,
+        reuse_existing_quotes=not args.no_quote_cache,
     )
     print(f"已自动补齐行情行数：{result['rows']}")
     print(f"输出文件：{result['output_path']}")

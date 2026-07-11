@@ -9,6 +9,7 @@ from datetime import date
 from unittest.mock import patch
 
 from quote_auto_filler import (
+    QUOTE_FIELDS,
     build_quote_row,
     extract_net_debt,
     extract_shares_outstanding,
@@ -119,6 +120,52 @@ class QuoteAutoFillerTests(unittest.TestCase):
 
             self.assertEqual(set(rows), {"FRESH"})
             self.assertEqual(rows["FRESH"]["price"], "10")
+
+    def test_auto_fill_can_disable_existing_quote_reuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            companies = root / "companies.csv"
+            output = root / "quotes.csv"
+            with companies.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=["ticker", "cik", "company_name", "industry"],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {"ticker": "AAPL", "cik": "320193", "company_name": "Apple", "industry": "Tech"}
+                )
+            with output.open("w", encoding="utf-8-sig", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=QUOTE_FIELDS)
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "ticker": "AAPL",
+                        "price": "10",
+                        "shares_outstanding": "100",
+                        "quote_date": "2026-06-18",
+                        "quote_source": "cached",
+                    }
+                )
+
+            seen_overrides = []
+
+            def fake_build(company, facts, quote_override=None, **kwargs):
+                seen_overrides.append(quote_override)
+                return {"ticker": company["ticker"], "price": "20", "quote_date": "2026-06-21"}
+
+            with patch("quote_auto_filler.load_company_facts", return_value=company_facts()), patch(
+                "quote_auto_filler.build_quote_row", side_effect=fake_build
+            ):
+                run_auto_fill_quotes(
+                    companies,
+                    output,
+                    fixture_dir=root,
+                    as_of_date=date(2026, 6, 21),
+                    reuse_existing_quotes=False,
+                )
+
+            self.assertEqual(seen_overrides, [None])
 
     def test_existing_manual_override_quotes_reuse_requires_current_override(self):
         with tempfile.TemporaryDirectory() as tmp:

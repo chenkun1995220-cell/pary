@@ -4,7 +4,8 @@ param(
   [string]$FixtureDir = "",
   [string]$PriceFixtureDir = "",
   [string]$CacheDir = "",
-  [string]$ShareOverrides = ""
+  [string]$ShareOverrides = "",
+  [switch]$NoQuoteCache
 )
 
 $ErrorActionPreference = "Stop"
@@ -52,6 +53,9 @@ if ($CacheDir) {
 }
 if ($ShareOverrides) {
   $argsList += @("--share-overrides", $ShareOverrides)
+}
+if ($NoQuoteCache) {
+  $argsList += "--no-quote-cache"
 }
 
 & $Python @argsList

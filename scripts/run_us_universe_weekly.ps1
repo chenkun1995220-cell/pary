@@ -25,7 +25,7 @@ $ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
 $Steps = @(
   @{ Label = "1/10 Refresh S&P 500 constituents"; Script = "refresh_sp500_constituents.ps1"; Arguments = @("-Output", $Symbols, "-CacheDir", $Sp500Cache) },
   @{ Label = "2/10 Build US universe"; Script = "build_us_universe.ps1"; Arguments = @("-Symbols", $Symbols, "-Output", $Companies, "-Sp500Cache", $Sp500Cache, "-SkipConstituentRefresh") },
-  @{ Label = "3/10 Fill market quotes"; Script = "auto_fill_us_real_sample_quotes.ps1"; Arguments = @("-Companies", $Companies, "-Output", $Quotes, "-CacheDir", $SecCache) },
+  @{ Label = "3/10 Fill market quotes"; Script = "auto_fill_us_real_sample_quotes.ps1"; Arguments = @("-Companies", $Companies, "-Output", $Quotes, "-CacheDir", $SecCache, "-NoQuoteCache") },
   @{ Label = "4/10 Run screening"; Script = "run_us_real_sample.ps1"; Arguments = @("-Companies", $Companies, "-Quotes", $Quotes, "-OutputRoot", $OutputRoot, "-CacheDir", $SecCache) },
   @{ Label = "5/10 Generate research packs"; Script = "generate_candidate_research_packs.ps1"; Arguments = @("-ScreeningRoot", $OutputRoot, "-Companies", $Companies) }
 )

@@ -201,6 +201,7 @@ class WeeklyAutomationTests(unittest.TestCase):
         )
 
         self.assertIn('$Quotes = Join-Path $OutputRoot "market_quotes.csv"', script)
+        self.assertIn('"-NoQuoteCache"', script)
         self.assertNotIn('data\\samples\\us_universe_quotes.csv', script)
         self.assertIn("Quote snapshot policy: runtime_output_only", script)
         self.assertIn("Quote snapshot file", script)

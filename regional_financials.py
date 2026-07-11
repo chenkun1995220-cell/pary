@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import time
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -137,6 +138,20 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
+def _fetch_batch_with_retry(
+    fetcher, market, tickers, max_attempts, retry_delay_seconds, sleeper
+):
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fetcher(market, tickers), attempt - 1
+        except (OSError, TimeoutError, ValueError):
+            if attempt >= max_attempts:
+                raise
+            sleeper(retry_delay_seconds * attempt)
+
+
 def run_regional_financials(
     market,
     snapshot_path,
@@ -145,14 +160,27 @@ def run_regional_financials(
     fetcher=None,
     batch_size=20,
     minimum_coverage=0.8,
+    max_attempts=3,
+    retry_delay_seconds=2,
+    sleeper=None,
 ):
     snapshot_rows = load_csv(snapshot_path)
     fetch = fetcher or fetch_financial_batch
     financial_rows = []
     payloads = []
+    retry_count = 0
+    sleep = sleeper or time.sleep
     for start in range(0, len(snapshot_rows), batch_size):
         tickers = [row["ticker"] for row in snapshot_rows[start : start + batch_size]]
-        payload = fetch(market, tickers)
+        payload, batch_retries = _fetch_batch_with_retry(
+            fetch,
+            market,
+            tickers,
+            max_attempts,
+            retry_delay_seconds,
+            sleep,
+        )
+        retry_count += batch_retries
         payloads.append(payload)
         records = (payload.get("result") or {}).get("data") or []
         financial_rows.extend(normalize_financial_records(market, records))
@@ -186,6 +214,7 @@ def run_regional_financials(
         "rows": len(merged),
         "financial_rows": ready,
         "coverage": coverage,
+        "retry_count": retry_count,
         "output_path": Path(output_path),
     }
 
@@ -198,6 +227,8 @@ def main():
     parser.add_argument("--raw-cache", required=True)
     parser.add_argument("--batch-size", type=int, default=20)
     parser.add_argument("--minimum-coverage", type=float, default=0.8)
+    parser.add_argument("--max-attempts", type=int, default=3)
+    parser.add_argument("--retry-delay-seconds", type=float, default=2)
     args = parser.parse_args()
     result = run_regional_financials(
         args.market,
@@ -206,9 +237,12 @@ def main():
         args.raw_cache,
         batch_size=args.batch_size,
         minimum_coverage=args.minimum_coverage,
+        max_attempts=args.max_attempts,
+        retry_delay_seconds=args.retry_delay_seconds,
     )
     print(f"Financial rows: {result['financial_rows']}/{result['rows']}")
     print(f"Financial coverage: {result['coverage']:.2%}")
+    print(f"Batch retries: {result['retry_count']}")
 
 
 if __name__ == "__main__":

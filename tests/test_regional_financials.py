@@ -120,6 +120,47 @@ class RegionalFinancialTests(unittest.TestCase):
             self.assertEqual(merged[1]["financial_data_status"], "missing")
             self.assertEqual(json.loads(raw_cache.read_text(encoding="utf-8"))[0]["success"], True)
 
+    def test_run_financials_retries_transient_batch_failures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snapshot = root / "snapshot.csv"
+            output = root / "financial.csv"
+            raw_cache = root / "raw.json"
+            snapshot_rows = [
+                {"market": "A\u80a1", "ticker": "600519.SH", "company_name": "Moutai", "industry": "Beverage", "pe": "14"}
+            ]
+            with snapshot.open("w", encoding="utf-8-sig", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=snapshot_rows[0].keys())
+                writer.writeheader()
+                writer.writerows(snapshot_rows)
+
+            attempts = []
+            delays = []
+
+            def flaky_fetcher(market, tickers):
+                attempts.append((market, list(tickers)))
+                if len(attempts) < 3:
+                    raise TimeoutError("temporary timeout")
+                return {"success": True, "result": {"data": A_RECORDS}}
+
+            result = run_regional_financials(
+                "CN",
+                snapshot,
+                output,
+                raw_cache,
+                fetcher=flaky_fetcher,
+                batch_size=20,
+                minimum_coverage=0,
+                max_attempts=3,
+                retry_delay_seconds=2,
+                sleeper=delays.append,
+            )
+
+            self.assertEqual(result["financial_rows"], 1)
+            self.assertEqual(result["retry_count"], 2)
+            self.assertEqual(len(attempts), 3)
+            self.assertEqual(delays, [2, 4])
+
 
 if __name__ == "__main__":
     unittest.main()
