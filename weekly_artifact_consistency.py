@@ -37,6 +37,24 @@ def _summary_fields(path):
     return fields
 
 
+def _report_metric(path, label):
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return -1
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            continue
+        content = stripped[2:]
+        for separator in ("：", ":"):
+            if separator in content:
+                key, value = content.split(separator, 1)
+                if key.strip() == label:
+                    return _int_value(value)
+    return -1
+
+
 def _csv_rows(path):
     try:
         with Path(path).open(encoding="utf-8-sig", newline="") as handle:
@@ -80,6 +98,26 @@ def _market_evidence(project_root, market, directory, current_date, max_age_days
     candidate_path = market_dir / "candidate_pool.csv"
     fields = _summary_fields(summary_path)
     candidate_rows = _csv_rows(candidate_path)
+    evaluations_path = market_dir / "forecast_evaluations.csv"
+    investment_summary_path = market_dir / "latest_investment_summary.md"
+    performance_report_path = market_dir / "performance_report.md"
+    model_audit_path = market_dir / "model_audit.md"
+    mature_counts = {
+        "evaluations": (
+            sum(
+                1
+                for row in _csv_rows(evaluations_path)
+                if row.get("evaluation_status") == "evaluated"
+            )
+            if evaluations_path.exists()
+            else -1
+        ),
+        "investment_summary": _report_metric(
+            investment_summary_path, "成熟评价样本"
+        ),
+        "performance_report": _report_metric(performance_report_path, "成熟评价"),
+        "model_audit": _report_metric(model_audit_path, "成熟评价样本"),
+    }
     summary_count = _int_value(fields.get("Candidate count"))
     run_date = _iso_date(fields.get("Run time", ""))
     age_days = (current_date - run_date).days if run_date else None
@@ -98,6 +136,10 @@ def _market_evidence(project_root, market, directory, current_date, max_age_days
         issues.append(f"{prefix}_candidate_pool_missing")
     if summary_count != len(candidate_rows):
         issues.append(f"{prefix}_summary_candidate_count_mismatch")
+    if min(mature_counts.values()) < 0:
+        issues.append(f"{prefix}_mature_evaluation_evidence_missing")
+    elif len(set(mature_counts.values())) != 1:
+        issues.append(f"{prefix}_mature_evaluation_count_mismatch")
 
     return {
         "market": market,
@@ -107,6 +149,7 @@ def _market_evidence(project_root, market, directory, current_date, max_age_days
         "age_days": age_days,
         "summary_candidate_count": summary_count,
         "candidate_file_count": len(candidate_rows),
+        "mature_evaluation_counts": mature_counts,
         "summary_file": str(summary_path),
         "candidate_file": str(candidate_path),
     }, fields

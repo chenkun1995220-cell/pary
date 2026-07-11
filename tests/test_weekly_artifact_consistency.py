@@ -57,6 +57,25 @@ def write_fixture(root):
             {"ticker": f"{market}2", "score": "85"},
         ]
         write_csv(market_dir / "candidate_pool.csv", rows)
+        write_csv(
+            market_dir / "forecast_evaluations.csv",
+            [
+                {"ticker": f"{market}1", "evaluation_status": "evaluated"},
+                {"ticker": f"{market}2", "evaluation_status": "prediction_unavailable"},
+            ],
+        )
+        (market_dir / "latest_investment_summary.md").write_text(
+            "# Investment summary\n\n- \u6210\u719f\u8bc4\u4ef7\u6837\u672c\uff1a1\n",
+            encoding="utf-8-sig",
+        )
+        (market_dir / "performance_report.md").write_text(
+            "# Performance report\n\n- \u6210\u719f\u8bc4\u4ef7\uff1a1\n",
+            encoding="utf-8-sig",
+        )
+        (market_dir / "model_audit.md").write_text(
+            "# Model audit\n\n- \u6210\u719f\u8bc4\u4ef7\u6837\u672c\uff1a1\n",
+            encoding="utf-8-sig",
+        )
         write_summary(market_dir / "latest_run_summary.md", candidate_counts[market])
 
     quote_path = root / "outputs" / "us_universe" / "market_quotes.csv"
@@ -141,6 +160,25 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
 
             self.assertEqual(payload["status"], "needs_attention")
             self.assertIn("cn_summary_candidate_count_mismatch", payload["issues"])
+
+    def test_blocks_mature_evaluation_count_mismatch_across_market_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            (root / "outputs" / "us_universe" / "latest_investment_summary.md").write_text(
+                "# Investment summary\n\n- \u6210\u719f\u8bc4\u4ef7\u6837\u672c\uff1a0\n",
+                encoding="utf-8-sig",
+            )
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            payload = build_weekly_artifact_consistency(root, "2026-07-11")
+
+            self.assertEqual(payload["status"], "needs_attention")
+            self.assertIn("us_mature_evaluation_count_mismatch", payload["issues"])
+            market_rows = {row["market"]: row for row in payload["markets"]}
+            self.assertEqual(market_rows["US"]["mature_evaluation_counts"]["evaluations"], 1)
+            self.assertEqual(market_rows["US"]["mature_evaluation_counts"]["investment_summary"], 0)
 
     def test_blocks_stale_market_and_closure_date_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
