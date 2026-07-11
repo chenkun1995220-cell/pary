@@ -13,6 +13,9 @@ from urllib.request import Request, urlopen
 CSI300_URL = "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/000300cons.xls"
 HK_SIZE_URL = "https://www.hsi.com.hk/data/eng/rt/index-series/sizeindexes/constituents.do"
 
+# HKEX temporary counter used during Hesai's July-August 2026 share subdivision.
+HK_TEMPORARY_COUNTER_ALIASES = {("02983", "HESAI - W"): "02525"}
+
 OUTPUT_FIELDS = [
     "market",
     "ticker",
@@ -31,6 +34,12 @@ def _clean(value):
         return ""
     text = str(value).strip()
     return "" if text.lower() == "nan" else text
+
+
+def _normalize_hk_counter(constituent):
+    code = re.sub(r"\D", "", str(constituent.get("code", ""))).zfill(5)
+    company_name = _clean(constituent.get("constituentName"))
+    return HK_TEMPORARY_COUNTER_ALIASES.get((code, company_name.upper()), code)
 
 
 def _find_value(record, candidates):
@@ -85,8 +94,13 @@ def parse_hk_size_payload(payload):
             short_name = selected.get(index.get("indexName"))
             if not short_name:
                 continue
-            for constituent in index.get("constituentContent", []):
-                code = re.sub(r"\D", "", str(constituent.get("code", ""))).zfill(5)
+            constituents = sorted(
+                index.get("constituentContent", []),
+                key=_normalize_hk_counter,
+            )
+            for constituent in constituents:
+                code = _normalize_hk_counter(constituent)
+                company_name = _clean(constituent.get("constituentName"))
                 if not code.strip("0"):
                     continue
                 ticker = f"{code}.HK"
@@ -99,7 +113,7 @@ def parse_hk_size_payload(payload):
                     "market": "港股",
                     "ticker": ticker,
                     "raw_ticker": code,
-                    "company_name": _clean(constituent.get("constituentName")),
+                    "company_name": company_name,
                     "industry": _clean(constituent.get("industry")),
                     "index_name": short_name,
                     "currency": "HKD",

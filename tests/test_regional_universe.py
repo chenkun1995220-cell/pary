@@ -73,6 +73,55 @@ class RegionalUniverseTests(unittest.TestCase):
         self.assertEqual(tencent["index_name"], "HSLI,HSMI")
         self.assertEqual(tencent["currency"], "HKD")
 
+    def test_parse_hk_size_payload_maps_hesai_temporary_counter_to_permanent_ticker(self):
+        payload = {
+            "indexSeriesList": [
+                {
+                    "indexList": [
+                        {
+                            "indexName": "Hang Seng Composite MidCap Index",
+                            "constituentContent": [
+                                {
+                                    "code": "2983",
+                                    "constituentName": "HESAI - W",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+
+        rows = parse_hk_size_payload(payload)
+
+        self.assertEqual(rows[0]["ticker"], "02525.HK")
+        self.assertEqual(rows[0]["raw_ticker"], "02525")
+
+    def test_parse_hk_size_payload_returns_rows_in_stable_ticker_order(self):
+        payload = {
+            "indexSeriesList": [
+                {
+                    "indexList": [
+                        {
+                            "indexName": "Hang Seng Composite MidCap Index",
+                            "constituentContent": [
+                                {"code": "700", "constituentName": "TENCENT"},
+                                {"code": "5", "constituentName": "HSBC HOLDINGS"},
+                                {"code": "300", "constituentName": "MIDEA GROUP"},
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+
+        rows = parse_hk_size_payload(payload)
+
+        self.assertEqual(
+            [row["ticker"] for row in rows],
+            ["00005.HK", "00300.HK", "00700.HK"],
+        )
+
     def test_validate_market_rows_rejects_duplicate_ticker(self):
         rows = normalize_csi300_records(
             [
