@@ -743,6 +743,8 @@ def _health_snapshot(market):
             "status": "missing",
             "refresh_status": "unknown",
             "quote_coverage": "unknown",
+            "quote_data_coverage": "unknown",
+            "quote_data_coverage_number": None,
             "financial_coverage": "unknown",
             "candidate_count": "unknown",
             "data_quality_blocked": "unknown",
@@ -758,12 +760,23 @@ def _health_snapshot(market):
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
+    quote_coverage_number = _as_float(row.get("quote_coverage_pct"))
+    quote_total = _as_int(row.get("quote_total")) or 0
+    if quote_coverage_number is None:
+        quote_data_coverage_number = None
+    elif quote_total > 0:
+        review_coverage = quote_gap_summary["review"] / quote_total * 100
+        quote_data_coverage_number = min(100.0, quote_coverage_number + review_coverage)
+    else:
+        quote_data_coverage_number = quote_coverage_number
     return {
         "name": market["name"],
         "status": "ready",
         "refresh_status": row.get("refresh_status") or "n/a",
         "quote_coverage": _percent(row.get("quote_coverage_pct")),
-        "quote_coverage_number": _as_float(row.get("quote_coverage_pct")),
+        "quote_coverage_number": quote_coverage_number,
+        "quote_data_coverage": _percent(quote_data_coverage_number),
+        "quote_data_coverage_number": quote_data_coverage_number,
         "financial_coverage": _percent(financial_value) if financial_value is not None else "n/a",
         "financial_coverage_number": _as_float(financial_value),
         "candidate_count": row.get("candidate_count", "unknown"),
@@ -791,7 +804,7 @@ def _health_risks(health):
         refresh_status = item.get("refresh_status", "unknown")
         if refresh_status not in {"online", "n/a", "unknown"}:
             risks.append(f"数据健康需关注：{name} 刷新状态 {refresh_status}")
-        quote_coverage = item.get("quote_coverage_number")
+        quote_coverage = item.get("quote_data_coverage_number")
         if quote_coverage is not None and quote_coverage < 95:
             risks.append(f"数据健康需关注：{name} 行情覆盖 {quote_coverage:.2f}%")
         financial_coverage = item.get("financial_coverage_number")
@@ -1336,6 +1349,8 @@ def _manifest_health(health):
             "status": item.get("status", ""),
             "refresh_status": item.get("refresh_status", ""),
             "quote_coverage": item.get("quote_coverage", ""),
+            "quote_data_coverage": item.get("quote_data_coverage", ""),
+            "quote_data_coverage_number": item.get("quote_data_coverage_number"),
             "financial_coverage": item.get("financial_coverage", ""),
             "quote_gap_count": item.get("quote_gap_count", ""),
             "quote_gap_refetch_count": item.get("quote_gap_refetch_count", ""),
@@ -1431,10 +1446,10 @@ def _market_data_quality(item):
         score -= 15
         reasons.append(f"refresh_status:{refresh_status}")
 
-    quote_penalty = _coverage_penalty(item.get("quote_coverage_number"))
+    quote_penalty = _coverage_penalty(item.get("quote_data_coverage_number"))
     if quote_penalty:
         score -= quote_penalty
-        reasons.append(f"quote_coverage:{item.get('quote_coverage', 'unknown')}")
+        reasons.append(f"quote_data_coverage:{item.get('quote_data_coverage', 'unknown')}")
 
     financial_penalty = _coverage_penalty(item.get("financial_coverage_number"))
     if financial_penalty:
@@ -1445,11 +1460,6 @@ def _market_data_quality(item):
     if refetch > 0:
         score -= min(15, refetch * 3)
         reasons.append(f"quote_refetch_gap:{refetch}")
-
-    review_gaps = _as_int(item.get("quote_gap_review_count")) or 0
-    if review_gaps > 0:
-        score -= min(15, review_gaps * 3)
-        reasons.append(f"quote_review_gap:{review_gaps}")
 
     blocked = _as_int(item.get("data_quality_blocked")) or 0
     if blocked > 0:

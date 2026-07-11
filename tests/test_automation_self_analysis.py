@@ -26,6 +26,88 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_valuation_quality_gates_do_not_reduce_quote_data_coverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            health_path = root / "data_health_history.csv"
+            quote_gaps_path = root / "quote_gaps.csv"
+            valuation_review_path = root / "valuation_review_items.csv"
+            write_csv(
+                health_path,
+                [
+                    "run_time",
+                    "refresh_status",
+                    "quote_ready",
+                    "quote_total",
+                    "quote_coverage_pct",
+                    "financial_coverage_pct",
+                    "candidate_count",
+                ],
+                [
+                    {
+                        "run_time": "2026-07-11 16:12:25",
+                        "refresh_status": "online",
+                        "quote_ready": "274",
+                        "quote_total": "326",
+                        "quote_coverage_pct": "84.05",
+                        "financial_coverage_pct": "99.69",
+                        "candidate_count": "39",
+                    }
+                ],
+            )
+            write_csv(
+                quote_gaps_path,
+                ["ticker", "issue_type", "remediation_type", "review_category"],
+                [
+                    {
+                        "ticker": f"LOSS{i:03d}.HK",
+                        "issue_type": "non_positive_metric",
+                        "remediation_type": "manual_financial_review",
+                        "review_category": "loss_making_or_negative_pe",
+                    }
+                    for i in range(51)
+                ]
+                + [
+                    {
+                        "ticker": "02525.HK",
+                        "issue_type": "partial_quote",
+                        "remediation_type": "refetch_or_supplement_quote",
+                        "review_category": "",
+                    }
+                ],
+            )
+            write_csv(valuation_review_path, ["ticker", "review_category"], [])
+
+            from automation_self_analysis import (
+                _health_risks,
+                _health_snapshot,
+                _manifest_health,
+                _market_data_quality,
+            )
+
+            snapshot = _health_snapshot(
+                {
+                    "name": "HK",
+                    "health_path": health_path,
+                    "quote_gaps_path": quote_gaps_path,
+                    "valuation_review_path": valuation_review_path,
+                }
+            )
+            risks = _health_risks([snapshot])
+            quality = _market_data_quality(snapshot)
+
+            self.assertEqual(snapshot["quote_coverage"], "84.05%")
+            self.assertEqual(snapshot["quote_data_coverage"], "99.69%")
+            self.assertAlmostEqual(snapshot["quote_data_coverage_number"], 99.69, places=2)
+            self.assertFalse(any("84.05" in risk for risk in risks))
+            self.assertIn("数据健康需关注：HK 行情可重抓缺口 1", risks)
+            self.assertEqual(quality["quality_score"], 97)
+            self.assertNotIn("quote_review_gap:51", quality["reasons"])
+            self.assertEqual(
+                _manifest_health([snapshot])[0]["quote_data_coverage"],
+                "99.69%",
+            )
+
     def test_automation_check_payload_exposes_sp500_external_input_blocker(self):
         from automation_self_analysis import _automation_check_payload
 
