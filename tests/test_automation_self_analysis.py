@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from automation_self_analysis import run_self_analysis
+from automation_self_analysis import _data_quality_history_summary, run_self_analysis
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +26,51 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_data_quality_history_clears_repeated_alert_after_latest_recovery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            history_path = Path(tmp) / "data_quality_score_history.csv"
+            write_csv(
+                history_path,
+                ["as_of_date", "market", "quality_score", "quality_status", "reasons"],
+                [
+                    {
+                        "as_of_date": "2026-06-28",
+                        "market": "港股周筛",
+                        "quality_score": "60",
+                        "quality_status": "needs_review",
+                        "reasons": "quote_coverage:84.00%",
+                    },
+                    {
+                        "as_of_date": "2026-07-05",
+                        "market": "港股周筛",
+                        "quality_score": "60",
+                        "quality_status": "needs_review",
+                        "reasons": "quote_coverage:84.00%",
+                    },
+                ],
+            )
+            current = {
+                "markets": [
+                    {
+                        "name": "港股周筛",
+                        "quality_score": 100,
+                        "quality_status": "ready",
+                        "reasons": ["clear"],
+                    }
+                ]
+            }
+
+            summary = _data_quality_history_summary(
+                history_path,
+                current,
+                "2026-07-11",
+            )
+
+            self.assertEqual(summary["status"], "clear")
+            self.assertEqual(summary["recommended_action"], "monitor_next_run")
+            self.assertEqual(summary["repeated_needs_review_markets"], [])
+            self.assertEqual(summary["recovered_markets"], ["港股周筛"])
+
     def test_legacy_needs_fill_quote_gaps_are_classified_for_refetch(self):
         with tempfile.TemporaryDirectory() as tmp:
             quote_gaps_path = Path(tmp) / "quote_gaps.csv"

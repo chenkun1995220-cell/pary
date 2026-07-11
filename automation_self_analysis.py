@@ -1140,6 +1140,7 @@ def _data_quality_history_summary(path, data_quality_summary, as_of_date, window
             "window_size": 0,
             "repeated_needs_review_markets": [],
             "score_decline_markets": [],
+            "recovered_markets": [],
             "markets": [],
             "path": str(path),
         }
@@ -1152,6 +1153,7 @@ def _data_quality_history_summary(path, data_quality_summary, as_of_date, window
     market_summaries = []
     repeated = []
     declining = []
+    recovered = []
     for market, market_rows in sorted(by_market.items()):
         market_rows = sorted(market_rows, key=lambda row: row.get("as_of_date", ""))[-window:]
         current = market_rows[-1]
@@ -1163,15 +1165,18 @@ def _data_quality_history_summary(path, data_quality_summary, as_of_date, window
             1 for row in market_rows
             if row.get("quality_status") == "needs_review"
         )
-        if needs_review_count >= 2:
+        current_status = current.get("quality_status", "unknown")
+        if needs_review_count >= 2 and current_status == "needs_review":
             repeated.append(market)
+        elif needs_review_count >= 2 and current_status == "ready":
+            recovered.append(market)
         if delta is not None and delta <= -10:
             declining.append(market)
         market_summaries.append(
             {
                 "market": market,
                 "latest_score": current_score,
-                "latest_status": current.get("quality_status", "unknown"),
+                "latest_status": current_status,
                 "previous_score": previous_score,
                 "score_delta": delta,
                 "needs_review_count": needs_review_count,
@@ -1196,6 +1201,7 @@ def _data_quality_history_summary(path, data_quality_summary, as_of_date, window
         "window_size": window,
         "repeated_needs_review_markets": repeated,
         "score_decline_markets": declining,
+        "recovered_markets": recovered,
         "markets": market_summaries,
         "path": str(path),
     }
@@ -1870,6 +1876,7 @@ def _render(
         )
     repeated_text = "、".join(data_quality_history.get("repeated_needs_review_markets", [])) or "none"
     declining_text = "、".join(data_quality_history.get("score_decline_markets", [])) or "none"
+    recovered_text = "、".join(data_quality_history.get("recovered_markets", [])) or "none"
     lines.extend(
         [
             "",
@@ -1879,6 +1886,7 @@ def _render(
             f"- recommended_action: {data_quality_history.get('recommended_action', 'unknown')}",
             f"- repeated_needs_review_markets: {repeated_text}",
             f"- score_decline_markets: {declining_text}",
+            f"- recovered_markets: {recovered_text}",
             f"- history_path: {data_quality_history.get('path', '')}",
             "",
             "| 模块 | 最新评分 | 最新状态 | 上次评分 | 变化 | needs_review次数 |",
