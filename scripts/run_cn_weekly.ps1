@@ -148,9 +148,12 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "CN forecast history price refresh failed with exit code $LASTEXITCODE." }
 
   $benchmarkPath = Join-Path $OutputRoot "benchmark_history.csv"
+  $benchmarkConfigPath = Join-Path $ProjectRoot "data\config\market_benchmarks.csv"
+  $benchmarkConfig = @(Import-Csv -LiteralPath $benchmarkConfigPath | Where-Object { $_.market -eq "CN" }) | Select-Object -First 1
+  if (-not $benchmarkConfig) { throw "CN benchmark configuration is missing." }
   & $Python -B candidate_price_history.py `
     --market CN `
-    --candidates (Join-Path $ProjectRoot "data\config\market_benchmarks.csv") `
+    --candidates $benchmarkConfigPath `
     --output $benchmarkPath `
     --cache-dir (Join-Path $CacheDir "benchmark_history") `
     --minimum-coverage 0.80 `
@@ -207,6 +210,8 @@ try {
     "- Financial coverage: $financialCoverage",
     "- Screening model: regional_fundamental_v2",
     "- Valuation model: valuation_trend_v1",
+    "- Benchmark name: $($benchmarkConfig.benchmark_name)",
+    "- Benchmark provider symbol: $($benchmarkConfig.provider_symbol)",
     "- Candidate count: $($candidates.Count)",
     "- Candidate tickers: $candidateTickers",
     "- Company file: $Companies",

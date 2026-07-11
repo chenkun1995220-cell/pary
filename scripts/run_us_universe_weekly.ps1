@@ -113,8 +113,11 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Forecast history price refresh failed with exit code $LASTEXITCODE." }
 
   $benchmarkPath = Join-Path $OutputRoot "benchmark_history.csv"
+  $benchmarkConfigPath = Join-Path $ProjectRoot "data\config\market_benchmarks.csv"
+  $benchmarkConfig = @(Import-Csv -LiteralPath $benchmarkConfigPath | Where-Object { $_.market -eq "US" }) | Select-Object -First 1
+  if (-not $benchmarkConfig) { throw "US benchmark configuration is missing." }
   Write-Host "Running: $($ValuationSteps[2])"
-  & $Python -B candidate_price_history.py --market US --candidates (Join-Path $ProjectRoot "data\config\market_benchmarks.csv") --output $benchmarkPath --cache-dir (Join-Path $SecCache "benchmark_history") --minimum-coverage 0.80 --fail-on-cache-fallback --maximum-latest-age-days 8
+  & $Python -B candidate_price_history.py --market US --candidates $benchmarkConfigPath --output $benchmarkPath --cache-dir (Join-Path $SecCache "benchmark_history") --minimum-coverage 0.80 --fail-on-cache-fallback --maximum-latest-age-days 8
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[2]) failed with exit code $LASTEXITCODE." }
 
   Write-Host "Running: $($ValuationSteps[3])"
@@ -180,6 +183,8 @@ try {
     "- Quote date min: $quoteDateMin",
     "- Quote date max: $quoteDateMax",
     "- Quote snapshot sha256: $quoteSnapshotSha256",
+    "- Benchmark name: $($benchmarkConfig.benchmark_name)",
+    "- Benchmark provider symbol: $($benchmarkConfig.provider_symbol)",
     "- Valuation model: valuation_trend_v1",
     "- Valuation targets: $(Join-Path $OutputRoot 'valuation_targets.csv')",
     "- Valuation report: $(Join-Path $OutputRoot 'valuation_report.md')",

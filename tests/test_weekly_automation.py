@@ -124,6 +124,21 @@ class WeeklyAutomationTests(unittest.TestCase):
                 self.assertEqual(script.count("--fail-on-cache-fallback"), 3)
                 self.assertEqual(script.count("--maximum-latest-age-days 8"), 3)
 
+    def test_market_weekly_summaries_disclose_benchmark_name_and_symbol(self):
+        for script_name in (
+            "run_us_universe_weekly.ps1",
+            "run_cn_weekly.ps1",
+            "run_hk_weekly.ps1",
+        ):
+            script = (PROJECT_ROOT / "scripts" / script_name).read_text(
+                encoding="utf-8-sig"
+            )
+            with self.subTest(script=script_name):
+                self.assertIn("market_benchmarks.csv", script)
+                self.assertIn("benchmark configuration is missing", script)
+                self.assertIn('"- Benchmark name: $($benchmarkConfig.benchmark_name)"', script)
+                self.assertIn('"- Benchmark provider symbol: $($benchmarkConfig.provider_symbol)"', script)
+
     def test_weekly_delivery_streak_wrapper_and_bundle_tail_order(self):
         wrapper = (
             PROJECT_ROOT / "scripts" / "run_weekly_delivery_streak_review.ps1"
