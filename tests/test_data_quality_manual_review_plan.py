@@ -74,6 +74,39 @@ def data_health_payload():
 
 
 class DataQualityManualReviewPlanTests(unittest.TestCase):
+    def test_pending_official_share_fact_uses_monitoring_policy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "latest_data_health_review.json"
+            payload = data_health_payload()
+            payload["manual_financial_review_count"] = 2
+            payload["manual_financial_review_classified_count"] = 2
+            payload["closed_manual_financial_review_count"] = 2
+            payload["markets"] = [
+                {
+                    "name": "美股周筛",
+                    "manual_financial_review_count": 2,
+                    "manual_financial_review_classified_count": 2,
+                    "manual_financial_review_unclassified_count": 0,
+                    "candidate_manual_financial_review_count": 0,
+                    "active_manual_financial_review_count": 0,
+                    "closed_manual_financial_review_count": 2,
+                    "manual_financial_review_by_category": {
+                        "official_share_fact_pending": 2,
+                    },
+                }
+            ]
+            write_json(source, payload)
+
+            from data_quality_manual_review_plan import build_data_quality_manual_review_plan
+
+            result = build_data_quality_manual_review_plan(source, as_of_date="2026-07-11")
+            group = result["review_groups"][0]
+
+            self.assertEqual(group["category"], "official_share_fact_pending")
+            self.assertEqual(group["priority"], "monitor")
+            self.assertEqual(group["action"], "monitor_official_share_fact_availability")
+            self.assertIn("SEC", group["minimum_evidence"])
+
     def test_builds_classification_complete_monitoring_plan(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "latest_data_health_review.json"

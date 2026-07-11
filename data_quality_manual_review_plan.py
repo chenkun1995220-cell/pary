@@ -26,6 +26,11 @@ CATEGORY_ACTIONS = {
         "action": "keep_industry_specific_valuation_note",
         "minimum_evidence": "保留行业估值口径说明，必要时在候选报告中提示估值不可直接横向比较。",
     },
+    "official_share_fact_pending": {
+        "priority": "monitor",
+        "action": "monitor_official_share_fact_availability",
+        "minimum_evidence": "保留 SEC Company Facts 与近期申报检索已完成的记录；下周重新检查正式股本事实，不使用估算股本替代。",
+    },
     "unclassified": {
         "priority": "review",
         "action": "classify_remaining_manual_reviews",
