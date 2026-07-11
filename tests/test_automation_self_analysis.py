@@ -26,6 +26,44 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_legacy_needs_fill_quote_gaps_are_classified_for_refetch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            quote_gaps_path = Path(tmp) / "quote_gaps.csv"
+            write_csv(
+                quote_gaps_path,
+                [
+                    "ticker",
+                    "status",
+                    "missing_fields",
+                    "ready_field_count",
+                    "total_required_field_count",
+                ],
+                [
+                    {
+                        "ticker": "XOM",
+                        "status": "needs_fill",
+                        "missing_fields": "shares_outstanding",
+                        "ready_field_count": "8",
+                        "total_required_field_count": "9",
+                    },
+                    {
+                        "ticker": "AAPL",
+                        "status": "ready",
+                        "missing_fields": "",
+                        "ready_field_count": "9",
+                        "total_required_field_count": "9",
+                    },
+                ],
+            )
+
+            from automation_self_analysis import _quote_gap_summary
+
+            summary = _quote_gap_summary(quote_gaps_path)
+
+            self.assertEqual(summary["total"], 1)
+            self.assertEqual(summary["refetch"], 1)
+            self.assertEqual(summary["review"], 0)
+
     def test_valuation_quality_gates_do_not_reduce_quote_data_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -367,6 +367,12 @@ def _quote_gap_summary(path):
                     category = category.strip()
                     if category:
                         summary["review_categories"][category] = summary["review_categories"].get(category, 0) + 1
+            elif (
+                row.get("status", "").strip().lower()
+                in {"needs_fill", "missing", "partial"}
+                and row.get("missing_fields", "").strip()
+            ):
+                summary["refetch"] += 1
     return summary
 
 
