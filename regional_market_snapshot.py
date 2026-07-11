@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import time
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
@@ -128,6 +129,20 @@ def write_snapshot(path, rows):
         writer.writerows(rows)
 
 
+def _fetch_batch_with_retry(
+    fetcher, secids, max_attempts, retry_delay_seconds, sleeper
+):
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fetcher(secids), attempt - 1
+        except (OSError, TimeoutError, ValueError):
+            if attempt >= max_attempts:
+                raise
+            sleeper(retry_delay_seconds * attempt)
+
+
 def run_market_snapshot(
     companies_path,
     output_path,
@@ -136,15 +151,27 @@ def run_market_snapshot(
     batch_size=50,
     quote_date=None,
     minimum_coverage=0,
+    max_attempts=3,
+    retry_delay_seconds=2,
+    sleeper=None,
 ):
     companies = load_companies(companies_path)
     fetch = fetcher or fetch_eastmoney_batch
     rows = []
     missing = []
     payloads = []
+    retry_count = 0
+    sleep = sleeper or time.sleep
     for start in range(0, len(companies), batch_size):
         batch = companies[start : start + batch_size]
-        payload = fetch([ticker_to_secid(row["ticker"]) for row in batch])
+        payload, batch_retries = _fetch_batch_with_retry(
+            fetch,
+            [ticker_to_secid(row["ticker"]) for row in batch],
+            max_attempts,
+            retry_delay_seconds,
+            sleep,
+        )
+        retry_count += batch_retries
         payloads.append(payload)
         parsed, batch_missing = parse_eastmoney_snapshot(
             payload, batch, quote_date=quote_date
@@ -167,6 +194,7 @@ def run_market_snapshot(
         "rows": len(rows),
         "missing": missing,
         "coverage": coverage,
+        "retry_count": retry_count,
         "output_path": Path(output_path),
     }
 
@@ -178,6 +206,8 @@ def main():
     parser.add_argument("--raw-cache", required=True)
     parser.add_argument("--batch-size", type=int, default=50)
     parser.add_argument("--minimum-coverage", type=float, default=0.95)
+    parser.add_argument("--max-attempts", type=int, default=3)
+    parser.add_argument("--retry-delay-seconds", type=float, default=2)
     args = parser.parse_args()
 
     result = run_market_snapshot(
@@ -186,10 +216,13 @@ def main():
         args.raw_cache,
         batch_size=args.batch_size,
         minimum_coverage=args.minimum_coverage,
+        max_attempts=args.max_attempts,
+        retry_delay_seconds=args.retry_delay_seconds,
     )
     print(f"Snapshot rows: {result['rows']}")
     print(f"Coverage: {result['coverage']:.2%}")
     print(f"Missing tickers: {', '.join(result['missing']) or 'None'}")
+    print(f"Batch retries: {result['retry_count']}")
 
 
 if __name__ == "__main__":

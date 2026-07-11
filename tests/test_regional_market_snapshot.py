@@ -117,6 +117,75 @@ class RegionalMarketSnapshotTests(unittest.TestCase):
             self.assertTrue(output_path.exists())
             self.assertEqual(json.loads(raw_cache.read_text(encoding="utf-8"))[0]["rc"], 0)
 
+    def test_run_snapshot_retries_transient_batch_failures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            companies_path = root / "companies.csv"
+            output_path = root / "snapshot.csv"
+            raw_cache = root / "raw.json"
+            with companies_path.open("w", encoding="utf-8-sig", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=COMPANIES[0].keys())
+                writer.writeheader()
+                writer.writerows(COMPANIES)
+
+            attempts = []
+            delays = []
+
+            def flaky_fetcher(secids):
+                attempts.append(list(secids))
+                if len(attempts) < 3:
+                    raise TimeoutError("temporary timeout")
+                return PAYLOAD
+
+            result = run_market_snapshot(
+                companies_path,
+                output_path,
+                raw_cache,
+                fetcher=flaky_fetcher,
+                batch_size=100,
+                quote_date="2026-06-19",
+                max_attempts=3,
+                retry_delay_seconds=2,
+                sleeper=delays.append,
+            )
+
+            self.assertEqual(result["rows"], 2)
+            self.assertEqual(len(attempts), 3)
+            self.assertEqual(delays, [2, 4])
+
+    def test_run_snapshot_raises_after_retry_budget_is_exhausted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            companies_path = root / "companies.csv"
+            output_path = root / "snapshot.csv"
+            raw_cache = root / "raw.json"
+            with companies_path.open("w", encoding="utf-8-sig", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=COMPANIES[0].keys())
+                writer.writeheader()
+                writer.writerows(COMPANIES)
+
+            attempts = []
+
+            def failing_fetcher(secids):
+                attempts.append(list(secids))
+                raise TimeoutError("persistent timeout")
+
+            with self.assertRaises(TimeoutError):
+                run_market_snapshot(
+                    companies_path,
+                    output_path,
+                    raw_cache,
+                    fetcher=failing_fetcher,
+                    batch_size=100,
+                    max_attempts=3,
+                    retry_delay_seconds=0,
+                    sleeper=lambda _seconds: None,
+                )
+
+            self.assertEqual(len(attempts), 3)
+            self.assertFalse(output_path.exists())
+            self.assertFalse(raw_cache.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
