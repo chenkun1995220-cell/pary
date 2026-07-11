@@ -122,6 +122,7 @@ class WeeklyAutomationTests(unittest.TestCase):
             with self.subTest(script=script_name):
                 self.assertEqual(script.count("candidate_price_history.py"), 3)
                 self.assertEqual(script.count("--fail-on-cache-fallback"), 3)
+                self.assertEqual(script.count("--maximum-latest-age-days 8"), 3)
 
     def test_weekly_delivery_streak_wrapper_and_bundle_tail_order(self):
         wrapper = (

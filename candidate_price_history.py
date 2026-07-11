@@ -4,7 +4,7 @@ import json
 import re
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
@@ -246,6 +246,8 @@ def run_price_history(
     max_attempts=1,
     retry_delay_seconds=2,
     sleeper=None,
+    maximum_latest_age_days=None,
+    as_of_date=None,
     fetcher=None,
 ):
     market = str(market).upper()
@@ -256,10 +258,13 @@ def run_price_history(
     cache_fallbacks = 0
     network_retries = 0
     sleep = sleeper or time.sleep
+    current_date = as_of_date or date.today()
+    stale_tickers = []
 
     for ticker in tickers:
         rows = []
         used_cache = False
+        payload_to_cache = None
         try:
             cache_path = _cache_path(cache_dir, market, ticker)
             try:
@@ -278,10 +283,22 @@ def run_price_history(
                     used_cache = bool(rows)
             else:
                 rows = parse_history_payload(market, ticker, payload)
-                _write_json(cache_path, payload)
+                payload_to_cache = (cache_path, payload)
         except Exception:
             rows = []
             used_cache = False
+            payload_to_cache = None
+        if rows and maximum_latest_age_days is not None:
+            latest_date = max(
+                date.fromisoformat(str(row.get("date", ""))[:10]) for row in rows
+            )
+            if (current_date - latest_date).days > maximum_latest_age_days:
+                stale_tickers.append(ticker)
+                rows = []
+                used_cache = False
+                payload_to_cache = None
+        if rows and payload_to_cache is not None:
+            _write_json(*payload_to_cache)
         if used_cache:
             cache_fallbacks += 1
         if rows:
@@ -290,6 +307,10 @@ def run_price_history(
 
     candidate_count = len(tickers)
     coverage = covered_count / candidate_count if candidate_count else 1.0
+    if stale_tickers:
+        raise RuntimeError(
+            "latest price history is stale for: " + ", ".join(stale_tickers)
+        )
     if coverage < minimum_coverage:
         raise RuntimeError(
             f"price history coverage {coverage:.2%} below required {minimum_coverage:.2%}"
@@ -298,7 +319,6 @@ def run_price_history(
         raise RuntimeError(
             f"price history cache fallback used for {cache_fallbacks} ticker(s)"
         )
-
     _write_history_csv(output_path, all_rows)
     return {
         "candidates": candidate_count,
@@ -325,6 +345,7 @@ def main():
     parser.add_argument("--fail-on-cache-fallback", action="store_true")
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--retry-delay-seconds", type=float, default=2)
+    parser.add_argument("--maximum-latest-age-days", type=float, default=None)
     args = parser.parse_args()
     result = run_price_history(
         args.candidates,
@@ -336,6 +357,7 @@ def main():
         fail_on_cache_fallback=args.fail_on_cache_fallback,
         max_attempts=args.max_attempts,
         retry_delay_seconds=args.retry_delay_seconds,
+        maximum_latest_age_days=args.maximum_latest_age_days,
     )
     print(f"Price history coverage: {result['ready']}/{result['candidates']}")
     print(f"Cache fallbacks: {result['cache_fallbacks']}")

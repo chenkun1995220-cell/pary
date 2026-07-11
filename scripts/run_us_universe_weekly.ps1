@@ -96,7 +96,7 @@ try {
   $historyPath = Join-Path $OutputRoot "price_history.csv"
   $historyCache = Join-Path $SecCache "candidate_price_history"
   Write-Host "Running: $($ValuationSteps[0])"
-  & $Python -B candidate_price_history.py --market US --candidates $candidatePath --output $historyPath --cache-dir $historyCache --minimum-coverage 0.80 --fail-on-cache-fallback
+  & $Python -B candidate_price_history.py --market US --candidates $candidatePath --output $historyPath --cache-dir $historyCache --minimum-coverage 0.80 --fail-on-cache-fallback --maximum-latest-age-days 8
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[0]) failed with exit code $LASTEXITCODE." }
 
   Write-Host "Running: $($ValuationSteps[1])"
@@ -109,12 +109,12 @@ try {
     --output-root $OutputRoot
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[1]) failed with exit code $LASTEXITCODE." }
 
-  & $Python -B candidate_price_history.py --market US --candidates (Join-Path $OutputRoot "forecast_history.csv") --output $historyPath --cache-dir $historyCache --minimum-coverage 0.80 --fail-on-cache-fallback
+  & $Python -B candidate_price_history.py --market US --candidates (Join-Path $OutputRoot "forecast_history.csv") --output $historyPath --cache-dir $historyCache --minimum-coverage 0.80 --fail-on-cache-fallback --maximum-latest-age-days 8
   if ($LASTEXITCODE -ne 0) { throw "Forecast history price refresh failed with exit code $LASTEXITCODE." }
 
   $benchmarkPath = Join-Path $OutputRoot "benchmark_history.csv"
   Write-Host "Running: $($ValuationSteps[2])"
-  & $Python -B candidate_price_history.py --market US --candidates (Join-Path $ProjectRoot "data\config\market_benchmarks.csv") --output $benchmarkPath --cache-dir (Join-Path $SecCache "benchmark_history") --minimum-coverage 0.80 --fail-on-cache-fallback
+  & $Python -B candidate_price_history.py --market US --candidates (Join-Path $ProjectRoot "data\config\market_benchmarks.csv") --output $benchmarkPath --cache-dir (Join-Path $SecCache "benchmark_history") --minimum-coverage 0.80 --fail-on-cache-fallback --maximum-latest-age-days 8
   if ($LASTEXITCODE -ne 0) { throw "$($ValuationSteps[2]) failed with exit code $LASTEXITCODE." }
 
   Write-Host "Running: $($ValuationSteps[3])"

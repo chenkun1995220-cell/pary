@@ -124,7 +124,8 @@ try {
     --output $historyPath `
     --cache-dir $historyCache `
     --minimum-coverage 0.80 `
-    --fail-on-cache-fallback
+    --fail-on-cache-fallback `
+    --maximum-latest-age-days 8
   if ($LASTEXITCODE -ne 0) { throw "HK candidate price history failed with exit code $LASTEXITCODE." }
 
   & $Python -B candidate_valuation.py `
@@ -141,7 +142,8 @@ try {
     --output $historyPath `
     --cache-dir $historyCache `
     --minimum-coverage 0.80 `
-    --fail-on-cache-fallback
+    --fail-on-cache-fallback `
+    --maximum-latest-age-days 8
   if ($LASTEXITCODE -ne 0) { throw "HK forecast history price refresh failed with exit code $LASTEXITCODE." }
 
   $benchmarkPath = Join-Path $OutputRoot "benchmark_history.csv"
@@ -151,7 +153,8 @@ try {
     --output $benchmarkPath `
     --cache-dir (Join-Path $CacheDir "benchmark_history") `
     --minimum-coverage 0.80 `
-    --fail-on-cache-fallback
+    --fail-on-cache-fallback `
+    --maximum-latest-age-days 8
   if ($LASTEXITCODE -ne 0) { throw "HK benchmark history failed with exit code $LASTEXITCODE." }
 
   & $Python -B forecast_tracker.py --market HK --forecasts (Join-Path $OutputRoot "forecast_history.csv") --stock-history $historyPath --benchmark-history $benchmarkPath --output-root $OutputRoot

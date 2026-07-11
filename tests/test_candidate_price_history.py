@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -46,6 +47,20 @@ def write_candidates(path, tickers):
 
 
 class CandidatePriceHistoryTests(unittest.TestCase):
+    def test_cn_project_benchmark_uses_current_csi300_etf_proxy(self):
+        config = (
+            Path(__file__).resolve().parents[1]
+            / "data"
+            / "config"
+            / "market_benchmarks.csv"
+        )
+
+        self.assertEqual(_load_candidates(config, "CN"), ["510300.SS"])
+        with config.open(encoding="utf-8-sig", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        cn_row = next(row for row in rows if row["market"] == "CN")
+        self.assertIn("ETF proxy", cn_row["benchmark_name"])
+
     def test_history_fields_include_adjusted_price_and_corporate_actions(self):
         self.assertIn("adjusted_close", HISTORY_FIELDS)
         self.assertIn("dividend", HISTORY_FIELDS)
@@ -258,6 +273,30 @@ class CandidatePriceHistoryTests(unittest.TestCase):
                     "CN",
                     fail_on_cache_fallback=True,
                     fetcher=lambda url: (_ for _ in ()).throw(OSError("network down")),
+                )
+
+            self.assertEqual(output.read_text(encoding="utf-8"), "existing-output")
+
+    def test_freshness_gate_rejects_stale_online_history_and_preserves_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidates = root / "candidates.csv"
+            output = root / "price_history.csv"
+            cache = root / "cache"
+            write_candidates(candidates, ["AAPL"])
+            output.write_text("existing-output", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "latest price history is stale"):
+                run_price_history(
+                    candidates,
+                    output,
+                    cache,
+                    "US",
+                    maximum_latest_age_days=8,
+                    as_of_date=date(2024, 1, 20),
+                    fetcher=lambda url: yahoo_payload(
+                        closes=(10.0,), timestamps=(1704067200,)
+                    ),
                 )
 
             self.assertEqual(output.read_text(encoding="utf-8"), "existing-output")
