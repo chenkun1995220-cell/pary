@@ -2,7 +2,7 @@ import argparse
 import csv
 import hashlib
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 
@@ -82,6 +82,19 @@ def _sha256(path):
         return hashlib.sha256(Path(path).read_bytes()).hexdigest()
     except OSError:
         return ""
+
+
+def _mtime_ns(path):
+    try:
+        return Path(path).stat().st_mtime_ns
+    except OSError:
+        return 0
+
+
+def _mtime_text(value):
+    if not value:
+        return ""
+    return datetime.fromtimestamp(value / 1_000_000_000).astimezone().isoformat(timespec="seconds")
 
 
 def _unique(items):
@@ -300,6 +313,36 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
     if not conclusion_date or conclusion_date != delivery_date:
         issues.append("closure_as_of_date_mismatch")
 
+    market_summary_mtimes = [
+        _mtime_ns(row.get("summary_file", "")) for row in markets
+    ]
+    latest_market_summary_mtime = max(market_summary_mtimes, default=0)
+    conclusion_mtime = _mtime_ns(
+        project_root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+    )
+    delivery_mtime = _mtime_ns(
+        project_root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+    )
+    conclusion_after_markets = bool(
+        latest_market_summary_mtime
+        and conclusion_mtime
+        and conclusion_mtime >= latest_market_summary_mtime
+    )
+    delivery_after_conclusion = bool(
+        conclusion_mtime and delivery_mtime and delivery_mtime >= conclusion_mtime
+    )
+    if latest_market_summary_mtime and conclusion_mtime and not conclusion_after_markets:
+        issues.append("conclusion_older_than_market_outputs")
+    if conclusion_mtime and delivery_mtime and not delivery_after_conclusion:
+        issues.append("delivery_older_than_conclusion")
+    closure_order = {
+        "latest_market_summary_modified_at": _mtime_text(latest_market_summary_mtime),
+        "conclusion_modified_at": _mtime_text(conclusion_mtime),
+        "delivery_modified_at": _mtime_text(delivery_mtime),
+        "conclusion_after_markets": conclusion_after_markets,
+        "delivery_after_conclusion": delivery_after_conclusion,
+    }
+
     runtime_snapshot = _runtime_quote_snapshot(
         project_root,
         summary_fields.get("US", {}),
@@ -326,6 +369,7 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
         "delivery_candidate_count_total": delivery_total,
         "conclusion_as_of_date": conclusion_date,
         "delivery_as_of_date": delivery_date,
+        "closure_order": closure_order,
         "runtime_quote_snapshot": runtime_snapshot,
         "sec_identity_audit": identity_audit,
         "issues": issues,
@@ -378,6 +422,19 @@ def render_weekly_artifact_consistency(payload):
             f"- 冲突数：{identity_audit.get('row_count', 0)}",
             f"- 摘要冲突数：{identity_audit.get('summary_row_count', -1)}",
             f"- 未解决冲突：{identity_audit.get('unresolved_count', 0)}",
+        ]
+    )
+    closure_order = payload.get("closure_order", {})
+    lines.extend(
+        [
+            "",
+            "## 收口顺序",
+            "",
+            f"- 最新市场摘要：{closure_order.get('latest_market_summary_modified_at', '')}",
+            f"- 统一结论：{closure_order.get('conclusion_modified_at', '')}",
+            f"- 交付验收：{closure_order.get('delivery_modified_at', '')}",
+            f"- 结论晚于市场：{closure_order.get('conclusion_after_markets', False)}",
+            f"- 交付晚于结论：{closure_order.get('delivery_after_conclusion', False)}",
         ]
     )
     issues = payload.get("issues", [])

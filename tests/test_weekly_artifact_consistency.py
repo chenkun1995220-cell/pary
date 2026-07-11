@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -213,6 +214,30 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
 
             payload = build_weekly_artifact_consistency(root, "2026-07-11")
             self.assertIn("sec_identity_audit_row_count_mismatch", payload["issues"])
+
+    def test_blocks_closure_outputs_older_than_market_batch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            market_summaries = [
+                root / "outputs" / directory / "latest_run_summary.md"
+                for directory in MARKETS.values()
+            ]
+            conclusion = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            delivery = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            for summary in market_summaries:
+                os.utime(summary, (1_700_000_300, 1_700_000_300))
+            os.utime(conclusion, (1_700_000_200, 1_700_000_200))
+            os.utime(delivery, (1_700_000_100, 1_700_000_100))
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            payload = build_weekly_artifact_consistency(root, "2026-07-11")
+
+            self.assertIn("conclusion_older_than_market_outputs", payload["issues"])
+            self.assertIn("delivery_older_than_conclusion", payload["issues"])
+            self.assertFalse(payload["closure_order"]["conclusion_after_markets"])
+            self.assertFalse(payload["closure_order"]["delivery_after_conclusion"])
 
     def test_blocks_summary_candidate_count_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
