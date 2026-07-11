@@ -19,6 +19,52 @@ def ticker_payload():
 
 
 class UsUniverseBuilderTests(unittest.TestCase):
+    def test_preserves_configured_identity_when_sec_ticker_cik_conflicts(self):
+        symbols = [
+            {
+                "ticker": "XOM",
+                "cik": "34088",
+                "company_name": "ExxonMobil",
+                "industry": "Energy",
+                "enabled": "1",
+            }
+        ]
+        payload = {
+            "fields": ["cik", "name", "ticker", "exchange"],
+            "data": [[2115436, "ExxonMobil Holdings Corp", "XOM", "NYSE"]],
+        }
+
+        rows, missing = build_universe_rows(symbols, payload)
+
+        self.assertEqual(missing, [])
+        self.assertEqual(rows[0]["cik"], "34088")
+        self.assertEqual(rows[0]["company_name"], "ExxonMobil")
+        self.assertEqual(rows[0]["exchange"], "NYSE")
+
+    def test_prefers_configured_cik_when_sec_payload_has_duplicate_ticker(self):
+        symbols = [
+            {
+                "ticker": "XOM",
+                "cik": "34088",
+                "company_name": "ExxonMobil",
+                "industry": "Energy",
+                "enabled": "1",
+            }
+        ]
+        payload = {
+            "fields": ["cik", "name", "ticker", "exchange"],
+            "data": [
+                [34088, "EXXON MOBIL CORP", "XOM", "NYSE"],
+                [2115436, "ExxonMobil Holdings Corp", "XOM", "NYSE"],
+            ],
+        }
+
+        rows, missing = build_universe_rows(symbols, payload)
+
+        self.assertEqual(missing, [])
+        self.assertEqual(rows[0]["cik"], "34088")
+        self.assertEqual(rows[0]["company_name"], "EXXON MOBIL CORP")
+
     def test_builds_company_rows_from_sec_ticker_payload(self):
         symbols = [
             {"ticker": "AAPL", "industry": "科技硬件", "enabled": "1"},

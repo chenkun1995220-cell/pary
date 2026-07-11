@@ -65,8 +65,18 @@ def ticker_index(payload):
         row = dict(zip(fields, values))
         ticker = str(row.get("ticker", "")).strip().upper()
         if ticker:
-            index[ticker] = row
+            index.setdefault(ticker, []).append(row)
     return index
+
+
+def _normalized_cik(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        return str(int(text))
+    except ValueError:
+        return text.lstrip("0") or "0"
 
 
 def build_universe_rows(symbols, payload):
@@ -77,16 +87,31 @@ def build_universe_rows(symbols, payload):
         ticker = symbol.get("ticker", "").strip().upper()
         if not ticker:
             continue
-        sec = sec_by_ticker.get(ticker)
-        if not sec:
+        sec_candidates = sec_by_ticker.get(ticker, [])
+        if not sec_candidates:
             missing.append(ticker)
             continue
+        configured_cik = _normalized_cik(symbol.get("cik"))
+        exact_sec = next(
+            (
+                candidate
+                for candidate in sec_candidates
+                if configured_cik
+                and _normalized_cik(candidate.get("cik")) == configured_cik
+            ),
+            None,
+        )
+        sec = exact_sec or sec_candidates[-1]
+        selected_cik = configured_cik or _normalized_cik(sec.get("cik"))
+        selected_name = str(sec.get("name", "")).strip()
+        if configured_cik and exact_sec is None:
+            selected_name = symbol.get("company_name", "").strip() or selected_name
         row = {field: "" for field in OUTPUT_FIELDS}
         row.update(
             {
                 "ticker": ticker,
-                "cik": str(sec.get("cik", "")),
-                "company_name": str(sec.get("name", "")).strip(),
+                "cik": selected_cik,
+                "company_name": selected_name,
                 "exchange": str(sec.get("exchange", "")).strip(),
                 "industry": symbol.get("industry", "").strip(),
                 "audit_opinion": "标准无保留",
