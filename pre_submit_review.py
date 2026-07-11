@@ -224,6 +224,13 @@ INPUT_SPECS = {
         "version_field": "review_version",
         "version_value": 1,
     },
+    "first_one_month_forecast_evaluation_review": {
+        "path": "outputs/automation/latest_first_one_month_forecast_evaluation_review.json",
+        "schema_field": "review_schema",
+        "schema_value": "first_one_month_forecast_evaluation_review",
+        "version_field": "review_version",
+        "version_value": 1,
+    },
     "one_week_forecast_shadow_review": {
         "path": "outputs/automation/latest_one_week_forecast_shadow_review.json",
         "schema_field": "review_schema",
@@ -768,6 +775,11 @@ def run_pre_submit_review(
         )
     )
     attention_reasons.extend(_forecast_performance_review_reasons(payloads.get("forecast_performance_review", {})))
+    attention_reasons.extend(
+        _first_one_month_forecast_evaluation_reasons(
+            payloads.get("first_one_month_forecast_evaluation_review", {})
+        )
+    )
     attention_reasons.extend(
         _one_week_forecast_shadow_review_reasons(payloads.get("one_week_forecast_shadow_review", {}))
     )
@@ -3056,6 +3068,62 @@ def _forecast_performance_review_reasons(payload):
     if payload.get("formal_model_change_allowed"):
         reasons.append("forecast_performance_formal_model_change_unsafe")
     return reasons
+
+
+def _first_one_month_forecast_evaluation_reasons(payload):
+    if not payload:
+        return []
+    reasons = []
+    allowed_statuses = {
+        "awaiting_maturity",
+        "sample_incomplete",
+        "review_ready",
+        "needs_attention",
+    }
+    if payload.get("status") not in allowed_statuses:
+        reasons.append("first_one_month_review_not_acceptable")
+    required_fields = {
+        "as_of_date",
+        "status",
+        "cohort",
+        "one_week",
+        "one_month",
+        "market_comparison",
+        "issues",
+        "recommended_action",
+        "formal_model_change_allowed",
+        "formal_model_conclusion_allowed",
+    }
+    if any(field not in payload for field in required_fields):
+        reasons.append("first_one_month_review_missing_fields")
+        return reasons
+    cohort = payload.get("cohort", {}) or {}
+    one_week = payload.get("one_week", {}) or {}
+    one_month = payload.get("one_month", {}) or {}
+    expected = _int_value(cohort.get("expected_sample_count"), 0)
+    actual = _int_value(cohort.get("actual_sample_count"), 0)
+    one_week_valid = _int_value(one_week.get("valid_evaluation_count"), 0)
+    one_month_valid = _int_value(one_month.get("valid_evaluation_count"), 0)
+    if expected != 37 or actual != 37 or one_week_valid > 37 or one_month_valid > 37:
+        reasons.append("first_one_month_review_count_mismatch")
+    try:
+        as_of = date.fromisoformat(str(payload.get("as_of_date")))
+    except ValueError:
+        as_of = None
+        reasons.append("first_one_month_review_invalid_date")
+    if payload.get("status") == "review_ready" and (
+        one_week_valid != 37 or one_month_valid != 37
+    ):
+        reasons.append("first_one_month_review_count_mismatch")
+    if as_of and as_of >= date(2026, 8, 3) and payload.get("status") == "awaiting_maturity":
+        reasons.append("first_one_month_review_status_date_mismatch")
+    if as_of and as_of < date(2026, 8, 3) and payload.get("status") == "review_ready":
+        reasons.append("first_one_month_review_status_date_mismatch")
+    if payload.get("formal_model_change_allowed") is not False:
+        reasons.append("first_one_month_review_formal_model_change_unsafe")
+    if payload.get("formal_model_conclusion_allowed") is not False:
+        reasons.append("first_one_month_review_formal_model_conclusion_unsafe")
+    return _unique(reasons)
 
 
 def _one_week_forecast_shadow_review_reasons(payload):

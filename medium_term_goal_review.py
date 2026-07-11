@@ -35,6 +35,7 @@ INPUT_FILES = {
     "candidate_findings": "latest_candidate_findings_review.json",
     "candidate_risk_resolution": "latest_candidate_risk_resolution_review.json",
     "forecast_performance": "latest_forecast_performance_review.json",
+    "first_one_month_evaluation": "latest_first_one_month_forecast_evaluation_review.json",
     "backtest_evidence": "latest_backtest_evidence_review.json",
     "membership_evidence_import_plan": "latest_membership_evidence_import_plan.json",
     "membership_evidence_apply_preview": "latest_membership_evidence_apply_preview.json",
@@ -557,7 +558,8 @@ def _candidate_review_goal(candidate_findings, risk_resolution):
     )
 
 
-def _forecast_goal(forecast_performance):
+def _forecast_goal(forecast_performance, first_one_month_evaluation=None):
+    first_one_month_evaluation = first_one_month_evaluation or {}
     mature = _int_value(forecast_performance.get("mature_evaluations"))
     latest_short_missing = _int_value(forecast_performance.get("latest_short_signal_missing_count"))
     maturity_gap_reasons = forecast_performance.get("maturity_gap_reasons", {}) or {}
@@ -574,11 +576,25 @@ def _forecast_goal(forecast_performance):
         forecast_performance.get("legacy_prediction_unavailable_count"),
         0,
     )
+    first_month_status = first_one_month_evaluation.get("status", "missing")
+    first_month_cohort = first_one_month_evaluation.get("cohort", {}) or {}
+    first_month_result = first_one_month_evaluation.get("one_month", {}) or {}
     status = "needs_work" if latest_short_missing else "sample_accumulating" if mature < 30 else "on_track"
     if latest_short_missing:
         next_action = "fix_latest_short_prediction_fields"
     elif latest_prediction_unavailable and not maturity_gap_pending_maturity and mature < 30:
         next_action = "review_prediction_unavailable_signals"
+    elif first_month_status in {"sample_incomplete", "needs_attention"}:
+        status = "needs_work"
+        next_action = (
+            "repair_first_cohort_evaluation_gaps"
+            if first_month_status == "sample_incomplete"
+            else "repair_first_one_month_review_inputs"
+        )
+    elif first_month_status == "awaiting_maturity":
+        next_action = "wait_for_one_month_maturity"
+    elif first_month_status == "review_ready":
+        next_action = "review_first_one_month_results_manually"
     else:
         next_action = "continue_sample_accumulation"
     return _goal(
@@ -612,6 +628,16 @@ def _forecast_goal(forecast_performance):
             "maturity_gap_prediction_unavailable": maturity_gap_prediction_unavailable,
             "maturity_gap_pending_maturity": maturity_gap_pending_maturity,
             "maturity_gap_other_not_evaluated": maturity_gap_other_not_evaluated,
+            "first_one_month_review_status": first_month_status,
+            "first_one_month_expected_count": _int_value(
+                first_month_cohort.get("expected_sample_count"), 37
+            ),
+            "first_one_month_valid_count": _int_value(
+                first_month_result.get("valid_evaluation_count"), 0
+            ),
+            "first_one_month_maturity_date": first_month_cohort.get(
+                "one_month_maturity_date", "2026-08-03"
+            ),
         },
         "最新预测缺失数保持 0，成熟样本达到 30 条以上后再评估方向命中率和超额收益。",
         next_action,
@@ -1050,6 +1076,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
     candidate_findings = inputs["candidate_findings"]
     candidate_risk_resolution = inputs["candidate_risk_resolution"]
     forecast_performance = inputs["forecast_performance"]
+    first_one_month_evaluation = inputs["first_one_month_evaluation"]
     backtest_evidence = inputs["backtest_evidence"]
     membership_import_plan = inputs["membership_evidence_import_plan"]
     membership_apply_preview = inputs["membership_evidence_apply_preview"]
@@ -1074,7 +1101,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
         ),
         _data_quality_goal(data_health, automation_check),
         _candidate_review_goal(candidate_findings, candidate_risk_resolution),
-        _forecast_goal(forecast_performance),
+        _forecast_goal(forecast_performance, first_one_month_evaluation),
         _backtest_goal(
             backtest_evidence,
             membership_import_plan,

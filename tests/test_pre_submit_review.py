@@ -976,6 +976,30 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         },
     )
     write_json(
+        root
+        / "outputs"
+        / "automation"
+        / "latest_first_one_month_forecast_evaluation_review.json",
+        {
+            "review_schema": "first_one_month_forecast_evaluation_review",
+            "review_version": 1,
+            "as_of_date": as_of_date,
+            "status": "awaiting_maturity",
+            "cohort": {
+                "expected_sample_count": 37,
+                "actual_sample_count": 37,
+                "one_month_maturity_date": "2026-08-03",
+            },
+            "one_week": {"valid_evaluation_count": 37},
+            "one_month": {"valid_evaluation_count": 0},
+            "market_comparison": {"status": "insufficient_market_coverage"},
+            "issues": [],
+            "recommended_action": "wait_for_one_month_maturity",
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+        },
+    )
+    write_json(
         root / "outputs" / "automation" / "latest_one_week_forecast_shadow_review.json",
         {
             "review_schema": "one_week_forecast_shadow_review",
@@ -6246,6 +6270,64 @@ class PreSubmitReviewTests(unittest.TestCase):
 
         self.assertIn("CloseoutGoalCode", wrapper)
         self.assertIn("--closeout-goal-code", wrapper)
+
+
+    def test_first_one_month_review_accepts_waiting_before_maturity(self):
+        from pre_submit_review import _first_one_month_forecast_evaluation_reasons
+
+        payload = {
+            "as_of_date": "2026-07-20",
+            "status": "awaiting_maturity",
+            "cohort": {"expected_sample_count": 37, "actual_sample_count": 37},
+            "one_week": {"valid_evaluation_count": 37},
+            "one_month": {"valid_evaluation_count": 0},
+            "market_comparison": {"status": "insufficient_market_coverage"},
+            "issues": [],
+            "recommended_action": "wait_for_one_month_maturity",
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+        }
+
+        self.assertEqual(_first_one_month_forecast_evaluation_reasons(payload), [])
+
+    def test_first_one_month_review_rejects_false_ready_after_maturity(self):
+        from pre_submit_review import _first_one_month_forecast_evaluation_reasons
+
+        payload = {
+            "as_of_date": "2026-08-04",
+            "status": "review_ready",
+            "cohort": {"expected_sample_count": 37, "actual_sample_count": 37},
+            "one_week": {"valid_evaluation_count": 37},
+            "one_month": {"valid_evaluation_count": 36},
+            "market_comparison": {"status": "insufficient_market_coverage"},
+            "issues": [],
+            "recommended_action": "review_first_one_month_results_manually",
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+        }
+
+        reasons = _first_one_month_forecast_evaluation_reasons(payload)
+        self.assertIn("first_one_month_review_count_mismatch", reasons)
+
+    def test_first_one_month_review_rejects_unsafe_model_boundary(self):
+        from pre_submit_review import _first_one_month_forecast_evaluation_reasons
+
+        payload = {
+            "as_of_date": "2026-07-20",
+            "status": "awaiting_maturity",
+            "cohort": {"expected_sample_count": 37, "actual_sample_count": 37},
+            "one_week": {"valid_evaluation_count": 37},
+            "one_month": {"valid_evaluation_count": 0},
+            "market_comparison": {"status": "insufficient_market_coverage"},
+            "issues": [],
+            "recommended_action": "wait_for_one_month_maturity",
+            "formal_model_change_allowed": True,
+            "formal_model_conclusion_allowed": True,
+        }
+
+        reasons = _first_one_month_forecast_evaluation_reasons(payload)
+        self.assertIn("first_one_month_review_formal_model_change_unsafe", reasons)
+        self.assertIn("first_one_month_review_formal_model_conclusion_unsafe", reasons)
 
 
 if __name__ == "__main__":

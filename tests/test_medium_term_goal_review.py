@@ -1487,5 +1487,48 @@ class MediumTermGoalReviewTests(unittest.TestCase):
         )
 
 
+    def test_forecast_goal_surfaces_first_one_month_waiting_progress(self):
+        from medium_term_goal_review import _forecast_goal
+
+        goal = _forecast_goal(
+            {
+                "mature_evaluations": 179,
+                "one_week_mature": 179,
+                "one_month_mature": 0,
+                "latest_short_signal_missing_count": 0,
+            },
+            {
+                "status": "awaiting_maturity",
+                "cohort": {
+                    "expected_sample_count": 37,
+                    "one_month_maturity_date": "2026-08-03",
+                },
+                "one_month": {"valid_evaluation_count": 0},
+            },
+        )
+
+        self.assertEqual(goal["status"], "on_track")
+        self.assertEqual(goal["current"]["first_one_month_review_status"], "awaiting_maturity")
+        self.assertEqual(goal["current"]["first_one_month_expected_count"], 37)
+        self.assertEqual(goal["current"]["first_one_month_valid_count"], 0)
+        self.assertEqual(goal["current"]["first_one_month_maturity_date"], "2026-08-03")
+        self.assertEqual(goal["next_action"], "wait_for_one_month_maturity")
+
+    def test_forecast_goal_marks_incomplete_first_month_review_needs_work(self):
+        from medium_term_goal_review import _forecast_goal
+
+        goal = _forecast_goal(
+            {"mature_evaluations": 179, "latest_short_signal_missing_count": 0},
+            {
+                "status": "sample_incomplete",
+                "cohort": {"expected_sample_count": 37, "one_month_maturity_date": "2026-08-03"},
+                "one_month": {"valid_evaluation_count": 36},
+            },
+        )
+
+        self.assertEqual(goal["status"], "needs_work")
+        self.assertEqual(goal["next_action"], "repair_first_cohort_evaluation_gaps")
+
+
 if __name__ == "__main__":
     unittest.main()
