@@ -78,16 +78,17 @@ class RegionalWeeklyScriptTests(unittest.TestCase):
             self.assertIn(str(output_root), output)
             self.assertFalse(output_root.exists())
 
-    def test_cn_weekly_installs_python_requirements_before_universe_refresh(self):
+    def test_cn_weekly_checks_python_requirements_without_installing_at_runtime(self):
         script = (PROJECT_ROOT / "scripts" / "run_cn_weekly.ps1").read_text(
             encoding="utf-8-sig"
         )
 
-        self.assertIn("-m pip install", script)
-        self.assertIn("--disable-pip-version-check", script)
-        self.assertIn("requirements.txt", script)
+        self.assertNotIn("-m pip install", script)
+        self.assertNotIn("--disable-pip-version-check", script)
+        self.assertIn("import pandas, openpyxl, xlrd", script)
+        self.assertIn("CN Python dependency check failed", script)
 
-        requirements_position = script.index("requirements.txt")
+        requirements_position = script.index("import pandas, openpyxl, xlrd")
         universe_position = script.index("regional_universe.py")
         self.assertLess(requirements_position, universe_position)
 
