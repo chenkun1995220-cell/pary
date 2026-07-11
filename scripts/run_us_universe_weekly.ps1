@@ -74,6 +74,8 @@ try {
   Start-Transcript -Path $logPath | Out-Null
   $transcriptStarted = $true
   $refreshMetadataPath = Join-Path $Sp500Cache "sp500_refresh_metadata.json"
+  $identityAuditNotBefore = (Get-Date).ToUniversalTime()
+  $identityConflictRows = @()
 
   foreach ($step in $Steps) {
     $scriptPath = Join-Path $PSScriptRoot $step.Script
@@ -89,6 +91,26 @@ try {
       $refreshMetadata = Get-Content -Raw -LiteralPath $refreshMetadataPath | ConvertFrom-Json
       if ($refreshMetadata.status -ne "online") {
         throw "US constituent refresh must be online; status=$($refreshMetadata.status); warning=$($refreshMetadata.warning)"
+      }
+    }
+    if ($step.Label -eq "2/10 Build US universe") {
+      if (-not (Test-Path -LiteralPath $IdentityAudit)) {
+        throw "SEC identity audit is missing: $IdentityAudit"
+      }
+      $identityAuditFile = Get-Item -LiteralPath $IdentityAudit
+      if ($identityAuditFile.LastWriteTimeUtc -lt $identityAuditNotBefore) {
+        throw "SEC identity audit is stale: $IdentityAudit"
+      }
+      $identityConflictRows = @(Import-Csv -LiteralPath $IdentityAudit)
+      $unresolvedIdentityRows = @(
+        $identityConflictRows | Where-Object {
+          $_.configured_cik -ne $_.selected_cik -or
+          $_.resolution -ne "configured_identity_preserved"
+        }
+      )
+      if ($unresolvedIdentityRows.Count -gt 0) {
+        $unresolvedTickers = @($unresolvedIdentityRows | ForEach-Object { $_.ticker }) -join ", "
+        throw "SEC identity audit contains unresolved conflicts: $unresolvedTickers"
       }
     }
   }
@@ -165,8 +187,6 @@ try {
   $quoteSnapshotSha256 = if (Test-Path $Quotes) { (Get-FileHash -LiteralPath $Quotes -Algorithm SHA256).Hash.ToLowerInvariant() } else { "none" }
   $refreshStatus = $refreshMetadata.status
   $secCacheCount = @(Get-ChildItem -Path $SecCache -Filter "CIK*.json" -File -ErrorAction SilentlyContinue).Count
-  $identityConflictRows = if (Test-Path $IdentityAudit) { @(Import-Csv -LiteralPath $IdentityAudit) } else { @() }
-
   $summaryPath = Join-Path $OutputRoot "latest_run_summary.md"
   $summary = @(
     "# US Weekly Screening Run Summary",
