@@ -16,6 +16,119 @@ def write_csv(path, fieldnames, rows):
 
 
 class RegionalQuoteRetryTests(unittest.TestCase):
+    def test_uses_yahoo_fallback_when_eastmoney_retry_still_lacks_price(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            companies = root / "companies.csv"
+            snapshot = root / "market_snapshot.csv"
+            gaps = root / "quote_gaps.csv"
+            output = root / "updated_snapshot.csv"
+            report = root / "quote_retry.md"
+            result_json = root / "quote_retry_results.json"
+            write_csv(
+                companies,
+                ["market", "ticker", "raw_ticker", "company_name", "industry", "index_name", "currency"],
+                [
+                    {
+                        "market": "HK",
+                        "ticker": "02525.HK",
+                        "raw_ticker": "02525",
+                        "company_name": "HESAI - W",
+                        "industry": "Software",
+                        "index_name": "HSMI",
+                        "currency": "HKD",
+                    }
+                ],
+            )
+            write_csv(
+                snapshot,
+                [
+                    "market", "ticker", "company_name", "industry", "index_name", "currency",
+                    "price", "market_cap", "pe", "pb", "roe", "quote_date", "source",
+                    "data_quality_status",
+                ],
+                [
+                    {
+                        "market": "HK",
+                        "ticker": "02525.HK",
+                        "company_name": "HESAI - W",
+                        "industry": "Software",
+                        "index_name": "HSMI",
+                        "currency": "HKD",
+                        "price": "",
+                        "market_cap": "161919334214",
+                        "pe": "309.99",
+                        "pb": "2.0",
+                        "roe": "0.002",
+                        "quote_date": "2026-07-11",
+                        "source": "Eastmoney batch quote",
+                        "data_quality_status": "partial",
+                    }
+                ],
+            )
+            write_csv(
+                gaps,
+                ["ticker", "issue_type", "remediation_type"],
+                [
+                    {
+                        "ticker": "02525.HK",
+                        "issue_type": "partial_quote",
+                        "remediation_type": "refetch_or_supplement_quote",
+                    }
+                ],
+            )
+            eastmoney_payload = {
+                "rc": 0,
+                "data": {
+                    "diff": [
+                        {
+                            "f2": "-",
+                            "f9": 309.99,
+                            "f12": "02525",
+                            "f14": "HESAI - W",
+                            "f20": 161919334214,
+                            "f23": 2.0,
+                            "f37": 0.2,
+                            "f100": "Software",
+                        }
+                    ]
+                },
+            }
+            fallback_tickers = []
+
+            def fetch_fallback(ticker):
+                fallback_tickers.append(ticker)
+                return {
+                    "ticker": ticker,
+                    "price": 42.5,
+                    "quote_date": "2026-07-10",
+                    "quote_source": "Yahoo Finance chart",
+                }
+
+            result = run_regional_quote_retry(
+                companies_path=companies,
+                snapshot_path=snapshot,
+                gaps_path=gaps,
+                output_path=output,
+                report_path=report,
+                result_json_path=result_json,
+                fetcher=lambda secids: eastmoney_payload,
+                fallback_fetcher=fetch_fallback,
+            )
+
+            with output.open("r", encoding="utf-8-sig", newline="") as handle:
+                row = next(csv.DictReader(handle))
+            payload = json.loads(result_json.read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(result["updated"], 1)
+            self.assertEqual(fallback_tickers, ["2525.HK"])
+            self.assertEqual(row["price"], "42.5")
+            self.assertEqual(row["quote_date"], "2026-07-10")
+            self.assertEqual(row["data_quality_status"], "ready")
+            self.assertIn("Eastmoney batch quote", row["source"])
+            self.assertIn("Yahoo Finance chart", row["source"])
+            self.assertEqual(payload["results"][0]["status"], "updated")
+
     def test_retries_refetchable_quote_gaps_and_updates_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

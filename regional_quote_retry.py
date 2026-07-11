@@ -3,6 +3,7 @@ import csv
 import json
 from pathlib import Path
 
+from quote_auto_filler import fetch_yahoo_chart_quote
 from regional_market_snapshot import (
     OUTPUT_FIELDS,
     fetch_eastmoney_batch,
@@ -61,6 +62,44 @@ def _row_by_ticker(rows):
 
 def _is_ready(row):
     return row.get("data_quality_status", "").strip().lower() == "ready"
+
+
+def _positive_number(value):
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _fallback_symbol(ticker):
+    normalized = str(ticker).strip().upper()
+    if normalized.endswith(".HK"):
+        code = normalized[:-3]
+        if code.isdigit():
+            return f"{int(code):04d}.HK"
+    return normalized
+
+
+def _fill_missing_price(row, quote):
+    if not row or _positive_number(row.get("price")):
+        return row
+    price = quote.get("price")
+    if not _positive_number(price):
+        return row
+    updated = dict(row)
+    updated["price"] = price
+    updated["quote_date"] = quote.get("quote_date") or updated.get("quote_date", "")
+    fallback_source = quote.get("quote_source", "").strip()
+    sources = [part.strip() for part in updated.get("source", "").split(";") if part.strip()]
+    if fallback_source and fallback_source not in sources:
+        sources.append(fallback_source)
+    updated["source"] = "; ".join(sources)
+    updated["data_quality_status"] = (
+        "ready"
+        if all(_positive_number(updated.get(field)) for field in ("price", "market_cap", "pe", "pb"))
+        else "partial"
+    )
+    return updated
 
 
 def _merge_rows(snapshot_rows, retry_rows):
@@ -134,6 +173,7 @@ def run_regional_quote_retry(
     report_path,
     result_json_path=None,
     fetcher=None,
+    fallback_fetcher=None,
     batch_size=20,
     quote_date=None,
 ):
@@ -144,6 +184,7 @@ def run_regional_quote_retry(
     companies_by_ticker = _row_by_ticker(companies)
     retry_companies = [companies_by_ticker[ticker] for ticker in targets if ticker in companies_by_ticker]
     fetch = fetcher or fetch_eastmoney_batch
+    fetch_fallback = fallback_fetcher or fetch_yahoo_chart_quote
 
     retry_rows = []
     errors = []
@@ -155,6 +196,19 @@ def run_regional_quote_retry(
             retry_rows.extend(parsed)
         except Exception as exc:  # best-effort retry should not erase the original snapshot
             errors.append(str(exc))
+
+    retry_by_ticker = _row_by_ticker(retry_rows)
+    snapshot_by_ticker = _row_by_ticker(snapshot_rows)
+    for ticker in targets:
+        base_row = retry_by_ticker.get(ticker) or snapshot_by_ticker.get(ticker)
+        if not base_row or _positive_number(base_row.get("price")):
+            continue
+        try:
+            fallback_quote = fetch_fallback(_fallback_symbol(ticker))
+            retry_by_ticker[ticker] = _fill_missing_price(base_row, fallback_quote)
+        except Exception as exc:  # fallback failure remains visible without erasing the original row
+            errors.append(f"fallback {ticker}: {exc}")
+    retry_rows = list(retry_by_ticker.values())
 
     merged, updated = _merge_rows(snapshot_rows, retry_rows)
     write_snapshot(output_path, merged)
