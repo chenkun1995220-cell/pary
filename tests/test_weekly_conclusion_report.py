@@ -1018,7 +1018,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
 
             self.assertIn("## 一屏结论", markdown)
             self.assertIn(
-                "| 候选风险 | ready | raw_actions=15; auto_routed=10; manual_pending=5; cap_applied=9",
+                "| 候选风险 | ready | raw_actions=15; auto_routed=10; manual_pending=5; deep_dive=0/0; deep_pending=0; cap_applied=9",
                 markdown,
             )
             self.assertIn("| 预测影子诊断 | shadow_review_needed | samples=179; hit=21.8%; diagnosis=direction_mapping_issue, down_signal_reversal_risk", markdown)
@@ -1421,6 +1421,30 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 "review_delivery_health_issues",
             ],
         )
+
+    def test_integrated_summary_includes_candidate_deep_dive_progress(self):
+        from weekly_conclusion_report import build_integrated_review_summary
+
+        summary = build_integrated_review_summary(
+            {
+                "candidate_risk_resolution_review": {
+                    "status": "ready",
+                    "manual_pending_count": 5,
+                    "deep_dive_required_count": 5,
+                    "deep_dive_completed_count": 5,
+                    "deep_dive_pending_count": 0,
+                    "formal_model_change_allowed": False,
+                }
+            },
+            [],
+            [],
+            {"groups": []},
+        )
+
+        self.assertEqual(summary["candidate_risk_deep_dive_required_count"], 5)
+        self.assertEqual(summary["candidate_risk_deep_dive_completed_count"], 5)
+        self.assertEqual(summary["candidate_risk_deep_dive_pending_count"], 0)
+        self.assertEqual(summary["candidate_risk_manual_pending_count"], 5)
 
 
 if __name__ == "__main__":

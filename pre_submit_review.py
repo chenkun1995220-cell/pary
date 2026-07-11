@@ -3024,11 +3024,48 @@ def _candidate_risk_resolution_review_reasons(payload, candidate_findings=None):
     if payload.get("formal_model_change_allowed") is not False:
         reasons.append("candidate_risk_resolution_formal_model_change_unsafe")
 
+    deep_dive_fields_present = any(
+        field in payload
+        for field in (
+            "deep_dive_required_count",
+            "deep_dive_completed_count",
+            "deep_dive_pending_count",
+        )
+    )
+    if deep_dive_fields_present:
+        deep_required = _int_value(payload.get("deep_dive_required_count"), 0)
+        deep_completed = _int_value(payload.get("deep_dive_completed_count"), 0)
+        deep_pending = _int_value(payload.get("deep_dive_pending_count"), 0)
+        if deep_required != deep_completed + deep_pending or deep_required > manual_pending:
+            reasons.append("candidate_risk_resolution_deep_dive_count_mismatch")
+
     items = payload.get("items", [])
     if not isinstance(items, list) or len(items) != total:
         reasons.append("candidate_risk_resolution_items_count_mismatch")
     elif any(not _candidate_risk_resolution_item_complete(item) for item in items):
         reasons.append("candidate_risk_resolution_research_conditions_incomplete")
+    if deep_dive_fields_present:
+        completed_reviews = [
+            item.get("deep_dive_review", {})
+            for item in items
+            if isinstance(item, dict)
+            and isinstance(item.get("deep_dive_review"), dict)
+            and item["deep_dive_review"].get("completed") is True
+        ]
+        if len(completed_reviews) != _int_value(payload.get("deep_dive_completed_count"), 0):
+            reasons.append("candidate_risk_resolution_deep_dive_count_mismatch")
+        if any(
+            review.get("decision_boundary") != "research_only_no_buy_approval"
+            for review in completed_reviews
+        ):
+            reasons.append("candidate_risk_resolution_deep_dive_boundary_unsafe")
+        if any(
+            not str(review.get("financial_evidence", "")).strip()
+            or not str(review.get("risk_evidence", "")).strip()
+            or len([source for source in review.get("sources", []) if str(source).strip()]) < 2
+            for review in completed_reviews
+        ):
+            reasons.append("candidate_risk_resolution_deep_dive_evidence_incomplete")
     return reasons
 
 

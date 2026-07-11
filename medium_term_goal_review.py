@@ -233,6 +233,13 @@ def _goal_completion_percent(goal):
             and _int_value(current.get("risk_manual_pending_count")) <= 5
         ):
             percent = max(percent, 90)
+            if (
+                _int_value(current.get("risk_deep_dive_required_count")) > 0
+                and _int_value(current.get("risk_deep_dive_pending_count")) == 0
+                and _int_value(current.get("risk_deep_dive_completed_count"))
+                == _int_value(current.get("risk_deep_dive_required_count"))
+            ):
+                percent = max(percent, 95)
     elif goal_code == "model_governance_handoff" and status == "on_track":
         if (
             current.get("governance_status") == "ready"
@@ -506,6 +513,17 @@ def _candidate_review_goal(candidate_findings, risk_resolution):
     risk_auto_routed = _int_value(risk_resolution.get("auto_routed_count"))
     risk_manual_pending = _int_value(risk_resolution.get("manual_pending_count"))
     risk_manual_pending_limit = _int_value(risk_resolution.get("manual_pending_limit"), 5)
+    risk_deep_dive_required = _int_value(risk_resolution.get("deep_dive_required_count"))
+    risk_deep_dive_completed = _int_value(risk_resolution.get("deep_dive_completed_count"))
+    risk_deep_dive_pending = _int_value(risk_resolution.get("deep_dive_pending_count"))
+    risk_deep_dive_fields_present = any(
+        field in risk_resolution
+        for field in (
+            "deep_dive_required_count",
+            "deep_dive_completed_count",
+            "deep_dive_pending_count",
+        )
+    )
     risk_cap_applied = _int_value(risk_resolution.get("cap_applied_count"))
     risk_cap_applied_ratio = risk_resolution.get("cap_applied_ratio", 0.0)
     risks_resolved = risk_review <= 20 or (
@@ -525,10 +543,12 @@ def _candidate_review_goal(candidate_findings, risk_resolution):
         next_action = "review_candidate_action_required_risks"
     elif not resolution_ready or risk_manual_pending > 5:
         next_action = "reduce_candidate_risk_manual_pending"
-    elif risk_manual_pending:
+    elif risk_deep_dive_pending or (
+        not risk_deep_dive_fields_present and risk_manual_pending
+    ):
         next_action = "complete_top_candidate_deep_dives"
     else:
-        next_action = "continue_candidate_review_monitoring"
+        next_action = "continue_candidate_monitoring"
     return _goal(
         "candidate_review_convergence",
         "候选结论变成可排序可复核的研究清单",
@@ -550,6 +570,9 @@ def _candidate_review_goal(candidate_findings, risk_resolution):
             "risk_auto_routed_count": risk_auto_routed,
             "risk_manual_pending_count": risk_manual_pending,
             "risk_manual_pending_limit": risk_manual_pending_limit,
+            "risk_deep_dive_required_count": risk_deep_dive_required,
+            "risk_deep_dive_completed_count": risk_deep_dive_completed,
+            "risk_deep_dive_pending_count": risk_deep_dive_pending,
             "risk_cap_applied_count": risk_cap_applied,
             "risk_cap_applied_ratio": risk_cap_applied_ratio,
         },

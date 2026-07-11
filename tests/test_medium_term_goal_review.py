@@ -364,6 +364,40 @@ def write_review_fixtures(root):
 
 
 class MediumTermGoalReviewTests(unittest.TestCase):
+    def test_completed_candidate_deep_dives_raise_research_goal_without_clearing_manual_pending(self):
+        from medium_term_goal_review import _candidate_review_goal, _goal_completion_percent
+
+        goal = _candidate_review_goal(
+            {
+                "candidate_count": 5,
+                "field_complete_count": 5,
+                "missing_field_count": 0,
+                "risk_missing_count": 0,
+                "risk_review_count": 5,
+                "risk_classified_count": 5,
+                "risk_unclassified_count": 0,
+                "risk_action_required_count": 5,
+                "risk_action_queue_count": 5,
+                "risk_action_unqueued_count": 0,
+            },
+            {
+                "status": "ready",
+                "risk_action_total_count": 5,
+                "auto_routed_count": 0,
+                "manual_pending_count": 5,
+                "manual_pending_limit": 5,
+                "deep_dive_required_count": 5,
+                "deep_dive_completed_count": 5,
+                "deep_dive_pending_count": 0,
+            },
+        )
+
+        self.assertEqual(_goal_completion_percent(goal), 95)
+        self.assertEqual(goal["next_action"], "continue_candidate_monitoring")
+        self.assertEqual(goal["current"]["risk_manual_pending_count"], 5)
+        self.assertEqual(goal["current"]["risk_deep_dive_completed_count"], 5)
+        self.assertEqual(goal["current"]["risk_deep_dive_pending_count"], 0)
+
     def test_secondary_current_membership_source_does_not_require_official_csv_blocker(self):
         from medium_term_goal_review import _requires_official_csv
 

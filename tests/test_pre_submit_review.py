@@ -4558,6 +4558,48 @@ class PreSubmitReviewTests(unittest.TestCase):
                 any(reason.startswith("candidate_risk_resolution_") for reason in result["attention_reasons"])
             )
 
+    def test_review_rejects_completed_candidate_deep_dive_with_unsafe_boundary(self):
+        from pre_submit_review import _candidate_risk_resolution_review_reasons
+
+        payload = {
+            "status": "ready",
+            "risk_action_total_count": 1,
+            "resolved_or_routed_count": 0,
+            "auto_routed_count": 0,
+            "manual_pending_count": 1,
+            "manual_pending_limit": 5,
+            "deep_dive_required_count": 1,
+            "deep_dive_completed_count": 1,
+            "deep_dive_pending_count": 0,
+            "issues": [],
+            "formal_model_change_allowed": False,
+            "items": [
+                {
+                    "ticker": "TEST",
+                    "disposition": "manual_deep_dive_required",
+                    "sensitivity": {"low": 80, "base": 100, "high": 120},
+                    "core_risks": ["risk"],
+                    "buy_conditions": ["condition"],
+                    "abandon_conditions": ["condition"],
+                    "reopen_conditions": ["condition"],
+                    "deep_dive_review": {
+                        "required": True,
+                        "completed": True,
+                        "status": "completed",
+                        "research_recommendation": "continue_tracking",
+                        "decision_boundary": "automatic_buy_approval",
+                        "financial_evidence": "evidence",
+                        "risk_evidence": "evidence",
+                        "sources": ["source1", "source2"],
+                    },
+                }
+            ],
+        }
+
+        reasons = _candidate_risk_resolution_review_reasons(payload)
+
+        self.assertIn("candidate_risk_resolution_deep_dive_boundary_unsafe", reasons)
+
     def test_review_needs_attention_when_forecast_performance_review_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

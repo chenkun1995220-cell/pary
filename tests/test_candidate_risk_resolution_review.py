@@ -118,6 +118,53 @@ class CandidateRiskResolutionReviewTests(unittest.TestCase):
             )
             self.assertEqual(payload["items"][-1]["disposition"], "defer_until_margin_returns")
 
+    def test_completed_deep_dives_close_research_gap_without_clearing_manual_authorization(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = write_fixture(root)
+            deep_dive_reviews = root / "data" / "manual" / "candidate_risk_deep_dive_reviews.csv"
+            write_csv(
+                deep_dive_reviews,
+                [
+                    {
+                        "as_of_date": "2026-07-11",
+                        "ticker": f"T{index:02d}",
+                        "company": f"Company {index}",
+                        "review_status": "completed",
+                        "research_recommendation": "continue_tracking",
+                        "decision_boundary": "research_only_no_buy_approval",
+                        "financial_evidence": "revenue and cash flow checked",
+                        "risk_evidence": "core risk remains",
+                        "source_1": "https://example.com/annual-report",
+                        "source_2": "https://example.com/cross-check",
+                    }
+                    for index in range(1, 6)
+                ],
+            )
+
+            from candidate_risk_resolution_review import build_candidate_risk_resolution_review
+
+            payload = build_candidate_risk_resolution_review(
+                root,
+                source,
+                as_of_date="2026-07-11",
+                deep_dive_reviews=deep_dive_reviews,
+            )
+
+            self.assertEqual(payload["deep_dive_required_count"], 5)
+            self.assertEqual(payload["deep_dive_completed_count"], 5)
+            self.assertEqual(payload["deep_dive_pending_count"], 0)
+            self.assertEqual(payload["manual_pending_count"], 5)
+            self.assertEqual(payload["recommended_action"], "request_manual_authorization")
+            self.assertTrue(all(item["deep_dive_review"]["completed"] for item in payload["items"][:5]))
+            self.assertTrue(
+                all(
+                    item["deep_dive_review"]["decision_boundary"]
+                    == "research_only_no_buy_approval"
+                    for item in payload["items"][:5]
+                )
+            )
+
     def test_every_item_has_research_conditions_and_cap_diagnostics(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -182,6 +229,7 @@ class CandidateRiskResolutionReviewTests(unittest.TestCase):
             encoding="utf-8-sig"
         )
         self.assertIn("candidate_risk_resolution_review.py", wrapper)
+        self.assertIn("candidate_risk_deep_dive_reviews.csv", wrapper)
         self.assertIn("latest_candidate_risk_resolution_review.json", wrapper)
         self.assertIn("candidate_risk_resolution_review.csv", wrapper)
 

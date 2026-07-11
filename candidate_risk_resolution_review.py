@@ -13,6 +13,13 @@ DEFAULT_VALUATION_FILES = [
     "outputs/cn_universe/valuation_targets.csv",
     "outputs/hk_universe/valuation_targets.csv",
 ]
+DEFAULT_DEEP_DIVE_REVIEWS = "data/manual/candidate_risk_deep_dive_reviews.csv"
+ALLOWED_RESEARCH_RECOMMENDATIONS = {
+    "continue_tracking",
+    "downgrade_to_watchlist",
+    "defer_until_better_entry",
+    "maintain_priority_research",
+}
 
 
 def _read_json(path):
@@ -52,6 +59,46 @@ def _valuation_map(project_root, valuation_files=None):
             if ticker:
                 result[ticker] = row
     return result
+
+
+def _deep_dive_review_map(project_root, deep_dive_reviews):
+    path = Path(deep_dive_reviews or DEFAULT_DEEP_DIVE_REVIEWS)
+    if not path.is_absolute():
+        path = Path(project_root) / path
+    return path, {
+        str(row.get("ticker", "")).strip().upper(): row
+        for row in _read_csv(path)
+        if str(row.get("ticker", "")).strip()
+    }
+
+
+def _normalize_deep_dive_review(row, required):
+    if not required:
+        return {"required": False, "completed": False, "status": "not_required"}
+    row = row or {}
+    recommendation = str(row.get("research_recommendation", "")).strip()
+    boundary = str(row.get("decision_boundary", "")).strip()
+    evidence_fields = ("financial_evidence", "risk_evidence", "source_1", "source_2")
+    completed = (
+        str(row.get("review_status", "")).strip().lower() == "completed"
+        and recommendation in ALLOWED_RESEARCH_RECOMMENDATIONS
+        and boundary == "research_only_no_buy_approval"
+        and all(str(row.get(field, "")).strip() for field in evidence_fields)
+    )
+    return {
+        "required": True,
+        "completed": completed,
+        "status": "completed" if completed else "pending",
+        "as_of_date": str(row.get("as_of_date", "")).strip(),
+        "research_recommendation": recommendation,
+        "decision_boundary": boundary,
+        "financial_evidence": str(row.get("financial_evidence", "")).strip(),
+        "risk_evidence": str(row.get("risk_evidence", "")).strip(),
+        "sources": [
+            str(row.get("source_1", "")).strip(),
+            str(row.get("source_2", "")).strip(),
+        ],
+    }
 
 
 def _core_risks(item):
@@ -184,6 +231,7 @@ def build_candidate_risk_resolution_review(
     as_of_date=None,
     manual_limit=5,
     valuation_files=None,
+    deep_dive_reviews=DEFAULT_DEEP_DIVE_REVIEWS,
 ):
     root = Path(project_root)
     source = Path(candidate_risk_priority_review)
@@ -191,16 +239,25 @@ def build_candidate_risk_resolution_review(
         source = root / source
     priority = _read_json(source)
     valuations = _valuation_map(root, valuation_files)
+    deep_dive_path, deep_dive_map = _deep_dive_review_map(root, deep_dive_reviews)
     resolved = []
     manual_slots = 0
     for item in priority.get("items", []) or []:
         disposition, manual_slots = _disposition(item, manual_slots, manual_limit)
         ticker = str(item.get("ticker", "")).strip().upper()
-        resolved.append(_resolved_item(item, valuations.get(ticker, {}), disposition))
+        resolved_item = _resolved_item(item, valuations.get(ticker, {}), disposition)
+        resolved_item["deep_dive_review"] = _normalize_deep_dive_review(
+            deep_dive_map.get(ticker),
+            disposition == "manual_deep_dive_required",
+        )
+        resolved.append(resolved_item)
 
     manual_pending = sum(item["manual_decision_required"] for item in resolved)
     auto_routed = len(resolved) - manual_pending
     cap_count = sum(item["target_cap_applied"] for item in resolved)
+    deep_dive_required = sum(item["deep_dive_review"]["required"] for item in resolved)
+    deep_dive_completed = sum(item["deep_dive_review"]["completed"] for item in resolved)
+    deep_dive_pending = deep_dive_required - deep_dive_completed
     source_count = int(priority.get("risk_queue_count", len(resolved)) or 0)
     issues = []
     if source_count != len(resolved):
@@ -215,12 +272,22 @@ def build_candidate_risk_resolution_review(
         "as_of_date": as_of_date or priority.get("as_of_date") or date.today().isoformat(),
         "source_review": str(source),
         "status": "ready" if not issues else "needs_attention",
-        "recommended_action": "complete_top_manual_deep_dives" if manual_pending else "continue_monitoring",
+        "recommended_action": (
+            "complete_top_manual_deep_dives"
+            if deep_dive_pending
+            else "request_manual_authorization"
+            if manual_pending
+            else "continue_monitoring"
+        ),
         "risk_action_total_count": len(resolved),
         "resolved_or_routed_count": auto_routed,
         "auto_routed_count": auto_routed,
         "manual_pending_count": manual_pending,
         "manual_pending_limit": manual_limit,
+        "deep_dive_required_count": deep_dive_required,
+        "deep_dive_completed_count": deep_dive_completed,
+        "deep_dive_pending_count": deep_dive_pending,
+        "deep_dive_review_source": str(deep_dive_path),
         "cap_applied_count": cap_count,
         "cap_applied_ratio": round(cap_count / len(resolved), 6) if resolved else 0.0,
         "issues": issues,
@@ -239,6 +306,8 @@ def render_candidate_risk_resolution_review(payload):
         f"- 风险行动总数：{payload.get('risk_action_total_count', 0)}",
         f"- 自动分流：{payload.get('auto_routed_count', 0)}",
         f"- 待人工深研：{payload.get('manual_pending_count', 0)}/{payload.get('manual_pending_limit', 5)}",
+        f"- 深研完成：{payload.get('deep_dive_completed_count', 0)}/{payload.get('deep_dive_required_count', 0)}",
+        f"- 深研待办：{payload.get('deep_dive_pending_count', 0)}",
         f"- 目标价触顶：{payload.get('cap_applied_count', 0)} ({payload.get('cap_applied_ratio', 0):.1%})",
         "- 正式模型修改：不允许",
         "",
@@ -274,6 +343,7 @@ CSV_FIELDS = [
     "expected_return", "total_score", "current_price", "target_price", "buy_price",
     "target_cap_applied", "uncapped_target_price", "target_cap_price", "target_cap_ratio",
     "sensitivity", "core_risks", "buy_conditions", "abandon_conditions", "reopen_conditions",
+    "deep_dive_review",
 ]
 
 
@@ -288,6 +358,7 @@ def write_csv(payload, output):
             for field in ("risk_categories", "core_risks", "buy_conditions", "abandon_conditions", "reopen_conditions"):
                 row[field] = ";".join(str(value) for value in item.get(field, []))
             row["sensitivity"] = json.dumps(item.get("sensitivity", {}), ensure_ascii=False, sort_keys=True)
+            row["deep_dive_review"] = json.dumps(item.get("deep_dive_review", {}), ensure_ascii=False, sort_keys=True)
             writer.writerow(row)
 
 
@@ -305,6 +376,7 @@ def main():
     parser.add_argument("--candidate-risk-priority-review", default="outputs/automation/latest_candidate_risk_priority_review.json")
     parser.add_argument("--as-of-date", default="")
     parser.add_argument("--manual-limit", type=int, default=5)
+    parser.add_argument("--deep-dive-reviews", default=DEFAULT_DEEP_DIVE_REVIEWS)
     parser.add_argument("--output", default="outputs/automation/latest_candidate_risk_resolution_review.json")
     parser.add_argument("--report", default="outputs/automation/latest_candidate_risk_resolution_review.md")
     parser.add_argument("--csv-output", default="outputs/automation/candidate_risk_resolution_review.csv")
@@ -315,6 +387,7 @@ def main():
         args.candidate_risk_priority_review,
         as_of_date=args.as_of_date or None,
         manual_limit=args.manual_limit,
+        deep_dive_reviews=args.deep_dive_reviews,
     )
     output = Path(args.output) if Path(args.output).is_absolute() else root / args.output
     report = Path(args.report) if Path(args.report).is_absolute() else root / args.report

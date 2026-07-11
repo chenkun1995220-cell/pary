@@ -517,6 +517,9 @@ def normalize_candidate_risk_resolution_review(project_root, payload, path):
         "auto_routed_count": to_int(payload.get("auto_routed_count")),
         "manual_pending_count": to_int(payload.get("manual_pending_count")),
         "manual_pending_limit": to_int(payload.get("manual_pending_limit")),
+        "deep_dive_required_count": to_int(payload.get("deep_dive_required_count")),
+        "deep_dive_completed_count": to_int(payload.get("deep_dive_completed_count")),
+        "deep_dive_pending_count": to_int(payload.get("deep_dive_pending_count")),
         "cap_applied_count": to_int(payload.get("cap_applied_count")),
         "cap_applied_ratio": payload.get("cap_applied_ratio"),
         "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
@@ -857,6 +860,9 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         "candidate_risk_auto_routed_count": to_int(candidate_risk_resolution.get("auto_routed_count")),
         "candidate_risk_manual_pending_count": to_int(candidate_risk_resolution.get("manual_pending_count")),
         "candidate_risk_manual_pending_limit": to_int(candidate_risk_resolution.get("manual_pending_limit")),
+        "candidate_risk_deep_dive_required_count": to_int(candidate_risk_resolution.get("deep_dive_required_count")),
+        "candidate_risk_deep_dive_completed_count": to_int(candidate_risk_resolution.get("deep_dive_completed_count")),
+        "candidate_risk_deep_dive_pending_count": to_int(candidate_risk_resolution.get("deep_dive_pending_count")),
         "candidate_risk_cap_applied_count": to_int(candidate_risk_resolution.get("cap_applied_count")),
         "candidate_risk_cap_applied_ratio": candidate_risk_resolution.get("cap_applied_ratio"),
         "forecast_shadow_status": forecast_shadow.get("status", "unknown"),
@@ -927,11 +933,14 @@ def render_integrated_review_summary_section(payload):
         "|---|---|---|---|",
     ]
     lines.append(
-        "| 候选风险 | {status} | raw_actions={required}; auto_routed={routed}; manual_pending={pending}; cap_applied={cap} | {decision} |".format(
+        "| 候选风险 | {status} | raw_actions={required}; auto_routed={routed}; manual_pending={pending}; deep_dive={deep_completed}/{deep_required}; deep_pending={deep_pending}; cap_applied={cap} | {decision} |".format(
             status=escape_cell(summary.get("candidate_risk_resolution_status", "missing")),
             required=escape_cell(summary.get("candidate_risk_action_required_count", 0)),
             routed=escape_cell(summary.get("candidate_risk_auto_routed_count", 0)),
             pending=escape_cell(summary.get("candidate_risk_manual_pending_count", 0)),
+            deep_completed=escape_cell(summary.get("candidate_risk_deep_dive_completed_count", 0)),
+            deep_required=escape_cell(summary.get("candidate_risk_deep_dive_required_count", 0)),
+            deep_pending=escape_cell(summary.get("candidate_risk_deep_dive_pending_count", 0)),
             cap=escape_cell(summary.get("candidate_risk_cap_applied_count", 0)),
             decision=escape_cell(summary.get("candidate_risk_decision") or "按风险压降队列处理"),
         )

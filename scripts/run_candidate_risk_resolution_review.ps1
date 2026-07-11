@@ -2,6 +2,7 @@ param(
   [string]$ProjectRoot = "",
   [string]$AsOfDate = "",
   [int]$ManualLimit = 5,
+  [string]$DeepDiveReviews = "",
   [string]$Output = "",
   [string]$Report = "",
   [string]$CsvOutput = "",
@@ -16,16 +17,18 @@ if (-not $AsOfDate) { $AsOfDate = Get-Date -Format "yyyy-MM-dd" }
 if (-not $Output) { $Output = Join-Path $ProjectRoot "outputs\automation\latest_candidate_risk_resolution_review.json" }
 if (-not $Report) { $Report = Join-Path $ProjectRoot "outputs\automation\latest_candidate_risk_resolution_review.md" }
 if (-not $CsvOutput) { $CsvOutput = Join-Path $ProjectRoot "outputs\automation\candidate_risk_resolution_review.csv" }
+if (-not $DeepDiveReviews) { $DeepDiveReviews = Join-Path $ProjectRoot "data\manual\candidate_risk_deep_dive_reviews.csv" }
 
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 $Script = Join-Path $ProjectRoot "candidate_risk_resolution_review.py"
 Write-Host "Candidate risk resolution review"
 Write-Host "ProjectRoot: $ProjectRoot"
 Write-Host "ManualLimit: $ManualLimit"
+Write-Host "DeepDiveReviews: $DeepDiveReviews"
 Write-Host "Output: $Output"
 Write-Host "Report: $Report"
 Write-Host "CsvOutput: $CsvOutput"
-Write-Host "Reads: latest_candidate_risk_priority_review.json and three valuation_targets.csv files"
+Write-Host "Reads: latest_candidate_risk_priority_review.json, candidate_risk_deep_dive_reviews.csv and three valuation_targets.csv files"
 Write-Host "Writes: latest_candidate_risk_resolution_review.json, .md and candidate_risk_resolution_review.csv"
 if ($DryRun) { Write-Host "DryRun: no files were created."; exit 0 }
 
@@ -34,6 +37,7 @@ if ($DryRun) { Write-Host "DryRun: no files were created."; exit 0 }
   --candidate-risk-priority-review (Join-Path $ProjectRoot "outputs\automation\latest_candidate_risk_priority_review.json") `
   --as-of-date $AsOfDate `
   --manual-limit $ManualLimit `
+  --deep-dive-reviews $DeepDiveReviews `
   --output $Output `
   --report $Report `
   --csv-output $CsvOutput
