@@ -248,6 +248,26 @@ class FirstOneMonthForecastEvaluationReviewTests(unittest.TestCase):
         self.assertIn("37", markdown)
         self.assertIn("不允许形成正式模型结论", markdown)
 
+    def test_wrapper_and_bundle_run_after_forecast_performance_before_shadow_review(self):
+        project_root = Path(__file__).parents[1]
+        wrapper_path = project_root / "scripts/run_first_one_month_forecast_evaluation_review.ps1"
+        self.assertTrue(wrapper_path.exists())
+        wrapper = wrapper_path.read_text(encoding="utf-8-sig")
+        bundle = (project_root / "scripts/run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("first_one_month_forecast_evaluation_review.py", wrapper)
+        self.assertIn("latest_first_one_month_forecast_evaluation_review.json", wrapper)
+        self.assertLess(
+            bundle.index('Label = "run_forecast_performance_review"'),
+            bundle.index('Label = "run_first_one_month_forecast_evaluation_review"'),
+        )
+        self.assertLess(
+            bundle.index('Label = "run_first_one_month_forecast_evaluation_review"'),
+            bundle.index('Label = "run_one_week_forecast_shadow_review"'),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
