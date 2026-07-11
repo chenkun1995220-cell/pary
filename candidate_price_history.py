@@ -223,6 +223,18 @@ def _write_history_csv(path, rows):
             temporary.unlink()
 
 
+def _fetch_with_retry(fetcher, url, max_attempts, retry_delay_seconds, sleeper):
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fetcher(url), attempt - 1
+        except Exception:
+            if attempt >= max_attempts:
+                raise
+            sleeper(retry_delay_seconds * attempt)
+
+
 def run_price_history(
     candidates_path,
     output_path,
@@ -231,6 +243,9 @@ def run_price_history(
     minimum_coverage=0.80,
     cache_max_age_days=10,
     fail_on_cache_fallback=False,
+    max_attempts=1,
+    retry_delay_seconds=2,
+    sleeper=None,
     fetcher=None,
 ):
     market = str(market).upper()
@@ -239,6 +254,8 @@ def run_price_history(
     all_rows = []
     covered_count = 0
     cache_fallbacks = 0
+    network_retries = 0
+    sleep = sleeper or time.sleep
 
     for ticker in tickers:
         rows = []
@@ -246,7 +263,14 @@ def run_price_history(
         try:
             cache_path = _cache_path(cache_dir, market, ticker)
             try:
-                payload = fetch(build_history_url(market, ticker))
+                payload, ticker_retries = _fetch_with_retry(
+                    fetch,
+                    build_history_url(market, ticker),
+                    max_attempts,
+                    retry_delay_seconds,
+                    sleep,
+                )
+                network_retries += ticker_retries
             except Exception:
                 cached_payload = _load_fresh_cache(cache_path, cache_max_age_days)
                 if cached_payload is not None:
@@ -281,6 +305,7 @@ def run_price_history(
         "ready": covered_count,
         "output": Path(output_path),
         "cache_fallbacks": cache_fallbacks,
+        "network_retries": network_retries,
         "candidate_count": candidate_count,
         "covered_count": covered_count,
         "coverage": coverage,
@@ -298,6 +323,8 @@ def main():
     parser.add_argument("--minimum-coverage", type=float, default=0.80)
     parser.add_argument("--cache-max-age-days", type=float, default=10)
     parser.add_argument("--fail-on-cache-fallback", action="store_true")
+    parser.add_argument("--max-attempts", type=int, default=3)
+    parser.add_argument("--retry-delay-seconds", type=float, default=2)
     args = parser.parse_args()
     result = run_price_history(
         args.candidates,
@@ -307,9 +334,12 @@ def main():
         minimum_coverage=args.minimum_coverage,
         cache_max_age_days=args.cache_max_age_days,
         fail_on_cache_fallback=args.fail_on_cache_fallback,
+        max_attempts=args.max_attempts,
+        retry_delay_seconds=args.retry_delay_seconds,
     )
     print(f"Price history coverage: {result['ready']}/{result['candidates']}")
     print(f"Cache fallbacks: {result['cache_fallbacks']}")
+    print(f"Network retries: {result['network_retries']}")
     print(f"Price history rows: {result['row_count']}")
 
 

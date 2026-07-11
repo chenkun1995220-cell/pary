@@ -172,6 +172,40 @@ class CandidatePriceHistoryTests(unittest.TestCase):
             self.assertEqual(len(list(cache.glob("*.json"))), 2)
             self.assertTrue((cache / "BRK-B.json").exists())
 
+    def test_transient_network_failure_retries_before_using_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidates = root / "candidates.csv"
+            output = root / "price_history.csv"
+            cache = root / "cache"
+            write_candidates(candidates, ["AAPL"])
+            attempts = []
+            delays = []
+
+            def flaky_fetcher(url):
+                attempts.append(url)
+                if len(attempts) < 3:
+                    raise TimeoutError("temporary timeout")
+                return yahoo_payload(closes=(10.0,), timestamps=(1704067200,))
+
+            result = run_price_history(
+                candidates,
+                output,
+                cache,
+                "US",
+                fail_on_cache_fallback=True,
+                max_attempts=3,
+                retry_delay_seconds=2,
+                sleeper=delays.append,
+                fetcher=flaky_fetcher,
+            )
+
+            self.assertEqual(result["covered_count"], 1)
+            self.assertEqual(result["cache_fallbacks"], 0)
+            self.assertEqual(result["network_retries"], 2)
+            self.assertEqual(len(attempts), 3)
+            self.assertEqual(delays, [2, 4])
+
     def test_network_failure_uses_fresh_cache(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
