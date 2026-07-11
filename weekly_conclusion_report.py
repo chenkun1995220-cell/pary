@@ -1626,6 +1626,7 @@ def is_acceptable_status(status):
         "collecting",
         "sample_accumulating",
         "partial_sample_accumulating",
+        "awaiting_maturity",
         "performance_review_needed",
         "manual_review_needed",
         "action_required",
@@ -1653,15 +1654,15 @@ def choose_recommended_action(status, automation):
 
 
 def choose_priority_actions(status, automation, recommended_action):
-    if status != "ready":
-        return [recommended_action]
-    actions = automation.get("automation_check", {}).get("priority_actions") or []
     weekly_items = automation.get("weekly_action_items", {}).get("items", []) or []
     weekly_actions = [
         str(item.get("action_code", "")).strip()
         for item in weekly_items
         if isinstance(item, dict) and str(item.get("action_code", "")).strip()
     ]
+    if status != "ready":
+        return list(dict.fromkeys([recommended_action, *weekly_actions]))
+    actions = automation.get("automation_check", {}).get("priority_actions") or []
     if weekly_actions:
         return list(weekly_actions)
     return list(actions or [recommended_action])

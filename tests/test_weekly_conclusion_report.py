@@ -1083,6 +1083,30 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             self.assertGreaterEqual(payload["health"]["score"], 60)
             self.assertIn("manual_review_pending:2", payload["health"]["reasons"])
 
+    def test_first_one_month_awaiting_maturity_is_an_acceptable_lifecycle_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            write_json(
+                root
+                / "outputs"
+                / "automation"
+                / "latest_first_one_month_forecast_evaluation_review.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "awaiting_maturity",
+                    "recommended_action": "wait_for_one_month_maturity",
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(payload["status"], "ready")
+            self.assertNotEqual(payload["health"]["status"], "needs_fix")
+
     def test_includes_manual_review_queue_items_when_action_requests_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1368,6 +1392,35 @@ class WeeklyConclusionReportTests(unittest.TestCase):
         self.assertEqual(summary["first_one_month_one_week_hit_rate"], 0.4)
         self.assertEqual(summary["first_one_month_one_month_hit_rate"], 0.6)
         self.assertEqual(summary["first_one_month_market_comparison_status"], "insufficient_market_coverage")
+
+
+    def test_non_ready_conclusion_keeps_review_inputs_and_weekly_action_codes(self):
+        from weekly_conclusion_report import choose_priority_actions
+
+        automation = {
+            "weekly_action_items": {
+                "items": [
+                    {"action_code": "continue_shadow_validation"},
+                    {"action_code": "review_latest_ops_check"},
+                    {"action_code": "continue_sample_accumulation"},
+                    {"action_code": "review_delivery_health_issues"},
+                    {"action_code": "review_inputs"},
+                ]
+            }
+        }
+
+        actions = choose_priority_actions("needs_attention", automation, "review_inputs")
+
+        self.assertEqual(
+            actions,
+            [
+                "review_inputs",
+                "continue_shadow_validation",
+                "review_latest_ops_check",
+                "continue_sample_accumulation",
+                "review_delivery_health_issues",
+            ],
+        )
 
 
 if __name__ == "__main__":
