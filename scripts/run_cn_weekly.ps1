@@ -52,6 +52,14 @@ try {
 
   & $Python -B regional_universe.py --market CN --output $Companies --cache-dir $CacheDir
   if ($LASTEXITCODE -ne 0) { throw "CN universe refresh failed with exit code $LASTEXITCODE." }
+  $refreshMetadataPath = Join-Path $CacheDir "refresh_metadata.json"
+  if (-not (Test-Path -LiteralPath $refreshMetadataPath)) {
+    throw "CN constituent refresh metadata is missing."
+  }
+  $refreshMetadata = Get-Content -Raw -LiteralPath $refreshMetadataPath | ConvertFrom-Json
+  if ($refreshMetadata.status -ne "online") {
+    throw "CN constituent refresh must be online; status=$($refreshMetadata.status); warning=$($refreshMetadata.warning)"
+  }
 
   $snapshotPath = Join-Path $OutputRoot "market_snapshot.csv"
   $rawSnapshotPath = Join-Path $CacheDir "market_snapshot_raw.json"
@@ -181,7 +189,7 @@ try {
   $candidates = @(Import-Csv -LiteralPath $candidatesPath)
   $candidateTickers = @($candidates | ForEach-Object { $_.ticker }) -join ", "
   if (-not $candidateTickers) { $candidateTickers = "None" }
-  $metadata = Get-Content -Raw -LiteralPath (Join-Path $CacheDir "refresh_metadata.json") | ConvertFrom-Json
+  $metadata = $refreshMetadata
   $summary = @(
     "# CN Weekly Data Summary",
     "",

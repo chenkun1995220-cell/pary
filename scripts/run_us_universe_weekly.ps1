@@ -72,6 +72,7 @@ try {
   $logPath = Join-Path $OutputRoot "run_$runStamp.log"
   Start-Transcript -Path $logPath | Out-Null
   $transcriptStarted = $true
+  $refreshMetadataPath = Join-Path $Sp500Cache "sp500_refresh_metadata.json"
 
   foreach ($step in $Steps) {
     $scriptPath = Join-Path $PSScriptRoot $step.Script
@@ -79,6 +80,15 @@ try {
     & $PowerShell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @($step.Arguments)
     if ($LASTEXITCODE -ne 0) {
       throw "$($step.Label) failed with exit code $LASTEXITCODE."
+    }
+    if ($step.Label -eq "1/10 Refresh S&P 500 constituents") {
+      if (-not (Test-Path -LiteralPath $refreshMetadataPath)) {
+        throw "US constituent refresh metadata is missing."
+      }
+      $refreshMetadata = Get-Content -Raw -LiteralPath $refreshMetadataPath | ConvertFrom-Json
+      if ($refreshMetadata.status -ne "online") {
+        throw "US constituent refresh must be online; status=$($refreshMetadata.status); warning=$($refreshMetadata.warning)"
+      }
     }
   }
 
@@ -149,12 +159,7 @@ try {
   $quoteDateMin = if ($quoteDates.Count -gt 0) { $quoteDates[0] } else { "none" }
   $quoteDateMax = if ($quoteDates.Count -gt 0) { $quoteDates[-1] } else { "none" }
   $quoteSnapshotSha256 = if (Test-Path $Quotes) { (Get-FileHash -LiteralPath $Quotes -Algorithm SHA256).Hash.ToLowerInvariant() } else { "none" }
-  $refreshMetadataPath = Join-Path $Sp500Cache "sp500_refresh_metadata.json"
-  $refreshStatus = "unknown"
-  if (Test-Path $refreshMetadataPath) {
-    $refreshMetadata = Get-Content -Raw -LiteralPath $refreshMetadataPath | ConvertFrom-Json
-    $refreshStatus = $refreshMetadata.status
-  }
+  $refreshStatus = $refreshMetadata.status
   $secCacheCount = @(Get-ChildItem -Path $SecCache -Filter "CIK*.json" -File -ErrorAction SilentlyContinue).Count
 
   $summaryPath = Join-Path $OutputRoot "latest_run_summary.md"

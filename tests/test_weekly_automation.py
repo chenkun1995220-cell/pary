@@ -95,6 +95,21 @@ class WeeklyAutomationTests(unittest.TestCase):
                 self.assertIn('"Failure: $($_.Exception.Message)"', script)
                 self.assertIn("Add-Content -LiteralPath $logPath", script)
 
+    def test_market_weekly_scripts_reject_constituent_cache_fallback(self):
+        expectations = {
+            "run_us_universe_weekly.ps1": "US constituent refresh must be online",
+            "run_cn_weekly.ps1": "CN constituent refresh must be online",
+            "run_hk_weekly.ps1": "HK constituent refresh must be online",
+        }
+
+        for script_name, message in expectations.items():
+            script = (PROJECT_ROOT / "scripts" / script_name).read_text(
+                encoding="utf-8-sig"
+            )
+            with self.subTest(script=script_name):
+                self.assertIn('$refreshMetadata.status -ne "online"', script)
+                self.assertIn(message, script)
+
     def test_weekly_delivery_streak_wrapper_and_bundle_tail_order(self):
         wrapper = (
             PROJECT_ROOT / "scripts" / "run_weekly_delivery_streak_review.ps1"
