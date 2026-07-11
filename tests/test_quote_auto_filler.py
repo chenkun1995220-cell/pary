@@ -334,6 +334,26 @@ class QuoteAutoFillerTests(unittest.TestCase):
 
         self.assertEqual(row["shares_outstanding"], 149.505248)
         self.assertIn("SEC filing text", row["quote_source"])
+
+    def test_build_quote_row_marks_exhausted_official_share_search(self):
+        facts = company_facts()
+        facts["facts"].pop("dei")
+
+        row = build_quote_row(
+            {"ticker": "FDXF"},
+            facts,
+            quote_override={
+                "ticker": "FDXF",
+                "price": 150,
+                "quote_date": "2026-07-10",
+                "quote_source": "Yahoo Finance chart",
+            },
+            fallback_share_status="official_share_fact_pending",
+        )
+
+        self.assertEqual(row["shares_outstanding"], "")
+        self.assertIn("SEC official share fact pending", row["quote_source"])
+
     def test_parse_yahoo_chart_quote_uses_latest_close(self):
         payload = {
             "chart": {

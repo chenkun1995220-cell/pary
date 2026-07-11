@@ -19,6 +19,9 @@ GAP_FIELDS = [
     "ticker",
     "status",
     "missing_fields",
+    "remediation_type",
+    "review_category",
+    "review_detail",
     "ready_field_count",
     "total_required_field_count",
 ]
@@ -43,7 +46,19 @@ def status_for_quote_row(row, missing):
         return "manual_override_applied"
     if "shares_outstanding" in missing and "share sanity failed" in quote_source:
         return "needs_manual_review"
+    if "shares_outstanding" in missing and "SEC official share fact pending" in quote_source:
+        return "waiting_official_fact"
     return "ready" if not missing else "needs_fill"
+
+
+def review_fields_for_quote_row(row, status):
+    if status == "waiting_official_fact":
+        return {
+            "remediation_type": "manual_financial_review",
+            "review_category": "official_share_fact_pending",
+            "review_detail": "SEC Company Facts and recent filing search completed; monitor for an official share fact.",
+        }
+    return {"remediation_type": "", "review_category": "", "review_detail": ""}
 
 
 def find_quote_fill_gaps(quotes_path):
@@ -53,15 +68,16 @@ def find_quote_fill_gaps(quotes_path):
         if not ticker:
             continue
         missing = missing_fields_for_row(row)
-        gaps.append(
-            {
-                "ticker": ticker,
-                "status": status_for_quote_row(row, missing),
-                "missing_fields": ", ".join(missing),
-                "ready_field_count": len(REQUIRED_FILL_FIELDS) - len(missing),
-                "total_required_field_count": len(REQUIRED_FILL_FIELDS),
-            }
-        )
+        status = status_for_quote_row(row, missing)
+        gap = {
+            "ticker": ticker,
+            "status": status,
+            "missing_fields": ", ".join(missing),
+            "ready_field_count": len(REQUIRED_FILL_FIELDS) - len(missing),
+            "total_required_field_count": len(REQUIRED_FILL_FIELDS),
+        }
+        gap.update(review_fields_for_quote_row(row, status))
+        gaps.append(gap)
     return gaps
 
 

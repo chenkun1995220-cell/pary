@@ -130,6 +130,24 @@ class QuoteFillAssistantTests(unittest.TestCase):
             self.assertEqual(gap["status"], "needs_manual_review")
             self.assertEqual(gap["missing_fields"], "shares_outstanding")
 
+    def test_classifies_missing_official_share_fact_as_monitor_only_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "quotes.csv"
+            path.write_text(
+                QUOTE_HEADER + "\n"
+                "FDXF,149.53,,,USD,2026-07-10,USD/share,million_shares,USD_million,"
+                "Yahoo Finance chart; SEC Company Facts; SEC official share fact pending,2026-07-11\n",
+                encoding="utf-8-sig",
+            )
+
+            gap = find_quote_fill_gaps(path)[0]
+
+            self.assertEqual(gap["status"], "waiting_official_fact")
+            self.assertEqual(gap["missing_fields"], "shares_outstanding")
+            self.assertEqual(gap["remediation_type"], "manual_financial_review")
+            self.assertEqual(gap["review_category"], "official_share_fact_pending")
+            self.assertIn("SEC", gap["review_detail"])
+
     def test_writes_csv_and_markdown_report(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -290,7 +290,7 @@ def fetch_sec_submission_shares(cik, user_agent=None, max_filings=40):
                 "source": f"SEC filing text ({form_text} {filing_date})",
                 "url": url,
             }
-    return {}
+    return {"status": "official_share_fact_pending"}
 
 
 def parse_yahoo_chart_quote(ticker, payload):
@@ -360,6 +360,7 @@ def build_quote_row(
     quote_override=None,
     fallback_shares=None,
     fallback_share_source=None,
+    fallback_share_status=None,
     share_override=None,
 ):
     ticker = company.get("ticker", "").strip().upper()
@@ -369,6 +370,8 @@ def build_quote_row(
     if shares is None and fallback_shares is not None:
         shares = fallback_shares
         share_source = fallback_share_source or "SEC filing text"
+    elif shares is None and fallback_share_status == "official_share_fact_pending":
+        share_source = "SEC official share fact pending"
     if shares is not None and not shares_pass_sanity_check(quote.get("price", ""), shares, company_facts):
         shares = None
         share_source = f"{share_source} share sanity failed"
@@ -449,6 +452,7 @@ def run_auto_fill_quotes(
                 cached_quotes.get(company["ticker"].strip().upper()),
                 fallback.get("shares"),
                 fallback.get("source"),
+                fallback.get("status"),
                 share_overrides.get(company["ticker"].strip().upper()),
             )
         )
@@ -461,6 +465,7 @@ def run_auto_fill_quotes(
             quote_override,
             fallback_shares,
             fallback_share_source,
+            fallback_share_status,
             share_override,
         ) = prepared_row
         return build_quote_row(
@@ -470,6 +475,7 @@ def run_auto_fill_quotes(
             quote_override=quote_override,
             fallback_shares=fallback_shares,
             fallback_share_source=fallback_share_source,
+            fallback_share_status=fallback_share_status,
             share_override=share_override,
         )
 
