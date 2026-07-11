@@ -726,5 +726,18 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("--report", script)
 
 
+    def test_docs_describe_first_one_month_evaluation_contract(self):
+        for relative_path in (
+            "docs/美股每周自动运行说明.md",
+            "docs/提交前复核清单.md",
+            "docs/中期目标进度看板.md",
+        ):
+            doc = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8-sig")
+            self.assertIn("latest_first_one_month_forecast_evaluation_review.json", doc)
+            self.assertIn("2026-08-03", doc)
+            self.assertIn("sample_incomplete", doc)
+            self.assertIn("formal_model_conclusion_allowed=false", doc)
+
+
 if __name__ == "__main__":
     unittest.main()

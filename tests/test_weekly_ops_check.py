@@ -28,7 +28,7 @@ def write_expected_automations(root, minute_overrides=None):
                     f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
                     'status = "ACTIVE"',
                     f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR=14;BYMINUTE={minute}"',
-                    f'model = "{expected["model"]}"',
+                    'model = "test-compatible-model"',
                     'reasoning_effort = "high"',
                     'execution_environment = "local"',
                     'cwds = ["F:\\\\chatgptssd\\\\project2"]',
