@@ -8,6 +8,57 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WeeklyAutomationTests(unittest.TestCase):
+    def test_weekly_reporting_bundle_is_fail_closed_for_post_check_failures(self):
+        bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertNotIn("if (-not $Strict)", bundle)
+        self.assertIn('throw "Step $label failed with exit code $exitCode."', bundle)
+        for script_name in (
+            "run_us_universe_weekly.ps1",
+            "run_cn_weekly.ps1",
+            "run_hk_weekly.ps1",
+        ):
+            script = (PROJECT_ROOT / "scripts" / script_name).read_text(
+                encoding="utf-8-sig"
+            )
+            self.assertNotIn("-IgnorePreSubmitFailure", script)
+
+    def test_weekly_reporting_bundle_stops_after_first_failed_step(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            scripts = root / "scripts"
+            scripts.mkdir(parents=True)
+            (scripts / "run_self_analysis.ps1").write_text(
+                "Write-Error 'intentional failure'\nexit 7\n",
+                encoding="utf-8-sig",
+            )
+
+            result = subprocess.run(
+                [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1"),
+                    "-ProjectRoot",
+                    str(root),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            output = result.stdout + result.stderr
+            self.assertNotEqual(result.returncode, 0, output)
+            self.assertIn("run_self_analysis", output)
+            self.assertIn("Step run_self_analysis failed with exit code 7", output)
+            self.assertNotIn("run_data_health_review", output)
+
     def test_market_weekly_summaries_include_run_start_time(self):
         scripts = [
             PROJECT_ROOT / "scripts" / "run_us_universe_weekly.ps1",

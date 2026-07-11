@@ -217,7 +217,7 @@ try {
   Set-Content -LiteralPath (Join-Path $OutputRoot "latest_run_summary.md") -Value $summary -Encoding UTF8
 
   if ($RunPostChecks) {
-    & (Get-Command powershell.exe).Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "scripts\\run_weekly_reporting_bundle.ps1") -ProjectRoot $ProjectRoot -MaxAgeDays $PostCheckMaxAgeDays -IgnorePreSubmitFailure
+    & (Get-Command powershell.exe).Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "scripts\\run_weekly_reporting_bundle.ps1") -ProjectRoot $ProjectRoot -MaxAgeDays $PostCheckMaxAgeDays
     if ($LASTEXITCODE -ne 0) {
       throw "post-check bundle failed with exit code $LASTEXITCODE."
     }

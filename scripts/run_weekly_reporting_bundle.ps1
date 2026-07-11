@@ -2,7 +2,6 @@
   [string]$ProjectRoot = "",
   [int]$MaxAgeDays = 8,
   [switch]$DryRun,
-  [switch]$Strict,
   [switch]$IgnorePreSubmitFailure,
   [string]$Sp500CurrentMembershipSourceFile = "",
   [string]$Sp500CurrentMembershipSourceInbox = "",
@@ -132,11 +131,6 @@ foreach ($step in $postSteps) {
 
   if (-not $step.Critical -and $IgnorePreSubmitFailure) {
     Write-Warning "Step $label returned exit code $exitCode and was intentionally non-blocking."
-    continue
-  }
-
-  if (-not $Strict) {
-    Write-Warning "Step $label returned exit code $exitCode."
     continue
   }
 

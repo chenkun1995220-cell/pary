@@ -193,7 +193,7 @@ try {
   Write-Host "Weekly pipeline completed. Summary: $summaryPath"
 
   if ($RunPostChecks) {
-    & (Get-Command powershell.exe).Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "scripts\\run_weekly_reporting_bundle.ps1") -ProjectRoot $ProjectRoot -MaxAgeDays $PostCheckMaxAgeDays -IgnorePreSubmitFailure
+    & (Get-Command powershell.exe).Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "scripts\\run_weekly_reporting_bundle.ps1") -ProjectRoot $ProjectRoot -MaxAgeDays $PostCheckMaxAgeDays
     if ($LASTEXITCODE -ne 0) {
       throw "post-check bundle failed with exit code $LASTEXITCODE."
     }
