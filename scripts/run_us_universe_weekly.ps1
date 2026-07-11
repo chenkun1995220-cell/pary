@@ -121,6 +121,7 @@ try {
     --candidates $candidatePath `
     --valuations (Join-Path $OutputRoot "valuation_targets.csv") `
     --tracking (Join-Path $OutputRoot "tracking_snapshot.csv") `
+    --evaluations (Join-Path $OutputRoot "forecast_evaluations.csv") `
     --forecast-history (Join-Path $OutputRoot "forecast_history.csv") `
     --model-audit (Join-Path $OutputRoot "model_audit.md") `
     --quote-gaps (Join-Path $OutputRoot "quote_gaps.csv") `

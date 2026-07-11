@@ -496,6 +496,7 @@ def build_conclusion_quality_lines(rows, tracking_rows, row_limit=20):
 def build_summary_lines(
     rows,
     tracking_rows,
+    evaluation_rows,
     previous_tickers,
     audit_status,
     audit_conclusion,
@@ -510,7 +511,16 @@ def build_summary_lines(
     continuous_tickers = sorted(current_tickers & previous_tickers)
     removed_tickers = sorted(previous_tickers - current_tickers)
     tracking_count = sum(1 for row in tracking_rows if row.get("evaluation_status") == "tracking")
-    mature_count = sum(1 for row in tracking_rows if row.get("evaluation_status") not in ("", "tracking"))
+    if evaluation_rows is None:
+        mature_count = sum(
+            1
+            for row in tracking_rows
+            if row.get("evaluation_status") not in ("", "tracking")
+        )
+    else:
+        mature_count = sum(
+            1 for row in evaluation_rows if row.get("evaluation_status") == "evaluated"
+        )
 
     lines = [
         "# 每周低估公司结论",
@@ -594,10 +604,12 @@ def generate_investment_summary(
     quote_gaps_path=None,
     data_quality_issues_path=None,
     share_override_audit_path=None,
+    evaluations_path=None,
 ):
     candidate_rows = load_csv_rows(candidates_path)
     valuation_rows = load_csv_rows(valuations_path)
     tracking_rows = load_csv_rows(tracking_path)
+    evaluation_rows = load_csv_rows(evaluations_path) if evaluations_path else None
     forecast_rows = load_csv_rows(forecast_history_path)
     current_generated_date = max((row.get("generated_date", "") for row in valuation_rows), default="")
     previous_tickers = latest_prior_forecast_tickers(forecast_rows, current_generated_date)
@@ -612,6 +624,7 @@ def generate_investment_summary(
     lines = build_summary_lines(
         rows,
         tracking_rows,
+        evaluation_rows,
         previous_tickers,
         audit_status,
         audit_conclusion,
@@ -634,6 +647,7 @@ def main():
     parser.add_argument("--candidates", default="outputs/us_universe/candidate_pool.csv")
     parser.add_argument("--valuations", default="outputs/us_universe/valuation_targets.csv")
     parser.add_argument("--tracking", default="outputs/us_universe/tracking_snapshot.csv")
+    parser.add_argument("--evaluations", default=None)
     parser.add_argument("--forecast-history", default="outputs/us_universe/forecast_history.csv")
     parser.add_argument("--model-audit", default="outputs/us_universe/model_audit.md")
     parser.add_argument("--quote-gaps", default=None)
@@ -654,6 +668,7 @@ def main():
         quote_gaps_path=args.quote_gaps,
         data_quality_issues_path=args.data_quality_issues,
         share_override_audit_path=args.share_override_audit,
+        evaluations_path=args.evaluations,
     )
     print(f"已生成低估公司结论报告：{result['output_path']}")
     print(f"候选公司数量：{result['candidate_count']}")

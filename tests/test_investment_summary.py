@@ -472,6 +472,7 @@ class InvestmentSummaryTests(unittest.TestCase):
             tracking = root / "tracking_snapshot.csv"
             forecast_history = root / "forecast_history.csv"
             model_audit = root / "model_audit.md"
+            evaluations = root / "forecast_evaluations.csv"
             output = root / "latest_investment_summary.md"
 
             write_csv(
@@ -590,6 +591,15 @@ class InvestmentSummaryTests(unittest.TestCase):
                     {"ticker": "BBB", "generated_date": "2026-06-27", "model_version": "valuation_trend_v1"},
                 ],
             )
+            write_csv(
+                evaluations,
+                ["ticker", "evaluation_status"],
+                [
+                    {"ticker": "OLD", "evaluation_status": "evaluated"},
+                    {"ticker": "OLDER", "evaluation_status": "evaluated"},
+                    {"ticker": "WAIT", "evaluation_status": "prediction_unavailable"},
+                ],
+            )
             model_audit.write_text(
                 "# 模型审计报告\n\n- 审计状态：sample_accumulating\n- 结论：样本积累中，不生成参数升级建议。\n",
                 encoding="utf-8-sig",
@@ -602,10 +612,12 @@ class InvestmentSummaryTests(unittest.TestCase):
                 forecast_history,
                 model_audit,
                 output,
+                evaluations_path=evaluations,
             )
 
             report = output.read_text(encoding="utf-8-sig")
             self.assertEqual(result["candidate_count"], 2)
+            self.assertIn("\u6210\u719f\u8bc4\u4ef7\u6837\u672c\uff1a2", report)
             self.assertIn("# 每周低估公司结论", report)
             self.assertIn("- 候选公司数量：2", report)
             self.assertIn("- 模型审计状态：sample_accumulating", report)
