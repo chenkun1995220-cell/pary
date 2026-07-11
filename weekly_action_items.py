@@ -454,6 +454,53 @@ def _backtest_evidence_decision_text(manifest):
 
 
 def _action_template(action_code, manifest):
+    first_month = manifest.get("first_one_month_forecast_evaluation", {})
+    if not isinstance(first_month, dict):
+        first_month = {}
+    if action_code == "wait_for_one_month_maturity":
+        return {
+            "title": "等待首批1个月预测成熟",
+            "category": "forecast_performance",
+            "priority": "monitor",
+            "source": (
+                f"first_one_month_status:{first_month.get('status', 'missing')}; "
+                f"valid:{first_month.get('one_month_valid_count', 0)}/"
+                f"{first_month.get('expected_sample_count', 37)}"
+            ),
+            "recommended_check": (
+                f"固定队列 {first_month.get('expected_sample_count', 37)} 个样本；"
+                "2026-08-03 前只等待成熟，不生成修复噪声，不形成正式模型结论。"
+            ),
+        }
+    if action_code in {
+        "repair_first_cohort_evaluation_gaps",
+        "repair_first_one_month_review_inputs",
+    }:
+        return {
+            "title": "修复首批1个月评价缺口",
+            "category": "forecast_performance",
+            "priority": "high",
+            "source": (
+                f"first_one_month_status:{first_month.get('status', 'missing')}; "
+                f"valid:{first_month.get('one_month_valid_count', 0)}/"
+                f"{first_month.get('expected_sample_count', 37)}"
+            ),
+            "recommended_check": (
+                "检查固定队列、评价唯一键、预测方向和收益字段；"
+                "修复前不得形成模型优劣结论或修改正式模型。"
+            ),
+        }
+    if action_code == "review_first_one_month_results_manually":
+        return {
+            "title": "人工复核首批1个月预测结果",
+            "category": "forecast_performance",
+            "priority": "normal",
+            "source": f"first_one_month_status:{first_month.get('status', 'missing')}",
+            "recommended_check": (
+                "分别检查1周和1个月命中率、超额收益、失败类型与市场覆盖边界；"
+                "只形成研究复核意见，不修改正式模型。"
+            ),
+        }
     if action_code == "reduce_weekly_action_backlog":
         action = _backlog_reduction_action(manifest)
         if action:

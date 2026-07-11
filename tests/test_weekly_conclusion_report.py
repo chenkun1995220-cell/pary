@@ -1318,6 +1318,57 @@ class WeeklyConclusionReportTests(unittest.TestCase):
         self.assertIn("-NoProfile -ExecutionPolicy Bypass", script)
         self.assertIn("codex-primary-runtime", script)
 
+    def test_normalizes_first_one_month_evaluation_separately_by_horizon(self):
+        from weekly_conclusion_report import normalize_first_one_month_forecast_evaluation
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "outputs/automation/latest_first_one_month_forecast_evaluation_review.json"
+            payload = {
+                "status": "review_ready",
+                "as_of_date": "2026-08-03",
+                "cohort": {"expected_sample_count": 37, "actual_sample_count": 37},
+                "one_week": {"valid_evaluation_count": 37, "direction_hit_rate": 0.4, "average_excess_return": 0.01, "failure_type_counts": {"opposite_direction": 5}},
+                "one_month": {"valid_evaluation_count": 37, "direction_hit_rate": 0.6, "average_excess_return": 0.03, "failure_type_counts": {"predicted_move_but_actual_neutral": 4}},
+                "market_comparison": {"status": "insufficient_market_coverage"},
+                "recommended_action": "review_first_one_month_results_manually",
+                "formal_model_change_allowed": False,
+                "formal_model_conclusion_allowed": False,
+            }
+
+            normalized = normalize_first_one_month_forecast_evaluation(root, payload, path)
+
+            self.assertEqual(normalized["one_week_direction_hit_rate"], 0.4)
+            self.assertEqual(normalized["one_month_direction_hit_rate"], 0.6)
+            self.assertEqual(normalized["one_month_average_excess_return"], 0.03)
+            self.assertEqual(normalized["market_comparison_status"], "insufficient_market_coverage")
+
+    def test_integrated_summary_keeps_first_one_month_metrics_separate(self):
+        from weekly_conclusion_report import build_integrated_review_summary
+
+        automation = {
+            "first_one_month_forecast_evaluation": {
+                "status": "review_ready",
+                "expected_sample_count": 37,
+                "one_week_valid_count": 37,
+                "one_week_direction_hit_rate": 0.4,
+                "one_week_average_excess_return": 0.01,
+                "one_month_valid_count": 37,
+                "one_month_direction_hit_rate": 0.6,
+                "one_month_average_excess_return": 0.03,
+                "market_comparison_status": "insufficient_market_coverage",
+                "formal_model_change_allowed": False,
+                "formal_model_conclusion_allowed": False,
+            }
+        }
+
+        summary = build_integrated_review_summary(automation, [], [], {"groups": []})
+
+        self.assertEqual(summary["first_one_month_status"], "review_ready")
+        self.assertEqual(summary["first_one_month_one_week_hit_rate"], 0.4)
+        self.assertEqual(summary["first_one_month_one_month_hit_rate"], 0.6)
+        self.assertEqual(summary["first_one_month_market_comparison_status"], "insufficient_market_coverage")
+
 
 if __name__ == "__main__":
     unittest.main()

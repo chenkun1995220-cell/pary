@@ -671,6 +671,63 @@ def _one_week_forecast_shadow_disposition_snapshot(project_root):
     return snapshot
 
 
+def _first_one_month_forecast_evaluation_snapshot(project_root):
+    path = (
+        Path(project_root)
+        / "outputs"
+        / "automation"
+        / "latest_first_one_month_forecast_evaluation_review.json"
+    )
+    payload = _read_json(path)
+    if payload.get("review_schema") != "first_one_month_forecast_evaluation_review":
+        return {
+            "status": "missing",
+            "expected_sample_count": 37,
+            "actual_sample_count": 0,
+            "one_week_valid_count": 0,
+            "one_month_valid_count": 0,
+            "recommended_action": "repair_first_one_month_review_inputs",
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+            "path": str(path),
+        }
+    cohort = payload.get("cohort", {}) or {}
+    one_week = payload.get("one_week", {}) or {}
+    one_month = payload.get("one_month", {}) or {}
+    comparison = payload.get("market_comparison", {}) or {}
+    return {
+        "status": payload.get("status", "missing"),
+        "as_of_date": payload.get("as_of_date", ""),
+        "expected_sample_count": _as_int(cohort.get("expected_sample_count")) or 37,
+        "actual_sample_count": _as_int(cohort.get("actual_sample_count")) or 0,
+        "one_week_valid_count": _as_int(one_week.get("valid_evaluation_count")) or 0,
+        "one_week_direction_hit_rate": one_week.get("direction_hit_rate"),
+        "one_week_average_excess_return": one_week.get("average_excess_return"),
+        "one_week_failure_type_counts": one_week.get("failure_type_counts", {}),
+        "one_month_valid_count": _as_int(one_month.get("valid_evaluation_count")) or 0,
+        "one_month_direction_hit_rate": one_month.get("direction_hit_rate"),
+        "one_month_average_excess_return": one_month.get("average_excess_return"),
+        "one_month_failure_type_counts": one_month.get("failure_type_counts", {}),
+        "market_comparison_status": comparison.get("status", "missing"),
+        "recommended_action": payload.get(
+            "recommended_action", "repair_first_one_month_review_inputs"
+        ),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "formal_model_conclusion_allowed": bool(
+            payload.get("formal_model_conclusion_allowed")
+        ),
+        "path": str(path),
+    }
+
+
+def _first_one_month_priority_action(snapshot):
+    if snapshot.get("status") == "awaiting_maturity":
+        return ""
+    if snapshot.get("status") in {"sample_incomplete", "needs_attention", "review_ready"}:
+        return snapshot.get("recommended_action", "")
+    return ""
+
+
 def _format_rate(value):
     return "unknown" if value is None else f"{value:.2%}"
 
@@ -2004,6 +2061,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
     backtest = _backtest_snapshot(project_root)
     forecast_performance = _forecast_performance_snapshot(project_root)
+    first_one_month_evaluation = _first_one_month_forecast_evaluation_snapshot(project_root)
     shadow_disposition = _one_week_forecast_shadow_disposition_snapshot(project_root)
     if forecast_performance.get("status") == "performance_review_needed":
         forecast_performance = dict(forecast_performance)
@@ -2079,6 +2137,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "forecast_performance": forecast_performance,
         "forecast_performance_status": forecast_performance.get("status", "unknown"),
         "forecast_performance_recommended_action": forecast_performance.get("recommended_action", "unknown"),
+        "first_one_month_forecast_evaluation": first_one_month_evaluation,
         "one_week_forecast_shadow_disposition": shadow_disposition,
         "health": _manifest_health(health),
         **data_health_status,
@@ -2130,8 +2189,14 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "manual_review_repeats": str(manual_review_repeats_output),
             "data_quality_history": str(data_quality_history_output),
             "one_week_forecast_shadow_disposition": shadow_disposition.get("path", ""),
+            "first_one_month_forecast_evaluation": first_one_month_evaluation.get("path", ""),
         },
     }
+    first_month_action = _first_one_month_priority_action(first_one_month_evaluation)
+    if first_month_action:
+        priority_actions = manifest.setdefault("automation_priority_actions", [])
+        if first_month_action not in priority_actions:
+            priority_actions.append(first_month_action)
     _write_self_analysis_manifest(manifest_output, manifest)
     manifest_validation = validate_self_analysis_manifest(manifest_output, require_markets_ready=True)
     _write_self_analysis_manifest(
@@ -2149,6 +2214,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "markets": markets,
         "backtest": backtest,
         "forecast_performance": forecast_performance,
+        "first_one_month_forecast_evaluation": first_one_month_evaluation,
         "one_week_forecast_shadow_disposition": shadow_disposition,
         "data_quality_summary": data_quality_summary,
         "data_quality_history": data_quality_history,

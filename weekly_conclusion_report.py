@@ -50,6 +50,9 @@ ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH = "outputs/automation/latest_one_week_forec
 ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH = (
     "outputs/automation/latest_one_week_forecast_shadow_disposition.json"
 )
+FIRST_ONE_MONTH_FORECAST_EVALUATION_PATH = (
+    "outputs/automation/latest_first_one_month_forecast_evaluation_review.json"
+)
 BACKTEST_EVIDENCE_REVIEW_PATH = "outputs/automation/latest_backtest_evidence_review.json"
 DATA_HEALTH_REVIEW_PATH = "outputs/automation/latest_data_health_review.json"
 
@@ -243,6 +246,18 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             project_root,
             forecast_shadow_review,
             project_root / ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH,
+        )
+
+    first_one_month_evaluation = read_json(
+        project_root / FIRST_ONE_MONTH_FORECAST_EVALUATION_PATH
+    )
+    if isinstance(first_one_month_evaluation, dict):
+        state["first_one_month_forecast_evaluation"] = (
+            normalize_first_one_month_forecast_evaluation(
+                project_root,
+                first_one_month_evaluation,
+                project_root / FIRST_ONE_MONTH_FORECAST_EVALUATION_PATH,
+            )
         )
 
     forecast_shadow_disposition = read_json(
@@ -524,6 +539,34 @@ def normalize_forecast_shadow_review(project_root, payload, path):
     }
 
 
+def normalize_first_one_month_forecast_evaluation(project_root, payload, path):
+    cohort = payload.get("cohort", {}) or {}
+    one_week = payload.get("one_week", {}) or {}
+    one_month = payload.get("one_month", {}) or {}
+    comparison = payload.get("market_comparison", {}) or {}
+    return {
+        "status": payload.get("status", "missing"),
+        "as_of_date": payload.get("as_of_date", ""),
+        "expected_sample_count": to_int(cohort.get("expected_sample_count")),
+        "actual_sample_count": to_int(cohort.get("actual_sample_count")),
+        "one_week_valid_count": to_int(one_week.get("valid_evaluation_count")),
+        "one_week_direction_hit_rate": one_week.get("direction_hit_rate"),
+        "one_week_average_excess_return": one_week.get("average_excess_return"),
+        "one_week_failure_type_counts": one_week.get("failure_type_counts", {}),
+        "one_month_valid_count": to_int(one_month.get("valid_evaluation_count")),
+        "one_month_direction_hit_rate": one_month.get("direction_hit_rate"),
+        "one_month_average_excess_return": one_month.get("average_excess_return"),
+        "one_month_failure_type_counts": one_month.get("failure_type_counts", {}),
+        "market_comparison_status": comparison.get("status", "missing"),
+        "recommended_action": payload.get("recommended_action", ""),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "formal_model_conclusion_allowed": bool(
+            payload.get("formal_model_conclusion_allowed")
+        ),
+        "path": relative_path(project_root, path),
+    }
+
+
 def normalize_forecast_shadow_disposition(project_root, payload, path):
     counts = payload.get("disposition_counts", {}) or {}
     return {
@@ -763,6 +806,7 @@ def render_automation_section(payload):
         "data_quality",
         "data_quality_history",
         "forecast_performance",
+        "first_one_month_forecast_evaluation",
         "forecast_shadow_disposition",
         "weekly_action_items",
         "weekly_ops_check",
@@ -785,6 +829,7 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
     candidate_risk_resolution = automation.get("candidate_risk_resolution_review", {})
     forecast_shadow = automation.get("one_week_forecast_shadow_review", {})
     forecast_disposition = automation.get("forecast_shadow_disposition", {})
+    first_one_month = automation.get("first_one_month_forecast_evaluation", {})
     backtest_review = automation.get("backtest_evidence_review", {})
     data_health = automation.get("data_health_review", {})
     data_health_counts = data_health.get("data_health_triage_counts", {}) or {}
@@ -793,6 +838,8 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         candidate_risk_resolution.get("formal_model_change_allowed"),
         forecast_shadow.get("formal_model_change_allowed"),
         forecast_disposition.get("formal_model_change_allowed"),
+        first_one_month.get("formal_model_change_allowed"),
+        first_one_month.get("formal_model_conclusion_allowed"),
         backtest_review.get("formal_model_change_allowed"),
     ]
     return {
@@ -828,6 +875,21 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         ),
         "forecast_disposition_next_one_week_evaluation_date": forecast_disposition.get(
             "next_one_week_evaluation_date", ""
+        ),
+        "first_one_month_status": first_one_month.get("status", "missing"),
+        "first_one_month_expected_count": to_int(first_one_month.get("expected_sample_count")),
+        "first_one_month_one_week_valid_count": to_int(first_one_month.get("one_week_valid_count")),
+        "first_one_month_one_week_hit_rate": first_one_month.get("one_week_direction_hit_rate"),
+        "first_one_month_one_week_average_excess_return": first_one_month.get(
+            "one_week_average_excess_return"
+        ),
+        "first_one_month_one_month_valid_count": to_int(first_one_month.get("one_month_valid_count")),
+        "first_one_month_one_month_hit_rate": first_one_month.get("one_month_direction_hit_rate"),
+        "first_one_month_one_month_average_excess_return": first_one_month.get(
+            "one_month_average_excess_return"
+        ),
+        "first_one_month_market_comparison_status": first_one_month.get(
+            "market_comparison_status", "missing"
         ),
         "backtest_evidence_gate_status": backtest_review.get("membership_evidence_gate_status", "unknown"),
         "backtest_evidence_gate_decision": backtest_review.get("membership_evidence_gate_decision", ""),
@@ -889,6 +951,25 @@ def render_integrated_review_summary_section(payload):
             rejected=escape_cell(summary.get("forecast_disposition_rejected_count", 0)),
             approval=escape_cell(summary.get("forecast_disposition_pending_human_approval_count", 0)),
             next_date=escape_cell(summary.get("forecast_disposition_next_one_week_evaluation_date") or "-"),
+        )
+    )
+    lines.append(
+        "| 首批1个月评价 | {status} | 1周={week_count}/{expected}, 命中={week_hit}, 超额={week_excess}; 1个月={month_count}/{expected}, 命中={month_hit}, 超额={month_excess}; 市场比较={market_status} | review_only; no_formal_model_conclusion |".format(
+            status=escape_cell(summary.get("first_one_month_status", "missing")),
+            week_count=summary.get("first_one_month_one_week_valid_count", 0),
+            expected=summary.get("first_one_month_expected_count", 0),
+            week_hit=escape_cell(format_percent(summary.get("first_one_month_one_week_hit_rate"))),
+            week_excess=escape_cell(
+                format_percent(summary.get("first_one_month_one_week_average_excess_return"))
+            ),
+            month_count=summary.get("first_one_month_one_month_valid_count", 0),
+            month_hit=escape_cell(format_percent(summary.get("first_one_month_one_month_hit_rate"))),
+            month_excess=escape_cell(
+                format_percent(summary.get("first_one_month_one_month_average_excess_return"))
+            ),
+            market_status=escape_cell(
+                summary.get("first_one_month_market_comparison_status", "missing")
+            ),
         )
     )
     if summary.get("backtest_evidence_ceiling_status") == "evidence_ceiling_confirmed":

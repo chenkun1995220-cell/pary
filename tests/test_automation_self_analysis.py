@@ -2215,6 +2215,63 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertIn("AAA", report)
             self.assertIn("2026-06-20", report)
 
+    def test_first_one_month_snapshot_preserves_waiting_boundary(self):
+        from automation_self_analysis import _first_one_month_forecast_evaluation_snapshot
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "outputs/automation/latest_first_one_month_forecast_evaluation_review.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(
+                    {
+                        "review_schema": "first_one_month_forecast_evaluation_review",
+                        "review_version": 1,
+                        "status": "awaiting_maturity",
+                        "cohort": {"expected_sample_count": 37, "actual_sample_count": 37},
+                        "one_week": {"valid_evaluation_count": 37, "direction_hit_rate": 0.4, "average_excess_return": 0.01},
+                        "one_month": {"valid_evaluation_count": 0, "direction_hit_rate": None, "average_excess_return": None},
+                        "market_comparison": {"status": "insufficient_market_coverage"},
+                        "recommended_action": "wait_for_one_month_maturity",
+                        "formal_model_change_allowed": False,
+                        "formal_model_conclusion_allowed": False,
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = _first_one_month_forecast_evaluation_snapshot(root)
+
+            self.assertEqual(snapshot["status"], "awaiting_maturity")
+            self.assertEqual(snapshot["one_week_valid_count"], 37)
+            self.assertEqual(snapshot["one_month_valid_count"], 0)
+            self.assertEqual(snapshot["recommended_action"], "wait_for_one_month_maturity")
+            self.assertFalse(snapshot["formal_model_change_allowed"])
+            self.assertFalse(snapshot["formal_model_conclusion_allowed"])
+
+    def test_first_one_month_priority_action_only_appears_when_actionable(self):
+        from automation_self_analysis import _first_one_month_priority_action
+
+        self.assertEqual(
+            _first_one_month_priority_action(
+                {"status": "awaiting_maturity", "recommended_action": "wait_for_one_month_maturity"}
+            ),
+            "",
+        )
+        self.assertEqual(
+            _first_one_month_priority_action(
+                {"status": "sample_incomplete", "recommended_action": "repair_first_cohort_evaluation_gaps"}
+            ),
+            "repair_first_cohort_evaluation_gaps",
+        )
+        self.assertEqual(
+            _first_one_month_priority_action(
+                {"status": "review_ready", "recommended_action": "review_first_one_month_results_manually"}
+            ),
+            "review_first_one_month_results_manually",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

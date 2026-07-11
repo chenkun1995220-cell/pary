@@ -2290,6 +2290,24 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--backtest-evidence-review", script)
         self.assertIn("codex-primary-runtime", script)
 
+    def test_first_one_month_waiting_action_is_monitor_only(self):
+        from weekly_action_items import _action_template
+
+        manifest = {
+            "first_one_month_forecast_evaluation": {
+                "status": "awaiting_maturity",
+                "expected_sample_count": 37,
+                "one_month_valid_count": 0,
+                "recommended_action": "wait_for_one_month_maturity",
+            }
+        }
+
+        action = _action_template("wait_for_one_month_maturity", manifest)
+
+        self.assertEqual(action["category"], "forecast_performance")
+        self.assertEqual(action["priority"], "monitor")
+        self.assertIn("37", action["recommended_check"])
+
 
 if __name__ == "__main__":
     unittest.main()
