@@ -36,6 +36,7 @@ if ($DryRun) {
 $mutex = [System.Threading.Mutex]::new($false, "Local\StockUndervaluationCNWeekly")
 $hasLock = $false
 $transcriptStarted = $false
+$logPath = ""
 try {
   $hasLock = $mutex.WaitOne(0)
   if (-not $hasLock) { throw "Another CN weekly run is already in progress." }
@@ -222,6 +223,22 @@ try {
       throw "post-check bundle failed with exit code $LASTEXITCODE."
     }
   }
+}
+catch {
+  if ($transcriptStarted) {
+    Stop-Transcript | Out-Null
+    $transcriptStarted = $false
+  }
+  if ($logPath) {
+    $failure = @(
+      "",
+      "Pipeline status: failed",
+      "Failure time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+      "Failure: $($_.Exception.Message)"
+    )
+    Add-Content -LiteralPath $logPath -Value $failure -Encoding UTF8 -ErrorAction SilentlyContinue
+  }
+  throw
 }
 finally {
   if ($transcriptStarted) { Stop-Transcript | Out-Null }

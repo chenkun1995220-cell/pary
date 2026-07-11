@@ -79,6 +79,22 @@ class WeeklyAutomationTests(unittest.TestCase):
                     script.index("if ($DryRun)"),
                 )
 
+    def test_market_weekly_scripts_persist_failure_reason_to_run_log(self):
+        scripts = [
+            PROJECT_ROOT / "scripts" / "run_us_universe_weekly.ps1",
+            PROJECT_ROOT / "scripts" / "run_cn_weekly.ps1",
+            PROJECT_ROOT / "scripts" / "run_hk_weekly.ps1",
+        ]
+
+        for path in scripts:
+            script = path.read_text(encoding="utf-8-sig")
+            with self.subTest(script=path.name):
+                self.assertIn('$logPath = ""', script)
+                self.assertIn("catch {", script)
+                self.assertIn('"Pipeline status: failed"', script)
+                self.assertIn('"Failure: $($_.Exception.Message)"', script)
+                self.assertIn("Add-Content -LiteralPath $logPath", script)
+
     def test_weekly_delivery_streak_wrapper_and_bundle_tail_order(self):
         wrapper = (
             PROJECT_ROOT / "scripts" / "run_weekly_delivery_streak_review.ps1"
