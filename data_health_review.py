@@ -232,6 +232,10 @@ def _market_review(health_row, candidate_tickers):
     return {
         "name": health_row.get("name", "unknown"),
         "status": health_row.get("status", "unknown"),
+        "quote_data_coverage": health_row.get(
+            "quote_data_coverage",
+            health_row.get("quote_coverage", "unknown"),
+        ),
         "quote_coverage": health_row.get("quote_coverage", "unknown"),
         "financial_coverage": health_row.get("financial_coverage", "unknown"),
         "quote_gap_count": len(active_gaps),
@@ -393,12 +397,13 @@ def render_data_health_review(payload):
         "",
         "## 市场概览",
         "",
-        "| 市场 | 行情覆盖 | 财务覆盖 | 可重抓 | 候选可重抓 | 估值口径复核 | 候选受阻 |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| 市场 | 行情字段完整率 | 估值质量门通过率 | 财务覆盖 | 可重抓 | 候选可重抓 | 估值口径复核 | 候选受阻 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for market in payload.get("markets", []) or []:
         lines.append(
-            f"| {market.get('name', '')} | {market.get('quote_coverage', 'unknown')} | "
+            f"| {market.get('name', '')} | {market.get('quote_data_coverage', 'unknown')} | "
+            f"{market.get('quote_coverage', 'unknown')} | "
             f"{market.get('financial_coverage', 'unknown')} | {market.get('refetch_gap_count', 0)} | "
             f"{market.get('candidate_refetch_gap_count', 0)} | "
             f"{market.get('active_manual_financial_review_count', market.get('manual_financial_review_count', 0))} | "

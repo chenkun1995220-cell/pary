@@ -422,7 +422,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             report = Path(result["output"]).read_text(encoding="utf-8-sig")
 
             self.assertEqual(result["health"][1]["quote_gap_count"], "2")
-            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 2 | 2 | 0 | 1 |", report)
+            self.assertIn("| A股周筛 | ready | online | 92.67% | 92.67% | 100.00% | 2 | 2 | 0 | 1 |", report)
             self.assertNotIn("数据健康需关注：A股周筛 行情缺口 2", report)
             self.assertIn("数据健康需关注：A股周筛 行情可重抓缺口 2", report)
 
@@ -658,7 +658,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             self.assertEqual(result["health"][2]["quote_gap_refetch_count"], "1")
             self.assertEqual(result["health"][2]["quote_gap_review_count"], "1")
-            self.assertIn("| 港股周筛 | ready | online | 84.10% | 99.69% | 2 | 1 | 1 | 2 |", report)
+            self.assertIn("| 港股周筛 | ready | online | 84.10% | 84.10% | 99.69% | 2 | 1 | 1 | 2 |", report)
             self.assertIn("数据健康需关注：港股周筛 行情可重抓缺口 1", report)
             self.assertNotIn("数据健康需关注：港股周筛 估值口径复核 1", report)
 
@@ -1829,8 +1829,10 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
 
             text = Path(result["output"]).read_text(encoding="utf-8-sig")
             self.assertIn("## 数据健康", text)
-            self.assertIn("| A股周筛 | ready | online | 92.67% | 100.00% | 0 | 0 | 0 | 7 |", text)
-            self.assertIn("| 港股周筛 | ready | cache_fallback | 84.10% | 99.69% | 0 | 0 | 0 | 35 |", text)
+            self.assertIn("行情字段完整率", text)
+            self.assertIn("估值质量门通过率", text)
+            self.assertIn("| A股周筛 | ready | online | 92.67% | 92.67% | 100.00% | 0 | 0 | 0 | 7 |", text)
+            self.assertIn("| 港股周筛 | ready | cache_fallback | 84.10% | 84.10% | 99.69% | 0 | 0 | 0 | 35 |", text)
             self.assertIn("数据健康需关注：A股周筛 行情覆盖 92.67%", text)
             self.assertIn("数据健康需关注：港股周筛 刷新状态 cache_fallback", text)
             self.assertIn("数据健康需关注：港股周筛 行情覆盖 84.10%", text)

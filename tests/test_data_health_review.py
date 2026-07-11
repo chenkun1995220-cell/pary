@@ -150,6 +150,7 @@ def write_fixture(root):
                 "name": "美股周筛",
                 "path": str(us_dir / "data_health_history.csv"),
                 "quote_coverage": "100.00%",
+                "quote_data_coverage": "100.00%",
                 "financial_coverage": "n/a",
                 "quote_gap_count": "0",
                 "quote_gap_refetch_count": "0",
@@ -161,6 +162,7 @@ def write_fixture(root):
                 "name": "A股周筛",
                 "path": str(cn_dir / "data_health_history.csv"),
                 "quote_coverage": "92.67%",
+                "quote_data_coverage": "100.00%",
                 "financial_coverage": "100.00%",
                 "quote_gap_count": "0",
                 "quote_gap_refetch_count": "0",
@@ -172,6 +174,7 @@ def write_fixture(root):
                 "name": "港股周筛",
                 "path": str(hk_dir / "data_health_history.csv"),
                 "quote_coverage": "84.10%",
+                "quote_data_coverage": "99.69%",
                 "financial_coverage": "99.69%",
                 "quote_gap_count": "3",
                 "quote_gap_refetch_count": "2",
@@ -225,6 +228,8 @@ class DataHealthReviewTests(unittest.TestCase):
 
             hk = next(item for item in payload["markets"] if item["name"] == "港股周筛")
             self.assertEqual(hk["data_health_triage_status"], "monitor_only")
+            self.assertEqual(hk["quote_data_coverage"], "99.69%")
+            self.assertEqual(hk["quote_coverage"], "84.10%")
             self.assertEqual(hk["data_health_triage_counts"]["monitor_only"], 3)
             self.assertEqual(hk["refetch_gap_count"], 0)
             self.assertEqual(hk["candidate_refetch_gap_count"], 0)
@@ -250,6 +255,9 @@ class DataHealthReviewTests(unittest.TestCase):
             self.assertIn("refetch_gap_attempted_count", report)
             self.assertIn("refetch_gap_action_required_count", report)
             self.assertIn("candidate_manual_financial_review_count", report)
+            self.assertIn("行情字段完整率", report)
+            self.assertIn("估值质量门通过率", report)
+            self.assertIn("| 99.69% | 84.10% |", report)
             self.assertIn("不抓取行情", report)
             self.assertIn("不重新评分", report)
             self.assertIn("不修改正式模型参数", report)

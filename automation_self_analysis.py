@@ -1813,14 +1813,15 @@ def _render(
             "",
             "## 数据健康",
             "",
-            "| 模块 | 状态 | 刷新状态 | 行情覆盖 | 财务覆盖 | 行情缺口 | 可重抓 | 需复核 | 候选数 |",
-            "|---|---|---|---:|---:|---:|---:|---:|---:|",
+            "| 模块 | 状态 | 刷新状态 | 行情字段完整率 | 估值质量门通过率 | 财务覆盖 | 行情缺口 | 可重抓 | 需复核 | 候选数 |",
+            "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for item in health:
         lines.append(
             f"| {item['name']} | {item['status']} | {item['refresh_status']} | "
-            f"{item['quote_coverage']} | {item['financial_coverage']} | "
+            f"{item['quote_data_coverage']} | {item['quote_coverage']} | "
+            f"{item['financial_coverage']} | "
             f"{item['quote_gap_count']} | {item['quote_gap_refetch_count']} | "
             f"{item['quote_gap_review_count']} | {item['candidate_count']} |"
         )
