@@ -29,6 +29,16 @@ OUTPUT_FIELDS = [
     "risk_flag",
 ]
 
+IDENTITY_AUDIT_FIELDS = [
+    "ticker",
+    "configured_cik",
+    "sec_candidate_ciks",
+    "selected_cik",
+    "configured_company_name",
+    "sec_candidate_names",
+    "resolution",
+]
+
 
 def load_csv_rows(path):
     with Path(path).open("r", encoding="utf-8-sig", newline="") as f:
@@ -122,6 +132,46 @@ def build_universe_rows(symbols, payload):
     return rows, sorted(missing)
 
 
+def build_identity_audit_rows(symbols, payload, universe_rows):
+    sec_by_ticker = ticker_index(payload)
+    selected_by_ticker = {row.get("ticker", ""): row for row in universe_rows}
+    audit_rows = []
+    for symbol in symbols:
+        ticker = symbol.get("ticker", "").strip().upper()
+        configured_cik = _normalized_cik(symbol.get("cik"))
+        candidates = sec_by_ticker.get(ticker, [])
+        if not ticker or not configured_cik or not candidates:
+            continue
+        if any(_normalized_cik(candidate.get("cik")) == configured_cik for candidate in candidates):
+            continue
+        selected = selected_by_ticker.get(ticker, {})
+        audit_rows.append(
+            {
+                "ticker": ticker,
+                "configured_cik": configured_cik,
+                "sec_candidate_ciks": ";".join(
+                    sorted({_normalized_cik(candidate.get("cik")) for candidate in candidates})
+                ),
+                "selected_cik": _normalized_cik(selected.get("cik")),
+                "configured_company_name": symbol.get("company_name", "").strip(),
+                "sec_candidate_names": ";".join(
+                    sorted({str(candidate.get("name", "")).strip() for candidate in candidates})
+                ),
+                "resolution": "configured_identity_preserved",
+            }
+        )
+    return audit_rows
+
+
+def write_identity_audit_csv(path, rows):
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=IDENTITY_AUDIT_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def write_company_csv(path, rows):
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -137,6 +187,7 @@ def run_universe_build(
     user_agent=None,
     fixture_path=None,
     minimum_match_rate=0,
+    identity_audit_path=None,
 ):
     symbols = load_symbol_config(symbols_path)
     if fixture_path:
@@ -144,6 +195,7 @@ def run_universe_build(
     else:
         payload = fetch_sec_ticker_exchange(user_agent)
     rows, missing = build_universe_rows(symbols, payload)
+    identity_audit_rows = build_identity_audit_rows(symbols, payload, rows)
     configured = len([row for row in symbols if row.get("ticker", "").strip()])
     match_rate = len(rows) / configured if configured else 0
     if match_rate < minimum_match_rate:
@@ -151,11 +203,15 @@ def run_universe_build(
             f"SEC ticker match rate {match_rate:.2%} below required {minimum_match_rate:.2%}"
         )
     write_company_csv(output_path, rows)
+    if identity_audit_path:
+        write_identity_audit_csv(identity_audit_path, identity_audit_rows)
     return {
         "rows": len(rows),
         "missing": missing,
         "match_rate": match_rate,
         "output_path": Path(output_path),
+        "identity_conflict_count": len(identity_audit_rows),
+        "identity_audit_path": Path(identity_audit_path) if identity_audit_path else None,
     }
 
 
@@ -166,6 +222,7 @@ def main():
     parser.add_argument("--user-agent", default=None)
     parser.add_argument("--fixture", default=None)
     parser.add_argument("--minimum-match-rate", type=float, default=0.98)
+    parser.add_argument("--identity-audit", default=None)
     args = parser.parse_args()
 
     result = run_universe_build(
@@ -174,6 +231,7 @@ def main():
         user_agent=args.user_agent,
         fixture_path=args.fixture,
         minimum_match_rate=args.minimum_match_rate,
+        identity_audit_path=args.identity_audit,
     )
     print(f"已构建美股公司数：{result['rows']}")
     print(f"SEC 清单未命中：{', '.join(result['missing']) or '无'}")

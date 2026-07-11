@@ -19,6 +19,45 @@ def ticker_payload():
 
 
 class UsUniverseBuilderTests(unittest.TestCase):
+    def test_writes_identity_conflict_audit_for_configured_cik_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            symbols_path = root / "symbols.csv"
+            fixture_path = root / "company_tickers_exchange.json"
+            output_path = root / "companies.csv"
+            audit_path = root / "sec_identity_audit.csv"
+            symbols_path.write_text(
+                "source_ticker,ticker,company_name,industry,cik,enabled\n"
+                "XOM,XOM,ExxonMobil,Energy,34088,1\n",
+                encoding="utf-8-sig",
+            )
+            fixture_path.write_text(
+                json.dumps(
+                    {
+                        "fields": ["cik", "name", "ticker", "exchange"],
+                        "data": [[2115436, "ExxonMobil Holdings Corp", "XOM", "NYSE"]],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_universe_build(
+                symbols_path,
+                output_path,
+                fixture_path=fixture_path,
+                identity_audit_path=audit_path,
+            )
+
+            with audit_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                audit_rows = list(csv.DictReader(handle))
+            self.assertEqual(result["identity_conflict_count"], 1)
+            self.assertEqual(result["identity_audit_path"], audit_path)
+            self.assertEqual(audit_rows[0]["ticker"], "XOM")
+            self.assertEqual(audit_rows[0]["configured_cik"], "34088")
+            self.assertEqual(audit_rows[0]["sec_candidate_ciks"], "2115436")
+            self.assertEqual(audit_rows[0]["selected_cik"], "34088")
+            self.assertEqual(audit_rows[0]["resolution"], "configured_identity_preserved")
+
     def test_preserves_configured_identity_when_sec_ticker_cik_conflicts(self):
         symbols = [
             {
@@ -119,6 +158,7 @@ class UsUniverseBuilderTests(unittest.TestCase):
         self.assertIn("sp500_constituents.py", script)
         self.assertIn("data\\cache\\sp500", script)
         self.assertIn("$SkipConstituentRefresh", script)
+        self.assertIn("--identity-audit", script)
 
     def test_run_builder_rejects_low_sec_match_rate(self):
         with tempfile.TemporaryDirectory() as tmp:

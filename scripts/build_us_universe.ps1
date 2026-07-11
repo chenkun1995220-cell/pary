@@ -1,6 +1,7 @@
 param(
   [string]$Symbols = "",
   [string]$Output = "",
+  [string]$IdentityAudit = "",
   [string]$Sp500Cache = "",
   [switch]$SkipConstituentRefresh
 )
@@ -15,6 +16,9 @@ if (-not $Symbols) {
 }
 if (-not $Output) {
   $Output = Join-Path $ProjectRoot "data\samples\us_universe_companies.csv"
+}
+if (-not $IdentityAudit) {
+  $IdentityAudit = Join-Path $ProjectRoot "outputs\us_universe\sec_identity_audit.csv"
 }
 if (-not $Sp500Cache) {
   $Sp500Cache = Join-Path $ProjectRoot "data\cache\sp500"
@@ -36,6 +40,7 @@ if (-not $SkipConstituentRefresh) {
 & $Python -B us_universe_builder.py `
   --symbols $Symbols `
   --output $Output `
+  --identity-audit $IdentityAudit `
   --user-agent $env:SEC_USER_AGENT `
   --minimum-match-rate 0.98
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
