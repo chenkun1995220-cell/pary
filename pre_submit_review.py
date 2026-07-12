@@ -266,6 +266,13 @@ INPUT_SPECS = {
         "version_field": "disposition_version",
         "version_value": 1,
     },
+    "human_decision_inbox": {
+        "path": "outputs/automation/latest_human_decision_inbox.json",
+        "schema_field": "inbox_schema",
+        "schema_value": "human_decision_inbox",
+        "version_field": "inbox_version",
+        "version_value": 1,
+    },
     "medium_term_goal_review": {
         "path": "outputs/automation/latest_medium_term_goal_review.json",
         "schema_field": "review_schema",
@@ -792,6 +799,9 @@ def run_pre_submit_review(
         _one_week_forecast_shadow_disposition_reasons(
             payloads.get("one_week_forecast_shadow_disposition", {})
         )
+    )
+    attention_reasons.extend(
+        _human_decision_inbox_reasons(payloads.get("human_decision_inbox", {}))
     )
     attention_reasons.extend(_medium_term_goal_review_reasons(payloads.get("medium_term_goal_review", {})))
     attention_reasons.extend(
@@ -3217,6 +3227,31 @@ def _one_week_forecast_shadow_disposition_reasons(payload):
         for candidate in candidates
     ):
         reasons.append("one_week_forecast_shadow_disposition_formal_model_change_unsafe")
+    return reasons
+
+
+def _human_decision_inbox_reasons(payload):
+    if not isinstance(payload, dict) or not payload:
+        return ["human_decision_inbox_missing"]
+    reasons = []
+    item_count = _int_value(payload.get("item_count"), 0)
+    pending_count = _int_value(payload.get("pending_count"), 0)
+    decided_count = _int_value(payload.get("decided_count"), 0)
+    invalid_count = _int_value(payload.get("invalid_decision_count"), 0)
+    if item_count != pending_count + decided_count:
+        reasons.append("human_decision_inbox_count_mismatch")
+    if invalid_count > 0:
+        reasons.append("human_decision_inbox_invalid_decisions")
+    if payload.get("status") == "blocked":
+        reasons.append("human_decision_inbox_blocked")
+    if payload.get("issues") and invalid_count == 0:
+        reasons.append("human_decision_inbox_source_issues")
+    if payload.get("trade_execution_allowed") is not False:
+        reasons.append("human_decision_inbox_trade_execution_allowed")
+    if payload.get("formal_model_change_allowed") is not False:
+        reasons.append("human_decision_inbox_formal_model_change_allowed")
+    if payload.get("formal_model_conclusion_allowed") is not False:
+        reasons.append("human_decision_inbox_formal_model_conclusion_allowed")
     return reasons
 
 

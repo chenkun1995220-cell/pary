@@ -50,6 +50,7 @@ ONE_WEEK_FORECAST_SHADOW_REVIEW_PATH = "outputs/automation/latest_one_week_forec
 ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH = (
     "outputs/automation/latest_one_week_forecast_shadow_disposition.json"
 )
+HUMAN_DECISION_INBOX_PATH = "outputs/automation/latest_human_decision_inbox.json"
 FIRST_ONE_MONTH_FORECAST_EVALUATION_PATH = (
     "outputs/automation/latest_first_one_month_forecast_evaluation_review.json"
 )
@@ -268,6 +269,14 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             project_root,
             forecast_shadow_disposition,
             project_root / ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH,
+        )
+
+    human_decision_inbox = read_json(project_root / HUMAN_DECISION_INBOX_PATH)
+    if isinstance(human_decision_inbox, dict):
+        state["human_decision_inbox"] = normalize_human_decision_inbox(
+            project_root / HUMAN_DECISION_INBOX_PATH,
+            human_decision_inbox,
+            project_root=project_root,
         )
 
     backtest_review = read_json(project_root / BACKTEST_EVIDENCE_REVIEW_PATH)
@@ -586,6 +595,26 @@ def normalize_forecast_shadow_disposition(project_root, payload, path):
     }
 
 
+def normalize_human_decision_inbox(path, payload, project_root=None):
+    display_path = str(path)
+    if project_root is not None:
+        display_path = relative_path(project_root, path)
+    return {
+        "status": payload.get("status", "missing"),
+        "as_of_date": payload.get("as_of_date"),
+        "item_count": to_int(payload.get("item_count")),
+        "pending_count": to_int(payload.get("pending_count")),
+        "decided_count": to_int(payload.get("decided_count")),
+        "invalid_decision_count": to_int(payload.get("invalid_decision_count")),
+        "trade_execution_allowed": bool(payload.get("trade_execution_allowed")),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "formal_model_conclusion_allowed": bool(
+            payload.get("formal_model_conclusion_allowed")
+        ),
+        "path": display_path,
+    }
+
+
 def normalize_backtest_evidence_review(project_root, payload, path):
     return {
         "status": payload.get("status") or payload.get("evidence_status") or "unknown",
@@ -835,6 +864,7 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
     first_one_month = automation.get("first_one_month_forecast_evaluation", {})
     backtest_review = automation.get("backtest_evidence_review", {})
     data_health = automation.get("data_health_review", {})
+    human_decisions = automation.get("human_decision_inbox", {})
     data_health_counts = data_health.get("data_health_triage_counts", {}) or {}
     formal_flags = [
         candidate_review.get("formal_model_change_allowed"),
@@ -844,6 +874,7 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         first_one_month.get("formal_model_change_allowed"),
         first_one_month.get("formal_model_conclusion_allowed"),
         backtest_review.get("formal_model_change_allowed"),
+        human_decisions.get("formal_model_change_allowed"),
     ]
     return {
         "candidate_count_total": to_int(candidate_review.get("candidate_count")) or len(candidates),
@@ -918,6 +949,13 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
             "monitor_only": to_int(data_health_counts.get("monitor_only")),
         },
         "weekly_action_item_count": to_int(automation.get("weekly_action_items", {}).get("item_count")),
+        "human_decision_inbox_status": human_decisions.get("status", "missing"),
+        "human_decision_item_count": to_int(human_decisions.get("item_count")),
+        "human_decision_pending_count": to_int(human_decisions.get("pending_count")),
+        "human_decision_decided_count": to_int(human_decisions.get("decided_count")),
+        "human_decision_invalid_count": to_int(
+            human_decisions.get("invalid_decision_count")
+        ),
         "priority_action_count": len(priority_actions or []),
         "formal_model_change_allowed": any(flag is True for flag in formal_flags),
     }

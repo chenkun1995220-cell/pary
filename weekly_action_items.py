@@ -29,6 +29,7 @@ DEFAULT_ONE_WEEK_FORECAST_SHADOW_REVIEW = (
 DEFAULT_ONE_WEEK_FORECAST_CALIBRATION_REVIEW = (
     "outputs/automation/latest_one_week_forecast_calibration_review.json"
 )
+DEFAULT_HUMAN_DECISION_INBOX = "outputs/automation/latest_human_decision_inbox.json"
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
 DEFAULT_CANDIDATE_FINDINGS_REVIEW = "outputs/automation/latest_candidate_findings_review.json"
@@ -454,6 +455,22 @@ def _backtest_evidence_decision_text(manifest):
 
 
 def _action_template(action_code, manifest):
+    if action_code == "review_human_decision_inbox":
+        inbox = manifest.get("human_decision_inbox", {}) or {}
+        return {
+            "title": "复核统一人工决策收件箱",
+            "category": "decision_governance",
+            "priority": "high" if inbox.get("invalid_decision_count", 0) else "normal",
+            "source": (
+                f"pending={inbox.get('pending_count', 0)}; "
+                f"decided={inbox.get('decided_count', 0)}; "
+                f"invalid={inbox.get('invalid_decision_count', 0)}"
+            ),
+            "recommended_check": (
+                "在 data/manual/human_decision_authorizations.csv 中登记人工决定；"
+                "决定只影响研究或影子验证，不允许交易或修改正式模型。"
+            ),
+        }
     first_month = manifest.get("first_one_month_forecast_evaluation", {})
     if not isinstance(first_month, dict):
         first_month = {}
@@ -1516,6 +1533,7 @@ def build_weekly_action_items(
     backtest_evidence_review=None,
     quote_retry_results=None,
     weekly_delivery_history=None,
+    human_decision_inbox=None,
 ):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
@@ -1535,6 +1553,7 @@ def build_weekly_action_items(
     backtest_evidence_payload = load_optional_json(backtest_evidence_review)
     quote_retry_payload = load_optional_json(quote_retry_results)
     weekly_delivery_history_payload = load_optional_json(weekly_delivery_history)
+    human_decision_payload = load_optional_json(human_decision_inbox)
     if manual_review_rows:
         source["manual_review_queue_items"] = manual_review_rows
     if data_health_payload:
@@ -1547,6 +1566,8 @@ def build_weekly_action_items(
         source["quote_retry_results"] = quote_retry_payload
     if weekly_delivery_history_payload:
         source["weekly_delivery_history"] = weekly_delivery_history_payload
+    if human_decision_payload:
+        source["human_decision_inbox"] = human_decision_payload
     if forecast_performance_review:
         manifest_forecast = source.get("forecast_performance", {})
         if not isinstance(manifest_forecast, dict):
@@ -1574,6 +1595,12 @@ def build_weekly_action_items(
         "confirm_membership_evidence_apply_preview",
     }
     items = []
+    if human_decision_payload and (
+        int(human_decision_payload.get("pending_count", 0) or 0) > 0
+        or int(human_decision_payload.get("invalid_decision_count", 0) or 0) > 0
+    ):
+        actions.append("review_human_decision_inbox")
+        actions = list(dict.fromkeys(actions))
     for index, action_code in enumerate(actions, start=1):
         if evidence_ceiling_confirmed and action_code in historical_evidence_actions:
             continue
@@ -1707,6 +1734,7 @@ def build_weekly_action_items(
             candidate_findings_payload,
             backtest_evidence_payload,
             quote_retry_payload,
+            human_decision_payload,
         ),
         "source_manifest": str(manifest_path),
         "automation_status": source.get("automation_status", "unknown"),
@@ -1826,6 +1854,7 @@ def main():
     parser.add_argument("--backtest-evidence-review", default=DEFAULT_BACKTEST_EVIDENCE_REVIEW)
     parser.add_argument("--quote-retry-results", default=DEFAULT_HK_QUOTE_RETRY_RESULTS)
     parser.add_argument("--weekly-delivery-history", default=DEFAULT_WEEKLY_DELIVERY_HISTORY)
+    parser.add_argument("--human-decision-inbox", default=DEFAULT_HUMAN_DECISION_INBOX)
     args = parser.parse_args()
 
     payload = build_weekly_action_items(
@@ -1846,6 +1875,7 @@ def main():
         backtest_evidence_review=args.backtest_evidence_review,
         quote_retry_results=args.quote_retry_results,
         weekly_delivery_history=args.weekly_delivery_history,
+        human_decision_inbox=args.human_decision_inbox,
     )
     report = render_weekly_action_items(payload)
     if args.output:

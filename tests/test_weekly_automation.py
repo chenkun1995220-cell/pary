@@ -8,6 +8,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WeeklyAutomationTests(unittest.TestCase):
+    def test_weekly_bundle_runs_human_decision_inbox_before_actions(self):
+        bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("run_human_decision_inbox.ps1", bundle)
+        inbox_index = bundle.index("run_human_decision_inbox.ps1")
+        self.assertGreater(
+            inbox_index, bundle.index("run_candidate_risk_resolution_review.ps1")
+        )
+        self.assertGreater(
+            inbox_index, bundle.index("run_one_week_forecast_shadow_disposition.ps1")
+        )
+        self.assertLess(inbox_index, bundle.index("show_weekly_action_items.ps1"))
+
     def test_weekly_reporting_bundle_is_fail_closed_for_post_check_failures(self):
         bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
             encoding="utf-8-sig"

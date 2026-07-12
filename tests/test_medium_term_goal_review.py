@@ -364,6 +364,24 @@ def write_review_fixtures(root):
 
 
 class MediumTermGoalReviewTests(unittest.TestCase):
+    def test_governance_goal_tracks_human_decision_inbox(self):
+        from medium_term_goal_review import _governance_goal
+
+        goal = _governance_goal(
+            {"governance_status": "ready", "status": "ready"},
+            {
+                "status": "manual_review_needed",
+                "item_count": 6,
+                "pending_count": 6,
+                "decided_count": 0,
+                "invalid_decision_count": 0,
+            },
+        )
+
+        self.assertEqual(goal["current"]["human_decision_pending_count"], 6)
+        self.assertEqual(goal["current"]["human_decision_decided_count"], 0)
+        self.assertEqual(goal["next_action"], "review_human_decision_inbox")
+
     def test_completed_candidate_deep_dives_raise_research_goal_without_clearing_manual_pending(self):
         from medium_term_goal_review import _candidate_review_goal, _goal_completion_percent
 

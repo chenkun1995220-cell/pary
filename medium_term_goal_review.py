@@ -42,6 +42,7 @@ INPUT_FILES = {
     "sp500_current_membership_sources": "latest_sp500_current_membership_sources.json",
     "sp500_current_membership_source_review_status": "latest_sp500_current_membership_source_review_status.json",
     "sp500_current_membership_source_inbox_status": "latest_sp500_current_membership_source_inbox_status.json",
+    "human_decision_inbox": "latest_human_decision_inbox.json",
 }
 
 
@@ -1035,7 +1036,8 @@ def _backtest_goal(
     )
 
 
-def _governance_goal(pre_submit):
+def _governance_goal(pre_submit, human_decision_inbox=None):
+    human_decision_inbox = human_decision_inbox or {}
     status = "on_track" if pre_submit.get("governance_status") == "ready" else "needs_work"
     return _goal(
         "model_governance_handoff",
@@ -1055,9 +1057,29 @@ def _governance_goal(pre_submit):
             "independent_review_required": True,
             "evidence_replay_required": True,
             "task_closeout_progress_required": True,
+            "human_decision_inbox_status": human_decision_inbox.get("status", "missing"),
+            "human_decision_item_count": _int_value(human_decision_inbox.get("item_count")),
+            "human_decision_pending_count": _int_value(
+                human_decision_inbox.get("pending_count")
+            ),
+            "human_decision_decided_count": _int_value(
+                human_decision_inbox.get("decided_count")
+            ),
+            "human_decision_invalid_count": _int_value(
+                human_decision_inbox.get("invalid_decision_count")
+            ),
         },
         "建立不绑定具体模型的开发治理流程；运行时识别环境能力，按风险等级执行独立复核，并在模型或环境升级后重跑相同质量闸门。",
-        "review_governance_handoff" if status != "on_track" else "continue_governance_handoff",
+        (
+            "review_human_decision_inbox"
+            if _int_value(human_decision_inbox.get("pending_count")) > 0
+            or _int_value(human_decision_inbox.get("invalid_decision_count")) > 0
+            else (
+                "review_governance_handoff"
+                if status != "on_track"
+                else "continue_governance_handoff"
+            )
+        ),
     )
 
 
@@ -1110,6 +1132,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
     current_membership_source_inbox_status = inputs[
         "sp500_current_membership_source_inbox_status"
     ]
+    human_decision_inbox = inputs["human_decision_inbox"]
 
     core_delivery_status = _status_for_core(pre_submit, weekly_ops, automation_check)
     goals = [
@@ -1133,7 +1156,7 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
             current_membership_source_review_status,
             current_membership_source_inbox_status,
         ),
-        _governance_goal(pre_submit),
+        _governance_goal(pre_submit, human_decision_inbox),
     ]
     goals = _attach_goal_progress(goals)
     overall_completion_percent = _overall_completion_percent(goals)

@@ -835,6 +835,43 @@ def write_manifest_with_routed_forecast_delivery_health_reason(path):
 
 
 class WeeklyActionItemsTests(unittest.TestCase):
+    def test_adds_one_authoritative_human_decision_inbox_action(self):
+        from weekly_action_items import build_weekly_action_items
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "manifest.json"
+            write_manifest(manifest)
+            inbox = root / "latest_human_decision_inbox.json"
+            inbox.write_text(
+                json.dumps(
+                    {
+                        "inbox_schema": "human_decision_inbox",
+                        "inbox_version": 1,
+                        "as_of_date": "2026-07-12",
+                        "status": "manual_review_needed",
+                        "item_count": 6,
+                        "pending_count": 6,
+                        "decided_count": 0,
+                        "invalid_decision_count": 0,
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8-sig",
+            )
+
+            payload = build_weekly_action_items(
+                manifest, human_decision_inbox=inbox
+            )
+
+            matching = [
+                item
+                for item in payload["items"]
+                if item["action_code"] == "review_human_decision_inbox"
+            ]
+            self.assertEqual(len(matching), 1)
+            self.assertIn("pending=6", matching[0]["source"])
+
     def test_builds_action_items_from_self_analysis_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = Path(tmp) / "latest_self_analysis_manifest.json"
@@ -2238,6 +2275,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_candidate_findings_review.json"),
                     "--current-membership-source-inbox-status",
                     str(root / "latest_sp500_current_membership_source_inbox_status.json"),
+                    "--human-decision-inbox",
+                    str(root / "latest_human_decision_inbox.json"),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,
@@ -2267,6 +2306,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--manifest", script)
         self.assertIn("--output", script)
         self.assertIn("--report", script)
+        self.assertIn("--human-decision-inbox", script)
+        self.assertIn("latest_human_decision_inbox.json", script)
         self.assertIn("--membership-import-plan", script)
         self.assertIn("latest_membership_evidence_source_intake_status.json", script)
         self.assertIn("--membership-evidence-source-intake-status", script)

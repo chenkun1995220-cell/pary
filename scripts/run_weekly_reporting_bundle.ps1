@@ -50,6 +50,7 @@ $postSteps = @(
   @{ Label = "run_one_week_forecast_shadow_parameter_plan"; Script = "run_one_week_forecast_shadow_parameter_plan.ps1"; Critical = $true },
   @{ Label = "run_one_week_forecast_shadow_parameter_validation"; Script = "run_one_week_forecast_shadow_parameter_validation.ps1"; Critical = $true },
   @{ Label = "run_one_week_forecast_shadow_disposition"; Script = "run_one_week_forecast_shadow_disposition.ps1"; Critical = $true },
+  @{ Label = "run_human_decision_inbox"; Script = "run_human_decision_inbox.ps1"; Critical = $true },
   @{ Label = "refresh_self_analysis_after_shadow_disposition"; Script = "run_self_analysis.ps1"; Critical = $true },
   @{ Label = "show_automation_check"; Script = "show_automation_check.ps1"; Critical = $true },
   @{ Label = "show_weekly_action_items"; Script = "show_weekly_action_items.ps1"; Critical = $true },

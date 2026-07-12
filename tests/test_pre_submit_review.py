@@ -68,6 +68,23 @@ def write_csv(path, rows, fieldnames):
 
 def write_ready_review_inputs(root, as_of_date="2026-06-28"):
     root = Path(root)
+    write_json(
+        root / "outputs" / "automation" / "latest_human_decision_inbox.json",
+        {
+            "inbox_schema": "human_decision_inbox",
+            "inbox_version": 1,
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "item_count": 0,
+            "pending_count": 0,
+            "decided_count": 0,
+            "invalid_decision_count": 0,
+            "issues": [],
+            "trade_execution_allowed": False,
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+        },
+    )
     write_text(
         root / "docs" / "中期目标与模型协作规范.md",
         "\n".join(
@@ -1202,6 +1219,31 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
 
 
 class PreSubmitReviewTests(unittest.TestCase):
+    def test_human_decision_inbox_allows_valid_pending_but_rejects_unsafe_boundary(self):
+        from pre_submit_review import _human_decision_inbox_reasons
+
+        pending = {
+            "inbox_schema": "human_decision_inbox",
+            "inbox_version": 1,
+            "as_of_date": "2026-07-12",
+            "status": "manual_review_needed",
+            "item_count": 6,
+            "pending_count": 6,
+            "decided_count": 0,
+            "invalid_decision_count": 0,
+            "issues": [],
+            "trade_execution_allowed": False,
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+        }
+        self.assertEqual(_human_decision_inbox_reasons(pending), [])
+
+        unsafe = dict(pending, formal_model_change_allowed=True)
+        self.assertIn(
+            "human_decision_inbox_formal_model_change_allowed",
+            _human_decision_inbox_reasons(unsafe),
+        )
+
     def test_requires_ready_weekly_artifact_consistency(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

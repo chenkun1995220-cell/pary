@@ -187,6 +187,32 @@ def write_three_markets(root):
 
 
 class WeeklyConclusionReportTests(unittest.TestCase):
+    def test_normalizes_human_decision_inbox_counts_and_boundaries(self):
+        from weekly_conclusion_report import normalize_human_decision_inbox
+
+        result = normalize_human_decision_inbox(
+            Path("outputs/automation/latest_human_decision_inbox.json"),
+            {
+                "inbox_schema": "human_decision_inbox",
+                "inbox_version": 1,
+                "as_of_date": "2026-07-12",
+                "status": "manual_review_needed",
+                "item_count": 6,
+                "pending_count": 6,
+                "decided_count": 0,
+                "invalid_decision_count": 0,
+                "trade_execution_allowed": False,
+                "formal_model_change_allowed": False,
+                "formal_model_conclusion_allowed": False,
+            },
+        )
+
+        self.assertEqual(result["item_count"], 6)
+        self.assertEqual(result["pending_count"], 6)
+        self.assertEqual(result["decided_count"], 0)
+        self.assertFalse(result["trade_execution_allowed"])
+        self.assertFalse(result["formal_model_change_allowed"])
+
     def test_builds_ready_markdown_and_json_from_three_markets(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
