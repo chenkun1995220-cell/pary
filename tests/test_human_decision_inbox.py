@@ -1,4 +1,5 @@
 import json
+import csv
 import tempfile
 import unittest
 from pathlib import Path
@@ -84,6 +85,24 @@ def write_sources(root, as_of_date="2026-07-12"):
     )
 
 
+def write_authorizations(root, rows):
+    path = root / "data" / "manual" / "human_decision_authorizations.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields = [
+        "decision_key",
+        "decision",
+        "decided_by",
+        "decided_at",
+        "decision_reason",
+        "boundary_acknowledgement",
+    ]
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
 class HumanDecisionInboxTests(unittest.TestCase):
     def test_builds_six_item_pending_inbox_from_current_sources(self):
         from human_decision_inbox import build_human_decision_inbox
@@ -134,6 +153,171 @@ class HumanDecisionInboxTests(unittest.TestCase):
             self.assertEqual(payload["status"], "ready")
             self.assertEqual(payload["recommended_action"], "monitor_next_run")
             self.assertEqual(payload["item_count"], 0)
+
+    def test_validates_type_specific_decisions(self):
+        from human_decision_inbox import build_human_decision_inbox
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_sources(root)
+            write_authorizations(
+                root,
+                [
+                    {
+                        "decision_key": "candidate_risk|港股周筛|06110.HK|2026-07-12",
+                        "decision": "approve_for_continued_research",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:30:00+08:00",
+                        "decision_reason": "研究底稿完整，继续观察基本面",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                    {
+                        "decision_key": "forecast_shadow|shadow_demote_down_signal_to_neutral|2026-07-12",
+                        "decision": "approve_for_extended_shadow_validation",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:31:00+08:00",
+                        "decision_reason": "允许积累更多影子样本",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                ],
+            )
+
+            payload = build_human_decision_inbox(root, as_of_date="2026-07-12")
+
+            self.assertEqual(payload["decided_count"], 2)
+            self.assertEqual(payload["pending_count"], 4)
+            self.assertEqual(payload["invalid_decision_count"], 0)
+            decided = {
+                item["decision_key"]: item
+                for item in payload["items"]
+                if item["decision_status"] == "decided"
+            }
+            self.assertEqual(
+                decided["candidate_risk|港股周筛|06110.HK|2026-07-12"]["decision"],
+                "approve_for_continued_research",
+            )
+            self.assertEqual(
+                decided[
+                    "forecast_shadow|shadow_demote_down_signal_to_neutral|2026-07-12"
+                ]["decision"],
+                "approve_for_extended_shadow_validation",
+            )
+
+    def test_rejects_conflicts_invalid_fields_and_old_batch_decisions(self):
+        from human_decision_inbox import build_human_decision_inbox
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_sources(root)
+            write_authorizations(
+                root,
+                [
+                    {
+                        "decision_key": "candidate_risk|港股周筛|06110.HK|2026-07-12",
+                        "decision": "approve_for_extended_shadow_validation",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:30:00+08:00",
+                        "decision_reason": "错误类型决定",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                    {
+                        "decision_key": "candidate_risk|港股周筛|09698.HK|2026-07-12",
+                        "decision": "continue_observation",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:31:00+08:00",
+                        "decision_reason": "",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                    {
+                        "decision_key": "candidate_risk|港股周筛|02367.HK|2026-07-12",
+                        "decision": "continue_observation",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:32:00+08:00",
+                        "decision_reason": "先观察",
+                        "boundary_acknowledgement": "wrong_boundary",
+                    },
+                    {
+                        "decision_key": "candidate_risk|港股周筛|00512.HK|2026-07-12",
+                        "decision": "continue_observation",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:33:00+08:00",
+                        "decision_reason": "先观察",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                    {
+                        "decision_key": "candidate_risk|港股周筛|00512.HK|2026-07-12",
+                        "decision": "reject_candidate_research",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:34:00+08:00",
+                        "decision_reason": "冲突决定",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                    {
+                        "decision_key": "candidate_risk|港股周筛|00288.HK|2026-07-05",
+                        "decision": "continue_observation",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-05T15:30:00+08:00",
+                        "decision_reason": "旧批次",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                ],
+            )
+
+            payload = build_human_decision_inbox(root, as_of_date="2026-07-12")
+
+            self.assertEqual(payload["decided_count"], 0)
+            self.assertEqual(payload["pending_count"], 6)
+            self.assertEqual(payload["invalid_decision_count"], 4)
+            self.assertIn(
+                "conflicting_authorizations:candidate_risk|港股周筛|00512.HK|2026-07-12",
+                payload["issues"],
+            )
+            self.assertTrue(
+                all(item["decision_status"] == "pending" for item in payload["items"])
+            )
+
+    def test_decision_history_is_idempotent(self):
+        from human_decision_inbox import (
+            append_decision_history,
+            build_human_decision_inbox,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_sources(root)
+            write_authorizations(
+                root,
+                [
+                    {
+                        "decision_key": "candidate_risk|港股周筛|06110.HK|2026-07-12",
+                        "decision": "approve_for_continued_research",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:30:00+08:00",
+                        "decision_reason": "继续研究",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                    {
+                        "decision_key": "forecast_shadow|shadow_demote_down_signal_to_neutral|2026-07-12",
+                        "decision": "approve_for_extended_shadow_validation",
+                        "decided_by": "user",
+                        "decided_at": "2026-07-12T15:31:00+08:00",
+                        "decision_reason": "继续影子验证",
+                        "boundary_acknowledgement": "human_decision_only_no_trade_or_model_change",
+                    },
+                ],
+            )
+            payload = build_human_decision_inbox(root, as_of_date="2026-07-12")
+            history = root / "outputs" / "automation" / "human_decision_history.csv"
+
+            self.assertEqual(append_decision_history(payload, history), 2)
+            self.assertEqual(append_decision_history(payload, history), 0)
+            with history.open("r", encoding="utf-8-sig", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(
+                len({(row["decision_key"], row["decision"], row["decided_at"]) for row in rows}),
+                2,
+            )
 
 
 if __name__ == "__main__":

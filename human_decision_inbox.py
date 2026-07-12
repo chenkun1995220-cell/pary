@@ -23,6 +23,17 @@ AUTHORIZATION_FIELDS = [
     "decision_reason",
     "boundary_acknowledgement",
 ]
+HISTORY_FIELDS = [
+    "history_key",
+    "decision_key",
+    "item_type",
+    "source_as_of_date",
+    "decision",
+    "decided_by",
+    "decided_at",
+    "decision_reason",
+    "boundary_acknowledgement",
+]
 CANDIDATE_DECISIONS = [
     "approve_for_continued_research",
     "downgrade_to_watchlist",
@@ -153,6 +164,45 @@ def _source_issues(risk_payload, shadow_payload, as_of_date):
     return issues
 
 
+def validate_authorizations(items, rows):
+    current = {item["decision_key"]: item for item in items}
+    grouped = {}
+    for raw in rows:
+        key = str(raw.get("decision_key", "")).strip()
+        if key in current:
+            normalized = {field: str(raw.get(field, "")).strip() for field in AUTHORIZATION_FIELDS}
+            signature = tuple(normalized[field] for field in AUTHORIZATION_FIELDS)
+            grouped.setdefault(key, {})[signature] = normalized
+
+    valid = {}
+    issues = []
+    invalid_keys = set()
+    for key, unique_rows in grouped.items():
+        rows_for_key = list(unique_rows.values())
+        decisions = {row["decision"] for row in rows_for_key}
+        if len(decisions) > 1:
+            issues.append(f"conflicting_authorizations:{key}")
+            invalid_keys.add(key)
+            continue
+        row = rows_for_key[0]
+        item = current[key]
+        allowed = set(item.get("allowed_decisions", []))
+        reasons = []
+        if row["decision"] not in allowed:
+            reasons.append("decision_not_allowed_for_item_type")
+        for field in ("decided_by", "decided_at", "decision_reason"):
+            if not row[field]:
+                reasons.append(f"{field}_missing")
+        if row["boundary_acknowledgement"] != BOUNDARY:
+            reasons.append("boundary_acknowledgement_invalid")
+        if reasons:
+            issues.extend(f"invalid_authorization:{key}:{reason}" for reason in reasons)
+            invalid_keys.add(key)
+            continue
+        valid[key] = row
+    return valid, issues, len(invalid_keys)
+
+
 def build_human_decision_inbox(
     project_root=".",
     candidate_risk_review=DEFAULT_RISK_REVIEW,
@@ -164,31 +214,49 @@ def build_human_decision_inbox(
     effective_date = str(as_of_date or date.today().isoformat())
     risk_payload = _read_json(root / candidate_risk_review)
     shadow_payload = _read_json(root / shadow_disposition)
-    issues = _source_issues(risk_payload, shadow_payload, effective_date)
+    source_issues = _source_issues(risk_payload, shadow_payload, effective_date)
     items = []
     if isinstance(risk_payload, dict):
         items.extend(_candidate_items(risk_payload))
     if isinstance(shadow_payload, dict):
         items.extend(_shadow_items(shadow_payload))
+    decisions, decision_issues, invalid_decision_count = validate_authorizations(
+        items, _read_csv(root / authorizations)
+    )
+    decided_count = 0
     for item in items:
+        decision = decisions.get(item["decision_key"], {})
+        if decision:
+            decided_count += 1
         item.update(
             {
-                "decision_status": "pending",
-                "decision": "",
-                "decided_by": "",
-                "decided_at": "",
-                "decision_reason": "",
-                "boundary_acknowledgement": "",
+                "decision_status": "decided" if decision else "pending",
+                "decision": decision.get("decision", ""),
+                "decided_by": decision.get("decided_by", ""),
+                "decided_at": decision.get("decided_at", ""),
+                "decision_reason": decision.get("decision_reason", ""),
+                "boundary_acknowledgement": decision.get(
+                    "boundary_acknowledgement", ""
+                ),
                 "trade_execution_allowed": False,
                 "formal_model_change_allowed": False,
                 "formal_model_conclusion_allowed": False,
             }
         )
-    pending_count = len(items)
-    status = "blocked" if issues else ("manual_review_needed" if pending_count else "ready")
+    pending_count = len(items) - decided_count
+    issues = source_issues + decision_issues
+    status = (
+        "blocked"
+        if source_issues
+        else (
+            "manual_review_needed"
+            if pending_count or invalid_decision_count
+            else "ready"
+        )
+    )
     recommended_action = (
         "repair_human_decision_inbox_sources"
-        if issues
+        if source_issues
         else ("review_human_decision_inbox" if pending_count else "monitor_next_run")
     )
     return {
@@ -199,8 +267,8 @@ def build_human_decision_inbox(
         "recommended_action": recommended_action,
         "item_count": len(items),
         "pending_count": pending_count,
-        "decided_count": 0,
-        "invalid_decision_count": 0,
+        "decided_count": decided_count,
+        "invalid_decision_count": invalid_decision_count,
         "items": items,
         "issues": issues,
         "authorization_source": str(authorizations),
@@ -282,6 +350,54 @@ def write_authorization_template(path):
     return True
 
 
+def append_decision_history(payload, path):
+    path = Path(path)
+    existing = []
+    if path.exists():
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            existing = list(csv.DictReader(handle))
+    known = {str(row.get("history_key", "")) for row in existing}
+    additions = []
+    for item in payload.get("items", []):
+        if item.get("decision_status") != "decided":
+            continue
+        history_key = "|".join(
+            [
+                str(item.get("decision_key", "")),
+                str(item.get("decision", "")),
+                str(item.get("decided_at", "")),
+            ]
+        )
+        if history_key in known:
+            continue
+        additions.append(
+            {
+                "history_key": history_key,
+                "decision_key": item.get("decision_key", ""),
+                "item_type": item.get("item_type", ""),
+                "source_as_of_date": item.get("source_as_of_date", ""),
+                "decision": item.get("decision", ""),
+                "decided_by": item.get("decided_by", ""),
+                "decided_at": item.get("decided_at", ""),
+                "decision_reason": item.get("decision_reason", ""),
+                "boundary_acknowledgement": item.get(
+                    "boundary_acknowledgement", ""
+                ),
+            }
+        )
+        known.add(history_key)
+    if not additions:
+        return 0
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=HISTORY_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(existing + additions)
+    temporary.replace(path)
+    return len(additions)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build the unified human decision inbox.")
     parser.add_argument("--project-root", default=".")
@@ -307,6 +423,7 @@ def main():
     write_text(render_human_decision_inbox(payload), root / args.report)
     write_inbox_csv(payload, root / args.csv_output)
     write_authorization_template(root / args.authorization_template)
+    append_decision_history(payload, root / args.history)
     print(json.dumps(payload, ensure_ascii=False))
 
 
