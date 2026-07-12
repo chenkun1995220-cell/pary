@@ -835,6 +835,54 @@ def write_manifest_with_routed_forecast_delivery_health_reason(path):
 
 
 class WeeklyActionItemsTests(unittest.TestCase):
+    def test_closes_stale_shadow_approval_action_after_inbox_decision(self):
+        from weekly_action_items import build_weekly_action_items
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "manifest.json"
+            write_manifest(manifest)
+            source = json.loads(manifest.read_text(encoding="utf-8-sig"))
+            source["automation_priority_actions"] = [
+                "review_shadow_candidate_approval",
+                "continue_sample_accumulation",
+            ]
+            manifest.write_text(
+                json.dumps(source, ensure_ascii=False), encoding="utf-8-sig"
+            )
+            inbox = root / "latest_human_decision_inbox.json"
+            inbox.write_text(
+                json.dumps(
+                    {
+                        "inbox_schema": "human_decision_inbox",
+                        "inbox_version": 1,
+                        "as_of_date": "2026-07-12",
+                        "status": "ready",
+                        "item_count": 1,
+                        "pending_count": 0,
+                        "decided_count": 1,
+                        "invalid_decision_count": 0,
+                        "items": [
+                            {
+                                "item_type": "forecast_shadow",
+                                "decision_status": "decided",
+                                "decision": "approve_for_extended_shadow_validation",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8-sig",
+            )
+
+            payload = build_weekly_action_items(
+                manifest, human_decision_inbox=inbox
+            )
+
+            action_codes = [item["action_code"] for item in payload["items"]]
+            self.assertNotIn("review_shadow_candidate_approval", action_codes)
+            self.assertIn("continue_sample_accumulation", action_codes)
+
     def test_adds_one_authoritative_human_decision_inbox_action(self):
         from weekly_action_items import build_weekly_action_items
 

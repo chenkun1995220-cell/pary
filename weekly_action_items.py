@@ -1515,6 +1515,23 @@ def _latest_as_of_date(*payloads):
     return max(dates) if dates else "unknown"
 
 
+def _shadow_approval_completed(human_decision_inbox):
+    if not isinstance(human_decision_inbox, dict):
+        return False
+    if human_decision_inbox.get("status") != "ready":
+        return False
+    if _int_value(human_decision_inbox.get("invalid_decision_count")) > 0:
+        return False
+    shadow_items = [
+        item
+        for item in human_decision_inbox.get("items", []) or []
+        if isinstance(item, dict) and item.get("item_type") == "forecast_shadow"
+    ]
+    return bool(shadow_items) and all(
+        item.get("decision_status") == "decided" for item in shadow_items
+    )
+
+
 def build_weekly_action_items(
     manifest,
     membership_import_plan=None,
@@ -1583,6 +1600,12 @@ def build_weekly_action_items(
     actions = list(source.get("automation_priority_actions", []) or [])
     if not actions:
         actions = [source.get("automation_recommended_action", "") or "continue_monitoring"]
+    if _shadow_approval_completed(human_decision_payload):
+        actions = [
+            action
+            for action in actions
+            if action != "review_shadow_candidate_approval"
+        ]
 
     evidence_ceiling_confirmed = (
         backtest_evidence_payload.get("evidence_ceiling_status")
