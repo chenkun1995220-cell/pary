@@ -835,6 +835,42 @@ def write_manifest_with_routed_forecast_delivery_health_reason(path):
 
 
 class WeeklyActionItemsTests(unittest.TestCase):
+    def test_closes_delivery_health_when_candidate_findings_is_already_routed(self):
+        from weekly_action_items import build_weekly_action_items
+
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            write_manifest(manifest)
+            source = json.loads(manifest.read_text(encoding="utf-8-sig"))
+            source["manual_review_queue_count"] = 0
+            source["automation_priority_actions"] = ["review_delivery_health_issues"]
+            source["weekly_delivery_history"] = {
+                "latest_manual_review_pending_count": 0,
+                "latest_conclusion_health_reasons": [
+                    "automation_check:manual_review_needed",
+                    "forecast_performance:performance_review_needed",
+                    "candidate_findings_review:manual_review_needed",
+                ],
+                "recurring_health_reasons": [
+                    {
+                        "reason": "candidate_findings_review:manual_review_needed",
+                        "count": 3,
+                    }
+                ],
+                "latest_conclusion_signal_status": "ready",
+                "latest_missing_conclusion_signals": [],
+                "latest_missing_conclusion_signal_fixes": {},
+                "recurring_missing_conclusion_signals": [],
+                "recurring_missing_conclusion_signal_fixes": [],
+            }
+            manifest.write_text(
+                json.dumps(source, ensure_ascii=False), encoding="utf-8-sig"
+            )
+
+            payload = build_weekly_action_items(manifest)
+
+            self.assertEqual(payload["items"], [])
+
     def test_closes_stale_shadow_approval_action_after_inbox_decision(self):
         from weekly_action_items import build_weekly_action_items
 
@@ -2325,6 +2361,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
                     str(root / "latest_sp500_current_membership_source_inbox_status.json"),
                     "--human-decision-inbox",
                     str(root / "latest_human_decision_inbox.json"),
+                    "--weekly-delivery-history",
+                    str(root / "latest_weekly_delivery_history_summary.json"),
                 ],
                 cwd=PROJECT_ROOT,
                 text=True,

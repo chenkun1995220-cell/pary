@@ -45,6 +45,7 @@ DEFAULT_SOURCE_FILE_ACCEPTED_TICKER_COLUMNS = [
 ]
 DELIVERY_HEALTH_MIRRORED_REASONS = {
     "automation_check:manual_review_needed",
+    "candidate_findings_review:manual_review_needed",
     "data_quality_history:manual_review_needed",
     "forecast_performance:performance_review_needed",
 }
