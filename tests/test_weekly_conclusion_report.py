@@ -187,6 +187,82 @@ def write_three_markets(root):
 
 
 class WeeklyConclusionReportTests(unittest.TestCase):
+    def test_weekly_conclusion_reconciles_approved_shadow_decision(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            automation = root / "outputs" / "automation"
+            write_json(
+                automation / "latest_one_week_forecast_shadow_disposition.json",
+                {
+                    "disposition_schema": "one_week_forecast_shadow_disposition",
+                    "disposition_version": 1,
+                    "as_of_date": "2026-06-28",
+                    "status": "ready",
+                    "recommended_action": "review_shadow_candidate_approval",
+                    "disposition_counts": {
+                        "continue_observation": 0,
+                        "rejected": 1,
+                        "pending_human_approval": 1,
+                    },
+                    "candidate_dispositions": [],
+                    "next_one_week_evaluation_date": "2026-07-13",
+                    "next_one_week_evaluation_count": 37,
+                    "formal_model_change_allowed": False,
+                },
+            )
+            write_json(
+                automation / "latest_human_decision_inbox.json",
+                {
+                    "inbox_schema": "human_decision_inbox",
+                    "inbox_version": 1,
+                    "as_of_date": "2026-06-28",
+                    "status": "ready",
+                    "item_count": 1,
+                    "pending_count": 0,
+                    "decided_count": 1,
+                    "invalid_decision_count": 0,
+                    "items": [
+                        {
+                            "item_type": "forecast_shadow",
+                            "decision_status": "decided",
+                            "decision": "approve_for_extended_shadow_validation",
+                        }
+                    ],
+                    "trade_execution_allowed": False,
+                    "formal_model_change_allowed": False,
+                    "formal_model_conclusion_allowed": False,
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+            summary = payload["integrated_review_summary"]
+            markdown = render_markdown(payload)
+
+            self.assertEqual(
+                summary["forecast_disposition_raw_pending_human_approval_count"], 1
+            )
+            self.assertEqual(
+                summary["forecast_disposition_pending_human_approval_count"], 0
+            )
+            self.assertEqual(
+                summary["forecast_disposition_approved_extended_validation_count"], 1
+            )
+            self.assertEqual(
+                summary["forecast_disposition_effective_status"],
+                "extended_shadow_validation_approved",
+            )
+            self.assertEqual(
+                summary["forecast_disposition_effective_recommended_action"],
+                "continue_extended_shadow_validation",
+            )
+            self.assertIn("原始待审批=1", markdown)
+            self.assertIn("有效待审批=0", markdown)
+            self.assertIn("已批准扩展验证=1", markdown)
+
     def test_normalizes_human_decision_inbox_counts_and_boundaries(self):
         from weekly_conclusion_report import normalize_human_decision_inbox
 

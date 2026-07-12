@@ -599,6 +599,13 @@ def normalize_human_decision_inbox(path, payload, project_root=None):
     display_path = str(path)
     if project_root is not None:
         display_path = relative_path(project_root, path)
+    shadow_decisions = [
+        item.get("decision", "")
+        for item in payload.get("items", []) or []
+        if isinstance(item, dict)
+        and item.get("item_type") == "forecast_shadow"
+        and item.get("decision_status") == "decided"
+    ]
     return {
         "status": payload.get("status", "missing"),
         "as_of_date": payload.get("as_of_date"),
@@ -606,6 +613,16 @@ def normalize_human_decision_inbox(path, payload, project_root=None):
         "pending_count": to_int(payload.get("pending_count")),
         "decided_count": to_int(payload.get("decided_count")),
         "invalid_decision_count": to_int(payload.get("invalid_decision_count")),
+        "forecast_shadow_decided_count": len(shadow_decisions),
+        "forecast_shadow_approved_extended_count": shadow_decisions.count(
+            "approve_for_extended_shadow_validation"
+        ),
+        "forecast_shadow_rejected_count": shadow_decisions.count(
+            "reject_shadow_candidate"
+        ),
+        "forecast_shadow_continue_observation_count": shadow_decisions.count(
+            "continue_observation"
+        ),
         "trade_execution_allowed": bool(payload.get("trade_execution_allowed")),
         "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
         "formal_model_conclusion_allowed": bool(
@@ -865,6 +882,21 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
     backtest_review = automation.get("backtest_evidence_review", {})
     data_health = automation.get("data_health_review", {})
     human_decisions = automation.get("human_decision_inbox", {})
+    raw_shadow_pending = to_int(
+        forecast_disposition.get("pending_human_approval_count")
+    )
+    decided_shadow_count = to_int(
+        human_decisions.get("forecast_shadow_decided_count")
+    )
+    effective_shadow_pending = max(raw_shadow_pending - decided_shadow_count, 0)
+    approved_extended_count = to_int(
+        human_decisions.get("forecast_shadow_approved_extended_count")
+    )
+    effective_disposition_status = forecast_disposition.get("status", "unknown")
+    effective_disposition_action = forecast_disposition.get("recommended_action", "")
+    if effective_shadow_pending == 0 and approved_extended_count > 0:
+        effective_disposition_status = "extended_shadow_validation_approved"
+        effective_disposition_action = "continue_extended_shadow_validation"
     data_health_counts = data_health.get("data_health_triage_counts", {}) or {}
     formal_flags = [
         candidate_review.get("formal_model_change_allowed"),
@@ -907,9 +939,11 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
             forecast_disposition.get("continue_observation_count")
         ),
         "forecast_disposition_rejected_count": to_int(forecast_disposition.get("rejected_count")),
-        "forecast_disposition_pending_human_approval_count": to_int(
-            forecast_disposition.get("pending_human_approval_count")
-        ),
+        "forecast_disposition_raw_pending_human_approval_count": raw_shadow_pending,
+        "forecast_disposition_pending_human_approval_count": effective_shadow_pending,
+        "forecast_disposition_approved_extended_validation_count": approved_extended_count,
+        "forecast_disposition_effective_status": effective_disposition_status,
+        "forecast_disposition_effective_recommended_action": effective_disposition_action,
         "forecast_disposition_next_one_week_evaluation_date": forecast_disposition.get(
             "next_one_week_evaluation_date", ""
         ),
@@ -992,12 +1026,24 @@ def render_integrated_review_summary_section(payload):
         )
     )
     lines.append(
-        "| 预测影子处置 | {status} | 继续观察={observing}; 已驳回={rejected}; 待人工审批={approval}; 下一批={next_date} | shadow_only; formal_model_unchanged |".format(
-            status=escape_cell(summary.get("forecast_disposition_status", "unknown")),
+        "| 预测影子处置 | {status} | 继续观察={observing}; 已驳回={rejected}; 原始待审批={raw_approval}; 有效待审批={approval}; 已批准扩展验证={approved}; 下一批={next_date} | {action}; shadow_only; formal_model_unchanged |".format(
+            status=escape_cell(
+                summary.get("forecast_disposition_effective_status", "unknown")
+            ),
             observing=escape_cell(summary.get("forecast_disposition_continue_observation_count", 0)),
             rejected=escape_cell(summary.get("forecast_disposition_rejected_count", 0)),
+            raw_approval=escape_cell(
+                summary.get("forecast_disposition_raw_pending_human_approval_count", 0)
+            ),
             approval=escape_cell(summary.get("forecast_disposition_pending_human_approval_count", 0)),
+            approved=escape_cell(
+                summary.get("forecast_disposition_approved_extended_validation_count", 0)
+            ),
             next_date=escape_cell(summary.get("forecast_disposition_next_one_week_evaluation_date") or "-"),
+            action=escape_cell(
+                summary.get("forecast_disposition_effective_recommended_action")
+                or "continue_shadow_monitoring"
+            ),
         )
     )
     lines.append(
