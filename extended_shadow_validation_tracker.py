@@ -96,6 +96,25 @@ def _approved_authorizations(rows):
     return list(approved_by_key.values())
 
 
+def _validate_decision_history_conflicts(rows):
+    decisions_by_key = {}
+    for row in rows:
+        if row.get("item_type") != "forecast_shadow":
+            continue
+        decision_key = str(row.get("decision_key", "") or "")
+        if not decision_key:
+            raise ValueError("authorization_decision_key_invalid")
+        decision = (
+            row.get("source_as_of_date", ""),
+            row.get("decision", ""),
+            row.get("boundary_acknowledgement", ""),
+        )
+        existing = decisions_by_key.get(decision_key)
+        if existing is not None and existing != decision:
+            raise ValueError("authorization_decision_key_conflict")
+        decisions_by_key[decision_key] = decision
+
+
 def _validate_sources(authorizations, inbox, disposition):
     if inbox.get("inbox_schema") != "human_decision_inbox" or inbox.get("status") != "ready":
         raise ValueError("decision_inbox_not_ready")
@@ -295,9 +314,22 @@ def build_extended_shadow_validation_tracker(
         history_rows = _read_jsonl(_path(root, validation_history))
         inbox = _read_json(_path(root, decision_inbox))
         disposition = _read_json(_path(root, shadow_disposition))
+        _validate_decision_history_conflicts(decisions)
         authorizations = _approved_authorizations(decisions)
         _validate_sources(authorizations, inbox, disposition)
         logical_history = _logical_history(history_rows)
+        approved_actions = {authorization["action_code"] for authorization in authorizations}
+        if any(
+            row.get("action_code") in approved_actions
+            and str(row.get("evaluation_as_of_date", "")) > effective_date
+            for row in logical_history.values()
+        ):
+            raise ValueError("validation_history_batch_in_future")
+        if any(
+            authorization["authorization_date"] > effective_date
+            for authorization in authorizations
+        ):
+            raise ValueError("authorization_date_in_future")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return _blocked_payload(effective_date, [str(exc)])
 

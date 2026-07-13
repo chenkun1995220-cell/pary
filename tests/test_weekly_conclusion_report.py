@@ -187,6 +187,38 @@ def write_three_markets(root):
 
 
 class WeeklyConclusionReportTests(unittest.TestCase):
+    def test_extended_shadow_tracker_lifecycle_statuses_are_classified_explicitly(self):
+        from weekly_conclusion_report import decide_status
+
+        for status in (
+            "active",
+            "ready_for_reapproval",
+            "paused_severe_deterioration",
+            "paused_two_consecutive_negative_batches",
+            "inactive",
+        ):
+            with self.subTest(status=status):
+                self.assertEqual(
+                    decide_status(
+                        [{"status": "ready"}],
+                        [{"ticker": "TEST"}],
+                        {"extended_shadow_validation_tracker": {"status": status}},
+                        [],
+                        [],
+                    ),
+                    "ready",
+                )
+        self.assertEqual(
+            decide_status(
+                [{"status": "ready"}],
+                [{"ticker": "TEST"}],
+                {"extended_shadow_validation_tracker": {"status": "blocked"}},
+                [],
+                [],
+            ),
+            "needs_attention",
+        )
+
     def test_weekly_conclusion_displays_extended_shadow_progress(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

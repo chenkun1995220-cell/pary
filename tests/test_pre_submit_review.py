@@ -1265,12 +1265,15 @@ class PreSubmitReviewTests(unittest.TestCase):
                     "negative_batch_count": 0,
                     "not_evaluable_batch_count": 0,
                     "severe_deterioration_batch_count": 0,
+                    "consecutive_negative_batch_count": 0,
                     "remaining_evaluable_batch_count": 2,
                     "status": "active",
                     "recommended_action": "continue_extended_shadow_validation",
                     "batches": [
                         {
                             "batch_key": "shadow_demote_down_signal_to_neutral|2026-07-19",
+                            "action_code": "shadow_demote_down_signal_to_neutral",
+                            "evaluation_as_of_date": "2026-07-19",
                             "classification": "positive",
                         }
                     ],
@@ -1329,6 +1332,44 @@ class PreSubmitReviewTests(unittest.TestCase):
             "extended_shadow_validation_tracker_duplicate_batch_keys",
             _extended_shadow_validation_tracker_reasons(
                 duplicate, today="2026-07-19", max_age_days=8
+            ),
+        )
+
+        state_mismatch = json.loads(json.dumps(active))
+        state_mismatch["items"][0]["batches"][0]["classification"] = (
+            "severe_deterioration"
+        )
+        state_mismatch["items"][0]["evaluable_batch_count"] = 0
+        state_mismatch["items"][0]["positive_batch_count"] = 0
+        state_mismatch["items"][0]["severe_deterioration_batch_count"] = 1
+        state_mismatch["items"][0]["remaining_evaluable_batch_count"] = 3
+        self.assertIn(
+            "extended_shadow_validation_tracker_state_action_mismatch",
+            _extended_shadow_validation_tracker_reasons(
+                state_mismatch, today="2026-07-19", max_age_days=8
+            ),
+        )
+
+        future_batch = json.loads(json.dumps(active))
+        future_batch["items"][0]["batches"][0]["evaluation_as_of_date"] = (
+            "2026-07-20"
+        )
+        self.assertIn(
+            "extended_shadow_validation_tracker_batch_invalid",
+            _extended_shadow_validation_tracker_reasons(
+                future_batch, today="2026-07-19", max_age_days=8
+            ),
+        )
+
+        inactive_with_active_item = dict(
+            active,
+            status="inactive",
+            recommended_action="monitor_shadow_authorizations",
+        )
+        self.assertIn(
+            "extended_shadow_validation_tracker_state_action_mismatch",
+            _extended_shadow_validation_tracker_reasons(
+                inactive_with_active_item, today="2026-07-19", max_age_days=8
             ),
         )
 

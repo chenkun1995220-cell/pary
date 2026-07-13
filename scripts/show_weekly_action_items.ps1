@@ -15,6 +15,7 @@ param(
   [string]$BacktestEvidenceReview = "",
   [string]$WeeklyDeliveryHistory = "",
   [string]$HumanDecisionInbox = "",
+  [string]$ExtendedShadowValidationTracker = "",
   [string]$Output = "",
   [string]$Report = ""
 )
@@ -69,6 +70,9 @@ if (-not $WeeklyDeliveryHistory) {
 if (-not $HumanDecisionInbox) {
   $HumanDecisionInbox = Join-Path $ProjectRoot "outputs\automation\latest_human_decision_inbox.json"
 }
+if (-not $ExtendedShadowValidationTracker) {
+  $ExtendedShadowValidationTracker = Join-Path $ProjectRoot "outputs\automation\latest_extended_shadow_validation_tracker.json"
+}
 if (-not $Output) {
   $Output = Join-Path $ProjectRoot "outputs\automation\latest_weekly_action_items.json"
 }
@@ -79,7 +83,7 @@ if (-not $Report) {
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 $Script = Join-Path $ProjectRoot "weekly_action_items.py"
 
-& $Python -B $Script --manifest $Manifest --membership-import-plan $MembershipImportPlan --membership-apply-preview $MembershipApplyPreview --membership-evidence-source-intake-status $MembershipEvidenceSourceIntakeStatus --sp500-official-export-probe $Sp500OfficialExportProbe --current-membership-sources $CurrentMembershipSources --current-membership-source-review-status $CurrentMembershipSourceReviewStatus --current-membership-source-inbox-status $CurrentMembershipSourceInboxStatus --forecast-performance $ForecastPerformance --manual-review-queue $ManualReviewQueue --data-health-review $DataHealthReview --candidate-findings-review $CandidateFindingsReview --backtest-evidence-review $BacktestEvidenceReview --weekly-delivery-history $WeeklyDeliveryHistory --human-decision-inbox $HumanDecisionInbox --output $Output --report $Report
+& $Python -B $Script --manifest $Manifest --membership-import-plan $MembershipImportPlan --membership-apply-preview $MembershipApplyPreview --membership-evidence-source-intake-status $MembershipEvidenceSourceIntakeStatus --sp500-official-export-probe $Sp500OfficialExportProbe --current-membership-sources $CurrentMembershipSources --current-membership-source-review-status $CurrentMembershipSourceReviewStatus --current-membership-source-inbox-status $CurrentMembershipSourceInboxStatus --forecast-performance $ForecastPerformance --manual-review-queue $ManualReviewQueue --data-health-review $DataHealthReview --candidate-findings-review $CandidateFindingsReview --backtest-evidence-review $BacktestEvidenceReview --weekly-delivery-history $WeeklyDeliveryHistory --human-decision-inbox $HumanDecisionInbox --extended-shadow-validation-tracker $ExtendedShadowValidationTracker --output $Output --report $Report
 if ($LASTEXITCODE -ne 0) {
   throw "Weekly action items report failed with exit code $LASTEXITCODE."
 }

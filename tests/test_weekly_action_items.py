@@ -2463,6 +2463,8 @@ class WeeklyActionItemsTests(unittest.TestCase):
         self.assertIn("--report", script)
         self.assertIn("--human-decision-inbox", script)
         self.assertIn("latest_human_decision_inbox.json", script)
+        self.assertIn("--extended-shadow-validation-tracker", script)
+        self.assertIn("latest_extended_shadow_validation_tracker.json", script)
         self.assertIn("--membership-import-plan", script)
         self.assertIn("latest_membership_evidence_source_intake_status.json", script)
         self.assertIn("--membership-evidence-source-intake-status", script)

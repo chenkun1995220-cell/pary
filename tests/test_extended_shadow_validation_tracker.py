@@ -286,6 +286,32 @@ class ExtendedShadowValidationTrackerTests(unittest.TestCase):
 
         self.assert_blocked(root, "authorization_decision_key_conflict")
 
+    def test_approval_and_rejection_for_same_decision_key_block(self):
+        temporary, root = self.make_project([validation_row("2026-07-19")])
+        self.addCleanup(temporary.cleanup)
+        history_path = root / "outputs" / "automation" / "human_decision_history.csv"
+        with history_path.open("r", encoding="utf-8-sig", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+            fields = list(rows[0])
+        rejection = dict(rows[0])
+        rejection["history_key"] = rejection["history_key"].replace(
+            "approve_for_extended_shadow_validation", "reject_shadow_candidate"
+        )
+        rejection["decision"] = "reject_shadow_candidate"
+        rejection["decision_reason"] = "拒绝同一影子方案"
+        with history_path.open("w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows([rows[0], rejection])
+
+        self.assert_blocked(root, "authorization_decision_key_conflict")
+
+    def test_future_validation_batch_blocks_instead_of_consuming_allowance(self):
+        temporary, root = self.make_project([validation_row("2026-07-26")])
+        self.addCleanup(temporary.cleanup)
+
+        self.assert_blocked(root, "validation_history_batch_in_future")
+
     def test_invalid_authorization_boundary_blocks(self):
         temporary, root = self.make_project([validation_row("2026-07-19")])
         self.addCleanup(temporary.cleanup)

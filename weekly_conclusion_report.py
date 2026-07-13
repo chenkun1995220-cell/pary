@@ -399,11 +399,23 @@ def resolve_required_market_file(project_root, market_config, market_dir, filena
     return {"path": default_path, "exists": False}
 
 
+def is_acceptable_automation_status(key, status):
+    if key == "extended_shadow_validation_tracker":
+        return status in {
+            "active",
+            "ready_for_reapproval",
+            "paused_severe_deterioration",
+            "paused_two_consecutive_negative_batches",
+            "inactive",
+        }
+    return is_acceptable_status(status)
+
+
 def decide_status(markets, candidates, automation, missing_inputs, warnings):
     if not candidates and automation.get("automation_check", {}).get("status") == "missing":
         return "missing"
     automation_bad = any(
-        not is_acceptable_status(entry.get("status"))
+        not is_acceptable_automation_status(key, entry.get("status"))
         for key, entry in automation.items()
         if key not in NON_BLOCKING_AUTOMATION_STATUS_KEYS
     )
@@ -433,7 +445,7 @@ def summarize_health(status, automation, missing_inputs, warnings, manual_review
         if entry_status in {"manual_review_needed", "performance_review_needed"}:
             score -= 5 if key in LIGHT_REVIEW_AUTOMATION_STATUS_KEYS else 10
             reasons.append(f"{key}:{entry_status}")
-        elif not is_acceptable_status(entry_status):
+        elif not is_acceptable_automation_status(key, entry_status):
             score -= 25
             reasons.append(f"{key}:{entry_status}")
     pending_count = int(manual_review_decisions.get("pending_count", 0) or 0)

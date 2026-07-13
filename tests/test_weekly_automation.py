@@ -8,6 +8,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WeeklyAutomationTests(unittest.TestCase):
+    def test_weekly_bundle_runs_extended_shadow_tracker_before_governance(self):
+        bundle = (
+            PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1"
+        ).read_text(encoding="utf-8-sig")
+
+        tracker = bundle.index("run_extended_shadow_validation_tracker.ps1")
+        self.assertLess(bundle.index("run_human_decision_inbox.ps1"), tracker)
+        self.assertLess(tracker, bundle.index("refresh_self_analysis_after_shadow_disposition"))
+        self.assertLess(tracker, bundle.index("show_weekly_action_items.ps1"))
+
     def test_weekly_bundle_runs_human_decision_inbox_before_actions(self):
         bundle = (PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1").read_text(
             encoding="utf-8-sig"

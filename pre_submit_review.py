@@ -3340,6 +3340,7 @@ def _extended_shadow_validation_tracker_reasons(payload, today=None, max_age_day
         reasons.append("extended_shadow_validation_tracker_count_mismatch")
 
     batch_keys = []
+    derived_item_statuses = []
     for item in valid_items:
         item_status = item.get("status")
         if (
@@ -3352,6 +3353,8 @@ def _extended_shadow_validation_tracker_reasons(payload, today=None, max_age_day
         if not isinstance(batches, list):
             batches = []
             reasons.append("extended_shadow_validation_tracker_items_invalid")
+        if any(not isinstance(batch, dict) for batch in batches):
+            reasons.append("extended_shadow_validation_tracker_batch_invalid")
         classifications = [
             batch.get("classification")
             for batch in batches
@@ -3367,6 +3370,14 @@ def _extended_shadow_validation_tracker_reasons(payload, today=None, max_age_day
         not_evaluable = classifications.count("not_evaluable")
         severe = classifications.count("severe_deterioration")
         evaluable = positive + negative
+        evaluable_classifications = [
+            value for value in classifications if value in {"positive", "negative"}
+        ]
+        consecutive_negative = 0
+        for value in reversed(evaluable_classifications):
+            if value != "negative":
+                break
+            consecutive_negative += 1
         if (
             _int_value(item.get("post_approval_history_batch_count"), -1) != len(batches)
             or _int_value(item.get("evaluable_batch_count"), -1) != evaluable
@@ -3374,10 +3385,82 @@ def _extended_shadow_validation_tracker_reasons(payload, today=None, max_age_day
             or _int_value(item.get("negative_batch_count"), -1) != negative
             or _int_value(item.get("not_evaluable_batch_count"), -1) != not_evaluable
             or _int_value(item.get("severe_deterioration_batch_count"), -1) != severe
+            or _int_value(item.get("consecutive_negative_batch_count"), -1)
+            != consecutive_negative
             or _int_value(item.get("remaining_evaluable_batch_count"), -1)
             != max(3 - evaluable, 0)
         ):
             reasons.append("extended_shadow_validation_tracker_count_mismatch")
+
+        if severe:
+            derived_status = "paused_severe_deterioration"
+        elif len(evaluable_classifications) >= 2 and evaluable_classifications[-2:] == [
+            "negative",
+            "negative",
+        ]:
+            derived_status = "paused_two_consecutive_negative_batches"
+        elif evaluable >= 3:
+            derived_status = "ready_for_reapproval"
+        else:
+            derived_status = "active"
+        derived_item_statuses.append(derived_status)
+        if item_status != derived_status or item.get("recommended_action") != action_by_status.get(
+            derived_status
+        ):
+            reasons.append("extended_shadow_validation_tracker_state_action_mismatch")
+
+        action_code = item.get("action_code")
+        try:
+            authorization_date = _parse_iso_date(
+                item.get("authorization_date"), "authorization_date"
+            )
+        except ValueError:
+            authorization_date = None
+            reasons.append("extended_shadow_validation_tracker_batch_invalid")
+        previous_batch_date = None
+        for batch in batches:
+            if not isinstance(batch, dict):
+                continue
+            try:
+                batch_date = _parse_iso_date(
+                    batch.get("evaluation_as_of_date"), "evaluation_as_of_date"
+                )
+            except ValueError:
+                batch_date = None
+            expected_key = f"{action_code}|{batch.get('evaluation_as_of_date')}"
+            if (
+                batch.get("classification")
+                not in {"positive", "negative", "not_evaluable", "severe_deterioration"}
+                or batch.get("action_code") != action_code
+                or batch.get("batch_key") != expected_key
+                or batch_date is None
+                or tracker_date is None
+                or batch_date > tracker_date
+                or authorization_date is None
+                or batch_date <= authorization_date
+                or (previous_batch_date is not None and batch_date <= previous_batch_date)
+            ):
+                reasons.append("extended_shadow_validation_tracker_batch_invalid")
+            if batch_date is not None:
+                previous_batch_date = batch_date
+
+    if status != "blocked":
+        status_priority = [
+            "paused_severe_deterioration",
+            "paused_two_consecutive_negative_batches",
+            "ready_for_reapproval",
+            "active",
+        ]
+        derived_tracker_status = next(
+            (
+                candidate
+                for candidate in status_priority
+                if candidate in derived_item_statuses
+            ),
+            "inactive",
+        )
+        if status != derived_tracker_status:
+            reasons.append("extended_shadow_validation_tracker_state_action_mismatch")
 
     if len(batch_keys) != len(set(batch_keys)):
         reasons.append("extended_shadow_validation_tracker_duplicate_batch_keys")
