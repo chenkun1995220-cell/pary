@@ -44,7 +44,10 @@ def _read_jsonl(path):
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8-sig").splitlines(), 1):
         if not line.strip():
             continue
-        value = json.loads(line)
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError("validation_history_json_invalid") from exc
         if not isinstance(value, dict):
             raise ValueError(f"validation_history_row_not_object:{line_number}")
         rows.append(value)
@@ -70,25 +73,27 @@ def _authorization_identity(row):
 
 
 def _approved_authorizations(rows):
-    approved = []
+    approved_by_key = {}
     for row in rows:
         if row.get("item_type") != "forecast_shadow" or row.get("decision") != APPROVAL_DECISION:
             continue
         if row.get("boundary_acknowledgement") != BOUNDARY:
             raise ValueError("authorization_boundary_invalid")
         action_code, authorization_date = _authorization_identity(row)
-        approved.append(
-            {
-                "decision_key": row["decision_key"],
-                "action_code": action_code,
-                "authorization_date": authorization_date,
-                "decided_by": row.get("decided_by", ""),
-                "decided_at": row.get("decided_at", ""),
-                "decision_reason": row.get("decision_reason", ""),
-                "boundary_acknowledgement": row.get("boundary_acknowledgement", ""),
-            }
-        )
-    return approved
+        authorization = {
+            "decision_key": row["decision_key"],
+            "action_code": action_code,
+            "authorization_date": authorization_date,
+            "decided_by": row.get("decided_by", ""),
+            "decided_at": row.get("decided_at", ""),
+            "decision_reason": row.get("decision_reason", ""),
+            "boundary_acknowledgement": row.get("boundary_acknowledgement", ""),
+        }
+        existing = approved_by_key.get(row["decision_key"])
+        if existing is not None and existing != authorization:
+            raise ValueError("authorization_decision_key_conflict")
+        approved_by_key[row["decision_key"]] = authorization
+    return list(approved_by_key.values())
 
 
 def _validate_sources(authorizations, inbox, disposition):
@@ -140,6 +145,72 @@ def _logical_history(rows):
     return logical
 
 
+def classify_batch(rows):
+    severe_markets = sorted(
+        {
+            str(market.get("market", "") or "")
+            for row in rows
+            for market in row.get("market_results", []) or []
+            if isinstance(market, dict)
+            and (
+                market.get("severe_deterioration") is True
+                or market.get("severe_market_deterioration") is True
+            )
+            and market.get("market")
+        }
+    )
+    comparable_rows = [
+        row
+        for row in rows
+        if row.get("validation_status") == "validated"
+        and int(row.get("evaluation_sample_count") or 0) > 0
+        and row.get("shadow_hit_count") is not None
+    ]
+    comparable_sample_count = sum(
+        int(row.get("evaluation_sample_count") or 0) for row in comparable_rows
+    )
+    baseline_hit_count = sum(int(row.get("baseline_hit_count") or 0) for row in comparable_rows)
+    shadow_hit_count = sum(int(row.get("shadow_hit_count") or 0) for row in comparable_rows)
+    baseline_hit_rate = (
+        baseline_hit_count / comparable_sample_count if comparable_sample_count else None
+    )
+    shadow_hit_rate = shadow_hit_count / comparable_sample_count if comparable_sample_count else None
+    aggregate_delta = (
+        shadow_hit_rate - baseline_hit_rate if comparable_sample_count else None
+    )
+    if severe_markets:
+        classification = "severe_deterioration"
+    elif not comparable_sample_count:
+        classification = "not_evaluable"
+    elif aggregate_delta > 0:
+        classification = "positive"
+    else:
+        classification = "negative"
+    return {
+        "classification": classification,
+        "source_row_count": len(rows),
+        "comparable_sample_count": comparable_sample_count,
+        "baseline_hit_count": baseline_hit_count,
+        "shadow_hit_count": shadow_hit_count if comparable_sample_count else None,
+        "baseline_hit_rate": baseline_hit_rate,
+        "shadow_hit_rate": shadow_hit_rate,
+        "aggregate_hit_rate_delta": aggregate_delta,
+        "severe_markets": severe_markets,
+    }
+
+
+def classify_tracker_state(batches):
+    classifications = [batch.get("classification") for batch in batches]
+    if "severe_deterioration" in classifications:
+        return "paused_severe_deterioration", "request_shadow_safety_reapproval"
+    evaluable = [value for value in classifications if value in {"positive", "negative"}]
+    if len(evaluable) >= 2 and evaluable[-2:] == ["negative", "negative"]:
+        return "paused_two_consecutive_negative_batches", "request_shadow_safety_reapproval"
+    if len(evaluable) >= REQUIRED_BATCHES:
+        return "ready_for_reapproval", "review_extended_shadow_validation_results"
+    return "active", "continue_extended_shadow_validation"
+
+
 def _initial_item(authorization, history):
     action_code = authorization["action_code"]
     authorization_date = authorization["authorization_date"]
@@ -150,30 +221,37 @@ def _initial_item(authorization, history):
         and str(row.get("evaluation_as_of_date", "")) > authorization_date
     ]
     action_rows.sort(key=lambda row: row["evaluation_as_of_date"])
-    batches = [
-        {
-            "batch_key": f"{action_code}|{row['evaluation_as_of_date']}",
-            "action_code": action_code,
-            "evaluation_as_of_date": row["evaluation_as_of_date"],
-            "classification": "not_evaluable",
-            "evaluation_sample_count": int(row.get("evaluation_sample_count") or 0),
-            "baseline_hit_count": int(row.get("baseline_hit_count") or 0),
-            "shadow_hit_count": row.get("shadow_hit_count"),
-        }
-        for row in action_rows
-    ]
+    batches = []
+    for row in action_rows:
+        batch = classify_batch([row])
+        batch.update(
+            {
+                "batch_key": f"{action_code}|{row['evaluation_as_of_date']}",
+                "action_code": action_code,
+                "evaluation_as_of_date": row["evaluation_as_of_date"],
+            }
+        )
+        batches.append(batch)
+    classifications = [batch["classification"] for batch in batches]
+    evaluable = [value for value in classifications if value in {"positive", "negative"}]
+    consecutive_negative_count = 0
+    for value in reversed(evaluable):
+        if value != "negative":
+            break
+        consecutive_negative_count += 1
+    status, recommended_action = classify_tracker_state(batches)
     return {
         **authorization,
         "post_approval_history_batch_count": len(batches),
-        "evaluable_batch_count": 0,
-        "positive_batch_count": 0,
-        "negative_batch_count": 0,
-        "not_evaluable_batch_count": len(batches),
-        "severe_deterioration_batch_count": 0,
-        "consecutive_negative_batch_count": 0,
-        "remaining_evaluable_batch_count": REQUIRED_BATCHES,
-        "status": "active",
-        "recommended_action": "continue_extended_shadow_validation",
+        "evaluable_batch_count": len(evaluable),
+        "positive_batch_count": classifications.count("positive"),
+        "negative_batch_count": classifications.count("negative"),
+        "not_evaluable_batch_count": classifications.count("not_evaluable"),
+        "severe_deterioration_batch_count": classifications.count("severe_deterioration"),
+        "consecutive_negative_batch_count": consecutive_negative_count,
+        "remaining_evaluable_batch_count": max(REQUIRED_BATCHES - len(evaluable), 0),
+        "status": status,
+        "recommended_action": recommended_action,
         "batches": batches,
         "trade_execution_allowed": False,
         "formal_model_change_allowed": False,
@@ -224,10 +302,24 @@ def build_extended_shadow_validation_tracker(
         return _blocked_payload(effective_date, [str(exc)])
 
     items = [_initial_item(authorization, logical_history) for authorization in authorizations]
-    status = "active" if items else "inactive"
-    recommended_action = (
-        "continue_extended_shadow_validation" if items else "monitor_shadow_authorizations"
+    status_priority = [
+        "paused_severe_deterioration",
+        "paused_two_consecutive_negative_batches",
+        "ready_for_reapproval",
+        "active",
+    ]
+    status = next(
+        (value for value in status_priority if any(item["status"] == value for item in items)),
+        "inactive",
     )
+    action_by_status = {
+        "paused_severe_deterioration": "request_shadow_safety_reapproval",
+        "paused_two_consecutive_negative_batches": "request_shadow_safety_reapproval",
+        "ready_for_reapproval": "review_extended_shadow_validation_results",
+        "active": "continue_extended_shadow_validation",
+        "inactive": "monitor_shadow_authorizations",
+    }
+    recommended_action = action_by_status[status]
     return {
         "tracker_schema": TRACKER_SCHEMA,
         "tracker_version": TRACKER_VERSION,
@@ -235,9 +327,11 @@ def build_extended_shadow_validation_tracker(
         "status": status,
         "recommended_action": recommended_action,
         "authorization_count": len(items),
-        "active_authorization_count": len(items),
-        "ready_for_reapproval_count": 0,
-        "paused_count": 0,
+        "active_authorization_count": sum(item["status"] == "active" for item in items),
+        "ready_for_reapproval_count": sum(
+            item["status"] == "ready_for_reapproval" for item in items
+        ),
+        "paused_count": sum(item["status"].startswith("paused_") for item in items),
         "items": items,
         "issues": [],
         "boundary": BOUNDARY,
