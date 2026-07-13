@@ -43,6 +43,7 @@ INPUT_FILES = {
     "sp500_current_membership_source_review_status": "latest_sp500_current_membership_source_review_status.json",
     "sp500_current_membership_source_inbox_status": "latest_sp500_current_membership_source_inbox_status.json",
     "human_decision_inbox": "latest_human_decision_inbox.json",
+    "extended_shadow_validation_tracker": "latest_extended_shadow_validation_tracker.json",
 }
 
 
@@ -582,8 +583,13 @@ def _candidate_review_goal(candidate_findings, risk_resolution):
     )
 
 
-def _forecast_goal(forecast_performance, first_one_month_evaluation=None):
+def _forecast_goal(
+    forecast_performance,
+    first_one_month_evaluation=None,
+    extended_shadow_validation_tracker=None,
+):
     first_one_month_evaluation = first_one_month_evaluation or {}
+    extended_shadow_validation_tracker = extended_shadow_validation_tracker or {}
     mature = _int_value(forecast_performance.get("mature_evaluations"))
     latest_short_missing = _int_value(forecast_performance.get("latest_short_signal_missing_count"))
     maturity_gap_reasons = forecast_performance.get("maturity_gap_reasons", {}) or {}
@@ -603,6 +609,15 @@ def _forecast_goal(forecast_performance, first_one_month_evaluation=None):
     first_month_status = first_one_month_evaluation.get("status", "missing")
     first_month_cohort = first_one_month_evaluation.get("cohort", {}) or {}
     first_month_result = first_one_month_evaluation.get("one_month", {}) or {}
+    extended_items = [
+        item
+        for item in extended_shadow_validation_tracker.get("items", []) or []
+        if isinstance(item, dict)
+    ]
+    extended_authorization_count = _int_value(
+        extended_shadow_validation_tracker.get("authorization_count"),
+        len(extended_items),
+    )
     status = "needs_work" if latest_short_missing else "sample_accumulating" if mature < 30 else "on_track"
     if latest_short_missing:
         next_action = "fix_latest_short_prediction_fields"
@@ -661,6 +676,23 @@ def _forecast_goal(forecast_performance, first_one_month_evaluation=None):
             ),
             "first_one_month_maturity_date": first_month_cohort.get(
                 "one_month_maturity_date", "2026-08-03"
+            ),
+            "extended_shadow_validation_status": extended_shadow_validation_tracker.get(
+                "status", "missing"
+            ),
+            "extended_shadow_validation_completed_batches": sum(
+                _int_value(item.get("evaluable_batch_count"), 0)
+                for item in extended_items
+            ),
+            "extended_shadow_validation_required_batches": (
+                extended_authorization_count * 3
+            ),
+            "extended_shadow_validation_remaining_batches": sum(
+                _int_value(item.get("remaining_evaluable_batch_count"), 0)
+                for item in extended_items
+            ),
+            "extended_shadow_validation_recommended_action": (
+                extended_shadow_validation_tracker.get("recommended_action", "")
             ),
         },
         "最新预测缺失数保持 0，成熟样本达到 30 条以上后再评估方向命中率和超额收益。",
@@ -1133,6 +1165,9 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
         "sp500_current_membership_source_inbox_status"
     ]
     human_decision_inbox = inputs["human_decision_inbox"]
+    extended_shadow_validation_tracker = inputs[
+        "extended_shadow_validation_tracker"
+    ]
 
     core_delivery_status = _status_for_core(pre_submit, weekly_ops, automation_check)
     goals = [
@@ -1147,7 +1182,11 @@ def build_medium_term_goal_review(project_root=".", closeout_goal_code=""):
         ),
         _data_quality_goal(data_health, automation_check),
         _candidate_review_goal(candidate_findings, candidate_risk_resolution),
-        _forecast_goal(forecast_performance, first_one_month_evaluation),
+        _forecast_goal(
+            forecast_performance,
+            first_one_month_evaluation,
+            extended_shadow_validation_tracker,
+        ),
         _backtest_goal(
             backtest_evidence,
             membership_import_plan,

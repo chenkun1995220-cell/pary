@@ -601,6 +601,40 @@ def shadow_disposition_payload(action="continue_shadow_validation"):
     }
 
 
+def extended_shadow_tracker_payload(status="active", completed=1):
+    actions = {
+        "active": "continue_extended_shadow_validation",
+        "ready_for_reapproval": "review_extended_shadow_validation_results",
+        "paused_severe_deterioration": "request_shadow_safety_reapproval",
+        "paused_two_consecutive_negative_batches": "request_shadow_safety_reapproval",
+    }
+    return {
+        "tracker_schema": "extended_shadow_validation_tracker",
+        "tracker_version": 1,
+        "as_of_date": "2026-07-19",
+        "status": status,
+        "recommended_action": actions[status],
+        "authorization_count": 1,
+        "active_authorization_count": int(status == "active"),
+        "ready_for_reapproval_count": int(status == "ready_for_reapproval"),
+        "paused_count": int(status.startswith("paused_")),
+        "items": [
+            {
+                "action_code": "shadow_demote_down_signal_to_neutral",
+                "authorization_date": "2026-07-12",
+                "evaluable_batch_count": completed,
+                "remaining_evaluable_batch_count": max(3 - completed, 0),
+                "status": status,
+                "recommended_action": actions[status],
+            }
+        ],
+        "issues": [],
+        "trade_execution_allowed": False,
+        "formal_model_change_allowed": False,
+        "formal_model_conclusion_allowed": False,
+    }
+
+
 def write_manual_review_queue(path):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -835,6 +869,41 @@ def write_manifest_with_routed_forecast_delivery_health_reason(path):
 
 
 class WeeklyActionItemsTests(unittest.TestCase):
+    def test_extended_shadow_tracker_routes_only_terminal_or_paused_actions(self):
+        from weekly_action_items import build_weekly_action_items
+
+        expected = {
+            "active": None,
+            "ready_for_reapproval": "review_extended_shadow_validation_results",
+            "paused_severe_deterioration": "request_shadow_safety_reapproval",
+            "paused_two_consecutive_negative_batches": "request_shadow_safety_reapproval",
+        }
+        for status, expected_action in expected.items():
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                manifest = root / "manifest.json"
+                write_manifest(manifest)
+                source = json.loads(manifest.read_text(encoding="utf-8-sig"))
+                source["automation_priority_actions"] = ["continue_sample_accumulation"]
+                manifest.write_text(json.dumps(source), encoding="utf-8-sig")
+                tracker = root / "latest_extended_shadow_validation_tracker.json"
+                tracker.write_text(
+                    json.dumps(extended_shadow_tracker_payload(status), ensure_ascii=False),
+                    encoding="utf-8-sig",
+                )
+
+                payload = build_weekly_action_items(
+                    manifest,
+                    extended_shadow_validation_tracker=tracker,
+                )
+                action_codes = [item["action_code"] for item in payload["items"]]
+
+                if expected_action:
+                    self.assertEqual(action_codes.count(expected_action), 1)
+                else:
+                    self.assertNotIn("review_extended_shadow_validation_results", action_codes)
+                    self.assertNotIn("request_shadow_safety_reapproval", action_codes)
+
     def test_closes_delivery_health_when_candidate_findings_is_already_routed(self):
         from weekly_action_items import build_weekly_action_items
 

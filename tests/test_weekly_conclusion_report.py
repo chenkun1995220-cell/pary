@@ -187,6 +187,48 @@ def write_three_markets(root):
 
 
 class WeeklyConclusionReportTests(unittest.TestCase):
+    def test_weekly_conclusion_displays_extended_shadow_progress(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_json(
+                root / "outputs" / "automation" / "latest_extended_shadow_validation_tracker.json",
+                {
+                    "tracker_schema": "extended_shadow_validation_tracker",
+                    "tracker_version": 1,
+                    "as_of_date": "2026-07-19",
+                    "status": "active",
+                    "recommended_action": "continue_extended_shadow_validation",
+                    "authorization_count": 1,
+                    "active_authorization_count": 1,
+                    "ready_for_reapproval_count": 0,
+                    "paused_count": 0,
+                    "items": [
+                        {
+                            "action_code": "shadow_demote_down_signal_to_neutral",
+                            "evaluable_batch_count": 1,
+                            "remaining_evaluable_batch_count": 2,
+                            "status": "active",
+                        }
+                    ],
+                    "issues": [],
+                    "trade_execution_allowed": False,
+                    "formal_model_change_allowed": False,
+                    "formal_model_conclusion_allowed": False,
+                },
+            )
+
+            from weekly_conclusion_report import build_weekly_conclusion, render_markdown
+
+            payload = build_weekly_conclusion(root, today="2026-07-19")
+            summary = payload["integrated_review_summary"]
+            markdown = render_markdown(payload)
+
+            self.assertEqual(summary["extended_shadow_validation_status"], "active")
+            self.assertEqual(summary["extended_shadow_validation_completed_batches"], 1)
+            self.assertEqual(summary["extended_shadow_validation_required_batches"], 3)
+            self.assertEqual(summary["extended_shadow_validation_remaining_batches"], 2)
+            self.assertIn("1/3", markdown)
+
     def test_weekly_conclusion_reconciles_approved_shadow_decision(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

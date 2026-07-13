@@ -364,6 +364,40 @@ def write_review_fixtures(root):
 
 
 class MediumTermGoalReviewTests(unittest.TestCase):
+    def test_forecast_goal_exposes_extended_shadow_progress_without_raising_maturity(self):
+        from medium_term_goal_review import _forecast_goal, _goal_completion_percent
+
+        tracker = {
+            "status": "active",
+            "recommended_action": "continue_extended_shadow_validation",
+            "items": [
+                {
+                    "evaluable_batch_count": 1,
+                    "remaining_evaluable_batch_count": 2,
+                    "status": "active",
+                }
+            ],
+        }
+        forecast = {
+            "mature_evaluations": 0,
+            "one_week_mature": 0,
+            "one_month_mature": 0,
+            "latest_short_signal_missing_count": 0,
+            "latest_prediction_unavailable_count": 0,
+        }
+
+        without_tracker = _forecast_goal(forecast, {})
+        with_tracker = _forecast_goal(forecast, {}, tracker)
+
+        self.assertEqual(with_tracker["current"]["extended_shadow_validation_status"], "active")
+        self.assertEqual(with_tracker["current"]["extended_shadow_validation_completed_batches"], 1)
+        self.assertEqual(with_tracker["current"]["extended_shadow_validation_required_batches"], 3)
+        self.assertEqual(with_tracker["current"]["extended_shadow_validation_remaining_batches"], 2)
+        self.assertEqual(
+            _goal_completion_percent(with_tracker),
+            _goal_completion_percent(without_tracker),
+        )
+
     def test_governance_goal_tracks_human_decision_inbox(self):
         from medium_term_goal_review import _governance_goal
 

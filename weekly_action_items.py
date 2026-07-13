@@ -30,6 +30,9 @@ DEFAULT_ONE_WEEK_FORECAST_CALIBRATION_REVIEW = (
     "outputs/automation/latest_one_week_forecast_calibration_review.json"
 )
 DEFAULT_HUMAN_DECISION_INBOX = "outputs/automation/latest_human_decision_inbox.json"
+DEFAULT_EXTENDED_SHADOW_VALIDATION_TRACKER = (
+    "outputs/automation/latest_extended_shadow_validation_tracker.json"
+)
 DEFAULT_MANUAL_REVIEW_QUEUE = "outputs/automation/latest_manual_review_queue.csv"
 DEFAULT_DATA_HEALTH_REVIEW = "outputs/automation/latest_data_health_review.json"
 DEFAULT_CANDIDATE_FINDINGS_REVIEW = "outputs/automation/latest_candidate_findings_review.json"
@@ -456,6 +459,36 @@ def _backtest_evidence_decision_text(manifest):
 
 
 def _action_template(action_code, manifest):
+    if action_code in {
+        "review_extended_shadow_validation_results",
+        "request_shadow_safety_reapproval",
+    }:
+        tracker = manifest.get("extended_shadow_validation_tracker", {}) or {}
+        items = tracker.get("items", []) or []
+        completed = sum(_int_value(item.get("evaluable_batch_count"), 0) for item in items)
+        remaining = sum(
+            _int_value(item.get("remaining_evaluable_batch_count"), 0) for item in items
+        )
+        paused = action_code == "request_shadow_safety_reapproval"
+        return {
+            "title": (
+                "人工复核扩展影子验证安全暂停"
+                if paused
+                else "人工复核扩展影子验证结果"
+            ),
+            "category": "forecast_performance",
+            "priority": "high" if paused else "normal",
+            "source": (
+                f"extended_shadow_status:{tracker.get('status', 'missing')}; "
+                f"completed_batches:{completed}/3; remaining_batches:{remaining}; "
+                f"recommended_action:{tracker.get('recommended_action', '')}; "
+                "formal_model_change_allowed:false"
+            ),
+            "recommended_check": (
+                "检查 latest_extended_shadow_validation_tracker.json 的逐批证据、停止原因和审批边界；"
+                "只允许形成新的人工影子验证决定，不得执行交易、修改候选评分或修改正式模型。"
+            ),
+        }
     if action_code == "review_human_decision_inbox":
         inbox = manifest.get("human_decision_inbox", {}) or {}
         return {
@@ -1552,6 +1585,7 @@ def build_weekly_action_items(
     quote_retry_results=None,
     weekly_delivery_history=None,
     human_decision_inbox=None,
+    extended_shadow_validation_tracker=None,
 ):
     manifest_path = Path(manifest)
     source = load_manifest(manifest_path)
@@ -1572,6 +1606,9 @@ def build_weekly_action_items(
     quote_retry_payload = load_optional_json(quote_retry_results)
     weekly_delivery_history_payload = load_optional_json(weekly_delivery_history)
     human_decision_payload = load_optional_json(human_decision_inbox)
+    extended_shadow_tracker_payload = load_optional_json(
+        extended_shadow_validation_tracker
+    )
     if manual_review_rows:
         source["manual_review_queue_items"] = manual_review_rows
     if data_health_payload:
@@ -1586,6 +1623,8 @@ def build_weekly_action_items(
         source["weekly_delivery_history"] = weekly_delivery_history_payload
     if human_decision_payload:
         source["human_decision_inbox"] = human_decision_payload
+    if extended_shadow_tracker_payload:
+        source["extended_shadow_validation_tracker"] = extended_shadow_tracker_payload
     if forecast_performance_review:
         manifest_forecast = source.get("forecast_performance", {})
         if not isinstance(manifest_forecast, dict):
@@ -1607,6 +1646,15 @@ def build_weekly_action_items(
             for action in actions
             if action != "review_shadow_candidate_approval"
         ]
+    tracker_status = extended_shadow_tracker_payload.get("status")
+    if tracker_status == "ready_for_reapproval":
+        actions.append("review_extended_shadow_validation_results")
+    elif tracker_status in {
+        "paused_severe_deterioration",
+        "paused_two_consecutive_negative_batches",
+    }:
+        actions.append("request_shadow_safety_reapproval")
+    actions = list(dict.fromkeys(actions))
 
     evidence_ceiling_confirmed = (
         backtest_evidence_payload.get("evidence_ceiling_status")
@@ -1879,6 +1927,10 @@ def main():
     parser.add_argument("--quote-retry-results", default=DEFAULT_HK_QUOTE_RETRY_RESULTS)
     parser.add_argument("--weekly-delivery-history", default=DEFAULT_WEEKLY_DELIVERY_HISTORY)
     parser.add_argument("--human-decision-inbox", default=DEFAULT_HUMAN_DECISION_INBOX)
+    parser.add_argument(
+        "--extended-shadow-validation-tracker",
+        default=DEFAULT_EXTENDED_SHADOW_VALIDATION_TRACKER,
+    )
     args = parser.parse_args()
 
     payload = build_weekly_action_items(
@@ -1900,6 +1952,7 @@ def main():
         quote_retry_results=args.quote_retry_results,
         weekly_delivery_history=args.weekly_delivery_history,
         human_decision_inbox=args.human_decision_inbox,
+        extended_shadow_validation_tracker=args.extended_shadow_validation_tracker,
     )
     report = render_weekly_action_items(payload)
     if args.output:

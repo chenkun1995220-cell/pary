@@ -51,6 +51,9 @@ ONE_WEEK_FORECAST_SHADOW_DISPOSITION_PATH = (
     "outputs/automation/latest_one_week_forecast_shadow_disposition.json"
 )
 HUMAN_DECISION_INBOX_PATH = "outputs/automation/latest_human_decision_inbox.json"
+EXTENDED_SHADOW_VALIDATION_TRACKER_PATH = (
+    "outputs/automation/latest_extended_shadow_validation_tracker.json"
+)
 FIRST_ONE_MONTH_FORECAST_EVALUATION_PATH = (
     "outputs/automation/latest_first_one_month_forecast_evaluation_review.json"
 )
@@ -277,6 +280,18 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
             project_root / HUMAN_DECISION_INBOX_PATH,
             human_decision_inbox,
             project_root=project_root,
+        )
+
+    extended_shadow_tracker = read_json(
+        project_root / EXTENDED_SHADOW_VALIDATION_TRACKER_PATH
+    )
+    if isinstance(extended_shadow_tracker, dict):
+        state["extended_shadow_validation_tracker"] = (
+            normalize_extended_shadow_validation_tracker(
+                project_root,
+                extended_shadow_tracker,
+                project_root / EXTENDED_SHADOW_VALIDATION_TRACKER_PATH,
+            )
         )
 
     backtest_review = read_json(project_root / BACKTEST_EVIDENCE_REVIEW_PATH)
@@ -632,6 +647,32 @@ def normalize_human_decision_inbox(path, payload, project_root=None):
     }
 
 
+def normalize_extended_shadow_validation_tracker(project_root, payload, path):
+    items = [item for item in payload.get("items", []) or [] if isinstance(item, dict)]
+    authorization_count = to_int(payload.get("authorization_count")) or len(items)
+    return {
+        "status": payload.get("status", "missing"),
+        "as_of_date": payload.get("as_of_date"),
+        "recommended_action": payload.get("recommended_action", ""),
+        "authorization_count": authorization_count,
+        "completed_evaluable_batch_count": sum(
+            to_int(item.get("evaluable_batch_count")) for item in items
+        ),
+        "required_evaluable_batch_count": authorization_count * 3,
+        "remaining_evaluable_batch_count": sum(
+            to_int(item.get("remaining_evaluable_batch_count")) for item in items
+        ),
+        "paused_count": to_int(payload.get("paused_count")),
+        "issues": payload.get("issues", []) or [],
+        "trade_execution_allowed": bool(payload.get("trade_execution_allowed")),
+        "formal_model_change_allowed": bool(payload.get("formal_model_change_allowed")),
+        "formal_model_conclusion_allowed": bool(
+            payload.get("formal_model_conclusion_allowed")
+        ),
+        "path": relative_path(project_root, path),
+    }
+
+
 def normalize_backtest_evidence_review(project_root, payload, path):
     return {
         "status": payload.get("status") or payload.get("evidence_status") or "unknown",
@@ -882,6 +923,7 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
     backtest_review = automation.get("backtest_evidence_review", {})
     data_health = automation.get("data_health_review", {})
     human_decisions = automation.get("human_decision_inbox", {})
+    extended_shadow = automation.get("extended_shadow_validation_tracker", {})
     raw_shadow_pending = to_int(
         forecast_disposition.get("pending_human_approval_count")
     )
@@ -907,6 +949,9 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         first_one_month.get("formal_model_conclusion_allowed"),
         backtest_review.get("formal_model_change_allowed"),
         human_decisions.get("formal_model_change_allowed"),
+        extended_shadow.get("trade_execution_allowed"),
+        extended_shadow.get("formal_model_change_allowed"),
+        extended_shadow.get("formal_model_conclusion_allowed"),
     ]
     return {
         "candidate_count_total": to_int(candidate_review.get("candidate_count")) or len(candidates),
@@ -947,6 +992,20 @@ def build_integrated_review_summary(automation, candidates, priority_actions, ca
         "forecast_disposition_next_one_week_evaluation_date": forecast_disposition.get(
             "next_one_week_evaluation_date", ""
         ),
+        "extended_shadow_validation_status": extended_shadow.get("status", "missing"),
+        "extended_shadow_validation_completed_batches": to_int(
+            extended_shadow.get("completed_evaluable_batch_count")
+        ),
+        "extended_shadow_validation_required_batches": to_int(
+            extended_shadow.get("required_evaluable_batch_count")
+        ),
+        "extended_shadow_validation_remaining_batches": to_int(
+            extended_shadow.get("remaining_evaluable_batch_count")
+        ),
+        "extended_shadow_validation_recommended_action": extended_shadow.get(
+            "recommended_action", "monitor_shadow_authorizations"
+        ),
+        "extended_shadow_validation_issues": extended_shadow.get("issues", []) or [],
         "first_one_month_status": first_one_month.get("status", "missing"),
         "first_one_month_expected_count": to_int(first_one_month.get("expected_sample_count")),
         "first_one_month_one_week_valid_count": to_int(first_one_month.get("one_week_valid_count")),
@@ -1043,6 +1102,28 @@ def render_integrated_review_summary_section(payload):
             action=escape_cell(
                 summary.get("forecast_disposition_effective_recommended_action")
                 or "continue_shadow_monitoring"
+            ),
+        )
+    )
+    lines.append(
+        "| 扩展影子验证 | {status} | 进度={completed}/{required}; 剩余={remaining}; 问题={issues} | {action}; human_decision_only; no_trade_or_model_change |".format(
+            status=escape_cell(summary.get("extended_shadow_validation_status", "missing")),
+            completed=escape_cell(
+                summary.get("extended_shadow_validation_completed_batches", 0)
+            ),
+            required=escape_cell(
+                summary.get("extended_shadow_validation_required_batches", 0)
+            ),
+            remaining=escape_cell(
+                summary.get("extended_shadow_validation_remaining_batches", 0)
+            ),
+            issues=escape_cell(
+                ", ".join(summary.get("extended_shadow_validation_issues", []) or [])
+                or "-"
+            ),
+            action=escape_cell(
+                summary.get("extended_shadow_validation_recommended_action")
+                or "monitor_shadow_authorizations"
             ),
         )
     )

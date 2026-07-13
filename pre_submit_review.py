@@ -273,6 +273,13 @@ INPUT_SPECS = {
         "version_field": "inbox_version",
         "version_value": 1,
     },
+    "extended_shadow_validation_tracker": {
+        "path": "outputs/automation/latest_extended_shadow_validation_tracker.json",
+        "schema_field": "tracker_schema",
+        "schema_value": "extended_shadow_validation_tracker",
+        "version_field": "tracker_version",
+        "version_value": 1,
+    },
     "medium_term_goal_review": {
         "path": "outputs/automation/latest_medium_term_goal_review.json",
         "schema_field": "review_schema",
@@ -802,6 +809,13 @@ def run_pre_submit_review(
     )
     attention_reasons.extend(
         _human_decision_inbox_reasons(payloads.get("human_decision_inbox", {}))
+    )
+    attention_reasons.extend(
+        _extended_shadow_validation_tracker_reasons(
+            payloads.get("extended_shadow_validation_tracker", {}),
+            today=current_date,
+            max_age_days=max_age_days,
+        )
     )
     attention_reasons.extend(_medium_term_goal_review_reasons(payloads.get("medium_term_goal_review", {})))
     attention_reasons.extend(
@@ -3253,6 +3267,139 @@ def _human_decision_inbox_reasons(payload):
     if payload.get("formal_model_conclusion_allowed") is not False:
         reasons.append("human_decision_inbox_formal_model_conclusion_allowed")
     return reasons
+
+
+def _extended_shadow_validation_tracker_reasons(payload, today=None, max_age_days=8):
+    if not isinstance(payload, dict) or not payload:
+        return ["extended_shadow_validation_tracker_missing"]
+    reasons = []
+    if payload.get("tracker_schema") != "extended_shadow_validation_tracker" or _int_value(
+        payload.get("tracker_version"), 0
+    ) != 1:
+        reasons.append("extended_shadow_validation_tracker_schema_invalid")
+
+    current_date = today or date.today()
+    if not isinstance(current_date, date):
+        try:
+            current_date = _parse_iso_date(current_date, "today")
+        except ValueError:
+            current_date = None
+    try:
+        tracker_date = _parse_iso_date(payload.get("as_of_date"), "as_of_date")
+    except ValueError:
+        tracker_date = None
+        reasons.append("extended_shadow_validation_tracker_date_invalid")
+    if current_date is not None and tracker_date is not None:
+        age_days = (current_date - tracker_date).days
+        if age_days < 0:
+            reasons.append("extended_shadow_validation_tracker_future")
+        elif age_days > max_age_days:
+            reasons.append("extended_shadow_validation_tracker_stale")
+
+    action_by_status = {
+        "active": "continue_extended_shadow_validation",
+        "ready_for_reapproval": "review_extended_shadow_validation_results",
+        "paused_severe_deterioration": "request_shadow_safety_reapproval",
+        "paused_two_consecutive_negative_batches": "request_shadow_safety_reapproval",
+        "blocked": "repair_extended_shadow_validation_inputs",
+        "inactive": "monitor_shadow_authorizations",
+    }
+    status = payload.get("status")
+    if status not in action_by_status or payload.get("recommended_action") != action_by_status.get(
+        status
+    ):
+        reasons.append("extended_shadow_validation_tracker_state_action_mismatch")
+    if status == "blocked":
+        reasons.append("extended_shadow_validation_tracker_blocked")
+
+    items = payload.get("items")
+    if not isinstance(items, list):
+        items = []
+        reasons.append("extended_shadow_validation_tracker_items_invalid")
+    valid_items = [item for item in items if isinstance(item, dict)]
+    if len(valid_items) != len(items):
+        reasons.append("extended_shadow_validation_tracker_items_invalid")
+
+    item_status_counts = {
+        "active": sum(item.get("status") == "active" for item in valid_items),
+        "ready_for_reapproval": sum(
+            item.get("status") == "ready_for_reapproval" for item in valid_items
+        ),
+        "paused": sum(
+            str(item.get("status", "")).startswith("paused_") for item in valid_items
+        ),
+    }
+    if (
+        _int_value(payload.get("authorization_count"), -1) != len(valid_items)
+        or _int_value(payload.get("active_authorization_count"), -1)
+        != item_status_counts["active"]
+        or _int_value(payload.get("ready_for_reapproval_count"), -1)
+        != item_status_counts["ready_for_reapproval"]
+        or _int_value(payload.get("paused_count"), -1) != item_status_counts["paused"]
+    ):
+        reasons.append("extended_shadow_validation_tracker_count_mismatch")
+
+    batch_keys = []
+    for item in valid_items:
+        item_status = item.get("status")
+        if (
+            item_status not in action_by_status
+            or item_status in {"blocked", "inactive"}
+            or item.get("recommended_action") != action_by_status.get(item_status)
+        ):
+            reasons.append("extended_shadow_validation_tracker_state_action_mismatch")
+        batches = item.get("batches")
+        if not isinstance(batches, list):
+            batches = []
+            reasons.append("extended_shadow_validation_tracker_items_invalid")
+        classifications = [
+            batch.get("classification")
+            for batch in batches
+            if isinstance(batch, dict)
+        ]
+        batch_keys.extend(
+            batch.get("batch_key")
+            for batch in batches
+            if isinstance(batch, dict) and batch.get("batch_key")
+        )
+        positive = classifications.count("positive")
+        negative = classifications.count("negative")
+        not_evaluable = classifications.count("not_evaluable")
+        severe = classifications.count("severe_deterioration")
+        evaluable = positive + negative
+        if (
+            _int_value(item.get("post_approval_history_batch_count"), -1) != len(batches)
+            or _int_value(item.get("evaluable_batch_count"), -1) != evaluable
+            or _int_value(item.get("positive_batch_count"), -1) != positive
+            or _int_value(item.get("negative_batch_count"), -1) != negative
+            or _int_value(item.get("not_evaluable_batch_count"), -1) != not_evaluable
+            or _int_value(item.get("severe_deterioration_batch_count"), -1) != severe
+            or _int_value(item.get("remaining_evaluable_batch_count"), -1)
+            != max(3 - evaluable, 0)
+        ):
+            reasons.append("extended_shadow_validation_tracker_count_mismatch")
+
+    if len(batch_keys) != len(set(batch_keys)):
+        reasons.append("extended_shadow_validation_tracker_duplicate_batch_keys")
+    unsafe = any(
+        payload.get(field) is not False
+        for field in (
+            "trade_execution_allowed",
+            "formal_model_change_allowed",
+            "formal_model_conclusion_allowed",
+        )
+    ) or any(
+        item.get(field) is not False
+        for item in valid_items
+        for field in (
+            "trade_execution_allowed",
+            "formal_model_change_allowed",
+            "formal_model_conclusion_allowed",
+        )
+    )
+    if unsafe:
+        reasons.append("extended_shadow_validation_tracker_safety_boundary_unsafe")
+    return _unique(reasons)
 
 
 def _medium_term_goal_review_reasons(payload):

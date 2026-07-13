@@ -85,6 +85,28 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "formal_model_conclusion_allowed": False,
         },
     )
+    write_json(
+        root
+        / "outputs"
+        / "automation"
+        / "latest_extended_shadow_validation_tracker.json",
+        {
+            "tracker_schema": "extended_shadow_validation_tracker",
+            "tracker_version": 1,
+            "as_of_date": as_of_date,
+            "status": "inactive",
+            "recommended_action": "monitor_shadow_authorizations",
+            "authorization_count": 0,
+            "active_authorization_count": 0,
+            "ready_for_reapproval_count": 0,
+            "paused_count": 0,
+            "items": [],
+            "issues": [],
+            "trade_execution_allowed": False,
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+        },
+    )
     write_text(
         root / "docs" / "中期目标与模型协作规范.md",
         "\n".join(
@@ -1219,6 +1241,105 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
 
 
 class PreSubmitReviewTests(unittest.TestCase):
+    def test_extended_shadow_tracker_accepts_active_and_rejects_unsafe_or_inconsistent_inputs(self):
+        from pre_submit_review import _extended_shadow_validation_tracker_reasons
+
+        active = {
+            "tracker_schema": "extended_shadow_validation_tracker",
+            "tracker_version": 1,
+            "as_of_date": "2026-07-19",
+            "status": "active",
+            "recommended_action": "continue_extended_shadow_validation",
+            "authorization_count": 1,
+            "active_authorization_count": 1,
+            "ready_for_reapproval_count": 0,
+            "paused_count": 0,
+            "items": [
+                {
+                    "decision_key": "forecast_shadow|shadow_demote_down_signal_to_neutral|2026-07-12",
+                    "action_code": "shadow_demote_down_signal_to_neutral",
+                    "authorization_date": "2026-07-12",
+                    "post_approval_history_batch_count": 1,
+                    "evaluable_batch_count": 1,
+                    "positive_batch_count": 1,
+                    "negative_batch_count": 0,
+                    "not_evaluable_batch_count": 0,
+                    "severe_deterioration_batch_count": 0,
+                    "remaining_evaluable_batch_count": 2,
+                    "status": "active",
+                    "recommended_action": "continue_extended_shadow_validation",
+                    "batches": [
+                        {
+                            "batch_key": "shadow_demote_down_signal_to_neutral|2026-07-19",
+                            "classification": "positive",
+                        }
+                    ],
+                    "trade_execution_allowed": False,
+                    "formal_model_change_allowed": False,
+                    "formal_model_conclusion_allowed": False,
+                }
+            ],
+            "issues": [],
+            "trade_execution_allowed": False,
+            "formal_model_change_allowed": False,
+            "formal_model_conclusion_allowed": False,
+        }
+        self.assertEqual(
+            _extended_shadow_validation_tracker_reasons(
+                active, today="2026-07-19", max_age_days=8
+            ),
+            [],
+        )
+
+        malformed_counts = json.loads(json.dumps(active))
+        malformed_counts["items"][0]["evaluable_batch_count"] = 2
+        self.assertIn(
+            "extended_shadow_validation_tracker_count_mismatch",
+            _extended_shadow_validation_tracker_reasons(
+                malformed_counts, today="2026-07-19", max_age_days=8
+            ),
+        )
+
+        unsafe = dict(active, formal_model_change_allowed=True)
+        self.assertIn(
+            "extended_shadow_validation_tracker_safety_boundary_unsafe",
+            _extended_shadow_validation_tracker_reasons(
+                unsafe, today="2026-07-19", max_age_days=8
+            ),
+        )
+
+        blocked = dict(
+            active,
+            status="blocked",
+            recommended_action="repair_extended_shadow_validation_inputs",
+        )
+        self.assertIn(
+            "extended_shadow_validation_tracker_blocked",
+            _extended_shadow_validation_tracker_reasons(
+                blocked, today="2026-07-19", max_age_days=8
+            ),
+        )
+
+        duplicate = json.loads(json.dumps(active))
+        duplicate["items"][0]["batches"].append(
+            dict(duplicate["items"][0]["batches"][0])
+        )
+        duplicate["items"][0]["post_approval_history_batch_count"] = 2
+        self.assertIn(
+            "extended_shadow_validation_tracker_duplicate_batch_keys",
+            _extended_shadow_validation_tracker_reasons(
+                duplicate, today="2026-07-19", max_age_days=8
+            ),
+        )
+
+        stale = dict(active, as_of_date="2026-07-01")
+        self.assertIn(
+            "extended_shadow_validation_tracker_stale",
+            _extended_shadow_validation_tracker_reasons(
+                stale, today="2026-07-19", max_age_days=8
+            ),
+        )
+
     def test_human_decision_inbox_allows_valid_pending_but_rejects_unsafe_boundary(self):
         from pre_submit_review import _human_decision_inbox_reasons
 
