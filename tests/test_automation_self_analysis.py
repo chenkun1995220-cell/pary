@@ -239,6 +239,43 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             "place_official_constituents_csv",
         )
 
+    def test_automation_check_payload_exposes_extended_shadow_validation_state(self):
+        from automation_self_analysis import _automation_check_payload
+
+        payload = _automation_check_payload(
+            {
+                "as_of_date": "2026-07-14",
+                "automation_status": "sample_accumulating",
+                "automation_recommended_action": "continue_sample_accumulation",
+                "automation_priority_actions": ["continue_sample_accumulation"],
+                "market_count": 3,
+                "markets": [],
+                "human_decision_inbox": {
+                    "status": "ready",
+                    "pending_count": 0,
+                    "decided_count": 6,
+                    "invalid_decision_count": 0,
+                },
+                "extended_shadow_validation_tracker": {
+                    "status": "active",
+                    "recommended_action": "continue_extended_shadow_validation",
+                    "authorization_count": 1,
+                    "active_authorization_count": 1,
+                    "ready_for_reapproval_count": 0,
+                    "paused_count": 0,
+                },
+            },
+            {"status": "valid", "markets_ready_count": 3, "errors": []},
+        )
+
+        self.assertEqual(payload.get("human_decision_inbox_status"), "ready")
+        self.assertEqual(payload.get("human_decision_pending_count"), 0)
+        self.assertEqual(payload.get("extended_shadow_validation_status"), "active")
+        self.assertEqual(
+            payload.get("extended_shadow_validation_recommended_action"),
+            "continue_extended_shadow_validation",
+        )
+
     def test_self_analysis_manifest_reads_sp500_inbox_external_input_blocker(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1258,6 +1295,130 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
         self.assertEqual(snapshot["status"], "missing")
         self.assertEqual(snapshot["recommended_action"], "repair_shadow_disposition_inputs")
         self.assertFalse(snapshot["formal_model_change_allowed"])
+
+    def test_approved_shadow_validation_replaces_obsolete_approval_action(self):
+        from automation_self_analysis import _one_week_forecast_shadow_disposition_snapshot
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = root / "outputs" / "automation"
+            write_text(
+                automation / "latest_one_week_forecast_shadow_disposition.json",
+                json.dumps(
+                    {
+                        "disposition_schema": "one_week_forecast_shadow_disposition",
+                        "disposition_version": 1,
+                        "as_of_date": "2026-07-12",
+                        "status": "ready",
+                        "recommended_action": "review_shadow_candidate_approval",
+                        "disposition_counts": {
+                            "continue_observation": 0,
+                            "rejected": 1,
+                            "pending_human_approval": 1,
+                        },
+                        "candidate_dispositions": [],
+                        "formal_model_change_allowed": False,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            write_text(
+                automation / "latest_human_decision_inbox.json",
+                json.dumps(
+                    {
+                        "inbox_schema": "human_decision_inbox",
+                        "inbox_version": 1,
+                        "status": "ready",
+                        "pending_count": 0,
+                        "decided_count": 1,
+                        "invalid_decision_count": 0,
+                        "items": [
+                            {
+                                "item_type": "forecast_shadow",
+                                "decision": "approve_for_extended_shadow_validation",
+                            }
+                        ],
+                        "trade_execution_allowed": False,
+                        "formal_model_change_allowed": False,
+                        "formal_model_conclusion_allowed": False,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            write_text(
+                automation / "latest_extended_shadow_validation_tracker.json",
+                json.dumps(
+                    {
+                        "tracker_schema": "extended_shadow_validation_tracker",
+                        "tracker_version": 1,
+                        "status": "active",
+                        "recommended_action": "continue_extended_shadow_validation",
+                        "authorization_count": 1,
+                        "active_authorization_count": 1,
+                        "ready_for_reapproval_count": 0,
+                        "paused_count": 0,
+                        "items": [],
+                        "issues": [],
+                        "trade_execution_allowed": False,
+                        "formal_model_change_allowed": False,
+                        "formal_model_conclusion_allowed": False,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+
+            snapshot = _one_week_forecast_shadow_disposition_snapshot(root)
+
+            mixed_inbox = json.loads(
+                (automation / "latest_human_decision_inbox.json").read_text(
+                    encoding="utf-8-sig"
+                )
+            )
+            mixed_inbox["items"].append(
+                {
+                    "item_type": "forecast_shadow",
+                    "decision": "reject_shadow_candidate",
+                }
+            )
+            write_text(
+                automation / "latest_human_decision_inbox.json",
+                json.dumps(mixed_inbox, ensure_ascii=False),
+            )
+            ready_tracker = json.loads(
+                (automation / "latest_extended_shadow_validation_tracker.json").read_text(
+                    encoding="utf-8-sig"
+                )
+            )
+            ready_tracker["status"] = "ready_for_reapproval"
+            ready_tracker["recommended_action"] = "review_extended_shadow_validation_results"
+            ready_tracker["active_authorization_count"] = 0
+            ready_tracker["ready_for_reapproval_count"] = 1
+            write_text(
+                automation / "latest_extended_shadow_validation_tracker.json",
+                json.dumps(ready_tracker, ensure_ascii=False),
+            )
+            mixed_snapshot = _one_week_forecast_shadow_disposition_snapshot(root)
+
+            invalid_inbox = dict(mixed_inbox)
+            invalid_inbox["invalid_decision_count"] = 1
+            write_text(
+                automation / "latest_human_decision_inbox.json",
+                json.dumps(invalid_inbox, ensure_ascii=False),
+            )
+            invalid_snapshot = _one_week_forecast_shadow_disposition_snapshot(root)
+
+        self.assertEqual(snapshot["recommended_action"], "continue_sample_accumulation")
+        self.assertEqual(snapshot["source_recommended_action"], "review_shadow_candidate_approval")
+        self.assertEqual(snapshot["human_decision_inbox"]["status"], "ready")
+        self.assertEqual(snapshot["extended_shadow_validation_tracker"]["status"], "active")
+        self.assertEqual(
+            mixed_snapshot["recommended_action"],
+            "review_extended_shadow_validation_results",
+        )
+        self.assertEqual(
+            invalid_snapshot["recommended_action"],
+            "review_human_decision_inbox",
+        )
 
     def test_missing_inputs_are_reported_without_failing(self):
         with tempfile.TemporaryDirectory() as tmp:

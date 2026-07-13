@@ -674,6 +674,106 @@ def _one_week_forecast_shadow_disposition_snapshot(project_root):
     snapshot.setdefault("next_one_week_evaluation_date", "")
     snapshot.setdefault("next_one_week_evaluation_count", 0)
     snapshot.setdefault("formal_model_change_allowed", False)
+    snapshot["source_recommended_action"] = snapshot.get("recommended_action", "")
+    human_decision_inbox = _human_decision_inbox_snapshot(project_root)
+    extended_tracker = _extended_shadow_validation_tracker_snapshot(project_root)
+    snapshot["human_decision_inbox"] = human_decision_inbox
+    snapshot["extended_shadow_validation_tracker"] = extended_tracker
+    shadow_decisions = [
+        item.get("decision")
+        for item in human_decision_inbox.get("items", [])
+        if item.get("item_type") == "forecast_shadow" and item.get("decision")
+    ]
+    if (
+        human_decision_inbox.get("status") == "needs_attention"
+        or int(human_decision_inbox.get("invalid_decision_count", 0) or 0) > 0
+    ):
+        snapshot["recommended_action"] = "review_human_decision_inbox"
+    elif shadow_decisions and human_decision_inbox.get("status") == "ready":
+        if (
+            "approve_for_extended_shadow_validation" in shadow_decisions
+            and int(extended_tracker.get("authorization_count", 0) or 0) > 0
+        ):
+            action_by_status = {
+                "active": "continue_sample_accumulation",
+                "ready_for_reapproval": "review_extended_shadow_validation_results",
+                "paused_severe_deterioration": "request_shadow_safety_reapproval",
+                "paused_two_consecutive_negative_batches": "request_shadow_safety_reapproval",
+                "blocked": "repair_extended_shadow_validation_inputs",
+            }
+            snapshot["recommended_action"] = action_by_status.get(
+                extended_tracker.get("status"),
+                "repair_extended_shadow_validation_inputs",
+            )
+        elif set(shadow_decisions) <= {"reject_shadow_candidate", "continue_observation"}:
+            snapshot["recommended_action"] = "continue_sample_accumulation"
+    return snapshot
+
+
+def _human_decision_inbox_snapshot(project_root):
+    path = (
+        Path(project_root)
+        / "outputs"
+        / "automation"
+        / "latest_human_decision_inbox.json"
+    )
+    payload = _read_json(path)
+    if payload.get("inbox_schema") != "human_decision_inbox":
+        return {
+            "status": "missing",
+            "pending_count": 0,
+            "decided_count": 0,
+            "invalid_decision_count": 0,
+            "items": [],
+            "path": str(path),
+        }
+    snapshot = dict(payload)
+    snapshot["path"] = str(path)
+    if any(
+        payload.get(field) is not False
+        for field in (
+            "trade_execution_allowed",
+            "formal_model_change_allowed",
+            "formal_model_conclusion_allowed",
+        )
+    ):
+        snapshot["status"] = "needs_attention"
+    if int(payload.get("invalid_decision_count", 0) or 0) > 0:
+        snapshot["status"] = "needs_attention"
+    return snapshot
+
+
+def _extended_shadow_validation_tracker_snapshot(project_root):
+    path = (
+        Path(project_root)
+        / "outputs"
+        / "automation"
+        / "latest_extended_shadow_validation_tracker.json"
+    )
+    payload = _read_json(path)
+    if payload.get("tracker_schema") != "extended_shadow_validation_tracker":
+        return {
+            "status": "missing",
+            "recommended_action": "repair_extended_shadow_validation_inputs",
+            "authorization_count": 0,
+            "active_authorization_count": 0,
+            "ready_for_reapproval_count": 0,
+            "paused_count": 0,
+            "items": [],
+            "path": str(path),
+        }
+    snapshot = dict(payload)
+    snapshot["path"] = str(path)
+    if any(
+        payload.get(field) is not False
+        for field in (
+            "trade_execution_allowed",
+            "formal_model_change_allowed",
+            "formal_model_conclusion_allowed",
+        )
+    ):
+        snapshot["status"] = "blocked"
+        snapshot["recommended_action"] = "repair_extended_shadow_validation_inputs"
     return snapshot
 
 
@@ -1272,6 +1372,8 @@ def _sp500_current_source_inbox_status_summary(project_root):
 
 def _automation_check_payload(manifest, manifest_validation):
     external_input_blockers = _automation_external_input_blockers(manifest)
+    human_decision_inbox = manifest.get("human_decision_inbox", {}) or {}
+    extended_tracker = manifest.get("extended_shadow_validation_tracker", {}) or {}
     return {
         "check_schema": "weekly_automation_check",
         "check_version": 1,
@@ -1325,6 +1427,26 @@ def _automation_check_payload(manifest, manifest_validation):
         "forecast_next_one_month_evaluation_count": (
             manifest.get("forecast_performance", {}).get("next_one_month_evaluation_count", 0)
         ),
+        "human_decision_inbox_status": human_decision_inbox.get("status", "missing"),
+        "human_decision_pending_count": human_decision_inbox.get("pending_count", 0),
+        "human_decision_decided_count": human_decision_inbox.get("decided_count", 0),
+        "human_decision_invalid_count": human_decision_inbox.get(
+            "invalid_decision_count", 0
+        ),
+        "extended_shadow_validation_status": extended_tracker.get("status", "missing"),
+        "extended_shadow_validation_recommended_action": extended_tracker.get(
+            "recommended_action", "repair_extended_shadow_validation_inputs"
+        ),
+        "extended_shadow_validation_authorization_count": extended_tracker.get(
+            "authorization_count", 0
+        ),
+        "extended_shadow_validation_active_count": extended_tracker.get(
+            "active_authorization_count", 0
+        ),
+        "extended_shadow_validation_ready_for_reapproval_count": extended_tracker.get(
+            "ready_for_reapproval_count", 0
+        ),
+        "extended_shadow_validation_paused_count": extended_tracker.get("paused_count", 0),
         "external_input_blocker_count": len(external_input_blockers),
         "external_input_blockers": external_input_blockers,
         "backtest_status": manifest.get("backtest_status", "unknown"),
@@ -2088,6 +2210,10 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     forecast_performance = _forecast_performance_snapshot(project_root)
     first_one_month_evaluation = _first_one_month_forecast_evaluation_snapshot(project_root)
     shadow_disposition = _one_week_forecast_shadow_disposition_snapshot(project_root)
+    human_decision_inbox = shadow_disposition.get("human_decision_inbox", {})
+    extended_shadow_tracker = shadow_disposition.get(
+        "extended_shadow_validation_tracker", {}
+    )
     if forecast_performance.get("status") == "performance_review_needed":
         forecast_performance = dict(forecast_performance)
         forecast_performance["recommended_action"] = shadow_disposition.get(
@@ -2164,6 +2290,8 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
         "forecast_performance_recommended_action": forecast_performance.get("recommended_action", "unknown"),
         "first_one_month_forecast_evaluation": first_one_month_evaluation,
         "one_week_forecast_shadow_disposition": shadow_disposition,
+        "human_decision_inbox": human_decision_inbox,
+        "extended_shadow_validation_tracker": extended_shadow_tracker,
         "health": _manifest_health(health),
         **data_health_status,
         "data_quality_summary": data_quality_summary,
@@ -2214,6 +2342,8 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
             "manual_review_repeats": str(manual_review_repeats_output),
             "data_quality_history": str(data_quality_history_output),
             "one_week_forecast_shadow_disposition": shadow_disposition.get("path", ""),
+            "human_decision_inbox": human_decision_inbox.get("path", ""),
+            "extended_shadow_validation_tracker": extended_shadow_tracker.get("path", ""),
             "first_one_month_forecast_evaluation": first_one_month_evaluation.get("path", ""),
         },
     }
