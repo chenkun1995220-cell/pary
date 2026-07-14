@@ -195,7 +195,65 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
 
             self.assertEqual(payload["action_policy_contract_status"], "valid")
             self.assertEqual(payload["action_policy_version"], 1)
-            self.assertEqual(set(payload["action_policy_versions"].values()), {1})
+            self.assertEqual(
+                payload["action_policy_versions"],
+                {key: 1 for key in ACTION_POLICY_ARTIFACTS},
+            )
+
+    def test_consistency_reports_missing_action_policy_version_across_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload.pop("action_policy_version")
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            result = build_weekly_artifact_consistency(root, "2026-07-11")
+
+            self.assertEqual(result["action_policy_contract_status"], "missing")
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIsNone(result["action_policy_version"])
+            self.assertEqual(
+                result["issues"],
+                [
+                    "action_items_action_policy_version_missing",
+                    "action_policy_version_inconsistent",
+                ],
+            )
+
+    def test_consistency_rejects_consistently_old_action_policy_versions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            automation = root / "outputs" / "automation"
+            for filename in ACTION_POLICY_ARTIFACTS.values():
+                path = automation / filename
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload["action_policy_version"] = 0
+                path.write_text(json.dumps(payload), encoding="utf-8")
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            result = build_weekly_artifact_consistency(root, "2026-07-11")
+
+            self.assertEqual(result["action_policy_contract_status"], "mismatch")
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIsNone(result["action_policy_version"])
+            self.assertEqual(
+                result["action_policy_versions"],
+                {key: 0 for key in ACTION_POLICY_ARTIFACTS},
+            )
+            self.assertEqual(
+                set(result["issues"]),
+                {
+                    f"{key}_action_policy_version_mismatch"
+                    for key in ACTION_POLICY_ARTIFACTS
+                },
+            )
+            self.assertNotIn("action_policy_version_inconsistent", result["issues"])
 
     def test_consistency_rejects_mixed_action_policy_versions(self):
         with tempfile.TemporaryDirectory() as tmp:
