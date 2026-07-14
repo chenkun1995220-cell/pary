@@ -223,6 +223,63 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
             )
             self.assertIn("action_policy_version_inconsistent", result["attention_reasons"])
 
+    def test_delivery_check_classifies_unparseable_action_policy_versions_as_mismatches(self):
+        cases = (
+            (
+                "latest_weekly_conclusion.json",
+                True,
+                "weekly_conclusion_action_policy_version_mismatch",
+                "weekly_conclusion_action_policy_version_missing",
+            ),
+            (
+                "latest_weekly_action_items.json",
+                "abc",
+                "weekly_action_items_action_policy_version_mismatch",
+                "weekly_action_items_action_policy_version_missing",
+            ),
+        )
+        for filename, version, mismatch_reason, missing_reason in cases:
+            with self.subTest(filename=filename, version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_ready_delivery_files(root)
+                path = root / "outputs" / "automation" / filename
+                payload = json.loads(path.read_text(encoding="utf-8-sig"))
+                payload["action_policy_version"] = version
+                write_json(path, payload)
+
+                from weekly_delivery_check import run_delivery_check
+
+                result = run_delivery_check(root, today="2026-06-28")
+
+                self.assertEqual(result["status"], "needs_attention")
+                self.assertIsNone(result["action_policy_version"])
+                self.assertIn(mismatch_reason, result["attention_reasons"])
+                self.assertNotIn(missing_reason, result["attention_reasons"])
+
+    def test_delivery_check_reports_inconsistent_action_policy_contract_states(self):
+        cases = (
+            ("latest_weekly_conclusion.json", None),
+            ("latest_weekly_action_items.json", "abc"),
+        )
+        for filename, version in cases:
+            with self.subTest(filename=filename, version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_ready_delivery_files(root)
+                path = root / "outputs" / "automation" / filename
+                payload = json.loads(path.read_text(encoding="utf-8-sig"))
+                if version is None:
+                    del payload["action_policy_version"]
+                else:
+                    payload["action_policy_version"] = version
+                write_json(path, payload)
+
+                from weekly_delivery_check import run_delivery_check
+
+                result = run_delivery_check(root, today="2026-06-28")
+
+                self.assertEqual(result["status"], "needs_attention")
+                self.assertIn("action_policy_version_inconsistent", result["attention_reasons"])
+
     def test_delivery_check_is_ready_when_final_outputs_exist_and_are_fresh(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

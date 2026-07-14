@@ -4,7 +4,11 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from action_policy_contract import ACTION_POLICY_VERSION, action_policy_version
+from action_policy_contract import (
+    ACTION_POLICY_VERSION,
+    action_policy_contract_status,
+    action_policy_version,
+)
 
 
 DELIVERY_CHECK_SCHEMA = "weekly_delivery_check"
@@ -75,7 +79,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     forecast_next_one_week_evaluation_count = 0
     forecast_next_one_month_evaluation_date = ""
     forecast_next_one_month_evaluation_count = 0
-    conclusion_action_policy_version = None
+    conclusion_action_policy = _action_policy_contract_details({})
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -123,7 +127,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
                 forecast_performance.get("next_one_month_evaluation_count"),
                 0,
             )
-    conclusion_action_policy_version = action_policy_version(conclusion)
+    conclusion_action_policy = _action_policy_contract_details(conclusion)
 
     required_outputs = _required_outputs(conclusion, conclusion_path)
     for key, raw_path in required_outputs.items():
@@ -156,7 +160,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_count = action_items["item_count"]
     action_items_actual_count = action_items["actual_item_count"]
     action_items_json = action_items["json_path"]
-    action_items_action_policy_version = action_items["action_policy_version"]
+    action_items_action_policy = action_items["action_policy"]
     if action_items["attention_reasons"]:
         for reason in action_items["attention_reasons"]:
             if reason not in attention_reasons:
@@ -168,19 +172,22 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
             attention_reasons.append(reason)
 
     action_policy_versions = {
-        "weekly_conclusion": conclusion_action_policy_version,
-        "weekly_action_items": action_items_action_policy_version,
+        "weekly_conclusion": conclusion_action_policy,
+        "weekly_action_items": action_items_action_policy,
     }
-    for artifact, version in action_policy_versions.items():
-        if version is None:
+    for artifact, contract in action_policy_versions.items():
+        if contract["status"] == "missing":
             attention_reasons.append(f"{artifact}_action_policy_version_missing")
-        elif version != ACTION_POLICY_VERSION:
+        elif contract["status"] != "valid":
             attention_reasons.append(f"{artifact}_action_policy_version_mismatch")
-    if len({version for version in action_policy_versions.values() if version is not None}) > 1:
+    if _action_policy_versions_inconsistent(
+        conclusion_action_policy,
+        action_items_action_policy,
+    ):
         attention_reasons.append("action_policy_version_inconsistent")
     delivery_action_policy_version = (
         ACTION_POLICY_VERSION
-        if all(version == ACTION_POLICY_VERSION for version in action_policy_versions.values())
+        if all(contract["status"] == "valid" for contract in action_policy_versions.values())
         else None
     )
 
@@ -344,6 +351,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "item_count": 0,
             "actual_item_count": 0,
             "action_policy_version": None,
+            "action_policy": _action_policy_contract_details({}),
             "json_path": str(json_path),
             "attention_reasons": [],
             "missing": True,
@@ -358,6 +366,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "item_count": 0,
             "actual_item_count": 0,
             "action_policy_version": None,
+            "action_policy": _action_policy_contract_details({}),
             "json_path": str(json_path),
             "attention_reasons": ["invalid_action_items_json"],
             "missing": False,
@@ -398,17 +407,40 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
         status = "future"
         attention_reasons.append("future_action_items_date")
 
+    action_policy = _action_policy_contract_details(payload)
     return {
         "status": status,
         "freshness_status": freshness_status,
         "age_days": age_days,
         "item_count": item_count,
         "actual_item_count": actual_item_count,
-        "action_policy_version": action_policy_version(payload),
+        "action_policy_version": action_policy["version"],
+        "action_policy": action_policy,
         "json_path": str(json_path),
         "attention_reasons": attention_reasons,
         "missing": False,
     }
+
+
+def _action_policy_contract_details(payload):
+    present = isinstance(payload, dict) and "action_policy_version" in payload
+    return {
+        "present": present,
+        "raw_version": payload.get("action_policy_version") if present else None,
+        "version": action_policy_version(payload),
+        "status": action_policy_contract_status(payload),
+    }
+
+
+def _action_policy_versions_inconsistent(left, right):
+    if left["status"] != right["status"]:
+        return True
+    if left["version"] != right["version"]:
+        return True
+    return (
+        left["status"] == "mismatch"
+        and left["raw_version"] != right["raw_version"]
+    )
 
 
 def _artifact_order_reasons(conclusion_path, action_items_json_path):
