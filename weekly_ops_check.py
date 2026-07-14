@@ -4,6 +4,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from action_policy_contract import action_policy_contract_status, action_policy_version
 from codex_automation_audit import audit_automations
 
 
@@ -80,6 +81,8 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
     ready_count = int(weekly_check.get("markets_ready_count", 0) or 0)
     manifest_status = weekly_check.get("manifest_validation_status", "unknown")
     automation_status = automation_audit.get("status", "unknown")
+    policy_status = action_policy_contract_status(weekly_check, require_actionability=True)
+    policy_version = action_policy_version(weekly_check)
     freshness_status, check_age_days = _freshness(
         weekly_check.get("as_of_date", "unknown"),
         today=today,
@@ -89,6 +92,10 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
     attention_reasons = []
     if automation_status != "ready":
         attention_reasons.append("automation_config_drift")
+    if policy_status == "missing":
+        attention_reasons.append("automation_check_action_policy_contract_missing")
+    elif policy_status == "mismatch":
+        attention_reasons.append("automation_check_action_policy_version_mismatch")
     if freshness_status == "stale":
         attention_reasons.append("stale_check_date")
     if freshness_status == "future":
@@ -116,6 +123,8 @@ def run_weekly_ops_check(project_root, automation_root, check, today=None, max_a
         "max_age_days": max_age_days,
         "automation_audit_status": automation_status,
         "automation_check_status": weekly_check.get("status", "unknown"),
+        "action_policy_version": policy_version,
+        "action_policy_contract_status": policy_status,
         "manifest_validation_status": manifest_status,
         "market_count": market_count,
         "markets_ready_count": ready_count,

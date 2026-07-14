@@ -56,6 +56,9 @@ def write_weekly_check(root, outputs, as_of_date="2026-06-28"):
             {
                 "check_schema": "weekly_automation_check",
                 "check_version": 1,
+                "action_policy_version": 1,
+                "candidate_review_actionable": True,
+                "weekly_delivery_history_actionable": True,
                 "as_of_date": as_of_date,
                 "status": "manual_review_needed",
                 "recommended_action": "review_manual_queue",
@@ -113,6 +116,8 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             self.assertEqual(result["ops_check_version"], 1)
             self.assertEqual(result["automation_audit_status"], "ready")
             self.assertEqual(result["automation_check_status"], "manual_review_needed")
+            self.assertEqual(result["action_policy_version"], 1)
+            self.assertEqual(result["action_policy_contract_status"], "valid")
             self.assertEqual(result["missing_outputs"], [])
             self.assertEqual(result["forecast_next_one_week_evaluation_date"], "2026-07-07")
             self.assertEqual(result["forecast_next_one_week_evaluation_count"], 42)
@@ -129,6 +134,65 @@ class WeeklyOpsCheckTests(unittest.TestCase):
             self.assertIn("forecast_next_one_week_evaluation_count=42", report)
             self.assertIn("forecast_next_one_month_evaluation_date=2026-07-28", report)
             self.assertIn("forecast_next_one_month_evaluation_count=42", report)
+
+    def test_ops_check_needs_attention_for_missing_action_policy_contract(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
+            root = Path(tmp)
+            output_files = {
+                "self_analysis": "outputs/automation/latest_self_analysis.md",
+                "manifest": "outputs/automation/latest_self_analysis_manifest.json",
+                "manual_review_queue": "outputs/automation/latest_manual_review_queue.csv",
+                "automation_check": "outputs/automation/latest_automation_check.json",
+            }
+            for relative_path in output_files.values():
+                path = root / relative_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("ok\n", encoding="utf-8-sig")
+            check_path = write_weekly_check(root, output_files)
+            payload = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            del payload["action_policy_version"]
+            check_path.write_text(json.dumps(payload), encoding="utf-8-sig")
+            write_expected_automations(automation_tmp)
+
+            from weekly_ops_check import run_weekly_ops_check
+
+            result = run_weekly_ops_check(root, automation_tmp, check_path, today="2026-06-28")
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["action_policy_contract_status"], "missing")
+            self.assertIn(
+                "automation_check_action_policy_contract_missing",
+                result["attention_reasons"],
+            )
+
+    def test_ops_check_needs_attention_for_old_action_policy_version(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
+            root = Path(tmp)
+            output_files = {
+                "self_analysis": "outputs/automation/latest_self_analysis.md",
+                "manifest": "outputs/automation/latest_self_analysis_manifest.json",
+                "manual_review_queue": "outputs/automation/latest_manual_review_queue.csv",
+                "automation_check": "outputs/automation/latest_automation_check.json",
+            }
+            for relative_path in output_files.values():
+                path = root / relative_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("ok\n", encoding="utf-8-sig")
+            check_path = write_weekly_check(root, output_files)
+            payload = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            payload["action_policy_version"] = 0
+            check_path.write_text(json.dumps(payload), encoding="utf-8-sig")
+            write_expected_automations(automation_tmp)
+
+            from weekly_ops_check import run_weekly_ops_check
+
+            result = run_weekly_ops_check(root, automation_tmp, check_path, today="2026-06-28")
+
+            self.assertEqual(result["action_policy_contract_status"], "mismatch")
+            self.assertIn(
+                "automation_check_action_policy_version_mismatch",
+                result["attention_reasons"],
+            )
 
     def test_ops_check_reports_external_input_blockers_from_weekly_check(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as automation_tmp:
