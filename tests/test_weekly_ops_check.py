@@ -19,22 +19,31 @@ def write_expected_automations(root, minute_overrides=None):
         path = Path(root) / automation_id / "automation.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
         prompt = " ".join(expected["required_prompt_terms"])
-        path.write_text(
-            "\n".join(
+        kind = expected["kind"]
+        lines = [
+            f"id = {json.dumps(automation_id, ensure_ascii=False)}",
+            f"kind = {json.dumps(kind)}",
+            f"name = {json.dumps(expected['name'], ensure_ascii=False)}",
+            f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
+            'status = "ACTIVE"',
+            (
+                'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;'
+                f'BYHOUR={expected["hour"]};BYMINUTE={minute}"'
+            ),
+        ]
+        if kind == "cron":
+            lines.extend(
                 [
-                    f"id = {json.dumps(automation_id, ensure_ascii=False)}",
-                    'kind = "cron"',
-                    f"name = {json.dumps(expected['name'], ensure_ascii=False)}",
-                    f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
-                    'status = "ACTIVE"',
-                    f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR=14;BYMINUTE={minute}"',
                     'model = "test-compatible-model"',
                     'reasoning_effort = "high"',
                     'execution_environment = "local"',
                     'cwds = ["F:\\\\chatgptssd\\\\project2"]',
                 ]
             )
-            + "\n",
+        else:
+            lines.append('target_thread_id = "test-thread"')
+        path.write_text(
+            "\n".join(lines) + "\n",
             encoding="utf-8-sig",
         )
 

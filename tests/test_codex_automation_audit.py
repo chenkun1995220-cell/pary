@@ -4,31 +4,64 @@ import unittest
 from pathlib import Path
 
 
-def write_automation(root, automation_id, name, prompt, minute, model="gpt-5.6-terra"):
+def write_automation(
+    root,
+    automation_id,
+    name,
+    prompt,
+    minute,
+    model="gpt-5.6-terra",
+    kind="cron",
+    hour=14,
+    target_thread_id="test-thread",
+):
     path = Path(root) / automation_id / "automation.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "\n".join(
+    lines = [
+        f"id = {json.dumps(automation_id, ensure_ascii=False)}",
+        f"kind = {json.dumps(kind)}",
+        f"name = {json.dumps(name, ensure_ascii=False)}",
+        f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
+        'status = "ACTIVE"',
+        f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR={hour};BYMINUTE={minute}"',
+    ]
+    if kind == "cron":
+        lines.extend(
             [
-                f"id = {json.dumps(automation_id, ensure_ascii=False)}",
-                'kind = "cron"',
-                f"name = {json.dumps(name, ensure_ascii=False)}",
-                f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
-                'status = "ACTIVE"',
-                f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR=14;BYMINUTE={minute}"',
                 f'model = "{model}"',
                 'reasoning_effort = "high"',
                 'execution_environment = "local"',
                 'cwds = ["F:\\\\chatgptssd\\\\project2"]',
             ]
         )
-        + "\n",
+    else:
+        lines.append(f"target_thread_id = {json.dumps(target_thread_id)}")
+    path.write_text(
+        "\n".join(lines) + "\n",
         encoding="utf-8-sig",
     )
 
 
+def write_acceptance_heartbeat(root, prompt=None, hour=15, minute=0):
+    write_automation(
+        root,
+        "automation-2",
+        "三市场周交付验收跟进",
+        prompt
+        or (
+            "latest_weekly_artifact_consistency.json "
+            "latest_extended_shadow_validation_tracker.json "
+            "latest_pre_submit_review.json "
+            "不要重新运行市场抓取，不要修改正式模型"
+        ),
+        minute,
+        kind="heartbeat",
+        hour=hour,
+    )
+
+
 class CodexAutomationAuditTests(unittest.TestCase):
-    def test_audits_three_weekly_automations_as_ready(self):
+    def test_audits_market_crons_and_acceptance_heartbeat_as_ready(self):
         with tempfile.TemporaryDirectory() as tmp:
             write_automation(
                 tmp,
@@ -52,6 +85,7 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 30,
                 model="gpt-5.6-sol",
             )
+            write_acceptance_heartbeat(tmp)
 
             from codex_automation_audit import audit_automations, render_audit_report
 
@@ -59,15 +93,19 @@ class CodexAutomationAuditTests(unittest.TestCase):
             report = render_audit_report(result)
 
             self.assertEqual(result["status"], "ready")
-            self.assertEqual(result["ready_count"], 3)
-            self.assertEqual(result["automation_count"], 3)
+            self.assertEqual(result["ready_count"], 4)
+            self.assertEqual(result["automation_count"], 4)
             self.assertEqual(result["checks"][2]["id"], "automation-5")
+            self.assertEqual(result["checks"][3]["id"], "automation-2")
+            self.assertEqual(result["checks"][3]["kind"], "heartbeat")
             self.assertIn("Codex 自动化任务配置审计", report)
             self.assertIn("总体状态：ready", report)
             self.assertIn("automation-5：ready", report)
             self.assertIn("run_weekly_reporting_bundle.ps1", report)
             self.assertIn("latest_weekly_artifact_consistency.json", report)
             self.assertIn("latest_pre_submit_review.json", report)
+            self.assertIn("automation-2", report)
+            self.assertIn("latest_extended_shadow_validation_tracker.json", report)
             self.assertEqual(result["checks"][0]["model"], "gpt-5.6-terra")
             self.assertEqual(result["checks"][2]["model"], "gpt-5.6-sol")
             self.assertNotIn("三条任务使用当前支持的 gpt-5.6-terra", report)
@@ -81,12 +119,53 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 ("automation-5", "港股大中盘每周筛选", "scripts\\run_hk_weekly.ps1 -RunPostChecks scripts\\run_weekly_reporting_bundle.ps1 latest_weekly_artifact_consistency.json latest_first_one_month_forecast_evaluation_review.json latest_pre_submit_review.json 同一自然日", 30),
             ):
                 write_automation(tmp, automation_id, name, prompt, minute, model="future-compatible-model")
+            write_acceptance_heartbeat(tmp)
 
             from codex_automation_audit import audit_automations
 
             result = audit_automations(tmp)
 
             self.assertEqual(result["status"], "ready")
+
+    def test_audit_reports_missing_acceptance_heartbeat(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for automation_id, name, prompt, minute in (
+                ("automation", "US", "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv", 5),
+                ("a-300-3", "CN", "scripts\\run_cn_weekly.ps1 不提前运行三市场统一收口", 10),
+                ("automation-5", "HK", "scripts\\run_hk_weekly.ps1 -RunPostChecks scripts\\run_weekly_reporting_bundle.ps1 latest_weekly_artifact_consistency.json latest_first_one_month_forecast_evaluation_review.json latest_pre_submit_review.json 同一自然日", 30),
+            ):
+                write_automation(tmp, automation_id, name, prompt, minute)
+
+            from codex_automation_audit import audit_automations
+
+            result = audit_automations(tmp)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn("automation-2", result["missing_automations"])
+
+    def test_audit_reports_heartbeat_schedule_and_prompt_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_acceptance_heartbeat(
+                tmp,
+                prompt=(
+                    "latest_weekly_artifact_consistency.json "
+                    "latest_pre_submit_review.json "
+                    "不要重新运行市场抓取，不要修改正式模型"
+                ),
+                hour=14,
+                minute=55,
+            )
+
+            from codex_automation_audit import audit_automations
+
+            result = audit_automations(tmp)
+            heartbeat = result["checks"][3]
+
+            self.assertEqual(heartbeat["status"], "needs_attention")
+            self.assertTrue(any("BYHOUR=15;BYMINUTE=0" in issue for issue in heartbeat["issues"]))
+            self.assertTrue(
+                any("latest_extended_shadow_validation_tracker.json" in issue for issue in heartbeat["issues"])
+            )
 
     def test_audit_reports_missing_bundle_and_consistency_prompt(self):
         with tempfile.TemporaryDirectory() as tmp:

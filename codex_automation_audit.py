@@ -7,6 +7,8 @@ EXPECTED_AUTOMATIONS = [
     {
         "id": "automation",
         "name": "美股低估公司每周筛选",
+        "kind": "cron",
+        "hour": 14,
         "minute": 5,
         "required_prompt_terms": [
             "scripts\\run_us_universe_weekly.ps1",
@@ -18,6 +20,8 @@ EXPECTED_AUTOMATIONS = [
     {
         "id": "a-300-3",
         "name": "A股沪深300每周筛选",
+        "kind": "cron",
+        "hour": 14,
         "minute": 10,
         "required_prompt_terms": [
             "scripts\\run_cn_weekly.ps1",
@@ -28,6 +32,8 @@ EXPECTED_AUTOMATIONS = [
     {
         "id": "automation-5",
         "name": "港股大中盘每周筛选",
+        "kind": "cron",
+        "hour": 14,
         "minute": 30,
         "required_prompt_terms": [
             "scripts\\run_hk_weekly.ps1",
@@ -37,6 +43,21 @@ EXPECTED_AUTOMATIONS = [
             "latest_first_one_month_forecast_evaluation_review.json",
             "latest_pre_submit_review.json",
             "同一自然日",
+        ],
+        "forbidden_prompt_terms": [],
+    },
+    {
+        "id": "automation-2",
+        "name": "三市场周交付验收跟进",
+        "kind": "heartbeat",
+        "hour": 15,
+        "minute": 0,
+        "required_prompt_terms": [
+            "latest_weekly_artifact_consistency.json",
+            "latest_extended_shadow_validation_tracker.json",
+            "latest_pre_submit_review.json",
+            "不要重新运行市场抓取",
+            "不要修改正式模型",
         ],
         "forbidden_prompt_terms": [],
     },
@@ -63,17 +84,26 @@ def _check_automation(root, expected):
         }
     data = _load_toml(path)
     issues = []
-    expected_rrule = f"FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR=14;BYMINUTE={expected['minute']}"
+    expected_kind = expected["kind"]
+    expected_rrule = (
+        "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;"
+        f"BYHOUR={expected['hour']};BYMINUTE={expected['minute']}"
+    )
+    if data.get("kind") != expected_kind:
+        issues.append(f"kind expected {expected_kind} got {data.get('kind', '')}")
     if data.get("status") != "ACTIVE":
         issues.append(f"status expected ACTIVE got {data.get('status', '')}")
     if data.get("rrule") != expected_rrule:
         issues.append(f"rrule expected {expected_rrule} got {data.get('rrule', '')}")
-    if data.get("execution_environment") != "local":
-        issues.append(f"execution_environment expected local got {data.get('execution_environment', '')}")
-    if not str(data.get("model", "")).strip():
-        issues.append("model must be configured")
-    if "F:\\chatgptssd\\project2" not in data.get("cwds", []):
-        issues.append("cwds missing F:\\chatgptssd\\project2")
+    if expected_kind == "cron":
+        if data.get("execution_environment") != "local":
+            issues.append(f"execution_environment expected local got {data.get('execution_environment', '')}")
+        if not str(data.get("model", "")).strip():
+            issues.append("model must be configured")
+        if "F:\\chatgptssd\\project2" not in data.get("cwds", []):
+            issues.append("cwds missing F:\\chatgptssd\\project2")
+    elif not str(data.get("target_thread_id", "")).strip():
+        issues.append("target_thread_id must be configured")
     prompt = data.get("prompt", "")
     for term in expected["required_prompt_terms"]:
         if term not in prompt:
@@ -87,6 +117,7 @@ def _check_automation(root, expected):
     return {
         "id": expected["id"],
         "name": data.get("name", expected["name"]),
+        "kind": data.get("kind", ""),
         "status": "ready" if not issues else "needs_attention",
         "path": str(path),
         "rrule": data.get("rrule", ""),
@@ -131,6 +162,7 @@ def render_audit_report(result):
             "## 验收重点",
             "- 美股和 A 股任务只生成各自市场产物，不得提前运行 -RunPostChecks。",
             "- 港股任务必须使用 -RunPostChecks 调用 run_weekly_reporting_bundle.ps1，并读取 latest_weekly_artifact_consistency.json、latest_first_one_month_forecast_evaluation_review.json 和 latest_pre_submit_review.json。",
+            "- 三市场周交付验收跟进必须在周日 15:00 运行，读取 latest_extended_shadow_validation_tracker.json 与提交前复核，并保持不重跑市场抓取、不修改正式模型的边界。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )
@@ -138,7 +170,7 @@ def render_audit_report(result):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Audit the three Codex weekly stock automations.")
+    parser = argparse.ArgumentParser(description="Audit the Codex weekly market and acceptance automations.")
     parser.add_argument("--automation-root", default=str(Path.home() / ".codex" / "automations"))
     args = parser.parse_args()
     result = audit_automations(args.automation_root)
