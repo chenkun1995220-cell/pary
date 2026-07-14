@@ -6,10 +6,10 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from action_policy_contract import ACTION_POLICY_VERSION
 
 PRE_SUBMIT_REVIEW_SCHEMA = "pre_submit_review"
 PRE_SUBMIT_REVIEW_VERSION = 1
-EXPECTED_ACTION_POLICY_VERSION = 1
 HISTORY_SCHEMA = "pre_submit_review_history"
 HISTORY_VERSION = 1
 EXPECTED_DEVELOPMENT_EXECUTION_PROFILE = "capability_adaptive_single_agent"
@@ -1262,7 +1262,7 @@ def _automation_reasons(payload):
         reasons.append("automation_check_missing_quality_fields")
     if (
         "action_policy_version" in payload
-        and _int_value(payload.get("action_policy_version")) != EXPECTED_ACTION_POLICY_VERSION
+        and _int_value(payload.get("action_policy_version")) != ACTION_POLICY_VERSION
     ):
         reasons.append("automation_check_action_policy_version_mismatch")
     if payload.get("manifest_validation_status") != "valid":

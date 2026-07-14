@@ -4,6 +4,7 @@ import json
 from datetime import date
 from pathlib import Path
 
+from action_policy_contract import ACTION_POLICY_VERSION
 from weekly_action_items import (
     candidate_review_issue_is_actionable,
     delivery_health_issue_is_actionable,
@@ -54,7 +55,6 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_PATH = Path(
 CANDIDATE_FINDINGS_REVIEW_PATH = Path(
     "outputs/automation/latest_candidate_findings_review.json"
 )
-ACTION_POLICY_VERSION = 1
 
 
 def _read_text(path):
