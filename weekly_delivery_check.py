@@ -4,6 +4,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from action_policy_contract import ACTION_POLICY_VERSION, action_policy_version
+
 
 DELIVERY_CHECK_SCHEMA = "weekly_delivery_check"
 DELIVERY_CHECK_VERSION = 1
@@ -73,6 +75,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     forecast_next_one_week_evaluation_count = 0
     forecast_next_one_month_evaluation_date = ""
     forecast_next_one_month_evaluation_count = 0
+    conclusion_action_policy_version = None
 
     if not conclusion:
         attention_reasons.append("missing_or_invalid_conclusion_json")
@@ -120,6 +123,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
                 forecast_performance.get("next_one_month_evaluation_count"),
                 0,
             )
+    conclusion_action_policy_version = action_policy_version(conclusion)
 
     required_outputs = _required_outputs(conclusion, conclusion_path)
     for key, raw_path in required_outputs.items():
@@ -152,6 +156,7 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
     action_items_count = action_items["item_count"]
     action_items_actual_count = action_items["actual_item_count"]
     action_items_json = action_items["json_path"]
+    action_items_action_policy_version = action_items["action_policy_version"]
     if action_items["attention_reasons"]:
         for reason in action_items["attention_reasons"]:
             if reason not in attention_reasons:
@@ -162,12 +167,30 @@ def run_delivery_check(project_root, conclusion_json=None, today=None, max_age_d
         if reason not in attention_reasons:
             attention_reasons.append(reason)
 
+    action_policy_versions = {
+        "weekly_conclusion": conclusion_action_policy_version,
+        "weekly_action_items": action_items_action_policy_version,
+    }
+    for artifact, version in action_policy_versions.items():
+        if version is None:
+            attention_reasons.append(f"{artifact}_action_policy_version_missing")
+        elif version != ACTION_POLICY_VERSION:
+            attention_reasons.append(f"{artifact}_action_policy_version_mismatch")
+    if len({version for version in action_policy_versions.values() if version is not None}) > 1:
+        attention_reasons.append("action_policy_version_inconsistent")
+    delivery_action_policy_version = (
+        ACTION_POLICY_VERSION
+        if all(version == ACTION_POLICY_VERSION for version in action_policy_versions.values())
+        else None
+    )
+
     return {
         "delivery_check_schema": DELIVERY_CHECK_SCHEMA,
         "delivery_check_version": DELIVERY_CHECK_VERSION,
         "status": "ready" if not attention_reasons else "needs_attention",
         "project_root": str(project_root),
         "conclusion_json": _relative_path(project_root, conclusion_path),
+        "action_policy_version": delivery_action_policy_version,
         "as_of_date": conclusion.get("as_of_date", "unknown"),
         "freshness_status": freshness_status,
         "conclusion_age_days": conclusion_age_days,
@@ -320,6 +343,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "age_days": None,
             "item_count": 0,
             "actual_item_count": 0,
+            "action_policy_version": None,
             "json_path": str(json_path),
             "attention_reasons": [],
             "missing": True,
@@ -333,6 +357,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
             "age_days": None,
             "item_count": 0,
             "actual_item_count": 0,
+            "action_policy_version": None,
             "json_path": str(json_path),
             "attention_reasons": ["invalid_action_items_json"],
             "missing": False,
@@ -379,6 +404,7 @@ def _check_action_items(project_root, today=None, max_age_days=8, missing_output
         "age_days": age_days,
         "item_count": item_count,
         "actual_item_count": actual_item_count,
+        "action_policy_version": action_policy_version(payload),
         "json_path": str(json_path),
         "attention_reasons": attention_reasons,
         "missing": False,
