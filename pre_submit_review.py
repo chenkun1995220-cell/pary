@@ -1177,7 +1177,11 @@ def _weekly_artifact_consistency_action_policy_contract_valid(payload):
     return (
         isinstance(versions, dict)
         and set(versions) == WEEKLY_ARTIFACT_CONSISTENCY_ACTION_POLICY_ARTIFACTS
-        and all(version == ACTION_POLICY_VERSION for version in versions.values())
+        and all(
+            action_policy_version({"action_policy_version": version})
+            == ACTION_POLICY_VERSION
+            for version in versions.values()
+        )
     )
 
 
@@ -1306,11 +1310,7 @@ def _automation_reasons(payload):
     reasons = []
     if any(field not in payload for field in AUTOMATION_CHECK_REQUIRED_QUALITY_FIELDS):
         reasons.append("automation_check_missing_quality_fields")
-    if (
-        "action_policy_version" in payload
-        and _int_value(payload.get("action_policy_version")) != ACTION_POLICY_VERSION
-    ):
-        reasons.append("automation_check_action_policy_version_mismatch")
+    reasons.extend(_action_policy_version_reasons(payload, "automation_check"))
     if payload.get("manifest_validation_status") != "valid":
         reasons.append("automation_check_manifest_invalid")
     if _int_value(payload.get("market_count")) and _int_value(payload.get("markets_ready_count")) != _int_value(payload.get("market_count")):

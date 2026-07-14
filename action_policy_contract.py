@@ -12,9 +12,18 @@ def action_policy_version(payload):
     value = payload.get("action_policy_version")
     if isinstance(value, bool):
         return None
+    if isinstance(value, str):
+        digits = value[1:] if value[:1] in {"+", "-"} else value
+        if not digits or not digits.isascii() or not digits.isdecimal():
+            return None
+    elif isinstance(value, float):
+        if not value.is_integer():
+            return None
+    elif not isinstance(value, int):
+        return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
 

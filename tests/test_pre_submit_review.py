@@ -2606,6 +2606,67 @@ class PreSubmitReviewTests(unittest.TestCase):
                 "automation_check_action_policy_version_mismatch",
                 result["attention_reasons"],
             )
+            self.assertNotIn(
+                "automation_check_action_policy_version_missing",
+                result["attention_reasons"],
+            )
+
+    def test_review_classifies_malformed_automation_action_policy_versions_as_missing(self):
+        for version in (True, 1.5, 1.9, 1e309):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_ready_review_inputs(root)
+                check_path = (
+                    root / "outputs" / "automation" / "latest_automation_check.json"
+                )
+                check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+                check["action_policy_version"] = version
+                write_json(check_path, check)
+
+                from pre_submit_review import run_pre_submit_review
+
+                result = run_pre_submit_review(
+                    root, today="2026-06-28", max_age_days=8
+                )
+
+                self.assertEqual(result["status"], "needs_attention")
+                self.assertIn(
+                    "automation_check_action_policy_version_missing",
+                    result["attention_reasons"],
+                )
+                self.assertNotIn(
+                    "automation_check_action_policy_version_mismatch",
+                    result["attention_reasons"],
+                )
+
+    def test_review_rejects_malformed_consistency_action_policy_version_mapping(self):
+        for version in (True, 1.5, 1.9, 1e309):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_ready_review_inputs(root)
+                consistency_path = (
+                    root
+                    / "outputs"
+                    / "automation"
+                    / "latest_weekly_artifact_consistency.json"
+                )
+                consistency = json.loads(
+                    consistency_path.read_text(encoding="utf-8-sig")
+                )
+                consistency["action_policy_versions"]["automation_check"] = version
+                write_json(consistency_path, consistency)
+
+                from pre_submit_review import run_pre_submit_review
+
+                result = run_pre_submit_review(
+                    root, today="2026-06-28", max_age_days=8
+                )
+
+                self.assertEqual(result["status"], "needs_attention")
+                self.assertIn(
+                    "weekly_artifact_consistency_action_policy_contract_invalid",
+                    result["attention_reasons"],
+                )
 
     def test_review_needs_attention_when_automation_check_lacks_external_input_blocker_fields(self):
         with tempfile.TemporaryDirectory() as tmp:

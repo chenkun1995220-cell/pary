@@ -255,6 +255,30 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             )
             self.assertEqual(payload["priority_actions"], ["review_inputs"])
 
+    def test_conclusion_rejects_missing_action_items_policy_without_reusing_legacy_actions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            action_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_payload = json.loads(action_path.read_text(encoding="utf-8-sig"))
+            del action_payload["action_policy_version"]
+            action_payload["item_count"] = 1
+            action_payload["items"] = [{"action_code": "continue_shadow_validation"}]
+            write_json(action_path, action_payload)
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(payload["status"], "needs_attention")
+            self.assertIsNone(payload["action_policy_version"])
+            self.assertIn(
+                "weekly_action_items_action_policy_version_missing",
+                payload["warnings"],
+            )
+            self.assertEqual(payload["priority_actions"], ["review_inputs"])
+
     def test_conclusion_rejects_missing_or_old_action_policy_versions(self):
         cases = (
             (
