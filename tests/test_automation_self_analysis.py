@@ -26,6 +26,126 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_automation_decision_excludes_non_actionable_mirrored_actions(self):
+        from automation_self_analysis import _manifest_automation_decision
+
+        result = _manifest_automation_decision(
+            {
+                "model_audit_status": "sample_accumulating",
+                "model_audit_recommended_action": "continue_sample_accumulation",
+            },
+            {
+                "backtest_status": "clear",
+                "backtest_recommended_action": "monitor_next_run",
+            },
+            {"status": "ready", "recommended_action": "monitor_next_run"},
+            {
+                "data_health_status": "clear",
+                "data_health_recommended_action": "monitor_next_run",
+            },
+            {"status": "ready", "recommended_action": "monitor_next_run"},
+            {"status": "clear", "recommended_action": "monitor_next_run"},
+            {
+                "candidate_review_status": "manual_review_needed",
+                "candidate_review_recommended_action": "review_candidate_findings",
+                "candidate_review_actionable": False,
+            },
+            {
+                "weekly_ops_history_status": "clear",
+                "weekly_ops_history_recommended_action": "monitor_next_run",
+            },
+            {
+                "weekly_delivery_history_status": "manual_review_needed",
+                "weekly_delivery_history_recommended_action": "review_delivery_health_issues",
+                "weekly_delivery_history_priority_actions": ["review_delivery_health_issues"],
+                "weekly_delivery_history_actionable": False,
+            },
+            "ready",
+            "monitor_next_run",
+        )
+
+        self.assertEqual(result["automation_status"], "sample_accumulating")
+        self.assertEqual(
+            result["automation_priority_actions"],
+            ["continue_sample_accumulation"],
+        )
+
+    def test_self_analysis_reuses_action_item_actionability_policy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for universe, title in (
+                ("us_universe", "US Weekly Screening Run Summary"),
+                ("cn_universe", "CN Weekly Data Summary"),
+                ("hk_universe", "HK Weekly Data Summary"),
+            ):
+                write_text(root / "outputs" / universe / "latest_run_summary.md", f"# {title}\n")
+                write_text(
+                    root / "outputs" / universe / "model_audit.md",
+                    "- 审计状态：sample_accumulating\n",
+                )
+            write_text(
+                root / "outputs" / "us_universe" / "latest_investment_summary.md",
+                "\n".join(
+                    [
+                        "# US Investment Summary",
+                        "## 候选风险说明",
+                        "| 股票 | 公司 | 风险说明 |",
+                        "|---|---|---|",
+                        "| AAA | Alpha | 走势偏弱 |",
+                    ]
+                )
+                + "\n",
+            )
+            write_text(root / "outputs" / "automation" / "latest_backtest_summary.md", "# Backtest\n")
+            write_text(
+                root / "outputs" / "automation" / "latest_candidate_findings_review.json",
+                json.dumps(
+                    {
+                        "status": "manual_review_needed",
+                        "recommended_action": "review_candidate_findings",
+                        "missing_field_count": 0,
+                        "risk_missing_count": 0,
+                        "risk_unclassified_count": 0,
+                        "risk_action_unqueued_count": 0,
+                        "risk_action_required_count": 16,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            history_rows = []
+            for as_of_date in ("2026-07-05", "2026-07-12"):
+                history_rows.append(
+                    json.dumps(
+                        {
+                            "history_schema": "weekly_delivery_check_history",
+                            "history_version": 1,
+                            "delivery_check_schema": "weekly_delivery_check",
+                            "as_of_date": as_of_date,
+                            "status": "ready",
+                            "freshness_status": "fresh",
+                            "attention_reasons": [],
+                            "conclusion_health_status": "needs_review",
+                            "conclusion_health_reasons": [
+                                "automation_check:manual_review_needed",
+                                "candidate_findings_review:manual_review_needed",
+                            ],
+                            "manual_review_pending_count": 0,
+                        }
+                    )
+                )
+            write_text(
+                root / "outputs" / "automation" / "weekly_delivery_check_history.jsonl",
+                "\n".join(history_rows) + "\n",
+            )
+
+            result = run_self_analysis(root, as_of_date="2026-07-12")
+            manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
+
+            self.assertEqual(manifest["candidate_review_status"], "manual_review_needed")
+            self.assertNotIn("review_candidate_findings", manifest["automation_priority_actions"])
+            self.assertNotIn("review_delivery_health_issues", manifest["automation_priority_actions"])
+            self.assertIn("continue_sample_accumulation", manifest["automation_priority_actions"])
+
     def test_data_quality_history_clears_repeated_alert_after_latest_recovery(self):
         with tempfile.TemporaryDirectory() as tmp:
             history_path = Path(tmp) / "data_quality_score_history.csv"
@@ -275,6 +395,28 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             payload.get("extended_shadow_validation_recommended_action"),
             "continue_extended_shadow_validation",
         )
+
+    def test_automation_check_payload_exposes_actionability_flags(self):
+        from automation_self_analysis import _automation_check_payload
+
+        payload = _automation_check_payload(
+            {
+                "as_of_date": "2026-07-14",
+                "automation_status": "sample_accumulating",
+                "automation_recommended_action": "continue_sample_accumulation",
+                "automation_priority_actions": ["continue_sample_accumulation"],
+                "market_count": 3,
+                "markets": [],
+                "candidate_review_status": "manual_review_needed",
+                "candidate_review_actionable": False,
+                "weekly_delivery_history_status": "clear",
+                "weekly_delivery_history_actionable": False,
+            },
+            {"status": "valid", "markets_ready_count": 3, "errors": []},
+        )
+
+        self.assertIs(payload.get("candidate_review_actionable"), False)
+        self.assertIs(payload.get("weekly_delivery_history_actionable"), False)
 
     def test_self_analysis_manifest_reads_sp500_inbox_external_input_blocker(self):
         with tempfile.TemporaryDirectory() as tmp:

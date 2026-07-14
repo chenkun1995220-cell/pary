@@ -149,7 +149,7 @@ def _health_reasons(history):
     return reasons
 
 
-def _delivery_health_issue_is_actionable(history):
+def delivery_health_issue_is_actionable(history):
     if _manual_review_count({}, history) > 0:
         return True
     if _has_missing_conclusion_signal(history):
@@ -1371,7 +1371,7 @@ def _forecast_prediction_unavailable_action(forecast_performance):
     }
 
 
-def _candidate_review_issue_is_actionable(candidate_findings):
+def candidate_review_issue_is_actionable(candidate_findings):
     if not isinstance(candidate_findings, dict) or not candidate_findings:
         return True
     if _int_value(candidate_findings.get("missing_field_count"), 0) > 0:
@@ -1682,10 +1682,10 @@ def build_weekly_action_items(
                 continue
         if action_code == "review_delivery_health_issues":
             history = _delivery_history(source)
-            if not _delivery_health_issue_is_actionable(history):
+            if not delivery_health_issue_is_actionable(history):
                 continue
         if action_code == "review_candidate_findings":
-            if not _candidate_review_issue_is_actionable(
+            if not candidate_review_issue_is_actionable(
                 source.get("candidate_findings_review", {})
             ):
                 continue

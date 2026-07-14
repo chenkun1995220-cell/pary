@@ -4,6 +4,10 @@ import json
 from datetime import date
 from pathlib import Path
 
+from weekly_action_items import (
+    candidate_review_issue_is_actionable,
+    delivery_health_issue_is_actionable,
+)
 from weekly_delivery_history_report import summarize_weekly_delivery_history
 from weekly_ops_history_report import summarize_weekly_ops_history
 
@@ -46,6 +50,9 @@ MANUAL_REVIEW_DECISIONS_PATH = Path("outputs/automation/manual_review_decisions.
 CLOSED_MANUAL_REVIEW_STATUSES = {"accepted", "rejected"}
 SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_PATH = Path(
     "outputs/automation/latest_sp500_current_membership_source_inbox_status.json"
+)
+CANDIDATE_FINDINGS_REVIEW_PATH = Path(
+    "outputs/automation/latest_candidate_findings_review.json"
 )
 
 
@@ -1402,8 +1409,12 @@ def _automation_check_payload(manifest, manifest_validation):
         "data_quality_score": manifest.get("data_quality_score", 0),
         "data_quality_history_status": manifest.get("data_quality_history_status", "unknown"),
         "candidate_review_status": manifest.get("candidate_review_status", "unknown"),
+        "candidate_review_actionable": bool(manifest.get("candidate_review_actionable", True)),
         "weekly_ops_history_status": manifest.get("weekly_ops_history_status", "unknown"),
         "weekly_delivery_history_status": manifest.get("weekly_delivery_history_status", "unknown"),
+        "weekly_delivery_history_actionable": bool(
+            manifest.get("weekly_delivery_history_actionable", True)
+        ),
         "weekly_delivery_action_items_actual_count": manifest.get(
             "weekly_delivery_action_items_actual_count", 0
         ),
@@ -1660,7 +1671,7 @@ def _data_quality_summary(health):
     }
 
 
-def _manifest_candidate_review_status(candidate_reviews):
+def _manifest_candidate_review_status(candidate_reviews, candidate_findings_review=None):
     risks = _candidate_review_risks(candidate_reviews)
     quality_gap_count = sum(_as_int(item.get("quality_gap_count")) or 0 for item in candidate_reviews)
     risk_item_count = sum(len(item.get("risk_items", [])) for item in candidate_reviews)
@@ -1668,6 +1679,9 @@ def _manifest_candidate_review_status(candidate_reviews):
         return {
             "candidate_review_status": "manual_review_needed",
             "candidate_review_recommended_action": "review_candidate_findings",
+            "candidate_review_actionable": candidate_review_issue_is_actionable(
+                candidate_findings_review or {}
+            ),
             "candidate_review_quality_gap_count": quality_gap_count,
             "candidate_review_risk_item_count": risk_item_count,
             "candidate_review_risks": risks,
@@ -1675,6 +1689,7 @@ def _manifest_candidate_review_status(candidate_reviews):
     return {
         "candidate_review_status": "clear",
         "candidate_review_recommended_action": "monitor_next_run",
+        "candidate_review_actionable": False,
         "candidate_review_quality_gap_count": quality_gap_count,
         "candidate_review_risk_item_count": risk_item_count,
         "candidate_review_risks": [],
@@ -1748,7 +1763,10 @@ def _weekly_delivery_health_priority_actions(weekly_delivery_history):
     priority_actions = []
     if any(str(reason).startswith("manual_review_pending:") for reason in reasons):
         priority_actions.append("review_manual_review_backlog")
-    if any(not str(reason).startswith("manual_review_pending:") for reason in reasons) or missing_signals:
+    if (
+        any(not str(reason).startswith("manual_review_pending:") for reason in reasons)
+        or missing_signals
+    ) and delivery_health_issue_is_actionable(weekly_delivery_history):
         priority_actions.append("review_delivery_health_issues")
     if (
         weekly_delivery_history.get("action_items_actual_count_trend") == "increasing"
@@ -1776,6 +1794,11 @@ def _manifest_weekly_delivery_history_status(weekly_delivery_history):
     return {
         "weekly_delivery_history_status": status,
         "weekly_delivery_history_recommended_action": recommended_action,
+        "weekly_delivery_history_actionable": bool(
+            health_actions
+            or recommended_action
+            not in {"monitor_next_run", "review_delivery_health_issues"}
+        ),
         "weekly_delivery_history_priority_actions": health_actions,
     }
 
@@ -1816,23 +1839,36 @@ def _manifest_automation_decision(
         [
             (backtest_status["backtest_status"], backtest_status["backtest_recommended_action"]),
             (forecast_performance["status"], forecast_performance["recommended_action"]),
+        ]
+    )
+    if candidate_review_status.get("candidate_review_actionable", True):
+        action_candidates.append(
             (
                 candidate_review_status["candidate_review_status"],
                 candidate_review_status["candidate_review_recommended_action"],
-            ),
-            (
-                weekly_ops_history_status["weekly_ops_history_status"],
-                weekly_ops_history_status["weekly_ops_history_recommended_action"],
-            ),
+            )
+        )
+    action_candidates.append(
+        (
+            weekly_ops_history_status["weekly_ops_history_status"],
+            weekly_ops_history_status["weekly_ops_history_recommended_action"],
+        )
+    )
+    if weekly_delivery_history_status.get("weekly_delivery_history_actionable", True):
+        action_candidates.append(
             (
                 weekly_delivery_history_status["weekly_delivery_history_status"],
                 weekly_delivery_history_status["weekly_delivery_history_recommended_action"],
-            ),
-            (model_audit_status["model_audit_status"], model_audit_status["model_audit_recommended_action"]),
-        ]
+            )
+        )
+        for action in weekly_delivery_history_status.get("weekly_delivery_history_priority_actions", []):
+            action_candidates.append(("manual_review_needed", action))
+    action_candidates.append(
+        (
+            model_audit_status["model_audit_status"],
+            model_audit_status["model_audit_recommended_action"],
+        )
     )
-    for action in weekly_delivery_history_status.get("weekly_delivery_history_priority_actions", []):
-        action_candidates.append(("manual_review_needed", action))
     priority_actions = []
     for status, action in action_candidates:
         if (
@@ -2206,6 +2242,9 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     markets = [_market_snapshot(project_root, config) for config in MARKETS]
     health = [_health_snapshot(market) for market in markets]
     candidate_reviews = [_investment_review_snapshot(market) for market in markets]
+    candidate_findings_review = _read_json(
+        project_root / CANDIDATE_FINDINGS_REVIEW_PATH
+    )
     backtest = _backtest_snapshot(project_root)
     forecast_performance = _forecast_performance_snapshot(project_root)
     first_one_month_evaluation = _first_one_month_forecast_evaluation_snapshot(project_root)
@@ -2274,7 +2313,10 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     model_audit_status = _manifest_model_audit_status(markets)
     backtest_status = _manifest_backtest_status(backtest)
     data_health_status = _manifest_data_health_status(health)
-    candidate_review_status = _manifest_candidate_review_status(candidate_reviews)
+    candidate_review_status = _manifest_candidate_review_status(
+        candidate_reviews,
+        candidate_findings_review,
+    )
     weekly_ops_history_status = _manifest_weekly_ops_history_status(weekly_ops_history)
     weekly_delivery_history_status = _manifest_weekly_delivery_history_status(weekly_delivery_history)
     manifest = {
