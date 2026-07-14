@@ -280,6 +280,35 @@ class WeeklyDeliveryCheckTests(unittest.TestCase):
                 self.assertEqual(result["status"], "needs_attention")
                 self.assertIn("action_policy_version_inconsistent", result["attention_reasons"])
 
+    def test_delivery_check_keeps_equivalent_noncurrent_action_policy_versions_consistent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_delivery_files(root)
+            conclusion_path = root / "outputs" / "automation" / "latest_weekly_conclusion.json"
+            action_items_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            conclusion = json.loads(conclusion_path.read_text(encoding="utf-8-sig"))
+            action_items = json.loads(action_items_path.read_text(encoding="utf-8-sig"))
+            conclusion["action_policy_version"] = 0
+            action_items["action_policy_version"] = "0"
+            write_json(conclusion_path, conclusion)
+            write_json(action_items_path, action_items)
+
+            from weekly_delivery_check import run_delivery_check
+
+            result = run_delivery_check(root, today="2026-06-28")
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIsNone(result["action_policy_version"])
+            self.assertIn(
+                "weekly_conclusion_action_policy_version_mismatch",
+                result["attention_reasons"],
+            )
+            self.assertIn(
+                "weekly_action_items_action_policy_version_mismatch",
+                result["attention_reasons"],
+            )
+            self.assertNotIn("action_policy_version_inconsistent", result["attention_reasons"])
+
     def test_delivery_check_is_ready_when_final_outputs_exist_and_are_fresh(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

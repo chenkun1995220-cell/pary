@@ -433,14 +433,16 @@ def _action_policy_contract_details(payload):
 
 
 def _action_policy_versions_inconsistent(left, right):
-    if left["status"] != right["status"]:
-        return True
-    if left["version"] != right["version"]:
-        return True
-    return (
-        left["status"] == "mismatch"
-        and left["raw_version"] != right["raw_version"]
-    )
+    left_version = left["version"]
+    right_version = right["version"]
+    if left_version is not None and right_version is not None:
+        return left_version != right_version
+    if left_version is None and right_version is None:
+        return (
+            left["status"] != right["status"]
+            or left["raw_version"] != right["raw_version"]
+        )
+    return True
 
 
 def _artifact_order_reasons(conclusion_path, action_items_json_path):
