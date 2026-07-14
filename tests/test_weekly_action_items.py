@@ -14,6 +14,9 @@ def write_manifest(path):
     manifest = {
         "manifest_schema": "self_analysis_manifest",
         "manifest_version": 1,
+        "action_policy_version": 1,
+        "candidate_review_actionable": False,
+        "weekly_delivery_history_actionable": False,
         "as_of_date": "2026-06-28",
         "automation_status": "manual_review_needed",
         "automation_priority_actions": [
@@ -869,6 +872,40 @@ def write_manifest_with_routed_forecast_delivery_health_reason(path):
 
 
 class WeeklyActionItemsTests(unittest.TestCase):
+    def test_load_manifest_rejects_missing_action_policy_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(
+                json.dumps({"manifest_schema": "self_analysis_manifest", "manifest_version": 1}),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import load_manifest
+
+            with self.assertRaisesRegex(ValueError, "manifest_action_policy_contract_missing"):
+                load_manifest(path)
+
+    def test_load_manifest_rejects_old_action_policy_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "manifest_schema": "self_analysis_manifest",
+                        "manifest_version": 1,
+                        "action_policy_version": 0,
+                        "candidate_review_actionable": False,
+                        "weekly_delivery_history_actionable": False,
+                    }
+                ),
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import load_manifest
+
+            with self.assertRaisesRegex(ValueError, "manifest_action_policy_version_mismatch"):
+                load_manifest(path)
+
     def test_extended_shadow_tracker_routes_only_terminal_or_paused_actions(self):
         from weekly_action_items import build_weekly_action_items
 
@@ -1045,6 +1082,7 @@ class WeeklyActionItemsTests(unittest.TestCase):
 
             self.assertEqual(payload["action_items_schema"], "weekly_action_items")
             self.assertEqual(payload["action_items_version"], 1)
+            self.assertEqual(payload["action_policy_version"], 1)
             self.assertEqual(payload["as_of_date"], "2026-06-29")
             self.assertEqual(payload["source_manifest"], str(manifest_path))
             self.assertEqual(payload["automation_status"], "manual_review_needed")

@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+from action_policy_contract import action_policy_contract_status, action_policy_version
+
 
 ACTION_ITEMS_SCHEMA = "weekly_action_items"
 ACTION_ITEMS_VERSION = 1
@@ -61,6 +63,11 @@ def load_manifest(manifest):
         raise ValueError(f"unexpected manifest_schema: {payload.get('manifest_schema', '')}")
     if int(payload.get("manifest_version", 0) or 0) != EXPECTED_MANIFEST_VERSION:
         raise ValueError(f"unexpected manifest_version: {payload.get('manifest_version', '')}")
+    contract_status = action_policy_contract_status(payload, require_actionability=True)
+    if contract_status == "missing":
+        raise ValueError("manifest_action_policy_contract_missing")
+    if contract_status == "mismatch":
+        raise ValueError("manifest_action_policy_version_mismatch")
     return payload
 
 
@@ -1790,6 +1797,7 @@ def build_weekly_action_items(
     return {
         "action_items_schema": ACTION_ITEMS_SCHEMA,
         "action_items_version": ACTION_ITEMS_VERSION,
+        "action_policy_version": action_policy_version(source),
         "as_of_date": _latest_as_of_date(
             source,
             import_plan,
