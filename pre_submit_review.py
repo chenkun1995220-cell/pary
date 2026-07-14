@@ -8,7 +8,7 @@ from pathlib import Path
 
 from action_policy_contract import (
     ACTION_POLICY_VERSION,
-    action_policy_contract_status,
+    action_policy_version,
 )
 
 PRE_SUBMIT_REVIEW_SCHEMA = "pre_submit_review"
@@ -707,18 +707,18 @@ def run_pre_submit_review(
 
     attention_reasons.extend(
         _delivery_reasons(
-            payloads.get("weekly_delivery_check", {}),
-            payloads.get("weekly_conclusion", {}),
+            payloads.get("weekly_delivery_check"),
+            payloads.get("weekly_conclusion"),
         )
     )
     attention_reasons.extend(
         _weekly_artifact_consistency_reasons(
-            payloads.get("weekly_artifact_consistency", {})
+            payloads.get("weekly_artifact_consistency")
         )
     )
-    attention_reasons.extend(_ops_reasons(payloads.get("weekly_ops_check", {})))
+    attention_reasons.extend(_ops_reasons(payloads.get("weekly_ops_check")))
     attention_reasons.extend(_automation_reasons(payloads.get("automation_check", {})))
-    attention_reasons.extend(_conclusion_reasons(payloads.get("weekly_conclusion", {})))
+    attention_reasons.extend(_conclusion_reasons(payloads.get("weekly_conclusion")))
     attention_reasons.extend(_action_item_reasons(payloads.get("weekly_action_items", {})))
     attention_reasons.extend(
         _weekly_conclusion_action_item_sync_reasons(
@@ -1119,7 +1119,7 @@ def _checklist_missing_external_input_sync_terms(path):
 
 
 def _delivery_reasons(payload, weekly_conclusion=None):
-    if not payload:
+    if payload is None:
         return []
     reasons = []
     if any(field not in payload for field in WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS):
@@ -1139,7 +1139,7 @@ def _delivery_reasons(payload, weekly_conclusion=None):
 
 
 def _weekly_artifact_consistency_reasons(payload):
-    if not payload:
+    if payload is None:
         return []
     reasons = []
     if any(
@@ -1162,10 +1162,10 @@ def _weekly_artifact_consistency_reasons(payload):
 
 
 def _action_policy_version_reasons(payload, artifact_name):
-    contract_status = action_policy_contract_status(payload)
-    if contract_status == "missing":
+    version = action_policy_version(payload)
+    if version is None:
         return [f"{artifact_name}_action_policy_version_missing"]
-    if contract_status != "valid":
+    if version != ACTION_POLICY_VERSION:
         return [f"{artifact_name}_action_policy_version_mismatch"]
     return []
 
@@ -1281,7 +1281,7 @@ def _external_input_blocker_missing(payload, expected):
 
 
 def _ops_reasons(payload):
-    if not payload:
+    if payload is None:
         return []
     reasons = []
     if any(field not in payload for field in WEEKLY_OPS_REQUIRED_QUALITY_FIELDS):
@@ -1325,7 +1325,7 @@ def _automation_reasons(payload):
 
 
 def _conclusion_reasons(payload):
-    if not payload:
+    if payload is None:
         return []
     reasons = []
     if payload.get("status") != "ready":

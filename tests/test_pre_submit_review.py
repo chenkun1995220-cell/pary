@@ -2408,7 +2408,15 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
             self.assertIn(
+                "weekly_ops_check_action_policy_version_missing",
+                result["attention_reasons"],
+            )
+            self.assertIn(
                 "weekly_conclusion_missing_summary_fields",
+                result["attention_reasons"],
+            )
+            self.assertIn(
+                "weekly_conclusion_action_policy_version_missing",
                 result["attention_reasons"],
             )
             self.assertIn(
@@ -2416,42 +2424,130 @@ class PreSubmitReviewTests(unittest.TestCase):
                 result["attention_reasons"],
             )
             self.assertIn(
+                "weekly_delivery_check_action_policy_version_missing",
+                result["attention_reasons"],
+            )
+            self.assertIn(
                 "weekly_artifact_consistency_missing_quality_fields",
                 result["attention_reasons"],
             )
-
-    def test_review_rejects_downstream_outputs_with_invalid_or_old_action_policy_version(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            write_ready_review_inputs(root)
-            cases = (
-                ("latest_weekly_ops_check.json", None, "weekly_ops_check"),
-                ("latest_weekly_conclusion.json", "invalid", "weekly_conclusion"),
-                ("latest_weekly_delivery_check.json", 0, "weekly_delivery_check"),
-                (
-                    "latest_weekly_artifact_consistency.json",
-                    0,
-                    "weekly_artifact_consistency",
-                ),
+            self.assertIn(
+                "weekly_artifact_consistency_action_policy_version_missing",
+                result["attention_reasons"],
             )
-            for filename, version, reason_prefix in cases:
-                path = root / "outputs" / "automation" / filename
-                payload = json.loads(path.read_text(encoding="utf-8-sig"))
-                payload["action_policy_version"] = version
-                write_json(path, payload)
 
-                from pre_submit_review import run_pre_submit_review
+    def test_review_classifies_unparseable_downstream_action_policy_versions_as_missing(self):
+        cases = (
+            ("latest_weekly_ops_check.json", "weekly_ops_check"),
+            ("latest_weekly_conclusion.json", "weekly_conclusion"),
+            ("latest_weekly_delivery_check.json", "weekly_delivery_check"),
+            (
+                "latest_weekly_artifact_consistency.json",
+                "weekly_artifact_consistency",
+            ),
+        )
+        for filename, reason_prefix in cases:
+            for version in (None, True, "invalid"):
+                with self.subTest(filename=filename, version=version):
+                    with tempfile.TemporaryDirectory() as tmp:
+                        root = Path(tmp)
+                        write_ready_review_inputs(root)
+                        path = root / "outputs" / "automation" / filename
+                        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+                        payload["action_policy_version"] = version
+                        write_json(path, payload)
 
-                result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+                        from pre_submit_review import run_pre_submit_review
 
-                self.assertEqual(result["status"], "needs_attention")
-                self.assertIn(
-                    f"{reason_prefix}_action_policy_version_mismatch",
-                    result["attention_reasons"],
-                )
+                        result = run_pre_submit_review(
+                            root, today="2026-06-28", max_age_days=8
+                        )
 
-                payload["action_policy_version"] = 1
-                write_json(path, payload)
+                        self.assertEqual(result["status"], "needs_attention")
+                        self.assertIn(
+                            f"{reason_prefix}_action_policy_version_missing",
+                            result["attention_reasons"],
+                        )
+                        self.assertNotIn(
+                            f"{reason_prefix}_action_policy_version_mismatch",
+                            result["attention_reasons"],
+                        )
+
+    def test_review_classifies_old_downstream_action_policy_versions_as_mismatches(self):
+        cases = (
+            ("latest_weekly_ops_check.json", "weekly_ops_check"),
+            ("latest_weekly_conclusion.json", "weekly_conclusion"),
+            ("latest_weekly_delivery_check.json", "weekly_delivery_check"),
+            (
+                "latest_weekly_artifact_consistency.json",
+                "weekly_artifact_consistency",
+            ),
+        )
+        for filename, reason_prefix in cases:
+            with self.subTest(filename=filename):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    write_ready_review_inputs(root)
+                    path = root / "outputs" / "automation" / filename
+                    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+                    payload["action_policy_version"] = 0
+                    write_json(path, payload)
+
+                    from pre_submit_review import run_pre_submit_review
+
+                    result = run_pre_submit_review(
+                        root, today="2026-06-28", max_age_days=8
+                    )
+
+                    self.assertEqual(result["status"], "needs_attention")
+                    self.assertIn(
+                        f"{reason_prefix}_action_policy_version_mismatch",
+                        result["attention_reasons"],
+                    )
+
+    def test_review_keeps_invalid_empty_downstream_outputs_version_blocked(self):
+        cases = (
+            (
+                "latest_weekly_ops_check.json",
+                "weekly_ops_check",
+                "weekly_ops_check_missing_quality_fields",
+            ),
+            (
+                "latest_weekly_conclusion.json",
+                "weekly_conclusion",
+                "weekly_conclusion_missing_summary_fields",
+            ),
+            (
+                "latest_weekly_delivery_check.json",
+                "weekly_delivery_check",
+                "weekly_delivery_check_missing_quality_fields",
+            ),
+            (
+                "latest_weekly_artifact_consistency.json",
+                "weekly_artifact_consistency",
+                "weekly_artifact_consistency_missing_quality_fields",
+            ),
+        )
+        for filename, reason_prefix, quality_reason in cases:
+            with self.subTest(filename=filename):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    write_ready_review_inputs(root)
+                    write_json(root / "outputs" / "automation" / filename, {})
+
+                    from pre_submit_review import run_pre_submit_review
+
+                    result = run_pre_submit_review(
+                        root, today="2026-06-28", max_age_days=8
+                    )
+
+                    self.assertEqual(result["status"], "needs_attention")
+                    self.assertIn("invalid_inputs", result["attention_reasons"])
+                    self.assertIn(quality_reason, result["attention_reasons"])
+                    self.assertIn(
+                        f"{reason_prefix}_action_policy_version_missing",
+                        result["attention_reasons"],
+                    )
 
     def test_ready_review_exposes_current_action_policy_version(self):
         with tempfile.TemporaryDirectory() as tmp:
