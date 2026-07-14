@@ -5,6 +5,12 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
+from action_policy_contract import (
+    ACTION_POLICY_VERSION,
+    action_policy_contract_status,
+    action_policy_version,
+)
+
 
 CONSISTENCY_SCHEMA = "weekly_artifact_consistency"
 CONSISTENCY_VERSION = 1
@@ -13,6 +19,14 @@ MARKETS = {
     "CN": "cn_universe",
     "HK": "hk_universe",
 }
+ACTION_POLICY_ARTIFACTS = {
+    "manifest": "latest_self_analysis_manifest.json",
+    "automation_check": "latest_automation_check.json",
+    "action_items": "latest_weekly_action_items.json",
+    "ops_check": "latest_weekly_ops_check.json",
+    "conclusion": "latest_weekly_conclusion.json",
+    "delivery": "latest_weekly_delivery_check.json",
+}
 
 
 def _read_json(path):
@@ -20,6 +34,61 @@ def _read_json(path):
         return json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def _action_policy_versions_inconsistent(contracts):
+    if not contracts:
+        return False
+    reference = contracts[0]
+    for contract in contracts[1:]:
+        reference_version = reference["version"]
+        version = contract["version"]
+        if reference_version is not None and version is not None:
+            if reference_version != version:
+                return True
+        elif reference_version is None and version is None:
+            if (
+                reference["status"] != contract["status"]
+                or reference["raw_version"] != contract["raw_version"]
+            ):
+                return True
+        else:
+            return True
+    return False
+
+
+def _action_policy_evidence(project_root, issues):
+    automation = Path(project_root) / "outputs" / "automation"
+    versions = {}
+    contracts = []
+    for key, filename in ACTION_POLICY_ARTIFACTS.items():
+        payload = _read_json(automation / filename)
+        contract_status = action_policy_contract_status(payload)
+        version = action_policy_version(payload)
+        versions[key] = version
+        contracts.append(
+            {
+                "raw_version": payload.get("action_policy_version")
+                if isinstance(payload, dict) and "action_policy_version" in payload
+                else None,
+                "version": version,
+                "status": contract_status,
+            }
+        )
+        if contract_status == "missing":
+            issues.append(f"{key}_action_policy_version_missing")
+        elif contract_status != "valid":
+            issues.append(f"{key}_action_policy_version_mismatch")
+
+    if _action_policy_versions_inconsistent(contracts):
+        issues.append("action_policy_version_inconsistent")
+    if any(contract["status"] == "missing" for contract in contracts):
+        status = "missing"
+    elif all(contract["status"] == "valid" for contract in contracts):
+        status = "valid"
+    else:
+        status = "mismatch"
+    return versions, status
 
 
 def _summary_fields(path):
@@ -291,6 +360,12 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
 
     candidate_counts = {row["market"]: row["candidate_file_count"] for row in markets}
     candidate_count_total = sum(candidate_counts.values())
+    action_policy_versions, action_policy_contract_status = _action_policy_evidence(
+        project_root, issues
+    )
+    action_policy_current_version = (
+        ACTION_POLICY_VERSION if action_policy_contract_status == "valid" else None
+    )
     conclusion = _read_json(project_root / "outputs" / "automation" / "latest_weekly_conclusion.json")
     delivery = _read_json(project_root / "outputs" / "automation" / "latest_weekly_delivery_check.json")
     conclusion_markets = {
@@ -365,6 +440,9 @@ def build_weekly_artifact_consistency(project_root, as_of_date=None, max_age_day
         "markets": markets,
         "market_run_dates": market_run_dates,
         "candidate_count_total": candidate_count_total,
+        "action_policy_versions": action_policy_versions,
+        "action_policy_contract_status": action_policy_contract_status,
+        "action_policy_version": action_policy_current_version,
         "conclusion_candidate_count_total": conclusion_total,
         "delivery_candidate_count_total": delivery_total,
         "conclusion_as_of_date": conclusion_date,

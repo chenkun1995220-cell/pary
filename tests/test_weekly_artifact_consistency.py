@@ -15,6 +15,14 @@ MARKETS = {
     "CN": "cn_universe",
     "HK": "hk_universe",
 }
+ACTION_POLICY_ARTIFACTS = {
+    "manifest": "latest_self_analysis_manifest.json",
+    "automation_check": "latest_automation_check.json",
+    "action_items": "latest_weekly_action_items.json",
+    "ops_check": "latest_weekly_ops_check.json",
+    "conclusion": "latest_weekly_conclusion.json",
+    "delivery": "latest_weekly_delivery_check.json",
+}
 
 
 def write_csv(path, rows):
@@ -119,9 +127,15 @@ def write_fixture(root):
 
     automation = root / "outputs" / "automation"
     automation.mkdir(parents=True, exist_ok=True)
+    for filename in ACTION_POLICY_ARTIFACTS.values():
+        (automation / filename).write_text(
+            json.dumps({"action_policy_version": 1}),
+            encoding="utf-8",
+        )
     (automation / "latest_weekly_conclusion.json").write_text(
         json.dumps(
             {
+                "action_policy_version": 1,
                 "as_of_date": "2026-07-11",
                 "candidate_count_total": 6,
                 "markets": [
@@ -135,6 +149,7 @@ def write_fixture(root):
     (automation / "latest_weekly_delivery_check.json").write_text(
         json.dumps(
             {
+                "action_policy_version": 1,
                 "as_of_date": "2026-07-11",
                 "candidate_count_total": 6,
                 "conclusion_status": "ready",
@@ -168,6 +183,57 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
             self.assertEqual(market_rows["US"]["run_started_at"], "2026-07-11 14:05:00")
             self.assertEqual(market_rows["US"]["run_completed_at"], "2026-07-11 14:25:00")
             self.assertEqual(payload["issues"], [])
+
+    def test_consistency_reports_complete_action_policy_versions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            payload = build_weekly_artifact_consistency(root, "2026-07-11")
+
+            self.assertEqual(payload["action_policy_contract_status"], "valid")
+            self.assertEqual(payload["action_policy_version"], 1)
+            self.assertEqual(set(payload["action_policy_versions"].values()), {1})
+
+    def test_consistency_rejects_mixed_action_policy_versions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            path = root / "outputs" / "automation" / "latest_weekly_delivery_check.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["action_policy_version"] = 0
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            result = build_weekly_artifact_consistency(root, "2026-07-11")
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["action_policy_contract_status"], "mismatch")
+            self.assertIn("delivery_action_policy_version_mismatch", result["issues"])
+            self.assertIn("action_policy_version_inconsistent", result["issues"])
+
+    def test_consistency_treats_unparseable_action_policy_version_as_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            path = root / "outputs" / "automation" / "latest_weekly_ops_check.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["action_policy_version"] = "not-a-version"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+            from weekly_artifact_consistency import build_weekly_artifact_consistency
+
+            result = build_weekly_artifact_consistency(root, "2026-07-11")
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertEqual(result["action_policy_contract_status"], "mismatch")
+            self.assertIsNone(result["action_policy_versions"]["ops_check"])
+            self.assertIn("ops_check_action_policy_version_mismatch", result["issues"])
+            self.assertNotIn("ops_check_action_policy_version_missing", result["issues"])
+            self.assertIn("action_policy_version_inconsistent", result["issues"])
 
     def test_blocks_missing_or_unresolved_sec_identity_audit(self):
         with tempfile.TemporaryDirectory() as tmp:
