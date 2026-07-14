@@ -9,6 +9,7 @@ from pathlib import Path
 
 PRE_SUBMIT_REVIEW_SCHEMA = "pre_submit_review"
 PRE_SUBMIT_REVIEW_VERSION = 1
+EXPECTED_ACTION_POLICY_VERSION = 1
 HISTORY_SCHEMA = "pre_submit_review_history"
 HISTORY_VERSION = 1
 EXPECTED_DEVELOPMENT_EXECUTION_PROFILE = "capability_adaptive_single_agent"
@@ -583,6 +584,7 @@ WEEKLY_OPS_REQUIRED_QUALITY_FIELDS = [
 ]
 
 AUTOMATION_CHECK_REQUIRED_QUALITY_FIELDS = [
+    "action_policy_version",
     "recommended_action",
     "priority_actions",
     "manifest_validation_status",
@@ -599,8 +601,10 @@ AUTOMATION_CHECK_REQUIRED_QUALITY_FIELDS = [
     "data_quality_score",
     "data_quality_history_status",
     "candidate_review_status",
+    "candidate_review_actionable",
     "weekly_ops_history_status",
     "weekly_delivery_history_status",
+    "weekly_delivery_history_actionable",
     "model_audit_status",
     "forecast_performance_status",
     "forecast_next_one_week_evaluation_date",
@@ -1256,11 +1260,20 @@ def _automation_reasons(payload):
     reasons = []
     if any(field not in payload for field in AUTOMATION_CHECK_REQUIRED_QUALITY_FIELDS):
         reasons.append("automation_check_missing_quality_fields")
+    if (
+        "action_policy_version" in payload
+        and _int_value(payload.get("action_policy_version")) != EXPECTED_ACTION_POLICY_VERSION
+    ):
+        reasons.append("automation_check_action_policy_version_mismatch")
     if payload.get("manifest_validation_status") != "valid":
         reasons.append("automation_check_manifest_invalid")
     if _int_value(payload.get("market_count")) and _int_value(payload.get("markets_ready_count")) != _int_value(payload.get("market_count")):
         reasons.append("automation_check_markets_not_ready")
-    if payload.get("status") not in {"ready", "manual_review_needed"}:
+    if payload.get("status") not in {
+        "ready",
+        "manual_review_needed",
+        "sample_accumulating",
+    }:
         reasons.append("automation_check_status_not_acceptable")
     return reasons
 

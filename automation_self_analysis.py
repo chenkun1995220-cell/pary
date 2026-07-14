@@ -54,6 +54,7 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_INBOX_STATUS_PATH = Path(
 CANDIDATE_FINDINGS_REVIEW_PATH = Path(
     "outputs/automation/latest_candidate_findings_review.json"
 )
+ACTION_POLICY_VERSION = 1
 
 
 def _read_text(path):
@@ -1384,6 +1385,7 @@ def _automation_check_payload(manifest, manifest_validation):
     return {
         "check_schema": "weekly_automation_check",
         "check_version": 1,
+        "action_policy_version": ACTION_POLICY_VERSION,
         "as_of_date": manifest.get("as_of_date", ""),
         "status": manifest.get("automation_status", "unknown"),
         "recommended_action": manifest.get("automation_recommended_action", "unknown"),
@@ -2322,6 +2324,7 @@ def run_self_analysis(project_root, output=None, as_of_date=None):
     manifest = {
         "manifest_schema": "self_analysis_manifest",
         "manifest_version": 1,
+        "action_policy_version": ACTION_POLICY_VERSION,
         "as_of_date": as_of_date,
         "market_count": len(markets),
         "markets": _manifest_markets(markets),

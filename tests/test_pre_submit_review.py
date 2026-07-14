@@ -429,6 +429,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         {
             "check_schema": "weekly_automation_check",
             "check_version": 1,
+            "action_policy_version": 1,
             "as_of_date": as_of_date,
             "status": "manual_review_needed",
             "recommended_action": "review_data_health",
@@ -450,8 +451,10 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
             "data_quality_score": 79.0,
             "data_quality_history_status": "manual_review_needed",
             "candidate_review_status": "manual_review_needed",
+            "candidate_review_actionable": False,
             "weekly_ops_history_status": "clear",
             "weekly_delivery_history_status": "manual_review_needed",
+            "weekly_delivery_history_actionable": False,
             "model_audit_status": "sample_accumulating",
             "forecast_performance_status": "sample_accumulating",
             "forecast_next_one_week_evaluation_date": "2026-07-07",
@@ -2322,6 +2325,69 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "automation_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_accepts_sample_accumulating_automation_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            check_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            check["status"] = "sample_accumulating"
+            check["recommended_action"] = "continue_sample_accumulation"
+            check["priority_actions"] = ["continue_sample_accumulation"]
+            write_json(check_path, check)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
+            self.assertNotIn(
+                "automation_check_status_not_acceptable",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_automation_check_lacks_action_policy_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            check_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            del check["action_policy_version"]
+            del check["candidate_review_actionable"]
+            del check["weekly_delivery_history_actionable"]
+            write_json(check_path, check)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "automation_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_needs_attention_when_automation_check_action_policy_version_mismatches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            check_path = root / "outputs" / "automation" / "latest_automation_check.json"
+            check = json.loads(check_path.read_text(encoding="utf-8-sig"))
+            check["action_policy_version"] = 0
+            check["candidate_review_actionable"] = False
+            check["weekly_delivery_history_actionable"] = False
+            write_json(check_path, check)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "automation_check_action_policy_version_mismatch",
                 result["attention_reasons"],
             )
 

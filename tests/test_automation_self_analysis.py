@@ -415,6 +415,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             {"status": "valid", "markets_ready_count": 3, "errors": []},
         )
 
+        self.assertEqual(payload.get("action_policy_version"), 1)
         self.assertIs(payload.get("candidate_review_actionable"), False)
         self.assertIs(payload.get("weekly_delivery_history_actionable"), False)
 
@@ -1051,6 +1052,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             manifest = json.loads(Path(result["manifest_output"]).read_text(encoding="utf-8-sig"))
             self.assertEqual(manifest["manifest_schema"], "self_analysis_manifest")
             self.assertEqual(manifest["manifest_version"], 1)
+            self.assertEqual(manifest["action_policy_version"], 1)
             self.assertEqual(len(manifest["markets"]), 3)
             self.assertEqual(manifest["markets"][0]["status"], "ready")
             self.assertEqual(manifest["markets"][0]["candidate_count"], "2")
@@ -1084,6 +1086,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             check = json.loads(Path(result["automation_check_output"]).read_text(encoding="utf-8-sig"))
             self.assertEqual(check["check_schema"], "weekly_automation_check")
             self.assertEqual(check["check_version"], 1)
+            self.assertEqual(check["action_policy_version"], 1)
             self.assertEqual(check["as_of_date"], "2026-06-25")
             self.assertEqual(check["status"], "manual_review_needed")
             self.assertEqual(check["recommended_action"], "review_data_health")
