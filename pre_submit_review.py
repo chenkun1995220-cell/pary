@@ -6,7 +6,10 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from action_policy_contract import ACTION_POLICY_VERSION
+from action_policy_contract import (
+    ACTION_POLICY_VERSION,
+    action_policy_contract_status,
+)
 
 PRE_SUBMIT_REVIEW_SCHEMA = "pre_submit_review"
 PRE_SUBMIT_REVIEW_VERSION = 1
@@ -515,6 +518,7 @@ SP500_CURRENT_MEMBERSHIP_SOURCE_REVIEW_DECISION_MERGE_REQUIRED_FIELDS = [
 ]
 
 WEEKLY_CONCLUSION_REQUIRED_SUMMARY_FIELDS = [
+    "action_policy_version",
     "candidate_count_total",
     "candidate_action_summary",
     "health",
@@ -526,6 +530,7 @@ WEEKLY_CONCLUSION_REQUIRED_SUMMARY_FIELDS = [
 ]
 
 WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS = [
+    "action_policy_version",
     "conclusion_status",
     "conclusion_health_status",
     "conclusion_health_score",
@@ -551,6 +556,9 @@ WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS = [
 ]
 
 WEEKLY_ARTIFACT_CONSISTENCY_REQUIRED_FIELDS = [
+    "action_policy_version",
+    "action_policy_contract_status",
+    "action_policy_versions",
     "markets",
     "candidate_count_total",
     "conclusion_candidate_count_total",
@@ -561,6 +569,7 @@ WEEKLY_ARTIFACT_CONSISTENCY_REQUIRED_FIELDS = [
 ]
 
 WEEKLY_OPS_REQUIRED_QUALITY_FIELDS = [
+    "action_policy_version",
     "automation_audit_status",
     "automation_check_status",
     "manifest_validation_status",
@@ -582,6 +591,15 @@ WEEKLY_OPS_REQUIRED_QUALITY_FIELDS = [
     "automation_issues",
     "attention_reasons",
 ]
+
+WEEKLY_ARTIFACT_CONSISTENCY_ACTION_POLICY_ARTIFACTS = {
+    "manifest",
+    "automation_check",
+    "action_items",
+    "ops_check",
+    "conclusion",
+    "delivery",
+}
 
 AUTOMATION_CHECK_REQUIRED_QUALITY_FIELDS = [
     "action_policy_version",
@@ -869,6 +887,7 @@ def run_pre_submit_review(
     return {
         "pre_submit_review_schema": PRE_SUBMIT_REVIEW_SCHEMA,
         "pre_submit_review_version": PRE_SUBMIT_REVIEW_VERSION,
+        "action_policy_version": ACTION_POLICY_VERSION,
         "status": "ready" if not attention_reasons else "needs_attention",
         "project_root": str(project_root),
         "as_of_date": current_date.isoformat(),
@@ -1105,6 +1124,7 @@ def _delivery_reasons(payload, weekly_conclusion=None):
     reasons = []
     if any(field not in payload for field in WEEKLY_DELIVERY_REQUIRED_QUALITY_FIELDS):
         reasons.append("weekly_delivery_check_missing_quality_fields")
+    reasons.extend(_action_policy_version_reasons(payload, "weekly_delivery_check"))
     if payload.get("status") != "ready":
         reasons.append("weekly_delivery_check_not_ready")
     if payload.get("conclusion_signal_status") not in {"ready", None}:
@@ -1127,6 +1147,11 @@ def _weekly_artifact_consistency_reasons(payload):
         for field in WEEKLY_ARTIFACT_CONSISTENCY_REQUIRED_FIELDS
     ):
         reasons.append("weekly_artifact_consistency_missing_quality_fields")
+    reasons.extend(
+        _action_policy_version_reasons(payload, "weekly_artifact_consistency")
+    )
+    if not _weekly_artifact_consistency_action_policy_contract_valid(payload):
+        reasons.append("weekly_artifact_consistency_action_policy_contract_invalid")
     if payload.get("status") != "ready":
         reasons.append("weekly_artifact_consistency_needs_attention")
     if payload.get("issues"):
@@ -1134,6 +1159,26 @@ def _weekly_artifact_consistency_reasons(payload):
     if payload.get("formal_model_change_allowed") is not False:
         reasons.append("weekly_artifact_consistency_model_boundary_unsafe")
     return reasons
+
+
+def _action_policy_version_reasons(payload, artifact_name):
+    contract_status = action_policy_contract_status(payload)
+    if contract_status == "missing":
+        return [f"{artifact_name}_action_policy_version_missing"]
+    if contract_status != "valid":
+        return [f"{artifact_name}_action_policy_version_mismatch"]
+    return []
+
+
+def _weekly_artifact_consistency_action_policy_contract_valid(payload):
+    if payload.get("action_policy_contract_status") != "valid":
+        return False
+    versions = payload.get("action_policy_versions")
+    return (
+        isinstance(versions, dict)
+        and set(versions) == WEEKLY_ARTIFACT_CONSISTENCY_ACTION_POLICY_ARTIFACTS
+        and all(version == ACTION_POLICY_VERSION for version in versions.values())
+    )
 
 
 def _delivery_external_input_blockers_missing(delivery, weekly_conclusion):
@@ -1241,6 +1286,7 @@ def _ops_reasons(payload):
     reasons = []
     if any(field not in payload for field in WEEKLY_OPS_REQUIRED_QUALITY_FIELDS):
         reasons.append("weekly_ops_check_missing_quality_fields")
+    reasons.extend(_action_policy_version_reasons(payload, "weekly_ops_check"))
     if payload.get("status") != "ready":
         reasons.append("weekly_ops_check_not_ready")
     if payload.get("automation_audit_status") != "ready":
@@ -1286,6 +1332,7 @@ def _conclusion_reasons(payload):
         reasons.append("weekly_conclusion_not_ready")
     if any(field not in payload for field in WEEKLY_CONCLUSION_REQUIRED_SUMMARY_FIELDS):
         reasons.append("weekly_conclusion_missing_summary_fields")
+    reasons.extend(_action_policy_version_reasons(payload, "weekly_conclusion"))
     health = payload.get("health", {}) if isinstance(payload.get("health", {}), dict) else {}
     if health.get("status") not in {"healthy", "needs_review"}:
         reasons.append("weekly_conclusion_health_not_acceptable")

@@ -351,6 +351,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         {
             "delivery_check_schema": "weekly_delivery_check",
             "delivery_check_version": 1,
+            "action_policy_version": 1,
             "as_of_date": as_of_date,
             "status": "ready",
             "freshness_status": "fresh",
@@ -392,6 +393,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         {
             "ops_check_schema": "weekly_ops_check",
             "ops_check_version": 1,
+            "action_policy_version": 1,
             "as_of_date": as_of_date,
             "status": "ready",
             "freshness_status": "fresh",
@@ -484,6 +486,7 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         {
             "conclusion_schema": "weekly_conclusion",
             "conclusion_version": 1,
+            "action_policy_version": 1,
             "as_of_date": as_of_date,
             "status": "ready",
             "recommended_action": "monitor_next_run",
@@ -1192,6 +1195,16 @@ def write_ready_review_inputs(root, as_of_date="2026-06-28"):
         {
             "consistency_schema": "weekly_artifact_consistency",
             "consistency_version": 1,
+            "action_policy_version": 1,
+            "action_policy_contract_status": "valid",
+            "action_policy_versions": {
+                "manifest": 1,
+                "automation_check": 1,
+                "action_items": 1,
+                "ops_check": 1,
+                "conclusion": 1,
+                "delivery": 1,
+            },
             "as_of_date": as_of_date,
             "status": "ready",
             "markets": [
@@ -2367,6 +2380,113 @@ class PreSubmitReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn(
                 "automation_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_rejects_downstream_outputs_without_action_policy_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            for filename in (
+                "latest_weekly_ops_check.json",
+                "latest_weekly_conclusion.json",
+                "latest_weekly_delivery_check.json",
+                "latest_weekly_artifact_consistency.json",
+            ):
+                path = root / "outputs" / "automation" / filename
+                payload = json.loads(path.read_text(encoding="utf-8-sig"))
+                payload.pop("action_policy_version", None)
+                write_json(path, payload)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_ops_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+            self.assertIn(
+                "weekly_conclusion_missing_summary_fields",
+                result["attention_reasons"],
+            )
+            self.assertIn(
+                "weekly_delivery_check_missing_quality_fields",
+                result["attention_reasons"],
+            )
+            self.assertIn(
+                "weekly_artifact_consistency_missing_quality_fields",
+                result["attention_reasons"],
+            )
+
+    def test_review_rejects_downstream_outputs_with_invalid_or_old_action_policy_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            cases = (
+                ("latest_weekly_ops_check.json", None, "weekly_ops_check"),
+                ("latest_weekly_conclusion.json", "invalid", "weekly_conclusion"),
+                ("latest_weekly_delivery_check.json", 0, "weekly_delivery_check"),
+                (
+                    "latest_weekly_artifact_consistency.json",
+                    0,
+                    "weekly_artifact_consistency",
+                ),
+            )
+            for filename, version, reason_prefix in cases:
+                path = root / "outputs" / "automation" / filename
+                payload = json.loads(path.read_text(encoding="utf-8-sig"))
+                payload["action_policy_version"] = version
+                write_json(path, payload)
+
+                from pre_submit_review import run_pre_submit_review
+
+                result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+                self.assertEqual(result["status"], "needs_attention")
+                self.assertIn(
+                    f"{reason_prefix}_action_policy_version_mismatch",
+                    result["attention_reasons"],
+                )
+
+                payload["action_policy_version"] = 1
+                write_json(path, payload)
+
+    def test_ready_review_exposes_current_action_policy_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["action_policy_version"], 1)
+
+    def test_review_rejects_consistency_with_incomplete_action_policy_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_ready_review_inputs(root)
+            consistency_path = (
+                root
+                / "outputs"
+                / "automation"
+                / "latest_weekly_artifact_consistency.json"
+            )
+            consistency = json.loads(consistency_path.read_text(encoding="utf-8-sig"))
+            consistency["action_policy_contract_status"] = "valid"
+            consistency["action_policy_versions"] = {"automation_check": 1}
+            write_json(consistency_path, consistency)
+
+            from pre_submit_review import run_pre_submit_review
+
+            result = run_pre_submit_review(root, today="2026-06-28", max_age_days=8)
+
+            self.assertEqual(result["status"], "needs_attention")
+            self.assertIn(
+                "weekly_artifact_consistency_action_policy_contract_invalid",
                 result["attention_reasons"],
             )
 
@@ -4668,6 +4788,9 @@ class PreSubmitReviewTests(unittest.TestCase):
                 {
                     "manifest_schema": "self_analysis_manifest",
                     "manifest_version": 1,
+                    "action_policy_version": 1,
+                    "candidate_review_actionable": False,
+                    "weekly_delivery_history_actionable": False,
                     "as_of_date": as_of_date,
                     "automation_status": "manual_review_needed",
                     "automation_priority_actions": ["review_data_health"],
