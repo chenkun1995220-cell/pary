@@ -140,11 +140,19 @@ def write_market(root, market_dir, ticker, company):
 def write_ready_automation(root, as_of_date="2026-06-28"):
     write_json(
         Path(root) / "outputs" / "automation" / "latest_automation_check.json",
-        {"as_of_date": as_of_date, "status": "ready"},
+        {
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "action_policy_version": 1,
+        },
     )
     write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_ops_check.json",
-        {"as_of_date": as_of_date, "status": "ready"},
+        {
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "action_policy_version": 1,
+        },
     )
     write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_ops_history_summary.json",
@@ -153,6 +161,15 @@ def write_ready_automation(root, as_of_date="2026-06-28"):
     write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_delivery_history_summary.json",
         {"latest_as_of_date": as_of_date, "latest_status": "ready"},
+    )
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_action_items.json",
+        {
+            "as_of_date": as_of_date,
+            "action_policy_version": 1,
+            "item_count": 0,
+            "items": [],
+        },
     )
 
 
@@ -162,13 +179,18 @@ def write_manual_review_automation(root, as_of_date="2026-06-28"):
         {
             "as_of_date": as_of_date,
             "status": "manual_review_needed",
+            "action_policy_version": 1,
             "recommended_action": "review_manual_queue",
             "priority_actions": ["review_manual_queue", "review_candidate_findings"],
         },
     )
     write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_ops_check.json",
-        {"as_of_date": as_of_date, "status": "ready"},
+        {
+            "as_of_date": as_of_date,
+            "status": "ready",
+            "action_policy_version": 1,
+        },
     )
     write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_ops_history_summary.json",
@@ -177,6 +199,15 @@ def write_manual_review_automation(root, as_of_date="2026-06-28"):
     write_json(
         Path(root) / "outputs" / "automation" / "latest_weekly_delivery_history_summary.json",
         {"latest_as_of_date": as_of_date, "latest_status": "ready"},
+    )
+    write_json(
+        Path(root) / "outputs" / "automation" / "latest_weekly_action_items.json",
+        {
+            "as_of_date": as_of_date,
+            "action_policy_version": 1,
+            "item_count": 0,
+            "items": [],
+        },
     )
 
 
@@ -187,6 +218,78 @@ def write_three_markets(root):
 
 
 class WeeklyConclusionReportTests(unittest.TestCase):
+    def test_conclusion_propagates_current_action_policy_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(payload["action_policy_version"], 1)
+            self.assertEqual(payload["status"], "ready")
+
+    def test_conclusion_rejects_mixed_action_policy_versions_without_reusing_actions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_three_markets(root)
+            write_ready_automation(root)
+            action_path = root / "outputs" / "automation" / "latest_weekly_action_items.json"
+            action_payload = json.loads(action_path.read_text(encoding="utf-8-sig"))
+            action_payload["action_policy_version"] = 0
+            action_payload["item_count"] = 1
+            action_payload["items"] = [{"action_code": "continue_shadow_validation"}]
+            write_json(action_path, action_payload)
+
+            from weekly_conclusion_report import build_weekly_conclusion
+
+            payload = build_weekly_conclusion(root, today="2026-06-28")
+
+            self.assertEqual(payload["status"], "needs_attention")
+            self.assertIsNone(payload["action_policy_version"])
+            self.assertIn(
+                "weekly_action_items_action_policy_version_mismatch",
+                payload["warnings"],
+            )
+            self.assertEqual(payload["priority_actions"], ["review_inputs"])
+
+    def test_conclusion_rejects_missing_or_old_action_policy_versions(self):
+        cases = (
+            (
+                "latest_automation_check.json",
+                None,
+                "automation_check_action_policy_version_missing",
+            ),
+            (
+                "latest_weekly_ops_check.json",
+                0,
+                "weekly_ops_check_action_policy_version_mismatch",
+            ),
+        )
+        for filename, version, warning in cases:
+            with self.subTest(filename=filename, version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_three_markets(root)
+                write_ready_automation(root)
+                path = root / "outputs" / "automation" / filename
+                source = json.loads(path.read_text(encoding="utf-8-sig"))
+                if version is None:
+                    del source["action_policy_version"]
+                else:
+                    source["action_policy_version"] = version
+                write_json(path, source)
+
+                from weekly_conclusion_report import build_weekly_conclusion
+
+                payload = build_weekly_conclusion(root, today="2026-06-28")
+
+                self.assertEqual(payload["status"], "needs_attention")
+                self.assertIsNone(payload["action_policy_version"])
+                self.assertIn(warning, payload["warnings"])
+                self.assertEqual(payload["priority_actions"], ["review_inputs"])
+
     def test_extended_shadow_tracker_lifecycle_statuses_are_classified_explicitly(self):
         from weekly_conclusion_report import decide_status
 
@@ -597,6 +700,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "as_of_date": "2026-06-28",
                     "status": "manual_review_needed",
+                    "action_policy_version": 1,
                     "recommended_action": "review_manual_review_backlog",
                     "priority_actions": [
                         "review_manual_review_backlog",
@@ -634,6 +738,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "action_items_schema": "weekly_action_items",
                     "action_items_version": 1,
+                    "action_policy_version": 1,
                     "as_of_date": "2026-06-28",
                     "item_count": 5,
                     "backlog_reduction_plan": [
@@ -681,6 +786,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "action_items_schema": "weekly_action_items",
                     "action_items_version": 1,
+                    "action_policy_version": 1,
                     "as_of_date": "2026-06-28",
                     "item_count": 1,
                     "backlog_reduction_plan": [],
@@ -736,6 +842,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "as_of_date": "2026-06-28",
                     "status": "manual_review_needed",
+                    "action_policy_version": 1,
                     "recommended_action": "review_data_health",
                     "priority_actions": [
                         "review_manual_review_backlog",
@@ -746,7 +853,11 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             )
             write_json(
                 root / "outputs" / "automation" / "latest_weekly_ops_check.json",
-                {"as_of_date": "2026-06-28", "status": "ready"},
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "ready",
+                    "action_policy_version": 1,
+                },
             )
             write_json(
                 root / "outputs" / "automation" / "latest_weekly_ops_history_summary.json",
@@ -761,6 +872,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "action_items_schema": "weekly_action_items",
                     "action_items_version": 1,
+                    "action_policy_version": 1,
                     "as_of_date": "2026-06-28",
                     "item_count": 2,
                     "backlog_reduction_plan": [],
@@ -800,6 +912,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "action_items_schema": "weekly_action_items",
                     "action_items_version": 1,
+                    "action_policy_version": 1,
                     "as_of_date": "2026-06-28",
                     "item_count": 1,
                     "backlog_reduction_plan": [],
@@ -898,6 +1011,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "as_of_date": "2026-06-28",
                     "status": "manual_review_needed",
+                    "action_policy_version": 1,
                     "recommended_action": "review_data_quality_trend",
                     "priority_actions": [
                         "review_data_quality_trend",
@@ -942,6 +1056,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "as_of_date": "2026-06-28",
                     "status": "manual_review_needed",
+                    "action_policy_version": 1,
                     "recommended_action": "review_forecast_performance",
                     "priority_actions": [
                         "review_forecast_performance",
@@ -1147,6 +1262,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 automation / "latest_weekly_action_items.json",
                 {
                     "action_items_schema": "weekly_action_items",
+                    "action_policy_version": 1,
                     "as_of_date": "2026-06-28",
                     "item_count": 4,
                     "items": [
@@ -1213,6 +1329,7 @@ class WeeklyConclusionReportTests(unittest.TestCase):
                 {
                     "as_of_date": "2026-06-28",
                     "status": "manual_review_needed",
+                    "action_policy_version": 1,
                     "recommended_action": "review_manual_queue",
                     "priority_actions": [
                         "review_manual_queue",
@@ -1230,7 +1347,11 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             )
             write_json(
                 automation / "latest_weekly_ops_check.json",
-                {"as_of_date": "2026-06-28", "status": "ready"},
+                {
+                    "as_of_date": "2026-06-28",
+                    "status": "ready",
+                    "action_policy_version": 1,
+                },
             )
             write_json(
                 automation / "latest_weekly_ops_history_summary.json",
@@ -1239,6 +1360,15 @@ class WeeklyConclusionReportTests(unittest.TestCase):
             write_json(
                 automation / "latest_weekly_delivery_history_summary.json",
                 {"latest_as_of_date": "2026-06-28", "latest_status": "ready"},
+            )
+            write_json(
+                automation / "latest_weekly_action_items.json",
+                {
+                    "as_of_date": "2026-06-28",
+                    "action_policy_version": 1,
+                    "item_count": 0,
+                    "items": [],
+                },
             )
             write_json(
                 automation / "latest_candidate_findings_review.json",

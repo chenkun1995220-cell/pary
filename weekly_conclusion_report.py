@@ -6,6 +6,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from action_policy_contract import ACTION_POLICY_VERSION, action_policy_version
+
 
 MARKETS = (
     {"market": "US", "label": "美股", "dir": "us_universe"},
@@ -158,6 +160,8 @@ def build_weekly_conclusion(project_root, today=None, max_age_days=8):
     candidates = []
 
     automation = read_automation_state(project_root, as_of_date, max_age_days, warnings, missing_inputs)
+    policy_summary = action_policy_summary(automation)
+    warnings.extend(policy_summary["warnings"])
     manual_review_queue = read_manual_review_queue(project_root)
     manual_review_decisions = read_manual_review_decisions(project_root, manual_review_queue)
     manual_review_merge_summary = read_manual_review_merge_summary(project_root)
@@ -178,6 +182,7 @@ def build_weekly_conclusion(project_root, today=None, max_age_days=8):
         manual_review_queue,
         manual_review_decisions,
         manual_review_merge_summary,
+        policy_summary,
     )
 
 
@@ -194,6 +199,7 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
         state[key] = {
             "status": payload.get("status") or payload.get("latest_status") or "unknown",
             "as_of_date": payload.get("as_of_date") or payload.get("latest_as_of_date"),
+            "action_policy_version": action_policy_version(payload),
             "recommended_action": payload.get("recommended_action"),
             "priority_actions": payload.get("priority_actions", []),
             "path": relative_path(project_root, path),
@@ -220,6 +226,7 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
         state["weekly_action_items"] = {
             "status": "ready",
             "as_of_date": weekly_action_items.get("as_of_date"),
+            "action_policy_version": action_policy_version(weekly_action_items),
             "item_count": weekly_action_items.get("item_count", 0),
             "items": weekly_action_items.get("items", []),
             "backlog_reduction_plan": weekly_action_items.get("backlog_reduction_plan", []),
@@ -321,6 +328,27 @@ def read_automation_state(project_root, as_of_date, max_age_days, warnings, miss
     elif check.get("status") != "missing":
         warnings.append("latest_automation_check.json has invalid as_of_date")
     return state
+
+
+def action_policy_summary(automation):
+    keys = ("automation_check", "weekly_ops_check", "weekly_action_items")
+    versions = {
+        key: action_policy_version(automation.get(key, {}))
+        for key in keys
+    }
+    warnings = []
+    for key, version in versions.items():
+        if version is None:
+            warnings.append(f"{key}_action_policy_version_missing")
+        elif version != ACTION_POLICY_VERSION:
+            warnings.append(f"{key}_action_policy_version_mismatch")
+    if len({version for version in versions.values() if version is not None}) > 1:
+        warnings.append("action_policy_version_inconsistent")
+    return {
+        "version": ACTION_POLICY_VERSION if not warnings else None,
+        "versions": versions,
+        "warnings": warnings,
+    }
 
 
 def read_market(project_root, market_config, missing_inputs, warnings):
@@ -828,9 +856,15 @@ def build_payload(
     manual_review_queue,
     manual_review_decisions,
     manual_review_merge_summary,
+    policy_summary,
 ):
     recommended_action = choose_recommended_action(status, automation)
-    priority_actions = choose_priority_actions(status, automation, recommended_action)
+    priority_actions = choose_priority_actions(
+        status,
+        automation,
+        recommended_action,
+        action_policy_valid=policy_summary["version"] is not None,
+    )
     priority_action_details = describe_priority_actions(
         priority_actions,
         automation.get("weekly_action_items", {}).get("items", []),
@@ -848,6 +882,7 @@ def build_payload(
     return {
         "conclusion_schema": "weekly_conclusion",
         "conclusion_version": 1,
+        "action_policy_version": policy_summary["version"],
         "as_of_date": as_of_date,
         "status": status,
         "recommended_action": recommended_action,
@@ -1840,7 +1875,9 @@ def choose_recommended_action(status, automation):
     return automation_action or "monitor_next_run"
 
 
-def choose_priority_actions(status, automation, recommended_action):
+def choose_priority_actions(status, automation, recommended_action, action_policy_valid=True):
+    if not action_policy_valid:
+        return [recommended_action]
     weekly_items = automation.get("weekly_action_items", {}).get("items", []) or []
     weekly_actions = [
         str(item.get("action_code", "")).strip()
