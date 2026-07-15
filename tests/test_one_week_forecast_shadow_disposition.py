@@ -122,6 +122,12 @@ def lock_contention_error():
     return OSError(errno.EACCES, "lock busy")
 
 
+class WindowsLockError(OSError):
+    def __init__(self, error_number, message, winerror):
+        super().__init__(error_number, message)
+        self.winerror = winerror
+
+
 class OneWeekForecastShadowDispositionTests(unittest.TestCase):
     def test_duplicate_batch_key_counts_once_and_current_data_continues_observation(self):
         row = history_row("2026-07-09", affected=4, markets=("US",), baseline_hits=2, shadow_hits=4)
@@ -397,7 +403,7 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
     def test_history_file_lock_windows_propagates_permanent_winerror(self):
         import one_week_forecast_shadow_disposition as module
 
-        permanent_error = OSError(0, "access denied", None, 5)
+        permanent_error = WindowsLockError(0, "access denied", 5)
 
         class FakeMsvcrt:
             LK_NBLCK = 1
@@ -429,7 +435,7 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
     def test_history_file_lock_windows_retries_lock_violation_winerror(self):
         import one_week_forecast_shadow_disposition as module
 
-        lock_error = OSError(0, "lock violation", None, 33)
+        lock_error = WindowsLockError(0, "lock violation", 33)
         attempts = 0
 
         class FakeMsvcrt:
