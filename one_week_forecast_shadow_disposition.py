@@ -1,9 +1,18 @@
 import argparse
 import json
+import os
 import sys
+import time
 from collections import Counter, defaultdict
+from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
+
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 
 DISPOSITION_SCHEMA = "one_week_forecast_shadow_disposition"
@@ -18,6 +27,45 @@ SEVERE_MARKET_MIN_AFFECTED = 10
 SEVERE_MARKET_DELTA = -0.05
 MAX_SOURCE_AGE_DAYS = 8
 VALID_DISPOSITIONS = {"continue_observation", "rejected", "pending_human_approval"}
+
+
+@contextmanager
+def history_file_lock(history_path, timeout_seconds=30.0, poll_interval=0.05):
+    lock_path = Path(f"{Path(history_path)}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+    poll_interval = max(0.0, float(poll_interval))
+    acquired = False
+
+    with lock_path.open("a+b") as lock_file:
+        if lock_path.stat().st_size == 0:
+            lock_file.write(b"\0")
+            lock_file.flush()
+
+        while True:
+            try:
+                lock_file.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except OSError as error:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f"timed out acquiring history lock: {lock_path}") from error
+                time.sleep(min(poll_interval, remaining))
+
+        try:
+            yield
+        finally:
+            if acquired:
+                lock_file.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _read_json(path):
@@ -444,6 +492,39 @@ def _write_text(content, path):
     destination.write_text(content, encoding="utf-8-sig")
 
 
+def write_shadow_disposition_files(
+    plan_path,
+    validation_path,
+    history_path,
+    performance_path,
+    output_path,
+    report_path,
+    as_of_date=None,
+    lock_timeout_seconds=30.0,
+):
+    with history_file_lock(history_path, timeout_seconds=lock_timeout_seconds):
+        plan = _read_json(plan_path)
+        validation = _read_json(validation_path)
+        history_rows = _read_jsonl(history_path)
+        performance = _read_json(performance_path)
+        payload = build_shadow_disposition(
+            plan,
+            validation,
+            history_rows,
+            performance,
+            as_of_date=as_of_date,
+        )
+        pending_rows = history_rows_to_append(
+            history_rows,
+            validation_history_records(validation),
+        )
+        if payload.get("history_records_added", 0) > 0:
+            _append_jsonl(pending_rows, history_path)
+        _write_json(payload, output_path)
+        _write_text(render_shadow_disposition(payload), report_path)
+        return payload
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -457,22 +538,15 @@ def main():
     parser.add_argument("--report", required=True)
     args = parser.parse_args()
 
-    plan = _read_json(args.plan)
-    validation = _read_json(args.validation)
-    history_rows = _read_jsonl(args.history)
-    performance = _read_json(args.performance)
-    payload = build_shadow_disposition(
-        plan,
-        validation,
-        history_rows,
-        performance,
+    write_shadow_disposition_files(
+        args.plan,
+        args.validation,
+        args.history,
+        args.performance,
+        args.output,
+        args.report,
         as_of_date=args.as_of_date or None,
     )
-    pending_rows = history_rows_to_append(history_rows, validation_history_records(validation))
-    if payload.get("history_records_added", 0) > 0:
-        _append_jsonl(pending_rows, args.history)
-    _write_json(payload, args.output)
-    _write_text(render_shadow_disposition(payload), args.report)
     print(f"One-week forecast shadow disposition: {args.report}")
 
 

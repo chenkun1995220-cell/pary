@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -101,6 +102,18 @@ def build_from_rows(rows, action=ACTION, as_of_date="2026-07-20"):
         performance_payload(),
         as_of_date=as_of_date,
     )
+
+
+def wait_for_path(path, process, timeout=5.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            return
+        if process.poll() is not None:
+            stdout, stderr = process.communicate()
+            raise AssertionError(f"subprocess exited before signaling:\n{stdout}{stderr}")
+        time.sleep(0.01)
+    raise AssertionError(f"timed out waiting for subprocess signal: {path}")
 
 
 class OneWeekForecastShadowDispositionTests(unittest.TestCase):
@@ -207,6 +220,188 @@ class OneWeekForecastShadowDispositionTests(unittest.TestCase):
 
         self.assertEqual(pending, [revised])
         self.assertEqual(logical_history([original, *pending])[0], [revised])
+
+    def test_history_file_lock_times_out_then_can_be_reacquired(self):
+        from one_week_forecast_shadow_disposition import history_file_lock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            history = root / "history.jsonl"
+            ready = root / "holder.ready"
+            release = root / "holder.release"
+            holder_script = """
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+from one_week_forecast_shadow_disposition import history_file_lock
+
+history = Path(sys.argv[2])
+ready = Path(sys.argv[3])
+release = Path(sys.argv[4])
+with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
+    ready.write_text("ready", encoding="utf-8")
+    deadline = time.monotonic() + 10.0
+    while not release.exists():
+        if time.monotonic() >= deadline:
+            raise TimeoutError("holder release signal not received")
+        time.sleep(0.01)
+"""
+            holder = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    holder_script,
+                    str(PROJECT_ROOT),
+                    str(history),
+                    str(ready),
+                    str(release),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                wait_for_path(ready, holder)
+                started = time.monotonic()
+                with self.assertRaises(TimeoutError):
+                    with history_file_lock(history, timeout_seconds=0.15, poll_interval=0.01):
+                        self.fail("contended lock must not be acquired")
+                self.assertLess(time.monotonic() - started, 1.0)
+
+                release.write_text("release", encoding="utf-8")
+                stdout, stderr = holder.communicate(timeout=5)
+                self.assertEqual(holder.returncode, 0, stdout + stderr)
+
+                with history_file_lock(history, timeout_seconds=0.5, poll_interval=0.01):
+                    pass
+                self.assertTrue(Path(f"{history}.lock").exists())
+            finally:
+                release.touch(exist_ok=True)
+                if holder.poll() is None:
+                    holder.kill()
+                    holder.communicate(timeout=5)
+
+    def test_writer_waits_for_history_lock_before_writing_any_output(self):
+        from one_week_forecast_shadow_disposition import (
+            history_file_lock,
+            write_shadow_disposition_files,
+        )
+
+        self.assertTrue(callable(history_file_lock))
+        self.assertTrue(callable(write_shadow_disposition_files))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = root / "plan.json"
+            validation = root / "validation.json"
+            performance = root / "performance.json"
+            history = root / "history.jsonl"
+            output = root / "disposition.json"
+            report = root / "disposition.md"
+            ready = root / "holder.ready"
+            release = root / "holder.release"
+            row = history_row("2026-07-09", affected=4, markets=("US",), baseline_hits=2, shadow_hits=4)
+            plan.write_text(json.dumps(plan_payload()), encoding="utf-8")
+            validation.write_text(json.dumps(validation_payload(row)), encoding="utf-8")
+            performance.write_text(json.dumps(performance_payload()), encoding="utf-8")
+
+            holder_script = """
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+from one_week_forecast_shadow_disposition import history_file_lock
+
+history = Path(sys.argv[2])
+ready = Path(sys.argv[3])
+release = Path(sys.argv[4])
+with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
+    ready.write_text("ready", encoding="utf-8")
+    deadline = time.monotonic() + 10.0
+    while not release.exists():
+        if time.monotonic() >= deadline:
+            raise TimeoutError("holder release signal not received")
+        time.sleep(0.01)
+"""
+            writer_script = """
+import sys
+
+sys.path.insert(0, sys.argv[1])
+from one_week_forecast_shadow_disposition import write_shadow_disposition_files
+
+write_shadow_disposition_files(
+    sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7],
+    as_of_date="2026-07-10", lock_timeout_seconds=5.0,
+)
+"""
+            holder = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    holder_script,
+                    str(PROJECT_ROOT),
+                    str(history),
+                    str(ready),
+                    str(release),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            writer = None
+            try:
+                wait_for_path(ready, holder)
+                writer = subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-c",
+                        writer_script,
+                        str(PROJECT_ROOT),
+                        str(plan),
+                        str(validation),
+                        str(history),
+                        str(performance),
+                        str(output),
+                        str(report),
+                    ],
+                    cwd=PROJECT_ROOT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                time.sleep(0.2)
+                self.assertIsNone(writer.poll(), "writer exited while the history lock was held")
+                self.assertFalse(history.exists())
+                self.assertFalse(output.exists())
+                self.assertFalse(report.exists())
+
+                release.write_text("release", encoding="utf-8")
+                holder_stdout, holder_stderr = holder.communicate(timeout=5)
+                self.assertEqual(holder.returncode, 0, holder_stdout + holder_stderr)
+                writer_stdout, writer_stderr = writer.communicate(timeout=10)
+                self.assertEqual(writer.returncode, 0, writer_stdout + writer_stderr)
+
+                self.assertEqual(len(history.read_text(encoding="utf-8-sig").splitlines()), 1)
+                payload = json.loads(output.read_text(encoding="utf-8-sig"))
+                self.assertEqual(payload["history_records_added"], 1)
+                self.assertIn("continue_observation", report.read_text(encoding="utf-8-sig"))
+            finally:
+                release.touch(exist_ok=True)
+                for process in (writer, holder):
+                    if process is not None and process.poll() is None:
+                        process.kill()
+                        process.communicate(timeout=5)
 
     def test_cli_repeated_identical_input_does_not_append_duplicate_history(self):
         with tempfile.TemporaryDirectory() as tmp:
