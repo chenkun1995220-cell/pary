@@ -5,6 +5,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -286,6 +287,122 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
                     holder.kill()
                     holder.communicate(timeout=5)
 
+    def test_history_file_lock_checks_deadline_before_retry(self):
+        import one_week_forecast_shadow_disposition as module
+
+        attempts = 0
+
+        if module.os.name == "nt":
+            def fake_locking(_file_descriptor, mode, _byte_count):
+                nonlocal attempts
+                if mode == module.msvcrt.LK_NBLCK:
+                    attempts += 1
+                    if attempts == 1:
+                        raise OSError("lock busy")
+
+            lock_patch = mock.patch.object(module.msvcrt, "locking", side_effect=fake_locking)
+        else:
+            def fake_flock(_file_descriptor, operation):
+                nonlocal attempts
+                if operation == module.fcntl.LOCK_EX | module.fcntl.LOCK_NB:
+                    attempts += 1
+                    if attempts == 1:
+                        raise OSError("lock busy")
+
+            lock_patch = mock.patch.object(module.fcntl, "flock", side_effect=fake_flock)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with (
+                mock.patch.object(module.time, "monotonic", side_effect=[100.0, 100.1, 100.6]),
+                mock.patch.object(module.time, "sleep"),
+                lock_patch,
+            ):
+                with self.assertRaisesRegex(TimeoutError, "timed out acquiring history lock"):
+                    with module.history_file_lock(
+                        history,
+                        timeout_seconds=0.5,
+                        poll_interval=0.1,
+                    ):
+                        self.fail("expired retry must not acquire the lock")
+
+        self.assertEqual(attempts, 1)
+
+    def test_history_file_lock_timeout_zero_still_attempts_immediately(self):
+        from one_week_forecast_shadow_disposition import history_file_lock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with history_file_lock(history, timeout_seconds=0.0, poll_interval=0.01):
+                pass
+
+    def test_history_file_lock_rejects_invalid_timing_arguments(self):
+        from one_week_forecast_shadow_disposition import history_file_lock
+
+        invalid_arguments = [
+            ("timeout_seconds", -0.01),
+            ("timeout_seconds", float("nan")),
+            ("timeout_seconds", float("inf")),
+            ("timeout_seconds", float("-inf")),
+            ("poll_interval", 0.0),
+            ("poll_interval", -0.01),
+            ("poll_interval", float("nan")),
+            ("poll_interval", float("inf")),
+            ("poll_interval", float("-inf")),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            for argument, value in invalid_arguments:
+                with self.subTest(argument=argument, value=value):
+                    kwargs = {"timeout_seconds": 0.0, "poll_interval": 0.01, argument: value}
+                    with self.assertRaisesRegex(ValueError, argument):
+                        with history_file_lock(history, **kwargs):
+                            pass
+
+    def test_writer_rolls_back_history_and_outputs_when_markdown_write_fails(self):
+        import one_week_forecast_shadow_disposition as module
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = root / "plan.json"
+            validation = root / "validation.json"
+            performance = root / "performance.json"
+            history = root / "history.jsonl"
+            output = root / "disposition.json"
+            report = root / "disposition.md"
+            original = history_row("2026-07-02", affected=4, markets=("US",))
+            current = history_row("2026-07-09", affected=4, markets=("US",))
+            original_history = (json.dumps(original, sort_keys=True) + "\n").encode("utf-8")
+            original_output = b'{"status": "previous"}\n'
+            plan.write_text(json.dumps(plan_payload()), encoding="utf-8")
+            validation.write_text(json.dumps(validation_payload(current)), encoding="utf-8")
+            performance.write_text(json.dumps(performance_payload()), encoding="utf-8")
+            history.write_bytes(original_history)
+            output.write_bytes(original_output)
+
+            with mock.patch.object(
+                module,
+                "_write_text",
+                side_effect=OSError("injected markdown failure"),
+            ) as write_text:
+                with self.assertRaisesRegex(OSError, "injected markdown failure"):
+                    module.write_shadow_disposition_files(
+                        plan,
+                        validation,
+                        history,
+                        performance,
+                        output,
+                        report,
+                        as_of_date="2026-07-10",
+                    )
+
+            self.assertEqual(write_text.call_count, 1)
+            self.assertEqual(history.read_bytes(), original_history)
+            self.assertEqual(output.read_bytes(), original_output)
+            self.assertFalse(report.exists())
+            with module.history_file_lock(history, timeout_seconds=0.5, poll_interval=0.01):
+                pass
+
     def test_writer_waits_for_history_lock_before_writing_any_output(self):
         from one_week_forecast_shadow_disposition import (
             history_file_lock,
@@ -304,6 +421,7 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
             report = root / "disposition.md"
             ready = root / "holder.ready"
             release = root / "holder.release"
+            writer_ready = root / "writer.ready"
             row = history_row("2026-07-09", affected=4, markets=("US",), baseline_hits=2, shadow_hits=4)
             plan.write_text(json.dumps(plan_payload()), encoding="utf-8")
             validation.write_text(json.dumps(validation_payload(row)), encoding="utf-8")
@@ -330,10 +448,12 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
 """
             writer_script = """
 import sys
+from pathlib import Path
 
 sys.path.insert(0, sys.argv[1])
 from one_week_forecast_shadow_disposition import write_shadow_disposition_files
 
+Path(sys.argv[8]).write_text("ready", encoding="utf-8")
 write_shadow_disposition_files(
     sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7],
     as_of_date="2026-07-10", lock_timeout_seconds=5.0,
@@ -371,6 +491,7 @@ write_shadow_disposition_files(
                         str(performance),
                         str(output),
                         str(report),
+                        str(writer_ready),
                     ],
                     cwd=PROJECT_ROOT,
                     text=True,
@@ -380,11 +501,15 @@ write_shadow_disposition_files(
                     stderr=subprocess.PIPE,
                 )
 
-                time.sleep(0.2)
-                self.assertIsNone(writer.poll(), "writer exited while the history lock was held")
-                self.assertFalse(history.exists())
-                self.assertFalse(output.exists())
-                self.assertFalse(report.exists())
+                wait_for_path(writer_ready, writer)
+                blocked_deadline = time.monotonic() + 0.25
+                while time.monotonic() < blocked_deadline:
+                    self.assertIsNone(holder.poll(), "holder exited during the blocked-write window")
+                    self.assertIsNone(writer.poll(), "writer exited while the history lock was held")
+                    self.assertFalse(history.exists())
+                    self.assertFalse(output.exists())
+                    self.assertFalse(report.exists())
+                    time.sleep(0.01)
 
                 release.write_text("release", encoding="utf-8")
                 holder_stdout, holder_stderr = holder.communicate(timeout=5)

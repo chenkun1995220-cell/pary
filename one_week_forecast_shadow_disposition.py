@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -31,11 +32,26 @@ VALID_DISPOSITIONS = {"continue_observation", "rejected", "pending_human_approva
 
 @contextmanager
 def history_file_lock(history_path, timeout_seconds=30.0, poll_interval=0.05):
+    try:
+        timeout_seconds = float(timeout_seconds)
+    except (TypeError, ValueError):
+        raise ValueError("timeout_seconds must be a finite non-negative number") from None
+    if not math.isfinite(timeout_seconds) or timeout_seconds < 0:
+        raise ValueError("timeout_seconds must be a finite non-negative number")
+
+    try:
+        poll_interval = float(poll_interval)
+    except (TypeError, ValueError):
+        raise ValueError("poll_interval must be a finite positive number") from None
+    if not math.isfinite(poll_interval) or poll_interval <= 0:
+        raise ValueError("poll_interval must be a finite positive number")
+
     lock_path = Path(f"{Path(history_path)}.lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    deadline = time.monotonic() + max(0.0, float(timeout_seconds))
-    poll_interval = max(0.0, float(poll_interval))
+    deadline = time.monotonic() + timeout_seconds
     acquired = False
+    first_attempt = True
+    last_error = None
 
     with lock_path.open("a+b") as lock_file:
         if lock_path.stat().st_size == 0:
@@ -43,6 +59,8 @@ def history_file_lock(history_path, timeout_seconds=30.0, poll_interval=0.05):
             lock_file.flush()
 
         while True:
+            if not first_attempt and time.monotonic() >= deadline:
+                raise TimeoutError(f"timed out acquiring history lock: {lock_path}") from last_error
             try:
                 lock_file.seek(0)
                 if os.name == "nt":
@@ -52,10 +70,12 @@ def history_file_lock(history_path, timeout_seconds=30.0, poll_interval=0.05):
                 acquired = True
                 break
             except OSError as error:
+                last_error = error
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError(f"timed out acquiring history lock: {lock_path}") from error
                 time.sleep(min(poll_interval, remaining))
+                first_attempt = False
 
         try:
             yield
@@ -492,6 +512,23 @@ def _write_text(content, path):
     destination.write_text(content, encoding="utf-8-sig")
 
 
+def _capture_file_state(path):
+    source = Path(path)
+    if not source.exists():
+        return False, b""
+    return True, source.read_bytes()
+
+
+def _restore_file_state(path, state):
+    destination = Path(path)
+    existed, content = state
+    if existed:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+    elif destination.exists():
+        destination.unlink()
+
+
 def write_shadow_disposition_files(
     plan_path,
     validation_path,
@@ -503,26 +540,39 @@ def write_shadow_disposition_files(
     lock_timeout_seconds=30.0,
 ):
     with history_file_lock(history_path, timeout_seconds=lock_timeout_seconds):
-        plan = _read_json(plan_path)
-        validation = _read_json(validation_path)
-        history_rows = _read_jsonl(history_path)
-        performance = _read_json(performance_path)
-        payload = build_shadow_disposition(
-            plan,
-            validation,
-            history_rows,
-            performance,
-            as_of_date=as_of_date,
-        )
-        pending_rows = history_rows_to_append(
-            history_rows,
-            validation_history_records(validation),
-        )
-        if payload.get("history_records_added", 0) > 0:
-            _append_jsonl(pending_rows, history_path)
-        _write_json(payload, output_path)
-        _write_text(render_shadow_disposition(payload), report_path)
-        return payload
+        managed_paths = [Path(history_path), Path(output_path), Path(report_path)]
+        original_states = [_capture_file_state(path) for path in managed_paths]
+        try:
+            plan = _read_json(plan_path)
+            validation = _read_json(validation_path)
+            history_rows = _read_jsonl(history_path)
+            performance = _read_json(performance_path)
+            payload = build_shadow_disposition(
+                plan,
+                validation,
+                history_rows,
+                performance,
+                as_of_date=as_of_date,
+            )
+            pending_rows = history_rows_to_append(
+                history_rows,
+                validation_history_records(validation),
+            )
+            if payload.get("history_records_added", 0) > 0:
+                _append_jsonl(pending_rows, history_path)
+            _write_json(payload, output_path)
+            _write_text(render_shadow_disposition(payload), report_path)
+            return payload
+        except BaseException as error:
+            rollback_errors = []
+            for path, state in reversed(list(zip(managed_paths, original_states))):
+                try:
+                    _restore_file_state(path, state)
+                except OSError as rollback_error:
+                    rollback_errors.append(f"{path}: {rollback_error}")
+            if rollback_errors and hasattr(error, "add_note"):
+                error.add_note("rollback failures: " + "; ".join(rollback_errors))
+            raise
 
 
 def main():
