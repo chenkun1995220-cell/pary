@@ -1,3 +1,4 @@
+import errno
 import json
 import subprocess
 import sys
@@ -115,6 +116,10 @@ def wait_for_path(path, process, timeout=5.0):
             raise AssertionError(f"subprocess exited before signaling:\n{stdout}{stderr}")
         time.sleep(0.01)
     raise AssertionError(f"timed out waiting for subprocess signal: {path}")
+
+
+def lock_contention_error():
+    return OSError(errno.EACCES, "lock busy")
 
 
 class OneWeekForecastShadowDispositionTests(unittest.TestCase):
@@ -298,7 +303,7 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
                 if mode == module.msvcrt.LK_NBLCK:
                     attempts += 1
                     if attempts == 1:
-                        raise OSError("lock busy")
+                        raise lock_contention_error()
 
             lock_patch = mock.patch.object(module.msvcrt, "locking", side_effect=fake_locking)
         else:
@@ -307,7 +312,7 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
                 if operation == module.fcntl.LOCK_EX | module.fcntl.LOCK_NB:
                     attempts += 1
                     if attempts == 1:
-                        raise OSError("lock busy")
+                        raise lock_contention_error()
 
             lock_patch = mock.patch.object(module.fcntl, "flock", side_effect=fake_flock)
 
@@ -327,6 +332,194 @@ with history_file_lock(history, timeout_seconds=5.0, poll_interval=0.01):
                         self.fail("expired retry must not acquire the lock")
 
         self.assertEqual(attempts, 1)
+
+    def test_history_file_lock_propagates_permanent_acquire_errors(self):
+        import one_week_forecast_shadow_disposition as module
+
+        permanent_error = OSError(errno.EINVAL, "permanent lock failure")
+
+        if module.os.name == "nt":
+            lock_patch = mock.patch.object(module.msvcrt, "locking", side_effect=permanent_error)
+        else:
+            lock_patch = mock.patch.object(module.fcntl, "flock", side_effect=permanent_error)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with lock_patch:
+                with self.assertRaises(OSError) as caught:
+                    with module.history_file_lock(
+                        history,
+                        timeout_seconds=0.0,
+                        poll_interval=0.01,
+                    ):
+                        self.fail("permanent lock errors must not be converted to timeouts")
+
+        self.assertIs(caught.exception, permanent_error)
+
+    def test_history_file_lock_posix_propagates_non_contention_oserror(self):
+        import one_week_forecast_shadow_disposition as module
+
+        permanent_error = OSError(errno.EINVAL, "bad file descriptor")
+        calls = []
+
+        class FakeFcntl:
+            LOCK_EX = 1
+            LOCK_NB = 2
+            LOCK_UN = 4
+
+            def flock(self, _file_descriptor, operation):
+                if operation == (self.LOCK_EX | self.LOCK_NB):
+                    calls.append(operation)
+                    raise permanent_error
+
+        fake_fcntl = FakeFcntl()
+
+        class FakeOs:
+            name = "posix"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with (
+                mock.patch.object(module, "os", FakeOs()),
+                mock.patch.object(module, "fcntl", fake_fcntl, create=True),
+            ):
+                with self.assertRaises(OSError) as caught:
+                    with module.history_file_lock(
+                        history,
+                        timeout_seconds=0.0,
+                        poll_interval=0.01,
+                    ):
+                        self.fail("POSIX permanent lock errors must not be retried")
+
+        self.assertIs(caught.exception, permanent_error)
+        self.assertEqual(len(calls), 1)
+
+    def test_history_file_lock_windows_propagates_permanent_winerror(self):
+        import one_week_forecast_shadow_disposition as module
+
+        permanent_error = OSError(0, "access denied", None, 5)
+
+        class FakeMsvcrt:
+            LK_NBLCK = 1
+            LK_UNLCK = 2
+
+            def locking(self, _file_descriptor, mode, _byte_count):
+                if mode == self.LK_NBLCK:
+                    raise permanent_error
+
+        class FakeOs:
+            name = "nt"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with (
+                mock.patch.object(module, "os", FakeOs()),
+                mock.patch.object(module, "msvcrt", FakeMsvcrt(), create=True),
+            ):
+                with self.assertRaises(OSError) as caught:
+                    with module.history_file_lock(
+                        history,
+                        timeout_seconds=0.0,
+                        poll_interval=0.01,
+                    ):
+                        self.fail("Windows permanent winerrors must not be retried")
+
+        self.assertIs(caught.exception, permanent_error)
+
+    def test_history_file_lock_windows_retries_lock_violation_winerror(self):
+        import one_week_forecast_shadow_disposition as module
+
+        lock_error = OSError(0, "lock violation", None, 33)
+        attempts = 0
+
+        class FakeMsvcrt:
+            LK_NBLCK = 1
+            LK_UNLCK = 2
+
+            def locking(self, _file_descriptor, mode, _byte_count):
+                nonlocal attempts
+                if mode == self.LK_NBLCK:
+                    attempts += 1
+                    raise lock_error
+
+        class FakeOs:
+            name = "nt"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with (
+                mock.patch.object(module, "os", FakeOs()),
+                mock.patch.object(module, "msvcrt", FakeMsvcrt(), create=True),
+                mock.patch.object(module.time, "monotonic", side_effect=[100.0, 100.01, 100.2]),
+                mock.patch.object(module.time, "sleep"),
+            ):
+                with self.assertRaisesRegex(TimeoutError, "timed out acquiring history lock"):
+                    with module.history_file_lock(
+                        history,
+                        timeout_seconds=0.1,
+                        poll_interval=0.01,
+                    ):
+                        self.fail("Windows lock violation should be retried until timeout")
+
+        self.assertEqual(attempts, 1)
+
+    def test_history_file_lock_raises_unlock_failure_without_active_exception(self):
+        import one_week_forecast_shadow_disposition as module
+
+        unlock_error = OSError("injected unlock failure")
+
+        if module.os.name == "nt":
+            def fake_locking(_file_descriptor, mode, _byte_count):
+                if mode == module.msvcrt.LK_UNLCK:
+                    raise unlock_error
+
+            lock_patch = mock.patch.object(module.msvcrt, "locking", side_effect=fake_locking)
+        else:
+            def fake_flock(_file_descriptor, operation):
+                if operation == module.fcntl.LOCK_UN:
+                    raise unlock_error
+
+            lock_patch = mock.patch.object(module.fcntl, "flock", side_effect=fake_flock)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with lock_patch:
+                with self.assertRaises(OSError) as caught:
+                    with module.history_file_lock(history, timeout_seconds=0.5, poll_interval=0.01):
+                        pass
+
+        self.assertIs(caught.exception, unlock_error)
+
+    def test_history_file_lock_preserves_body_exception_when_unlock_fails(self):
+        import one_week_forecast_shadow_disposition as module
+
+        unlock_error = OSError("injected unlock failure")
+
+        if module.os.name == "nt":
+            def fake_locking(_file_descriptor, mode, _byte_count):
+                if mode == module.msvcrt.LK_UNLCK:
+                    raise unlock_error
+
+            lock_patch = mock.patch.object(module.msvcrt, "locking", side_effect=fake_locking)
+        else:
+            def fake_flock(_file_descriptor, operation):
+                if operation == module.fcntl.LOCK_UN:
+                    raise unlock_error
+
+            lock_patch = mock.patch.object(module.fcntl, "flock", side_effect=fake_flock)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            with lock_patch:
+                with self.assertRaisesRegex(RuntimeError, "body failure") as caught:
+                    with module.history_file_lock(history, timeout_seconds=0.5, poll_interval=0.01):
+                        raise RuntimeError("body failure")
+
+        if hasattr(caught.exception, "__notes__"):
+            self.assertTrue(
+                any("injected unlock failure" in note for note in caught.exception.__notes__),
+                caught.exception.__notes__,
+            )
 
     def test_history_file_lock_timeout_zero_still_attempts_immediately(self):
         from one_week_forecast_shadow_disposition import history_file_lock
@@ -525,6 +718,112 @@ write_shadow_disposition_files(
                 release.touch(exist_ok=True)
                 for process in (writer, holder):
                     if process is not None and process.poll() is None:
+                        process.kill()
+                        process.communicate(timeout=5)
+
+    def test_concurrent_transaction_writers_append_one_physical_history_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = root / "plan.json"
+            validation = root / "validation.json"
+            performance = root / "performance.json"
+            history = root / "history.jsonl"
+            go = root / "writers.go"
+            row = history_row("2026-07-09", affected=4, markets=("US",), baseline_hits=2, shadow_hits=4)
+            plan.write_text(json.dumps(plan_payload()), encoding="utf-8")
+            validation.write_text(json.dumps(validation_payload(row)), encoding="utf-8")
+            performance.write_text(json.dumps(performance_payload()), encoding="utf-8")
+
+            writer_script = """
+import json
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+from one_week_forecast_shadow_disposition import write_shadow_disposition_files
+
+plan = Path(sys.argv[2])
+validation = Path(sys.argv[3])
+history = Path(sys.argv[4])
+performance = Path(sys.argv[5])
+output = Path(sys.argv[6])
+report = Path(sys.argv[7])
+ready = Path(sys.argv[8])
+go = Path(sys.argv[9])
+result = Path(sys.argv[10])
+
+ready.write_text("ready", encoding="utf-8")
+deadline = time.monotonic() + 10.0
+while not go.exists():
+    if time.monotonic() >= deadline:
+        raise TimeoutError("go signal not received")
+    time.sleep(0.01)
+
+payload = write_shadow_disposition_files(
+    plan,
+    validation,
+    history,
+    performance,
+    output,
+    report,
+    as_of_date="2026-07-10",
+    lock_timeout_seconds=5.0,
+)
+result.write_text(
+    json.dumps({"history_records_added": payload["history_records_added"]}),
+    encoding="utf-8",
+)
+"""
+            processes = []
+            try:
+                for index in range(2):
+                    ready = root / f"writer_{index}.ready"
+                    result = root / f"writer_{index}.result.json"
+                    process = subprocess.Popen(
+                        [
+                            sys.executable,
+                            "-c",
+                            writer_script,
+                            str(PROJECT_ROOT),
+                            str(plan),
+                            str(validation),
+                            str(history),
+                            str(performance),
+                            str(root / f"disposition_{index}.json"),
+                            str(root / f"disposition_{index}.md"),
+                            str(ready),
+                            str(go),
+                            str(result),
+                        ],
+                        cwd=PROJECT_ROOT,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    processes.append((process, ready, result))
+
+                for process, ready, _result in processes:
+                    wait_for_path(ready, process)
+                self.assertFalse(history.exists())
+
+                go.write_text("go", encoding="utf-8")
+                for process, _ready, _result in processes:
+                    stdout, stderr = process.communicate(timeout=10)
+                    self.assertEqual(process.returncode, 0, stdout + stderr)
+
+                added_counts = sorted(
+                    json.loads(result.read_text(encoding="utf-8"))["history_records_added"]
+                    for _process, _ready, result in processes
+                )
+                self.assertEqual(added_counts, [0, 1])
+                self.assertEqual(len(history.read_text(encoding="utf-8-sig").splitlines()), 1)
+            finally:
+                go.touch(exist_ok=True)
+                for process, _ready, _result in processes:
+                    if process.poll() is None:
                         process.kill()
                         process.communicate(timeout=5)
 

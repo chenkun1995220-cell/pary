@@ -1,4 +1,5 @@
 import argparse
+import errno
 import json
 import math
 import os
@@ -28,6 +29,16 @@ SEVERE_MARKET_MIN_AFFECTED = 10
 SEVERE_MARKET_DELTA = -0.05
 MAX_SOURCE_AGE_DAYS = 8
 VALID_DISPOSITIONS = {"continue_observation", "rejected", "pending_human_approval"}
+
+
+def _is_lock_contention_error(error):
+    error_number = getattr(error, "errno", None)
+    if os.name == "nt":
+        winerror = getattr(error, "winerror", None)
+        if winerror is not None:
+            return winerror in {32, 33}
+        return error_number in {errno.EACCES, errno.EAGAIN}
+    return error_number in {errno.EACCES, errno.EAGAIN}
 
 
 @contextmanager
@@ -70,6 +81,8 @@ def history_file_lock(history_path, timeout_seconds=30.0, poll_interval=0.05):
                 acquired = True
                 break
             except OSError as error:
+                if not _is_lock_contention_error(error):
+                    raise
                 last_error = error
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -81,11 +94,18 @@ def history_file_lock(history_path, timeout_seconds=30.0, poll_interval=0.05):
             yield
         finally:
             if acquired:
-                lock_file.seek(0)
-                if os.name == "nt":
-                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
-                else:
-                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                active_error = sys.exc_info()[1]
+                try:
+                    lock_file.seek(0)
+                    if os.name == "nt":
+                        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                except OSError as unlock_error:
+                    if active_error is None:
+                        raise
+                    if hasattr(active_error, "add_note"):
+                        active_error.add_note(f"history lock release failed: {unlock_error}")
 
 
 def _read_json(path):
