@@ -104,6 +104,35 @@ def validation_history_records(validation):
     return rows
 
 
+def _history_key(row):
+    key = (
+        str(row.get("evaluation_as_of_date", "") or ""),
+        str(row.get("action_code", "") or ""),
+    )
+    return key if all(key) else None
+
+
+def _canonical_history_row(row):
+    return json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def history_rows_to_append(history_rows, new_rows):
+    latest = {}
+    for row in history_rows or []:
+        if isinstance(row, dict) and (key := _history_key(row)):
+            latest[key] = _canonical_history_row(row)
+    pending = []
+    for row in new_rows or []:
+        if not isinstance(row, dict) or not (key := _history_key(row)):
+            continue
+        canonical = _canonical_history_row(row)
+        if latest.get(key) == canonical:
+            continue
+        pending.append(row)
+        latest[key] = canonical
+    return pending
+
+
 def logical_history(rows):
     by_key = {}
     duplicate_count = 0
@@ -283,7 +312,8 @@ def build_shadow_disposition(plan, validation, history_rows, performance, as_of_
         attention_reasons.append("candidate_action_contract_mismatch")
 
     new_rows = validation_history_records(validation)
-    combined_rows = list(history_rows or []) + new_rows
+    pending_rows = history_rows_to_append(history_rows, new_rows)
+    combined_rows = list(history_rows or []) + pending_rows
     logical_rows, duplicate_count = logical_history(combined_rows)
     sources_fresh = _source_is_fresh(validation, as_of_date)
     if not sources_fresh:
@@ -318,7 +348,7 @@ def build_shadow_disposition(plan, validation, history_rows, performance, as_of_
         "source_plan_status": plan.get("status", ""),
         "source_validation_status": validation.get("status", ""),
         "evaluation_as_of_date": validation.get("evaluation_as_of_date", ""),
-        "history_records_added": len(new_rows),
+        "history_records_added": len(pending_rows),
         "logical_history_record_count": len(logical_rows),
         "duplicate_history_key_count": duplicate_count,
         "candidate_dispositions": candidates,
@@ -438,9 +468,9 @@ def main():
         performance,
         as_of_date=args.as_of_date or None,
     )
-    new_rows = validation_history_records(validation)
+    pending_rows = history_rows_to_append(history_rows, validation_history_records(validation))
     if payload.get("history_records_added", 0) > 0:
-        _append_jsonl(new_rows, args.history)
+        _append_jsonl(pending_rows, args.history)
     _write_json(payload, args.output)
     _write_text(render_shadow_disposition(payload), args.report)
     print(f"One-week forecast shadow disposition: {args.report}")

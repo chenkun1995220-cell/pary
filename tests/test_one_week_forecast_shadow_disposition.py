@@ -114,7 +114,7 @@ class OneWeekForecastShadowDispositionTests(unittest.TestCase):
         self.assertEqual(candidate["affected_count"], 4)
         self.assertEqual(candidate["disposition"], "continue_observation")
         self.assertEqual(candidate["next_action"], "continue_shadow_validation")
-        self.assertEqual(payload["duplicate_history_key_count"], 2)
+        self.assertEqual(payload["duplicate_history_key_count"], 1)
         self.assertFalse(payload["formal_model_change_allowed"])
 
     def test_three_positive_batches_meeting_all_gates_are_pending_human_approval(self):
@@ -197,7 +197,18 @@ class OneWeekForecastShadowDispositionTests(unittest.TestCase):
         self.assertEqual(candidate["affected_market_count"], 0)
         self.assertEqual(candidate["disposition"], "continue_observation")
 
-    def test_cli_writes_history_json_and_markdown(self):
+    def test_revised_history_row_with_same_key_is_appended_and_becomes_latest(self):
+        from one_week_forecast_shadow_disposition import history_rows_to_append, logical_history
+
+        original = history_row("2026-07-09", shadow_hits=4)
+        revised = history_row("2026-07-09", shadow_hits=5)
+
+        pending = history_rows_to_append([original], [revised])
+
+        self.assertEqual(pending, [revised])
+        self.assertEqual(logical_history([original, *pending])[0], [revised])
+
+    def test_cli_repeated_identical_input_does_not_append_duplicate_history(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             plan = root / "plan.json"
@@ -244,6 +255,38 @@ class OneWeekForecastShadowDispositionTests(unittest.TestCase):
             self.assertEqual(len(history.read_text(encoding="utf-8-sig").splitlines()), 1)
             self.assertIn("continue_observation", report.read_text(encoding="utf-8-sig"))
             self.assertFalse(payload["formal_model_change_allowed"])
+
+            second = subprocess.run(
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "one_week_forecast_shadow_disposition.py"),
+                    "--plan",
+                    str(plan),
+                    "--validation",
+                    str(validation),
+                    "--history",
+                    str(history),
+                    "--performance",
+                    str(performance),
+                    "--as-of-date",
+                    "2026-07-10",
+                    "--output",
+                    str(output),
+                    "--report",
+                    str(report),
+                ],
+                cwd=PROJECT_ROOT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=30,
+            )
+
+            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            second_payload = json.loads(output.read_text(encoding="utf-8-sig"))
+            self.assertEqual(len(history.read_text(encoding="utf-8-sig").splitlines()), 1)
+            self.assertEqual(second_payload["history_records_added"], 0)
 
     def test_wrapper_and_reporting_bundle_order_shadow_disposition_before_refresh(self):
         wrapper = (
