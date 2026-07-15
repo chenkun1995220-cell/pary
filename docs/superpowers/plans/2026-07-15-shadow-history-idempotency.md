@@ -167,4 +167,3 @@ Review the branch diff against this plan, focusing on idempotency, preservation 
 - [ ] **Step 3: Push and fast-forward merge after approval**
 
 Push the feature branch, fast-forward merge it into `main`, rerun the full suite on `main`, push `main`, and verify `HEAD...origin/main` is `0 0`.
-
