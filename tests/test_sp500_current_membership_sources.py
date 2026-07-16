@@ -54,7 +54,7 @@ OFFICIAL_LOW_CONFIDENCE_HTML = """
 """
 
 
-def write_template(path):
+def write_template_with_tickers(path, tickers):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(
@@ -68,24 +68,20 @@ def write_template(path):
             ],
         )
         writer.writeheader()
-        writer.writerow(
-            {
-                "ticker": "ABT",
-                "membership_evidence": "verified",
-                "membership_source_url": "",
-                "source_as_of_date": "",
-                "notes": "",
-            }
-        )
-        writer.writerow(
-            {
-                "ticker": "ZZZ",
-                "membership_evidence": "verified",
-                "membership_source_url": "",
-                "source_as_of_date": "",
-                "notes": "",
-            }
-        )
+        for ticker in tickers:
+            writer.writerow(
+                {
+                    "ticker": ticker,
+                    "membership_evidence": "verified",
+                    "membership_source_url": "",
+                    "source_as_of_date": "",
+                    "notes": "",
+                }
+            )
+
+
+def write_template(path):
+    write_template_with_tickers(path, ["ABT", "ZZZ"])
 
 
 def write_official_csv(path):
@@ -1325,7 +1321,13 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
     def test_powershell_wrapper_dry_run_uses_existing_source_file_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:
             source_file = Path(tmp) / "official_constituents.csv"
+            template = Path(tmp) / "template.csv"
             write_official_csv_for_project_template(source_file)
+            with source_file.open("r", encoding="utf-8-sig", newline="") as handle:
+                write_template_with_tickers(
+                    template,
+                    [row["Symbol"] for row in list(csv.DictReader(handle))[:50]],
+                )
 
             result = subprocess.run(
                 [
@@ -1336,6 +1338,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                     "scripts\\run_sp500_current_membership_sources.ps1",
                     "-ProjectRoot",
                     str(PROJECT_ROOT),
+                    "-Template",
+                    str(template),
                     "-SourceFileInbox",
                     str(source_file),
                     "-DryRun",
@@ -1357,7 +1361,9 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
     def test_powershell_wrapper_dry_run_accepts_official_csv_with_metadata_preamble(self):
         with tempfile.TemporaryDirectory() as tmp:
             source_file = Path(tmp) / "official_constituents.csv"
+            template = Path(tmp) / "template.csv"
             write_official_csv_with_metadata_preamble(source_file)
+            write_template_with_tickers(template, ["ABT", "ADM"])
 
             result = subprocess.run(
                 [
@@ -1368,6 +1374,8 @@ class Sp500CurrentMembershipSourcesTests(unittest.TestCase):
                     "scripts\\run_sp500_current_membership_sources.ps1",
                     "-ProjectRoot",
                     str(PROJECT_ROOT),
+                    "-Template",
+                    str(template),
                     "-SourceFileInbox",
                     str(source_file),
                     "-DryRun",
