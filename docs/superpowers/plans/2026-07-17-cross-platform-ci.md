@@ -2,27 +2,29 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为仓库增加 Windows 与 Ubuntu 双平台全量测试门槛，并以机器可读契约防止工作流误触行情、评分或模型链路。
+**Goal:** 为仓库增加 Windows 全量测试与 Ubuntu POSIX 聚焦测试门槛，并以机器可读契约防止工作流误触行情、评分或模型链路。
 
-**Architecture:** 使用一个 GitHub Actions 工作流和 `os` 矩阵运行相同的 Python 3.12 语法检查与全量单元测试。使用 PyYAML `BaseLoader` 的契约测试结构化读取工作流，验证触发范围、权限、矩阵、命令和禁止项；远端以两个矩阵任务真实成功作为最终验收。
+**Architecture:** 使用一个 GitHub Actions 工作流和 `include` 矩阵区分 `windows-latest/full` 与 `ubuntu-latest/posix`。Windows 运行完整测试并设置 UTF-8 与本机 Python 路径兼容层；Ubuntu 运行真实 POSIX 文件锁和工作流契约测试。使用 PyYAML `BaseLoader` 结构化验证触发范围、权限、矩阵、命令和禁止项。
 
 **Tech Stack:** GitHub Actions、Python 3.12、`unittest`、PyYAML 6.x、PowerShell、GitHub CLI。
 
 ## Global Constraints
 
 - 工作流只在向 `main` 推送、针对 `main` 的拉取请求和手动触发时运行。
-- 测试矩阵必须同时包含 `windows-latest` 与 `ubuntu-latest`。
+- 测试矩阵必须同时包含 `windows-latest/full` 与 `ubuntu-latest/posix`。
 - 仓库权限只能是 `contents: read`，不得使用生产密钥。
 - 不调用三市场周任务、行情抓取、候选评分、估值或模型更新入口。
 - 不读取或写入 `outputs` 运行产物作为成功条件。
-- 不删减现有测试、不降低质量门槛、不修改正式模型和影子分类阈值。
+- Windows 不删减现有测试；Ubuntu 聚焦测试必须覆盖真实 POSIX 文件锁与 CI 契约。
+- 不在本轮迁移约 60 个 Windows PowerShell 包装脚本。
+- 不降低质量门槛、不修改正式模型和影子分类阈值。
 - 远端任一矩阵失败时必须读取本次日志并修复，不得引用旧运行结果。
 
 ---
 
 ## 文件结构
 
-- Create: `.github/workflows/test.yml`：定义只读、双平台、全量测试工作流。
+- Create: `.github/workflows/test.yml`：定义只读的 Windows 全量与 Ubuntu POSIX 聚焦工作流。
 - Create: `requirements-dev.txt`：仅包含工作流契约测试所需的 PyYAML。
 - Create: `tests/test_cross_platform_ci_workflow.py`：结构化验证工作流安全边界和执行契约。
 
@@ -68,26 +70,38 @@ class CrossPlatformCIWorkflowTests(unittest.TestCase):
         triggers = self.workflow["on"]
         self.assertEqual(triggers["push"]["branches"], ["main"])
         self.assertEqual(triggers["pull_request"]["branches"], ["main"])
-        self.assertEqual(triggers["workflow_dispatch"], None)
+        self.assertEqual(triggers["workflow_dispatch"], {})
 
     def test_uses_read_only_permissions_and_cancels_superseded_runs(self):
         self.assertEqual(self.workflow["permissions"], {"contents": "read"})
         self.assertEqual(self.workflow["concurrency"]["cancel-in-progress"], "true")
 
-    def test_runs_full_suite_on_windows_and_ubuntu_with_python_312(self):
+    def test_runs_full_windows_and_focused_posix_suites_with_python_312(self):
         job = self.workflow["jobs"]["test"]
         self.assertEqual(
-            job["strategy"]["matrix"]["os"],
-            ["windows-latest", "ubuntu-latest"],
+            job["strategy"]["matrix"].get("include"),
+            [
+                {"os": "windows-latest", "suite": "full"},
+                {"os": "ubuntu-latest", "suite": "posix"},
+            ],
         )
         self.assertEqual(job["runs-on"], "${{ matrix.os }}")
+        self.assertEqual(self.workflow["env"]["PYTHONUTF8"], "1")
+        self.assertEqual(self.workflow["env"]["PYTHONIOENCODING"], "utf-8")
         steps = job["steps"]
         setup = next(step for step in steps if step.get("uses") == "actions/setup-python@v5")
         self.assertEqual(setup["with"]["python-version"], "3.12")
         commands = "\n".join(step.get("run", "") for step in steps)
         self.assertIn("pip install -r requirements.txt -r requirements-dev.txt", commands)
         self.assertIn("python -m compileall -q", commands)
+        self.assertIn("node_modules", commands)
+        self.assertIn("New-Item -ItemType Junction", commands)
         self.assertIn("python -m unittest discover -s tests", commands)
+        self.assertIn(
+            "python -m unittest tests.test_one_week_forecast_shadow_disposition "
+            "tests.test_cross_platform_ci_workflow",
+            commands,
+        )
 
     def test_excludes_production_automation_and_write_capabilities(self):
         forbidden = (
@@ -128,10 +142,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: read
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: utf-8
 
 concurrency:
   group: tests-${{ github.workflow }}-${{ github.ref }}
@@ -139,12 +157,16 @@ concurrency:
 
 jobs:
   test:
-    name: Python 3.12 / ${{ matrix.os }}
+    name: Python 3.12 / ${{ matrix.os }} / ${{ matrix.suite }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            suite: full
+          - os: ubuntu-latest
+            suite: posix
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -157,11 +179,22 @@ jobs:
             requirements.txt
             requirements-dev.txt
       - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements.txt -r requirements-dev.txt
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Configure local Codex Python compatibility
+        if: matrix.suite == 'full'
+        shell: pwsh
+        run: |
+          $dependencies = 'C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies'
+          New-Item -ItemType Directory -Force -Path $dependencies | Out-Null
+          New-Item -ItemType Junction -Path (Join-Path $dependencies 'python') -Target $env:pythonLocation | Out-Null
       - name: Compile Python sources
-        run: python -m compileall -q -x '(^|[\\/])(\.git|\.venv|__pycache__|inputs|outputs)([\\/]|$)' .
+        run: python -m compileall -q -x '(^|[\\/])(\.git|\.venv|__pycache__|node_modules|inputs|outputs)([\\/]|$)' .
       - name: Run full unit test suite
+        if: matrix.suite == 'full'
         run: python -m unittest discover -s tests
+      - name: Run POSIX lock and workflow contract tests
+        if: matrix.suite == 'posix'
+        run: python -m unittest tests.test_one_week_forecast_shadow_disposition tests.test_cross_platform_ci_workflow
 ```
 
 - [ ] **Step 4: 运行聚焦测试并确认通过**
@@ -203,13 +236,13 @@ Expected: 提交仅包含上述三个文件。
 
 **Interfaces:**
 - Consumes: Task 1 提交的工作流和测试。
-- Produces: Windows 与 Ubuntu 两个平台均成功的远端验收证据，以及同步后的 `main`。
+- Produces: Windows 全量与 Ubuntu POSIX 聚焦任务均成功的远端验收证据，以及同步后的 `main`。
 
 - [ ] **Step 1: 推送功能分支并创建针对 main 的拉取请求**
 
 ```powershell
 git push -u origin codex/cross-platform-ci
-gh pr create --base main --head codex/cross-platform-ci --title "Add cross-platform CI" --body "Adds read-only Windows and Ubuntu full-test validation. Does not run market automation or modify model outputs."
+gh pr create --base main --head codex/cross-platform-ci --title "Add cross-platform CI" --body "Adds read-only Windows full-suite and Ubuntu POSIX lock validation. Does not run market automation or modify model outputs."
 ```
 
 Expected: 推送成功并返回拉取请求 URL；`pull_request` 事件启动 `test.yml`。
@@ -220,7 +253,7 @@ Expected: 推送成功并返回拉取请求 URL；`pull_request` 事件启动 `t
 gh pr checks codex/cross-platform-ci --watch --interval 10
 ```
 
-Expected: `windows-latest` 与 `ubuntu-latest` 均成功。不得使用旧 Actions 运行作为证据。
+Expected: `windows-latest/full` 与 `ubuntu-latest/posix` 均成功。不得使用旧 Actions 运行作为证据。
 
 - [ ] **Step 3: 若远端失败，读取精确日志并最小修复**
 
@@ -229,7 +262,7 @@ $runId = gh run list --branch codex/cross-platform-ci --workflow test.yml --limi
 gh run view $runId --log-failed
 ```
 
-Expected: 只根据当前运行的失败步骤定位问题。代码缺陷先增加可复现测试再修复；工作流语法或环境配置缺陷只做最小配置修复。不得删减 Ubuntu、Windows、全量测试或只读权限要求。
+Expected: 只根据当前运行的失败步骤定位问题。代码缺陷先增加可复现测试再修复；工作流语法或环境配置缺陷只做最小配置修复。不得删减 Windows 全量测试、Ubuntu POSIX 聚焦测试或只读权限要求。
 
 - [ ] **Step 4: 独立复核与合并前验证**
 
@@ -252,4 +285,4 @@ git push origin main
 git rev-list --left-right --count HEAD...origin/main
 ```
 
-Expected: 快进合并和推送成功，最终差异为 `0 0`。推送 `main` 触发的工作流也必须在 Windows 与 Ubuntu 成功后，才能声明本轮优化完成。
+Expected: 快进合并和推送成功，最终差异为 `0 0`。推送 `main` 触发的工作流也必须在 Windows 全量与 Ubuntu POSIX 聚焦任务成功后，才能声明本轮优化完成。

@@ -6,19 +6,22 @@
 
 ## 目标
 
-新增最小化 GitHub Actions 工作流，在推送和拉取请求中分别使用 Windows 与 Ubuntu 运行仓库全量单元测试。工作流只验证代码，不访问市场数据、不运行三市场周任务、不重新评分，也不修改任何正式模型或运行产物。
+新增最小化 GitHub Actions 工作流：Windows 运行仓库全量单元测试，Ubuntu 运行 POSIX 文件锁与工作流契约聚焦测试。工作流只验证代码，不访问市场数据、不运行三市场周任务、不重新评分，也不修改任何正式模型或运行产物。
 
 ## 方案
 
-新增 `.github/workflows/test.yml`，采用单个测试作业和操作系统矩阵：
+新增 `.github/workflows/test.yml`，采用单个测试作业和按平台区分测试范围的矩阵：
 
-- `windows-latest`
-- `ubuntu-latest`
+- `windows-latest / full`
+- `ubuntu-latest / posix`
 
-每个矩阵任务固定使用 Python 3.12，安装 `requirements.txt` 后运行：
+每个矩阵任务固定使用 Python 3.12，安装 `requirements.txt` 与 `requirements-dev.txt` 后运行语法检查。Windows 任务设置 UTF-8 环境并提供本机 Codex Python 绝对路径兼容层，然后运行 `python -m unittest discover -s tests`；Ubuntu 任务运行：
 
-1. `python -m compileall -q` 对仓库 Python 源码做语法检查，同时排除 Git、缓存、输入和输出目录；
-2. `python -m unittest discover -s tests` 运行完整测试集。
+```text
+python -m unittest tests.test_one_week_forecast_shadow_disposition tests.test_cross_platform_ci_workflow
+```
+
+Ubuntu 不执行 Windows PowerShell 包装脚本测试。首次远端全量试运行已证明这些测试依赖 `powershell.exe`、Windows 路径分隔符和本机 Python 绝对路径；把约 60 个包装脚本迁移为跨平台实现属于独立后续项目，不在本轮 CI 优化中混入。
 
 工作流由以下事件触发：
 
@@ -36,8 +39,8 @@
 
 ## 失败处理
 
-- 任一操作系统的语法检查或单元测试失败，整个工作流失败。
-- Windows 通过但 Ubuntu 失败时，不允许把失败归类为可忽略；应先定位跨平台差异。
+- Windows 全量测试或 Ubuntu 聚焦测试任一失败，整个工作流失败。
+- Windows 通过但 Ubuntu 失败时，不允许把 POSIX 锁失败归类为可忽略；应读取当前运行日志并定位差异。
 - 不在工作流中自动重试测试、自动修改代码或降低测试范围。
 - 第三方依赖安装故障保留为明确失败，不使用旧测试结果替代本次运行。
 
@@ -46,13 +49,13 @@
 实施前先增加一个工作流契约测试，读取 YAML 并验证：
 
 - 触发目标只包含 `main`、拉取请求和手动触发；
-- 矩阵同时包含 Windows 与 Ubuntu；
+- 矩阵同时包含 `windows-latest/full` 与 `ubuntu-latest/posix`；
 - 权限为只读；
 - 使用 Python 3.12；
-- 包含依赖安装、语法检查和全量 `unittest`；
+- 包含依赖安装、语法检查、Windows 全量 `unittest` 与 Ubuntu POSIX 聚焦测试；
 - 不包含三个市场周任务、评分入口、密钥或写权限。
 
-契约测试必须先因工作流缺失而失败，再新增最小工作流使其通过。随后运行完整本地测试、YAML 解析检查和 `git diff --check`。推送功能分支后，以 GitHub Actions 两个矩阵任务均成功作为最终验收；如果远端任务失败，读取当前运行日志并修复，不以本地通过代替远端结论。
+契约测试必须先因工作流缺失而失败，再新增最小工作流使其通过。测试范围调整也必须先让契约失败，再修改工作流转绿。随后运行完整本地测试、YAML 解析检查和 `git diff --check`。推送功能分支后，以 GitHub Actions 的 Windows 全量任务与 Ubuntu POSIX 聚焦任务均成功作为最终验收；如果远端任务失败，读取当前运行日志并修复，不以本地通过代替远端结论。
 
 ## 非目标
 
@@ -60,4 +63,5 @@
 - 不自动发布报告或产物；
 - 不修改候选评分、估值、预测或影子分类逻辑；
 - 不引入测试覆盖率门槛、代码格式化工具或依赖升级；
+- 不在本轮迁移 Windows PowerShell 包装脚本；
 - 不解决强制终止或断电时的多文件崩溃原子性。
