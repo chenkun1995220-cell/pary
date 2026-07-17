@@ -23,7 +23,7 @@ def write_automation(
         f"name = {json.dumps(name, ensure_ascii=False)}",
         f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
         'status = "ACTIVE"',
-        f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;BYHOUR={hour};BYMINUTE={minute}"',
+        f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SA;BYHOUR={hour};BYMINUTE={minute}"',
     ]
     if kind == "cron":
         lines.extend(
@@ -106,6 +106,7 @@ class CodexAutomationAuditTests(unittest.TestCase):
             self.assertIn("latest_pre_submit_review.json", report)
             self.assertIn("automation-2", report)
             self.assertIn("latest_extended_shadow_validation_tracker.json", report)
+            self.assertIn("周六 15:00", report)
             self.assertEqual(result["checks"][0]["model"], "gpt-5.6-terra")
             self.assertEqual(result["checks"][2]["model"], "gpt-5.6-sol")
             self.assertNotIn("三条任务使用当前支持的 gpt-5.6-terra", report)

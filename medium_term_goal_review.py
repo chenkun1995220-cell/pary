@@ -427,7 +427,7 @@ def _weekly_delivery_goal(
                 "first_hk_1430_validation_status", "pending"
             ),
         },
-        "从 2026-07-12 起连续 3 个周日保持三市场同日、交付与提交前复核 ready，候选数一致；首次港股 14:30 启动验收通过。",
+        "从 2026-07-18 起连续 3 个周六保持三市场同日、交付与提交前复核 ready，候选数一致；首次港股 14:30 启动验收通过。兼容字段名暂保留 sunday。",
         next_action,
     )
 

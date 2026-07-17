@@ -86,7 +86,7 @@ def _check_automation(root, expected):
     issues = []
     expected_kind = expected["kind"]
     expected_rrule = (
-        "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;"
+        "FREQ=WEEKLY;INTERVAL=1;BYDAY=SA;"
         f"BYHOUR={expected['hour']};BYMINUTE={expected['minute']}"
     )
     if data.get("kind") != expected_kind:
@@ -162,7 +162,7 @@ def render_audit_report(result):
             "## 验收重点",
             "- 美股和 A 股任务只生成各自市场产物，不得提前运行 -RunPostChecks。",
             "- 港股任务必须使用 -RunPostChecks 调用 run_weekly_reporting_bundle.ps1，并读取 latest_weekly_artifact_consistency.json、latest_first_one_month_forecast_evaluation_review.json 和 latest_pre_submit_review.json。",
-            "- 三市场周交付验收跟进必须在周日 15:00 运行，读取 latest_extended_shadow_validation_tracker.json 与提交前复核，并保持不重跑市场抓取、不修改正式模型的边界。",
+            "- 三市场周交付验收跟进必须在周六 15:00 运行，读取 latest_extended_shadow_validation_tracker.json 与提交前复核，并保持不重跑市场抓取、不修改正式模型的边界。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )

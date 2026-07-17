@@ -27,7 +27,7 @@ def write_expected_automations(root, minute_overrides=None):
             f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
             'status = "ACTIVE"',
             (
-                'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SU;'
+                'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SA;'
                 f'BYHOUR={expected["hour"]};BYMINUTE={minute}"'
             ),
         ]

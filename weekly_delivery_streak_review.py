@@ -7,7 +7,7 @@ from pathlib import Path
 
 REVIEW_SCHEMA = "weekly_delivery_streak_review"
 REVIEW_VERSION = 1
-ACCEPTANCE_START_DATE = date(2026, 7, 12)
+ACCEPTANCE_START_DATE = date(2026, 7, 18)
 REQUIRED_CONSECUTIVE_SUNDAYS = 3
 HK_START_MIN = time(14, 30, 0)
 HK_START_MAX = time(14, 45, 0)
@@ -104,7 +104,7 @@ def _current_record(consistency, delivery, pre_submit, current_date):
 
     market_dates = sorted(set(consistency.get("market_run_dates", []) or []))
     if market_dates != [current_date.isoformat()]:
-        issues.append("market_run_dates_not_current_sunday")
+        issues.append("market_run_dates_not_current_saturday")
     counts = [
         _int_value(consistency.get("candidate_count_total"), -1),
         _int_value(consistency.get("conclusion_candidate_count_total"), -1),
@@ -171,12 +171,12 @@ def build_weekly_delivery_streak_review(
     current_date = _iso_date(as_of_date or date.today().isoformat())
     if current_date is None:
         raise ValueError(f"invalid as_of_date: {as_of_date}")
-    eligible_sunday = current_date >= ACCEPTANCE_START_DATE and current_date.weekday() == 6
-    record = _current_record(consistency, delivery, pre_submit, current_date) if eligible_sunday else None
+    eligible_saturday = current_date >= ACCEPTANCE_START_DATE and current_date.weekday() == 5
+    record = _current_record(consistency, delivery, pre_submit, current_date) if eligible_saturday else None
     logical_rows = update_history(history_rows, record)
     success_dates = _consecutive_success_dates(logical_rows)
     ready_count = len(success_dates)
-    if not eligible_sunday:
+    if not eligible_saturday:
         status = "not_scheduled_day"
         issues = []
     elif not record.get("sunday_success"):
@@ -207,19 +207,19 @@ def build_weekly_delivery_streak_review(
         "latest_record": record,
         "issues": issues,
         "formal_model_change_allowed": False,
-        "boundary": "只读取当周交付证据并维护按周日去重的验收台账；不抓取行情、不重新评分、不修改正式模型参数。",
+        "boundary": "只读取当周交付证据并维护按周六去重的验收台账；兼容字段名仍保留 sunday，不抓取行情、不重新评分、不修改正式模型参数。",
     }, record
 
 
 def render_markdown(payload):
     latest = payload.get("latest_record") or {}
     lines = [
-        "# 三市场连续周日交付验收",
+        "# 三市场连续周六交付验收",
         "",
         f"- 日期：{payload.get('as_of_date', '')}",
         f"- 状态：{payload.get('status', '')}",
         f"- 连续成功：{payload.get('consecutive_sunday_ready_count', 0)}/{payload.get('required_consecutive_sundays', 3)}",
-        f"- 成功周日：{', '.join(payload.get('successful_sunday_dates', [])) or '无'}",
+        f"- 成功周六：{', '.join(payload.get('successful_sunday_dates', [])) or '无'}",
         f"- 港股 14:30 首次启动验收：{payload.get('first_hk_1430_validation_status', 'pending')}",
         f"- 当周候选总数：{latest.get('candidate_count_total', 0)}",
         "- 正式模型修改：不允许",
@@ -251,7 +251,7 @@ def _write_history(path, rows):
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="维护三市场连续周日交付验收台账。")
+    parser = argparse.ArgumentParser(description="维护三市场连续周六交付验收台账。")
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--as-of-date", default=date.today().isoformat())
     parser.add_argument("--output", default="outputs/automation/latest_weekly_delivery_streak_review.json")
