@@ -406,6 +406,19 @@ def _valuation_review_summary(path):
     return summary
 
 
+def _candidate_ticker_set(value):
+    text = str(value or "").strip()
+    if text.lower() in {"", "unknown", "n/a"}:
+        return None
+    if text.lower() == "none":
+        return set()
+    return {
+        part.strip().upper()
+        for part in text.replace(";", ",").split(",")
+        if part.strip()
+    }
+
+
 def _format_count_map(counts):
     if not counts:
         return "none"
@@ -871,6 +884,7 @@ def _health_snapshot(market):
             "valuation_review_item_count": str(valuation_review_summary["total"]),
             "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
             "valuation_review_samples": valuation_review_summary["samples"],
+            "candidate_tickers": market.get("candidate_tickers", "unknown"),
             "path": str(path),
         }
     financial_value = row.get("financial_coverage_pct")
@@ -901,6 +915,7 @@ def _health_snapshot(market):
         "valuation_review_item_count": str(valuation_review_summary["total"]),
         "valuation_review_categories": _format_count_map(valuation_review_summary["categories"]),
         "valuation_review_samples": valuation_review_summary["samples"],
+        "candidate_tickers": market.get("candidate_tickers", "unknown"),
         "data_quality_blocked": row.get("data_quality_blocked", "0"),
         "affected_candidate_count": row.get("affected_candidate_count", "0"),
         "share_override_review": row.get("share_override_review", "0"),
@@ -999,7 +1014,16 @@ def _manual_review_queue(health, candidate_reviews, limit=12):
         )
 
     for item in health:
+        candidate_tickers = _candidate_ticker_set(item.get("candidate_tickers"))
         for sample in item.get("valuation_review_samples", []):
+            category = str(sample.get("category", "") or "").strip()
+            ticker = str(sample.get("ticker", "") or "").strip().upper()
+            if (
+                candidate_tickers is not None
+                and ticker not in candidate_tickers
+                and category
+            ):
+                continue
             detail = "；".join(
                 part
                 for part in [sample.get("category", ""), sample.get("detail", "")]

@@ -6,7 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from automation_self_analysis import _data_quality_history_summary, run_self_analysis
+from automation_self_analysis import (
+    _data_quality_history_summary,
+    _manual_review_queue,
+    run_self_analysis,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +30,61 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_manual_review_queue_excludes_classified_non_candidates(self):
+        health = [
+            {
+                "name": "HK",
+                "candidate_tickers": "KEEP",
+                "valuation_review_samples": [
+                    {
+                        "ticker": "KEEP",
+                        "company": "Candidate",
+                        "category": "loss_making_or_negative_pe",
+                        "detail": "pe=-3.5",
+                    },
+                    {
+                        "ticker": "DROP",
+                        "company": "Non Candidate",
+                        "category": "loss_making_or_negative_pe",
+                        "detail": "pe=-4.0",
+                    },
+                    {
+                        "ticker": "UNCLASSIFIED",
+                        "company": "Needs Classification",
+                        "category": "",
+                        "detail": "review category missing",
+                    },
+                ],
+            }
+        ]
+
+        queue = _manual_review_queue(health, [])
+
+        self.assertEqual(
+            [item["ticker"] for item in queue],
+            ["KEEP", "UNCLASSIFIED"],
+        )
+
+    def test_manual_review_queue_keeps_items_when_candidate_list_unknown(self):
+        health = [
+            {
+                "name": "HK",
+                "candidate_tickers": "unknown",
+                "valuation_review_samples": [
+                    {
+                        "ticker": "REVIEW",
+                        "company": "Unknown Candidate State",
+                        "category": "loss_making_or_negative_pe",
+                        "detail": "pe=-5.0",
+                    }
+                ],
+            }
+        ]
+
+        queue = _manual_review_queue(health, [])
+
+        self.assertEqual([item["ticker"] for item in queue], ["REVIEW"])
+
     def test_automation_decision_excludes_non_actionable_mirrored_actions(self):
         from automation_self_analysis import _manifest_automation_decision
 
@@ -2403,6 +2462,7 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(queue_rows[0]["as_of_date"], "2026-06-27")
 
             self.assertEqual(result["health"][2]["valuation_review_item_count"], "2")
+            self.assertEqual(result["health"][2]["candidate_tickers"], "AAA, BBB")
             self.assertEqual(
                 result["health"][2]["valuation_review_categories"],
                 "loss_making_or_negative_pe=2;non_positive_book_value_or_pb=1",
