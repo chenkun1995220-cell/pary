@@ -144,6 +144,56 @@ class ExtendedShadowValidationTrackerTests(unittest.TestCase):
         self.assertFalse(payload["formal_model_change_allowed"])
         self.assertFalse(payload["formal_model_conclusion_allowed"])
 
+    def test_reapproval_supersedes_older_authorization_for_same_action(self):
+        from extended_shadow_validation_tracker import build_extended_shadow_validation_tracker
+
+        temporary, root = self.make_project([validation_row("2026-07-13")])
+        self.addCleanup(temporary.cleanup)
+        output = root / "outputs" / "automation"
+        history_path = output / "human_decision_history.csv"
+        with history_path.open("r", encoding="utf-8-sig", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+            fields = list(rows[0])
+
+        new_date = "2026-07-18"
+        new_key = f"forecast_shadow|{ACTION}|{new_date}"
+        new_authorization = dict(rows[0])
+        new_authorization.update(
+            {
+                "history_key": (
+                    f"{new_key}|approve_for_extended_shadow_validation|"
+                    "2026-07-18T16:21:54+08:00"
+                ),
+                "decision_key": new_key,
+                "source_as_of_date": new_date,
+                "decided_at": "2026-07-18T16:21:54+08:00",
+                "decision_reason": "approve a new three-batch validation cycle",
+            }
+        )
+        with history_path.open("w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows([rows[0], new_authorization])
+
+        inbox_path = output / "latest_human_decision_inbox.json"
+        inbox = json.loads(inbox_path.read_text(encoding="utf-8"))
+        inbox["as_of_date"] = new_date
+        inbox["items"][0].update(
+            {
+                "decision_key": new_key,
+                "source_as_of_date": new_date,
+            }
+        )
+        inbox_path.write_text(json.dumps(inbox), encoding="utf-8")
+
+        payload = build_extended_shadow_validation_tracker(root, as_of_date=new_date)
+
+        self.assertEqual(payload["status"], "active")
+        self.assertEqual(payload["authorization_count"], 1)
+        self.assertEqual(payload["items"][0]["authorization_date"], new_date)
+        self.assertEqual(payload["items"][0]["post_approval_history_batch_count"], 0)
+        self.assertEqual(payload["items"][0]["remaining_evaluable_batch_count"], 3)
+
     def test_classifies_post_approval_batches(self):
         from extended_shadow_validation_tracker import classify_batch
 

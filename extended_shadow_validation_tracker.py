@@ -73,27 +73,36 @@ def _authorization_identity(row):
 
 
 def _approved_authorizations(rows):
-    approved_by_key = {}
+    latest_by_action = {}
     for row in rows:
-        if row.get("item_type") != "forecast_shadow" or row.get("decision") != APPROVAL_DECISION:
+        if row.get("item_type") != "forecast_shadow":
+            continue
+        action_code, authorization_date = _authorization_identity(row)
+        current = latest_by_action.get(action_code)
+        if current is None or authorization_date > current["authorization_date"]:
+            latest_by_action[action_code] = {
+                "row": row,
+                "authorization_date": authorization_date,
+            }
+
+    approved = []
+    for action_code, latest in latest_by_action.items():
+        row = latest["row"]
+        if row.get("decision") != APPROVAL_DECISION:
             continue
         if row.get("boundary_acknowledgement") != BOUNDARY:
             raise ValueError("authorization_boundary_invalid")
-        action_code, authorization_date = _authorization_identity(row)
         authorization = {
             "decision_key": row["decision_key"],
             "action_code": action_code,
-            "authorization_date": authorization_date,
+            "authorization_date": latest["authorization_date"],
             "decided_by": row.get("decided_by", ""),
             "decided_at": row.get("decided_at", ""),
             "decision_reason": row.get("decision_reason", ""),
             "boundary_acknowledgement": row.get("boundary_acknowledgement", ""),
         }
-        existing = approved_by_key.get(row["decision_key"])
-        if existing is not None and existing != authorization:
-            raise ValueError("authorization_decision_key_conflict")
-        approved_by_key[row["decision_key"]] = authorization
-    return list(approved_by_key.values())
+        approved.append(authorization)
+    return approved
 
 
 def _validate_decision_history_conflicts(rows):
@@ -107,6 +116,9 @@ def _validate_decision_history_conflicts(rows):
         decision = (
             row.get("source_as_of_date", ""),
             row.get("decision", ""),
+            row.get("decided_by", ""),
+            row.get("decided_at", ""),
+            row.get("decision_reason", ""),
             row.get("boundary_acknowledgement", ""),
         )
         existing = decisions_by_key.get(decision_key)

@@ -5,3 +5,9 @@ candidate_risk|港股周筛|02367.HK|2026-07-12,downgrade_to_watchlist,user,2026
 candidate_risk|港股周筛|00512.HK|2026-07-12,downgrade_to_watchlist,user,2026-07-12T18:48:55+08:00,利润现金流和杠杆风险按底稿建议降级观察,human_decision_only_no_trade_or_model_change
 candidate_risk|港股周筛|00288.HK|2026-07-12,downgrade_to_watchlist,user,2026-07-12T18:48:55+08:00,利润口径差异和食品安全事件需要继续观察,human_decision_only_no_trade_or_model_change
 forecast_shadow|shadow_demote_down_signal_to_neutral|2026-07-12,approve_for_extended_shadow_validation,user,2026-07-12T18:48:55+08:00,三批次跨三市场证据允许继续积累影子样本但不修改正式模型,human_decision_only_no_trade_or_model_change
+candidate_risk|港股周筛|02367.HK|2026-07-18,downgrade_to_watchlist,user,2026-07-18T16:21:54+08:00,收入利润及经营现金流走弱按本轮底稿建议降级观察,human_decision_only_no_trade_or_model_change
+candidate_risk|港股周筛|02580.HK|2026-07-18,continue_observation,user,2026-07-18T16:21:54+08:00,走势杠杆及利润风险仍待深研仅继续观察,human_decision_only_no_trade_or_model_change
+candidate_risk|港股周筛|09698.HK|2026-07-18,approve_for_continued_research,user,2026-07-18T16:21:54+08:00,沿用已完成底稿的继续跟踪结论但不构成买入批准,human_decision_only_no_trade_or_model_change
+candidate_risk|港股周筛|00288.HK|2026-07-18,downgrade_to_watchlist,user,2026-07-18T16:21:54+08:00,利润风险仍需核实按本轮建议降级观察,human_decision_only_no_trade_or_model_change
+candidate_risk|港股周筛|03933.HK|2026-07-18,continue_observation,user,2026-07-18T16:21:54+08:00,收入利润风险仍待深研仅继续观察,human_decision_only_no_trade_or_model_change
+forecast_shadow|shadow_demote_down_signal_to_neutral|2026-07-18,approve_for_extended_shadow_validation,user,2026-07-18T16:21:54+08:00,允许继续积累扩展影子验证样本但不修改正式模型,human_decision_only_no_trade_or_model_change
