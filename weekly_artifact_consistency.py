@@ -37,6 +37,82 @@ def _read_json(path):
         return {}
 
 
+def _read_jsonl(path):
+    rows = []
+    try:
+        for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+            if line.strip():
+                value = json.loads(line)
+                if isinstance(value, dict):
+                    rows.append(value)
+    except (OSError, json.JSONDecodeError):
+        return []
+    return rows
+
+
+def _timestamp(value):
+    try:
+        return datetime.fromisoformat(str(value or "").strip())
+    except ValueError:
+        return None
+
+
+def _run_attempt_evidence(market_dir, market, current_date):
+    latest_by_start = {}
+    for row in _read_jsonl(Path(market_dir) / "weekly_run_state_history.jsonl"):
+        started = _timestamp(row.get("run_started_at"))
+        if (
+            str(row.get("market", "")).upper() != market
+            or started is None
+            or started.date() != current_date
+        ):
+            continue
+        latest_by_start[str(row.get("run_started_at", "")).strip()] = row
+
+    attempts = []
+    for started_text in sorted(
+        latest_by_start,
+        key=lambda value: _timestamp(value) or datetime.max,
+    ):
+        row = latest_by_start[started_text]
+        attempts.append(
+            {
+                "attempt_id": str(
+                    row.get("attempt_id", f"{market}:{started_text}")
+                ),
+                "run_started_at": started_text,
+                "run_completed_at": str(row.get("run_completed_at", "") or ""),
+                "latest_status": str(row.get("status", "") or ""),
+                "failure_step": str(row.get("failure_step", "") or ""),
+                "failure_message": str(row.get("failure_message", "") or ""),
+            }
+        )
+
+    scheduled_window_attempt_found = False
+    if market == "HK":
+        scheduled_window_attempt_found = any(
+            started is not None
+            and (14, 30, 0)
+            <= (started.hour, started.minute, started.second)
+            <= (14, 45, 0)
+            for started in (
+                _timestamp(row["run_started_at"]) for row in attempts
+            )
+        )
+    return {
+        "attempt_count": len(attempts),
+        "first_attempt_started_at": (
+            attempts[0]["run_started_at"] if attempts else ""
+        ),
+        "latest_attempt_started_at": (
+            attempts[-1]["run_started_at"] if attempts else ""
+        ),
+        "scheduled_window_attempt_found": scheduled_window_attempt_found,
+        "repair_run_detected": len(attempts) > 1,
+        "run_attempts": attempts,
+    }
+
+
 def _action_policy_versions_inconsistent(contracts):
     if not contracts:
         return False
@@ -224,7 +300,7 @@ def _market_evidence(project_root, market, directory, current_date, max_age_days
     elif len(set(mature_counts.values())) != 1:
         issues.append(f"{prefix}_mature_evaluation_count_mismatch")
 
-    return {
+    evidence = {
         "market": market,
         "run_date": run_date.isoformat() if run_date else "",
         "run_started_at": fields.get("Run start time", ""),
@@ -235,7 +311,9 @@ def _market_evidence(project_root, market, directory, current_date, max_age_days
         "mature_evaluation_counts": mature_counts,
         "summary_file": str(summary_path),
         "candidate_file": str(candidate_path),
-    }, fields
+    }
+    evidence.update(_run_attempt_evidence(market_dir, market, current_date))
+    return evidence, fields
 
 
 def _runtime_quote_snapshot(project_root, fields, current_date, max_age_days, issues):

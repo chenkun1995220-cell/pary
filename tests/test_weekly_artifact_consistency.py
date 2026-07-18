@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 
@@ -161,6 +162,61 @@ def write_fixture(root):
 
 
 class WeeklyArtifactConsistencyTests(unittest.TestCase):
+    def test_attempt_evidence_distinguishes_scheduled_attempt_from_repair_run(self):
+        from weekly_artifact_consistency import _run_attempt_evidence
+
+        with tempfile.TemporaryDirectory() as tmp:
+            market_dir = Path(tmp)
+            history = market_dir / "weekly_run_state_history.jsonl"
+            rows = [
+                {
+                    "market": "HK",
+                    "status": "running",
+                    "as_of_date": "2026-07-18",
+                    "run_started_at": "2026-07-18 14:30:05",
+                },
+                {
+                    "market": "HK",
+                    "status": "failed",
+                    "as_of_date": "2026-07-18",
+                    "run_started_at": "2026-07-18 14:30:05",
+                    "failure_message": "network timeout",
+                },
+                {
+                    "market": "HK",
+                    "status": "ready",
+                    "as_of_date": "2026-07-18",
+                    "run_started_at": "2026-07-18 16:55:08",
+                    "run_completed_at": "2026-07-18 16:56:42",
+                },
+            ]
+            history.write_text(
+                "\n".join(json.dumps(row) for row in rows) + "\n",
+                encoding="utf-8-sig",
+            )
+
+            evidence = _run_attempt_evidence(
+                market_dir,
+                "HK",
+                date(2026, 7, 18),
+            )
+
+            self.assertEqual(evidence["attempt_count"], 2)
+            self.assertEqual(
+                evidence["first_attempt_started_at"],
+                "2026-07-18 14:30:05",
+            )
+            self.assertEqual(
+                evidence["latest_attempt_started_at"],
+                "2026-07-18 16:55:08",
+            )
+            self.assertTrue(evidence["scheduled_window_attempt_found"])
+            self.assertTrue(evidence["repair_run_detected"])
+            self.assertEqual(
+                [row["latest_status"] for row in evidence["run_attempts"]],
+                ["failed", "ready"],
+            )
+
     def test_ready_when_dates_counts_delivery_and_runtime_snapshot_match(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

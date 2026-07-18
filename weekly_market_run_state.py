@@ -1,8 +1,10 @@
 import argparse
 import json
-import tempfile
+import os
 from datetime import datetime
 from pathlib import Path
+
+from atomic_artifact_io import write_json_atomic
 
 
 RUN_STATE_SCHEMA = "weekly_market_run_state"
@@ -18,26 +20,13 @@ def _parse_timestamp(value, error_code):
         raise ValueError(error_code) from exc
 
 
-def _atomic_write_json(path, payload):
-    output = Path(path)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=output.parent,
-            prefix=f".{output.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as handle:
-            temporary_path = Path(handle.name)
-            json.dump(payload, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-        temporary_path.replace(output)
-    finally:
-        if temporary_path is not None and temporary_path.exists():
-            temporary_path.unlink()
+def _append_history(path, payload):
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("a", encoding="utf-8-sig") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def write_market_run_state(
@@ -51,6 +40,7 @@ def write_market_run_state(
     log_path="",
     failure_step="",
     failure_message="",
+    history="",
 ):
     normalized_market = str(market).strip().upper()
     normalized_status = str(status).strip().lower()
@@ -75,6 +65,7 @@ def write_market_run_state(
         "run_state_version": RUN_STATE_VERSION,
         "market": normalized_market,
         "status": normalized_status,
+        "attempt_id": f"{normalized_market}:{str(run_started_at).strip()}",
         "as_of_date": started.date().isoformat(),
         "run_started_at": str(run_started_at).strip(),
         "run_completed_at": completed_text,
@@ -85,7 +76,13 @@ def write_market_run_state(
         "failure_message": failure_text,
         "formal_model_change_allowed": False,
     }
-    _atomic_write_json(output, payload)
+    write_json_atomic(output, payload)
+    history_path = (
+        Path(history)
+        if str(history or "").strip()
+        else Path(output).with_name("weekly_run_state_history.jsonl")
+    )
+    _append_history(history_path, payload)
     return payload
 
 
@@ -103,6 +100,7 @@ def main():
     parser.add_argument("--log-path", default="")
     parser.add_argument("--failure-step", default="")
     parser.add_argument("--failure-message", default="")
+    parser.add_argument("--history", default="")
     args = parser.parse_args()
 
     payload = write_market_run_state(
@@ -116,6 +114,7 @@ def main():
         log_path=args.log_path,
         failure_step=args.failure_step,
         failure_message=args.failure_message,
+        history=args.history,
     )
     print(
         f"Market run state: market={payload['market']} "

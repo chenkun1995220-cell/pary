@@ -26,7 +26,7 @@ class WeeklyMarketRunStateTests(unittest.TestCase):
                 log_path=str(log),
             )
 
-            saved = json.loads(output.read_text(encoding="utf-8"))
+            saved = json.loads(output.read_text(encoding="utf-8-sig"))
             self.assertEqual(payload["run_state_schema"], "weekly_market_run_state")
             self.assertEqual(payload["run_state_version"], 1)
             self.assertEqual(payload["status"], "ready")
@@ -97,6 +97,65 @@ class WeeklyMarketRunStateTests(unittest.TestCase):
                     "ready",
                     "2026-07-18 14:05:00",
                 )
+
+    def test_history_preserves_failed_scheduled_attempt_and_ready_repair_attempt(self):
+        from weekly_market_run_state import write_market_run_state
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "latest_run_state.json"
+            history = Path(tmp) / "weekly_run_state_history.jsonl"
+
+            write_market_run_state(
+                output,
+                "HK",
+                "running",
+                "2026-07-18 14:30:05",
+                history=history,
+            )
+            write_market_run_state(
+                output,
+                "HK",
+                "failed",
+                "2026-07-18 14:30:05",
+                history=history,
+                failure_step="market_pipeline",
+                failure_message="quote fetch failed",
+            )
+            write_market_run_state(
+                output,
+                "HK",
+                "running",
+                "2026-07-18 16:55:08",
+                history=history,
+            )
+            write_market_run_state(
+                output,
+                "HK",
+                "ready",
+                "2026-07-18 16:55:08",
+                history=history,
+                run_completed_at="2026-07-18 16:56:42",
+            )
+
+            rows = [
+                json.loads(line)
+                for line in history.read_text(encoding="utf-8-sig").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(rows), 4)
+            self.assertEqual(
+                {row["attempt_id"] for row in rows},
+                {
+                    "HK:2026-07-18 14:30:05",
+                    "HK:2026-07-18 16:55:08",
+                },
+            )
+            self.assertEqual([row["status"] for row in rows], [
+                "running",
+                "failed",
+                "running",
+                "ready",
+            ])
 
 
 if __name__ == "__main__":

@@ -132,7 +132,8 @@ def _current_record(consistency, delivery, pre_submit, current_date):
         if started > completed:
             issues.append(f"{market.lower()}_run_timing_order_invalid")
 
-    hk_started = _timestamp(markets.get("HK", {}).get("run_started_at"))
+    hk_evidence = markets.get("HK", {})
+    hk_started = _timestamp(hk_evidence.get("run_started_at"))
     hk_window_status = "needs_attention"
     if hk_started and hk_started.date() == current_date:
         if HK_START_MIN <= hk_started.time() <= HK_START_MAX:
@@ -161,6 +162,17 @@ def _current_record(consistency, delivery, pre_submit, current_date):
         "delivery_status": delivery.get("status", "missing"),
         "pre_submit_status": pre_submit.get("status", "missing"),
         "hk_start_window_status": hk_window_status,
+        "hk_attempt_count": _int_value(hk_evidence.get("attempt_count"), 0),
+        "hk_first_attempt_started_at": hk_evidence.get(
+            "first_attempt_started_at", ""
+        ),
+        "hk_latest_attempt_started_at": hk_evidence.get(
+            "latest_attempt_started_at", ""
+        ),
+        "hk_scheduled_window_attempt_found": bool(
+            hk_evidence.get("scheduled_window_attempt_found")
+        ),
+        "hk_repair_run_detected": bool(hk_evidence.get("repair_run_detected")),
         "formal_model_change_allowed": False,
     }
 
@@ -193,6 +205,11 @@ def build_weekly_delivery_streak_review(
         for row in logical_rows
         if (_iso_date(row.get("as_of_date")) or date.min) >= ACCEPTANCE_START_DATE
     ) else "pending"
+    first_hk_scheduled_trigger_status = "ready" if any(
+        row.get("hk_scheduled_window_attempt_found")
+        for row in logical_rows
+        if (_iso_date(row.get("as_of_date")) or date.min) >= ACCEPTANCE_START_DATE
+    ) else "pending"
     return {
         "review_schema": REVIEW_SCHEMA,
         "review_version": REVIEW_VERSION,
@@ -203,6 +220,7 @@ def build_weekly_delivery_streak_review(
         "consecutive_sunday_ready_count": ready_count,
         "successful_sunday_dates": success_dates,
         "first_hk_1430_validation_status": first_hk_status,
+        "first_hk_scheduled_trigger_status": first_hk_scheduled_trigger_status,
         "history_record_count": len(logical_rows),
         "latest_record": record,
         "issues": issues,
@@ -226,6 +244,13 @@ def render_markdown(payload):
         "",
         "## 当周问题",
         "",
+    ]
+    lines[7:7] = [
+        f"- 港股计划窗口尝试：{payload.get('first_hk_scheduled_trigger_status', 'pending')}",
+        f"- 港股当周尝试数：{latest.get('hk_attempt_count', 0)}",
+        f"- 港股首次尝试：{latest.get('hk_first_attempt_started_at', '')}",
+        f"- 港股最终尝试：{latest.get('hk_latest_attempt_started_at', '')}",
+        f"- 港股修复运行：{latest.get('hk_repair_run_detected', False)}",
     ]
     issues = latest.get("issues", []) if latest else payload.get("issues", [])
     lines.extend(f"- {item}" for item in issues)

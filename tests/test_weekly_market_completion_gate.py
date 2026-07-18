@@ -160,7 +160,9 @@ class WeeklyMarketCompletionGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             paths = make_project(root)
-            state = json.loads(paths["US"]["state"].read_text(encoding="utf-8"))
+            state = json.loads(
+                paths["US"]["state"].read_text(encoding="utf-8-sig")
+            )
             state["market"] = "CN"
             state["summary_path"] = str(root / "elsewhere" / "summary.md")
             paths["US"]["state"].write_text(json.dumps(state), encoding="utf-8")

@@ -9,7 +9,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def consistency_payload(day="2026-07-18", hk_start="2026-07-18 14:30:05"):
+def consistency_payload(
+    day="2026-07-18",
+    hk_start="2026-07-18 14:30:05",
+    hk_attempt_evidence=None,
+):
     starts = {
         "US": f"{day} 14:05:10",
         "CN": f"{day} 14:10:10",
@@ -21,7 +25,7 @@ def consistency_payload(day="2026-07-18", hk_start="2026-07-18 14:30:05"):
         "HK": f"{day} 14:50:00",
     }
     counts = {"US": 20, "CN": 6, "HK": 37}
-    return {
+    payload = {
         "as_of_date": day,
         "status": "ready",
         "issues": [],
@@ -42,6 +46,11 @@ def consistency_payload(day="2026-07-18", hk_start="2026-07-18 14:30:05"):
         ],
         "formal_model_change_allowed": False,
     }
+    if hk_attempt_evidence:
+        next(
+            row for row in payload["markets"] if row["market"] == "HK"
+        ).update(hk_attempt_evidence)
+    return payload
 
 
 def delivery_payload(day="2026-07-18"):
@@ -149,6 +158,41 @@ class WeeklyDeliveryStreakReviewTests(unittest.TestCase):
         self.assertEqual(payload["status"], "needs_attention")
         self.assertEqual(record["hk_start_window_status"], "needs_attention")
         self.assertIn("hk_run_start_outside_1430_window", record["issues"])
+
+    def test_repair_run_keeps_latest_timing_failure_but_exposes_scheduled_attempt(self):
+        from weekly_delivery_streak_review import build_weekly_delivery_streak_review
+
+        consistency = consistency_payload(
+            hk_start="2026-07-18 16:55:08",
+            hk_attempt_evidence={
+                "attempt_count": 2,
+                "first_attempt_started_at": "2026-07-18 14:30:05",
+                "latest_attempt_started_at": "2026-07-18 16:55:08",
+                "scheduled_window_attempt_found": True,
+                "repair_run_detected": True,
+            },
+        )
+        payload, record = build_weekly_delivery_streak_review(
+            consistency,
+            delivery_payload(),
+            pre_submit_payload(),
+            [],
+            as_of_date="2026-07-18",
+        )
+
+        self.assertEqual(payload["status"], "needs_attention")
+        self.assertIn("hk_run_start_outside_1430_window", record["issues"])
+        self.assertEqual(record["hk_attempt_count"], 2)
+        self.assertTrue(record["hk_scheduled_window_attempt_found"])
+        self.assertTrue(record["hk_repair_run_detected"])
+        self.assertEqual(
+            record["hk_first_attempt_started_at"],
+            "2026-07-18 14:30:05",
+        )
+        self.assertEqual(
+            payload["first_hk_scheduled_trigger_status"],
+            "ready",
+        )
 
     def test_hk_start_a_few_seconds_after_1430_is_accepted(self):
         from weekly_delivery_streak_review import build_weekly_delivery_streak_review
