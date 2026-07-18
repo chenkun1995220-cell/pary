@@ -1096,8 +1096,12 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertEqual(backlog["category"], "delivery_health")
             self.assertEqual(backlog["status"], "open")
             self.assertIn("人工复核积压", backlog["title"])
-            self.assertIn("12", backlog["recommended_check"])
-            self.assertIn("manual_review_pending:12", backlog["source"])
+            self.assertIn("1", backlog["recommended_check"])
+            self.assertIn(
+                "latest=automation_check:manual_review_needed, manual_review_pending:1",
+                backlog["source"],
+            )
+            self.assertIn("recurring=manual_review_pending:12 (2)", backlog["source"])
 
             delivery = next(
                 item
@@ -1406,6 +1410,49 @@ class WeeklyActionItemsTests(unittest.TestCase):
             result = build_weekly_action_items(
                 manifest_path,
                 weekly_delivery_history=delivery_history_path,
+            )
+
+            self.assertEqual(result["items"], [])
+
+    def test_current_empty_manual_queue_overrides_stale_delivery_history_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "latest_self_analysis_manifest.json"
+            delivery_history_path = root / "latest_weekly_delivery_history_summary.json"
+            manual_review_queue_path = root / "latest_manual_review_queue.csv"
+            write_manifest(manifest_path)
+            payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            payload["manual_review_queue_count"] = 0
+            payload["automation_priority_actions"] = ["review_manual_review_backlog"]
+            manifest_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8-sig",
+            )
+            delivery_history_path.write_text(
+                json.dumps(
+                    {
+                        "latest_manual_review_pending_count": 3,
+                        "latest_conclusion_health_reasons": ["manual_review_pending:3"],
+                        "recurring_health_reasons": [
+                            {"reason": "manual_review_pending:3", "count": 2}
+                        ],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8-sig",
+            )
+            manual_review_queue_path.write_text(
+                "as_of_date,rank,market,review_type,ticker,company,review_detail\n",
+                encoding="utf-8-sig",
+            )
+
+            from weekly_action_items import build_weekly_action_items
+
+            result = build_weekly_action_items(
+                manifest_path,
+                weekly_delivery_history=delivery_history_path,
+                manual_review_queue=manual_review_queue_path,
             )
 
             self.assertEqual(result["items"], [])

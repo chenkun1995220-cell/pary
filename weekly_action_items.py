@@ -236,10 +236,26 @@ def _int_value(value, default=0):
 
 
 def _manual_review_count(manifest, history):
+    if manifest.get("_current_manual_review_queue_loaded"):
+        return _int_value(manifest.get("manual_review_queue_count"), 0)
     return _int_value(
         history.get("latest_manual_review_pending_count"),
         _int_value(manifest.get("manual_review_queue_count"), 0),
     )
+
+
+def _with_current_manual_review_count(history, count):
+    current = dict(history or {})
+    current["latest_manual_review_pending_count"] = count
+    reasons = [
+        reason
+        for reason in current.get("latest_conclusion_health_reasons", []) or []
+        if not _is_manual_review_pending_reason(reason)
+    ]
+    if count > 0:
+        reasons.append(f"manual_review_pending:{count}")
+    current["latest_conclusion_health_reasons"] = reasons
+    return current
 
 
 def _percent_value(value):
@@ -1607,6 +1623,9 @@ def build_weekly_action_items(
     one_week_shadow_payload = load_optional_json(one_week_forecast_shadow_review)
     one_week_calibration_payload = load_optional_json(one_week_forecast_calibration_review)
     manual_review_rows = load_optional_csv_rows(manual_review_queue)
+    manual_review_queue_loaded = bool(manual_review_queue) and Path(
+        manual_review_queue
+    ).is_file()
     data_health_payload = load_optional_json(data_health_review)
     candidate_findings_payload = load_optional_json(candidate_findings_review)
     backtest_evidence_payload = load_optional_json(backtest_evidence_review)
@@ -1616,8 +1635,10 @@ def build_weekly_action_items(
     extended_shadow_tracker_payload = load_optional_json(
         extended_shadow_validation_tracker
     )
-    if manual_review_rows:
+    if manual_review_queue_loaded:
         source["manual_review_queue_items"] = manual_review_rows
+        source["manual_review_queue_count"] = len(manual_review_rows)
+        source["_current_manual_review_queue_loaded"] = True
     if data_health_payload:
         source["data_health_review"] = data_health_payload
     if candidate_findings_payload:
@@ -1628,6 +1649,11 @@ def build_weekly_action_items(
         source["quote_retry_results"] = quote_retry_payload
     if weekly_delivery_history_payload:
         source["weekly_delivery_history"] = weekly_delivery_history_payload
+    if manual_review_queue_loaded:
+        source["weekly_delivery_history"] = _with_current_manual_review_count(
+            source.get("weekly_delivery_history", {}),
+            len(manual_review_rows),
+        )
     if human_decision_payload:
         source["human_decision_inbox"] = human_decision_payload
     if extended_shadow_tracker_payload:
