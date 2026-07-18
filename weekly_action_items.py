@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 
+from atomic_artifact_io import write_json_atomic
 from action_policy_contract import action_policy_contract_status, action_policy_version
 
 
@@ -1883,13 +1884,7 @@ def render_weekly_action_items(payload):
 
 
 def write_json(payload, output):
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8-sig",
-    )
-    return output_path
+    return write_json_atomic(output, payload, sort_keys=True)
 
 
 def write_text(text, output):

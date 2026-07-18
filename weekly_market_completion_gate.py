@@ -2,9 +2,10 @@ import argparse
 import csv
 import json
 import os
-import tempfile
 from datetime import date
 from pathlib import Path
+
+from atomic_artifact_io import write_json_atomic, write_text_atomic
 
 
 GATE_SCHEMA = "weekly_market_completion_gate"
@@ -233,27 +234,6 @@ def render_weekly_market_completion_gate(payload):
     return "\n".join(lines)
 
 
-def _atomic_write_text(path, text):
-    output = Path(path)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=output.parent,
-            prefix=f".{output.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as handle:
-            temporary_path = Path(handle.name)
-            handle.write(text)
-        temporary_path.replace(output)
-    finally:
-        if temporary_path is not None and temporary_path.exists():
-            temporary_path.unlink()
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Block weekly closure until all market runs are complete."
@@ -279,11 +259,8 @@ def main():
         report = root / report
 
     payload = build_weekly_market_completion_gate(root, args.as_of_date)
-    _atomic_write_text(
-        output,
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-    )
-    _atomic_write_text(report, render_weekly_market_completion_gate(payload))
+    write_json_atomic(output, payload)
+    write_text_atomic(report, render_weekly_market_completion_gate(payload))
     print(render_weekly_market_completion_gate(payload))
     raise SystemExit(0 if payload["status"] == "ready" else 1)
 

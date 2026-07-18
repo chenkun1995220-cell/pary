@@ -6,6 +6,7 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from atomic_artifact_io import write_json_atomic
 from action_policy_contract import (
     ACTION_POLICY_VERSION,
     action_policy_version,
@@ -1062,13 +1063,7 @@ def render_pre_submit_review(result):
 
 
 def write_pre_submit_review(result, output):
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8-sig",
-    )
-    return output_path
+    return write_json_atomic(output, result, sort_keys=True)
 
 
 def write_pre_submit_report(result, report):

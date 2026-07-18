@@ -5,6 +5,7 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
+from atomic_artifact_io import write_json_atomic
 from action_policy_contract import (
     ACTION_POLICY_VERSION,
     action_policy_contract_status,
@@ -523,9 +524,7 @@ def render_weekly_artifact_consistency(payload):
 
 
 def _write_json(path, payload):
-    output = Path(path)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_json_atomic(path, payload)
 
 
 def main():

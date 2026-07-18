@@ -490,7 +490,10 @@ class WeeklyArtifactConsistencyTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(json.loads(output.read_text(encoding="utf-8"))["status"], "ready")
+            self.assertEqual(
+                json.loads(output.read_text(encoding="utf-8-sig"))["status"],
+                "ready",
+            )
             self.assertIn("周产物一致性复核", report.read_text(encoding="utf-8-sig"))
 
         wrapper = (PROJECT_ROOT / "scripts" / "run_weekly_artifact_consistency.ps1").read_text(

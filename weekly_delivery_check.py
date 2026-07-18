@@ -4,6 +4,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from atomic_artifact_io import write_json_atomic
 from action_policy_contract import (
     ACTION_POLICY_VERSION,
     action_policy_contract_status,
@@ -298,10 +299,7 @@ def render_delivery_check(result):
 
 
 def write_delivery_check(result, output):
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8-sig")
-    return output_path
+    return write_json_atomic(output, result, sort_keys=True)
 
 
 def append_delivery_check_history(result, history):
