@@ -13,6 +13,8 @@ class RegionalWeeklyScriptTests(unittest.TestCase):
             script = (PROJECT_ROOT / "scripts" / script_name).read_text(
                 encoding="utf-8-sig"
             )
+            self.assertIn("weekly_transient_step_retry.ps1", script)
+            self.assertIn("Invoke-WeeklyTransientStep", script)
             self.assertIn("regional_market_snapshot.py", script)
             self.assertIn("regional_quote_gaps.py", script)
             self.assertIn("regional_quote_retry.py", script)
@@ -45,6 +47,37 @@ class RegionalWeeklyScriptTests(unittest.TestCase):
             self.assertIn("candidate_pool.csv", script)
             self.assertIn("--candidate-min-score 75", script)
             self.assertNotIn("pending adapter", script)
+
+    def test_weekly_scripts_limit_process_retry_to_observed_exit_120_steps(self):
+        for script_name in ("run_cn_weekly.ps1", "run_hk_weekly.ps1"):
+            script = (PROJECT_ROOT / "scripts" / script_name).read_text(
+                encoding="utf-8-sig"
+            )
+
+            self.assertIn(
+                'Invoke-WeeklyTransientStep -Label "market snapshot"',
+                script,
+            )
+            self.assertIn(
+                'Invoke-WeeklyTransientStep -Label "quote gap diagnostics"',
+                script,
+            )
+            self.assertIn(
+                'Invoke-WeeklyTransientStep -Label "final quote gap diagnostics"',
+                script,
+            )
+            self.assertNotIn(
+                'Invoke-WeeklyTransientStep -Label "regional screening"',
+                script,
+            )
+            self.assertNotIn(
+                'Invoke-WeeklyTransientStep -Label "candidate valuation"',
+                script,
+            )
+            self.assertNotIn(
+                'Invoke-WeeklyTransientStep -Label "forecast tracking"',
+                script,
+            )
 
     def run_dry(self, script_name, output_root):
         return subprocess.run(

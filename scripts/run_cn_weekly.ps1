@@ -11,6 +11,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 $ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
+. (Join-Path $PSScriptRoot "weekly_transient_step_retry.ps1")
 
 if (-not $Companies) { $Companies = Join-Path $ProjectRoot "data\samples\cn_universe_companies.csv" }
 if (-not $CacheDir) { $CacheDir = Join-Path $ProjectRoot "data\cache\csi300" }
@@ -79,23 +80,25 @@ try {
 
   $snapshotPath = Join-Path $OutputRoot "market_snapshot.csv"
   $rawSnapshotPath = Join-Path $CacheDir "market_snapshot_raw.json"
-  & $Python -B regional_market_snapshot.py `
-    --companies $Companies `
-    --output $snapshotPath `
-    --raw-cache $rawSnapshotPath `
-    --minimum-coverage 0.95
-  if ($LASTEXITCODE -ne 0) { throw "CN market snapshot failed with exit code $LASTEXITCODE." }
+  Invoke-WeeklyTransientStep -Label "market snapshot" -Command {
+    & $Python -B regional_market_snapshot.py `
+      --companies $Companies `
+      --output $snapshotPath `
+      --raw-cache $rawSnapshotPath `
+      --minimum-coverage 0.95
+  }
 
   $quoteGapsPath = Join-Path $OutputRoot "quote_gaps.csv"
   $quoteGapReportPath = Join-Path $OutputRoot "quote_gaps.md"
-  & $Python -B regional_quote_gaps.py `
-    --market CN `
-    --companies $Companies `
-    --snapshot $snapshotPath `
-    --output $quoteGapsPath `
-    --report $quoteGapReportPath `
-    --cache-dir $CacheDir
-  if ($LASTEXITCODE -ne 0) { throw "CN quote gap diagnostics failed with exit code $LASTEXITCODE." }
+  Invoke-WeeklyTransientStep -Label "quote gap diagnostics" -Command {
+    & $Python -B regional_quote_gaps.py `
+      --market CN `
+      --companies $Companies `
+      --snapshot $snapshotPath `
+      --output $quoteGapsPath `
+      --report $quoteGapReportPath `
+      --cache-dir $CacheDir
+  }
 
   $quoteRetryReportPath = Join-Path $OutputRoot "quote_retry.md"
   & $Python -B regional_quote_retry.py `
@@ -106,14 +109,15 @@ try {
     --report $quoteRetryReportPath
   if ($LASTEXITCODE -ne 0) { throw "CN quote retry failed with exit code $LASTEXITCODE." }
 
-  & $Python -B regional_quote_gaps.py `
-    --market CN `
-    --companies $Companies `
-    --snapshot $snapshotPath `
-    --output $quoteGapsPath `
-    --report $quoteGapReportPath `
-    --cache-dir $CacheDir
-  if ($LASTEXITCODE -ne 0) { throw "CN final quote gap diagnostics failed with exit code $LASTEXITCODE." }
+  Invoke-WeeklyTransientStep -Label "final quote gap diagnostics" -Command {
+    & $Python -B regional_quote_gaps.py `
+      --market CN `
+      --companies $Companies `
+      --snapshot $snapshotPath `
+      --output $quoteGapsPath `
+      --report $quoteGapReportPath `
+      --cache-dir $CacheDir
+  }
 
   $financialPath = Join-Path $OutputRoot "financial_snapshot.csv"
   $rawFinancialPath = Join-Path $CacheDir "financial_snapshot_raw.json"
