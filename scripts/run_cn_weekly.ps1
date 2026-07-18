@@ -15,6 +15,10 @@ $ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
 if (-not $Companies) { $Companies = Join-Path $ProjectRoot "data\samples\cn_universe_companies.csv" }
 if (-not $CacheDir) { $CacheDir = Join-Path $ProjectRoot "data\cache\csi300" }
 if (-not $OutputRoot) { $OutputRoot = Join-Path $ProjectRoot "outputs\cn_universe" }
+$RunStateScript = Join-Path $ProjectRoot "weekly_market_run_state.py"
+$runStatePath = Join-Path $OutputRoot "latest_run_state.json"
+$summaryPath = Join-Path $OutputRoot "latest_run_summary.md"
+$candidatesPath = Join-Path $OutputRoot "candidate_pool.csv"
 
 Write-Host "Market: CN"
 Write-Host "Companies: $Companies"
@@ -37,6 +41,7 @@ $mutex = [System.Threading.Mutex]::new($false, "Local\StockUndervaluationCNWeekl
 $hasLock = $false
 $transcriptStarted = $false
 $logPath = ""
+$runStartedAt = ""
 try {
   $hasLock = $mutex.WaitOne(0)
   if (-not $hasLock) { throw "Another CN weekly run is already in progress." }
@@ -45,6 +50,17 @@ try {
   $logPath = Join-Path $OutputRoot ("run_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".log")
   Start-Transcript -Path $logPath | Out-Null
   $transcriptStarted = $true
+  & $Python -B $RunStateScript `
+    --output $runStatePath `
+    --market CN `
+    --status "running" `
+    --run-started-at $runStartedAt `
+    --summary-path $summaryPath `
+    --candidate-path $candidatesPath `
+    --log-path $logPath
+  if ($LASTEXITCODE -ne 0) {
+    throw "CN run state initialization failed with exit code $LASTEXITCODE."
+  }
 
   Set-Location $ProjectRoot
   & $Python -c "import pandas, openpyxl, xlrd"
@@ -115,7 +131,6 @@ try {
     --candidate-min-score 75
   if ($LASTEXITCODE -ne 0) { throw "CN regional screening failed with exit code $LASTEXITCODE." }
 
-  $candidatesPath = Join-Path $OutputRoot "candidate_pool.csv"
   $valuationReviewItemsPath = Join-Path $OutputRoot "valuation_review_items.csv"
   $historyPath = Join-Path $OutputRoot "price_history.csv"
   $historyCache = Join-Path $CacheDir "candidate_price_history"
@@ -233,7 +248,19 @@ try {
     "- Report: $(Join-Path $OutputRoot 'weekly_report.md')",
     "- Log: $logPath"
   )
-  Set-Content -LiteralPath (Join-Path $OutputRoot "latest_run_summary.md") -Value $summary -Encoding UTF8
+  Set-Content -LiteralPath $summaryPath -Value $summary -Encoding UTF8
+  & $Python -B $RunStateScript `
+    --output $runStatePath `
+    --market CN `
+    --status "ready" `
+    --run-started-at $runStartedAt `
+    --run-completed-at $runTime `
+    --summary-path $summaryPath `
+    --candidate-path $candidatesPath `
+    --log-path $logPath
+  if ($LASTEXITCODE -ne 0) {
+    throw "CN ready run state write failed with exit code $LASTEXITCODE."
+  }
 
   if ($RunPostChecks) {
     & (Get-Command powershell.exe).Source -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot "scripts\\run_weekly_reporting_bundle.ps1") -ProjectRoot $ProjectRoot -MaxAgeDays $PostCheckMaxAgeDays
@@ -243,6 +270,7 @@ try {
   }
 }
 catch {
+  $pipelineException = $_
   if ($transcriptStarted) {
     Stop-Transcript | Out-Null
     $transcriptStarted = $false
@@ -256,7 +284,24 @@ catch {
     )
     Add-Content -LiteralPath $logPath -Value $failure -Encoding UTF8 -ErrorAction SilentlyContinue
   }
-  throw
+  if ($runStartedAt -and $logPath) {
+    try {
+      & $Python -B $RunStateScript `
+        --output $runStatePath `
+        --market CN `
+        --status "failed" `
+        --run-started-at $runStartedAt `
+        --summary-path $summaryPath `
+        --candidate-path $candidatesPath `
+        --log-path $logPath `
+        --failure-step "market_pipeline" `
+        --failure-message $pipelineException.Exception.Message
+    }
+    catch {
+      Write-Warning "Unable to persist CN failed run state: $($_.Exception.Message)"
+    }
+  }
+  throw $pipelineException
 }
 finally {
   if ($transcriptStarted) { Stop-Transcript | Out-Null }

@@ -29,6 +29,7 @@ if ((-not [string]::IsNullOrWhiteSpace($Sp500CurrentMembershipSourceFile)) -and 
 $PowerShell = (Get-Command powershell.exe).Source
 
 $postSteps = @(
+  @{ Label = "run_weekly_market_completion_gate"; Script = "run_weekly_market_completion_gate.ps1"; Critical = $true },
   @{ Label = "run_self_analysis"; Script = "run_self_analysis.ps1"; Critical = $true },
   @{ Label = "run_data_health_review"; Script = "run_data_health_review.ps1"; Critical = $true },
   @{ Label = "run_data_quality_manual_review_plan"; Script = "run_data_quality_manual_review_plan.ps1"; Critical = $true },

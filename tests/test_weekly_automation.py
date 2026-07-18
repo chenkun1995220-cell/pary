@@ -8,6 +8,43 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WeeklyAutomationTests(unittest.TestCase):
+    def test_weekly_bundle_runs_market_completion_gate_first(self):
+        bundle = (
+            PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1"
+        ).read_text(encoding="utf-8-sig")
+
+        gate_label = 'Label = "run_weekly_market_completion_gate"'
+        first_step = bundle.index("$postSteps = @(")
+        gate = bundle.index(gate_label)
+        self_analysis = bundle.index('Label = "run_self_analysis"')
+
+        self.assertIn("run_weekly_market_completion_gate.ps1", bundle)
+        self.assertLess(first_step, gate)
+        self.assertLess(gate, self_analysis)
+        self.assertEqual(
+            bundle[first_step:self_analysis].count("Label ="),
+            1,
+        )
+
+    def test_market_weekly_scripts_persist_running_ready_and_failed_states(self):
+        for script_name in (
+            "run_us_universe_weekly.ps1",
+            "run_cn_weekly.ps1",
+            "run_hk_weekly.ps1",
+        ):
+            script = (PROJECT_ROOT / "scripts" / script_name).read_text(
+                encoding="utf-8-sig"
+            )
+            with self.subTest(script=script_name):
+                self.assertIn("weekly_market_run_state.py", script)
+                self.assertIn('"latest_run_state.json"', script)
+                self.assertIn('"running"', script)
+                self.assertIn('"ready"', script)
+                self.assertIn('"failed"', script)
+                self.assertLess(script.index('"running"'), script.index('"ready"'))
+                self.assertLess(script.index('"ready"'), script.index("catch {"))
+                self.assertGreater(script.index('"failed"'), script.index("catch {"))
+
     def test_weekly_bundle_runs_extended_shadow_tracker_before_governance(self):
         bundle = (
             PROJECT_ROOT / "scripts" / "run_weekly_reporting_bundle.ps1"
@@ -55,6 +92,10 @@ class WeeklyAutomationTests(unittest.TestCase):
             root = Path(tmp)
             scripts = root / "scripts"
             scripts.mkdir(parents=True)
+            (scripts / "run_weekly_market_completion_gate.ps1").write_text(
+                "exit 0\n",
+                encoding="utf-8-sig",
+            )
             (scripts / "run_self_analysis.ps1").write_text(
                 "Write-Error 'intentional failure'\nexit 7\n",
                 encoding="utf-8-sig",

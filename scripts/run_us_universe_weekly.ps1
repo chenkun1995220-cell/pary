@@ -22,6 +22,10 @@ $SecCache = Join-Path $ProjectRoot "data\cache\sec_companyfacts"
 $PowerShell = (Get-Command powershell.exe).Source
 $Python = "C:\Users\pechen\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 $ReviewChecklistPath = Join-Path $ProjectRoot "docs\提交前复核清单.md"
+$RunStateScript = Join-Path $ProjectRoot "weekly_market_run_state.py"
+$runStatePath = Join-Path $OutputRoot "latest_run_state.json"
+$summaryPath = Join-Path $OutputRoot "latest_run_summary.md"
+$candidatePath = Join-Path $OutputRoot "candidate_pool.csv"
 
 $Steps = @(
   @{ Label = "1/10 Refresh S&P 500 constituents"; Script = "refresh_sp500_constituents.ps1"; Arguments = @("-Output", $Symbols, "-CacheDir", $Sp500Cache) },
@@ -60,6 +64,7 @@ $mutex = [System.Threading.Mutex]::new($false, "Local\StockUndervaluationWeekly"
 $hasLock = $false
 $transcriptStarted = $false
 $logPath = ""
+$runStartedAt = ""
 
 try {
   $hasLock = $mutex.WaitOne(0)
@@ -73,6 +78,17 @@ try {
   $logPath = Join-Path $OutputRoot "run_$runStamp.log"
   Start-Transcript -Path $logPath | Out-Null
   $transcriptStarted = $true
+  & $Python -B $RunStateScript `
+    --output $runStatePath `
+    --market US `
+    --status "running" `
+    --run-started-at $runStartedAt `
+    --summary-path $summaryPath `
+    --candidate-path $candidatePath `
+    --log-path $logPath
+  if ($LASTEXITCODE -ne 0) {
+    throw "US run state initialization failed with exit code $LASTEXITCODE."
+  }
   $refreshMetadataPath = Join-Path $Sp500Cache "sp500_refresh_metadata.json"
   $identityAuditNotBefore = (Get-Date).ToUniversalTime()
   $identityConflictRows = @()
@@ -115,7 +131,6 @@ try {
     }
   }
 
-  $candidatePath = Join-Path $OutputRoot "candidate_pool.csv"
   $historyPath = Join-Path $OutputRoot "price_history.csv"
   $historyCache = Join-Path $SecCache "candidate_price_history"
   Write-Host "Running: $($ValuationSteps[0])"
@@ -187,7 +202,6 @@ try {
   $quoteSnapshotSha256 = if (Test-Path $Quotes) { (Get-FileHash -LiteralPath $Quotes -Algorithm SHA256).Hash.ToLowerInvariant() } else { "none" }
   $refreshStatus = $refreshMetadata.status
   $secCacheCount = @(Get-ChildItem -Path $SecCache -Filter "CIK*.json" -File -ErrorAction SilentlyContinue).Count
-  $summaryPath = Join-Path $OutputRoot "latest_run_summary.md"
   $summary = @(
     "# US Weekly Screening Run Summary",
     "",
@@ -225,6 +239,18 @@ try {
     "- Log: $logPath"
   )
   Set-Content -LiteralPath $summaryPath -Value $summary -Encoding UTF8
+  & $Python -B $RunStateScript `
+    --output $runStatePath `
+    --market US `
+    --status "ready" `
+    --run-started-at $runStartedAt `
+    --run-completed-at $runTime `
+    --summary-path $summaryPath `
+    --candidate-path $candidatePath `
+    --log-path $logPath
+  if ($LASTEXITCODE -ne 0) {
+    throw "US ready run state write failed with exit code $LASTEXITCODE."
+  }
   Write-Host "Weekly pipeline completed. Summary: $summaryPath"
 
   if ($RunPostChecks) {
@@ -235,6 +261,7 @@ try {
   }
 }
 catch {
+  $pipelineException = $_
   if ($transcriptStarted) {
     Stop-Transcript | Out-Null
     $transcriptStarted = $false
@@ -248,7 +275,24 @@ catch {
     )
     Add-Content -LiteralPath $logPath -Value $failure -Encoding UTF8 -ErrorAction SilentlyContinue
   }
-  throw
+  if ($runStartedAt -and $logPath) {
+    try {
+      & $Python -B $RunStateScript `
+        --output $runStatePath `
+        --market US `
+        --status "failed" `
+        --run-started-at $runStartedAt `
+        --summary-path $summaryPath `
+        --candidate-path $candidatePath `
+        --log-path $logPath `
+        --failure-step "market_pipeline" `
+        --failure-message $pipelineException.Exception.Message
+    }
+    catch {
+      Write-Warning "Unable to persist US failed run state: $($_.Exception.Message)"
+    }
+  }
+  throw $pipelineException
 }
 finally {
   if ($transcriptStarted) {
