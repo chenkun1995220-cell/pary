@@ -7,6 +7,9 @@
 )
 
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+$env:PYTHONIOENCODING = "utf-8"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $OutputRoot) {

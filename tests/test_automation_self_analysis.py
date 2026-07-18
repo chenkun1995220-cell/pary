@@ -8,6 +8,7 @@ from pathlib import Path
 
 from automation_self_analysis import (
     _data_quality_history_summary,
+    _manifest_weekly_delivery_history_status,
     _manual_review_queue,
     run_self_analysis,
 )
@@ -30,6 +31,33 @@ def write_csv(path, fieldnames, rows):
 
 
 class AutomationSelfAnalysisTests(unittest.TestCase):
+    def test_manual_review_backlog_does_not_duplicate_delivery_health_action(self):
+        status = _manifest_weekly_delivery_history_status(
+            {
+                "recommended_action": "review_delivery_health_issues",
+                "latest_status": "ready",
+                "needs_attention_count": 0,
+                "latest_manual_review_pending_count": 2,
+                "latest_conclusion_health_reasons": [
+                    "automation_check:manual_review_needed",
+                    "candidate_findings_review:manual_review_needed",
+                    "manual_review_pending:2",
+                ],
+                "recurring_health_reasons": [],
+                "latest_missing_conclusion_signals": [],
+                "recurring_missing_conclusion_signals": [],
+            }
+        )
+
+        self.assertEqual(
+            status["weekly_delivery_history_priority_actions"],
+            ["review_manual_review_backlog"],
+        )
+        self.assertEqual(
+            status["weekly_delivery_history_recommended_action"],
+            "review_manual_review_backlog",
+        )
+
     def test_manual_review_queue_excludes_classified_non_candidates(self):
         health = [
             {

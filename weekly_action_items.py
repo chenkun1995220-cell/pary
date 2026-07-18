@@ -158,12 +158,11 @@ def _health_reasons(history):
 
 
 def delivery_health_issue_is_actionable(history):
-    if _manual_review_count({}, history) > 0:
-        return True
     if _has_missing_conclusion_signal(history):
         return True
     return any(
         reason not in DELIVERY_HEALTH_MIRRORED_REASONS
+        and not _is_manual_review_pending_reason(reason)
         for reason in _health_reasons(history)
     )
 

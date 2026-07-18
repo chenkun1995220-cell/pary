@@ -347,7 +347,13 @@ def _weekly_delivery_goal(
         next_action = "restore_weekly_delivery_ready_state"
     elif weekly_delivery_streak.get("status") in {"missing", "needs_attention"}:
         status = "needs_work"
-        next_action = "repair_current_sunday_delivery_evidence"
+        streak_issues = set(weekly_delivery_streak.get("issues", []) or [])
+        streak_issues.update(weekly_delivery_streak.get("attention_reasons", []) or [])
+        next_action = (
+            "validate_next_scheduled_saturday_delivery"
+            if streak_issues == {"hk_run_start_outside_1430_window"}
+            else "repair_current_saturday_delivery_evidence"
+        )
     elif backlog_plan_status == "missing":
         status = "needs_work"
         next_action = "review_weekly_action_backlog_reduction_plan"
@@ -356,7 +362,7 @@ def _weekly_delivery_goal(
         next_action = (
             "continue_weekly_delivery_monitoring"
             if weekly_delivery_streak.get("status") == "ready"
-            else "continue_consecutive_sunday_validation"
+            else "continue_consecutive_saturday_validation"
         )
     return _goal(
         "weekly_delivery_stability",

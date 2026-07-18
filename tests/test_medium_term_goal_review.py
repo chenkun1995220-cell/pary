@@ -1102,7 +1102,37 @@ class MediumTermGoalReviewTests(unittest.TestCase):
 
             self.assertLess(goal["completion_percent"], 90)
             self.assertEqual(goal["current"]["consecutive_sunday_ready_count"], 1)
-            self.assertEqual(goal["next_action"], "continue_consecutive_sunday_validation")
+            self.assertEqual(goal["next_action"], "continue_consecutive_saturday_validation")
+
+    def test_late_manual_hk_validation_defers_to_next_scheduled_saturday(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            automation = write_review_fixtures(root)
+            streak_path = automation / "latest_weekly_delivery_streak_review.json"
+            streak = json.loads(streak_path.read_text(encoding="utf-8-sig"))
+            streak.update(
+                {
+                    "as_of_date": "2026-07-18",
+                    "status": "needs_attention",
+                    "attention_reasons": ["hk_run_start_outside_1430_window"],
+                    "issues": ["hk_run_start_outside_1430_window"],
+                }
+            )
+            write_json(streak_path, streak)
+
+            from medium_term_goal_review import build_medium_term_goal_review
+
+            payload = build_medium_term_goal_review(root)
+            goal = next(
+                item for item in payload["goals"]
+                if item["goal_code"] == "weekly_delivery_stability"
+            )
+
+            self.assertEqual(
+                goal["next_action"],
+                "validate_next_scheduled_saturday_delivery",
+            )
+
 
     def test_ignores_refreshable_pre_submit_closeout_mismatch_for_core_delivery(self):
         with tempfile.TemporaryDirectory() as tmp:
