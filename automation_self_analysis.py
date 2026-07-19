@@ -813,6 +813,7 @@ def _first_one_month_forecast_evaluation_snapshot(project_root):
             "actual_sample_count": 0,
             "one_week_valid_count": 0,
             "one_month_valid_count": 0,
+            "one_month_maturity_date": "",
             "recommended_action": "repair_first_one_month_review_inputs",
             "formal_model_change_allowed": False,
             "formal_model_conclusion_allowed": False,
@@ -832,6 +833,11 @@ def _first_one_month_forecast_evaluation_snapshot(project_root):
         "one_week_average_excess_return": one_week.get("average_excess_return"),
         "one_week_failure_type_counts": one_week.get("failure_type_counts", {}),
         "one_month_valid_count": _as_int(one_month.get("valid_evaluation_count")) or 0,
+        "one_month_maturity_date": (
+            one_month.get("maturity_date")
+            or cohort.get("one_month_maturity_date")
+            or ""
+        ),
         "one_month_direction_hit_rate": one_month.get("direction_hit_rate"),
         "one_month_average_excess_return": one_month.get("average_excess_return"),
         "one_month_failure_type_counts": one_month.get("failure_type_counts", {}),

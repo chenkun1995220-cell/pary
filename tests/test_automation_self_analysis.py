@@ -2789,9 +2789,18 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
                         "review_schema": "first_one_month_forecast_evaluation_review",
                         "review_version": 1,
                         "status": "awaiting_maturity",
-                        "cohort": {"expected_sample_count": 37, "actual_sample_count": 37},
+                        "cohort": {
+                            "expected_sample_count": 37,
+                            "actual_sample_count": 37,
+                            "one_month_maturity_date": "2026-08-03",
+                        },
                         "one_week": {"valid_evaluation_count": 37, "direction_hit_rate": 0.4, "average_excess_return": 0.01},
-                        "one_month": {"valid_evaluation_count": 0, "direction_hit_rate": None, "average_excess_return": None},
+                        "one_month": {
+                            "maturity_date": "2026-08-03",
+                            "valid_evaluation_count": 0,
+                            "direction_hit_rate": None,
+                            "average_excess_return": None,
+                        },
                         "market_comparison": {"status": "insufficient_market_coverage"},
                         "recommended_action": "wait_for_one_month_maturity",
                         "formal_model_change_allowed": False,
@@ -2807,6 +2816,8 @@ class AutomationSelfAnalysisTests(unittest.TestCase):
             self.assertEqual(snapshot["status"], "awaiting_maturity")
             self.assertEqual(snapshot["one_week_valid_count"], 37)
             self.assertEqual(snapshot["one_month_valid_count"], 0)
+            self.assertEqual(snapshot["one_month_maturity_date"], "2026-08-03")
+            self.assertEqual(snapshot["expected_sample_count"], 37)
             self.assertEqual(snapshot["recommended_action"], "wait_for_one_month_maturity")
             self.assertFalse(snapshot["formal_model_change_allowed"])
             self.assertFalse(snapshot["formal_model_conclusion_allowed"])
