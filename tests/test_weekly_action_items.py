@@ -110,6 +110,12 @@ def write_manifest(path):
             "next_one_month_evaluation_date": "2026-07-28",
             "next_one_month_evaluation_count": 42,
         },
+        "first_one_month_forecast_evaluation": {
+            "status": "awaiting_maturity",
+            "one_month_maturity_date": "2026-07-14",
+            "expected_sample_count": 37,
+            "formal_model_change_allowed": False,
+        },
     }
     Path(path).write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
@@ -1175,10 +1181,17 @@ class WeeklyActionItemsTests(unittest.TestCase):
             self.assertIn("forecast_next_one_week_evaluation_count:42", sample["source"])
             self.assertIn("forecast_next_one_month_evaluation_date:2026-07-28", sample["source"])
             self.assertIn("forecast_next_one_month_evaluation_count:42", sample["source"])
+            self.assertIn("first_one_month_maturity_date:2026-07-14", sample["source"])
+            self.assertIn("first_one_month_expected_count:37", sample["source"])
             self.assertIn("sample_accumulating", sample["recommended_check"])
             self.assertIn("2026-07-07", sample["recommended_check"])
             self.assertIn("42", sample["recommended_check"])
             self.assertIn("2026-07-28", sample["recommended_check"])
+            self.assertIn(
+                "首批固定队列 2026-07-14（37 samples）",
+                sample["recommended_check"],
+            )
+            self.assertIn("下一批全市场", sample["recommended_check"])
 
             forecast = next(
                 item

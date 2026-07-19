@@ -287,7 +287,16 @@ def _forecast_maturity_schedule_text(forecast_performance):
         one_month = f"{one_month} ({one_month_count} samples)"
     if one_week == "unknown" and one_month == "unknown":
         return ""
-    return f"；下一批1周可评估日期 {one_week}，1个月可评估日期 {one_month}"
+    return f"；下一批全市场1周可评估日期 {one_week}，1个月可评估日期 {one_month}"
+
+
+def _first_one_month_maturity_text(manifest):
+    first_month = manifest.get("first_one_month_forecast_evaluation", {}) or {}
+    maturity_date = first_month.get("one_month_maturity_date", "")
+    if first_month.get("status") != "awaiting_maturity" or not maturity_date:
+        return ""
+    expected_count = _int_value(first_month.get("expected_sample_count"), 0)
+    return f"；首批固定队列 {maturity_date}（{expected_count} samples）"
 
 
 def _shadow_review_actions_text(*reviews):
@@ -754,10 +763,13 @@ def _action_template(action_code, manifest):
                 f"forecast_next_one_week_evaluation_count:{_int_value(forecast_performance.get('next_one_week_evaluation_count'), 0)}; "
                 f"forecast_next_one_month_evaluation_date:{forecast_performance.get('next_one_month_evaluation_date', 'unknown')}; "
                 f"forecast_next_one_month_evaluation_count:{_int_value(forecast_performance.get('next_one_month_evaluation_count'), 0)}; "
+                f"first_one_month_maturity_date:{first_month.get('one_month_maturity_date', 'unknown')}; "
+                f"first_one_month_expected_count:{_int_value(first_month.get('expected_sample_count'), 0)}; "
                 "forecast_formal_model_change_allowed:false"
             ),
             "recommended_check": (
                 f"当前模型审计为 {manifest.get('model_audit_status', 'unknown')}"
+                f"{_first_one_month_maturity_text(manifest)}"
                 f"{_forecast_maturity_schedule_text(forecast_performance)}"
                 "；继续保留跟踪，不自动升级正式参数。"
             ),
