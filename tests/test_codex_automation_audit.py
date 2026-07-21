@@ -14,9 +14,12 @@ def write_automation(
     kind="cron",
     hour=14,
     target_thread_id="test-thread",
+    include_cache_guard=True,
 ):
     path = Path(root) / automation_id / "automation.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
+    if kind == "cron" and include_cache_guard:
+        prompt = f"{prompt}；缓存回退不得视为成功"
     lines = [
         f"id = {json.dumps(automation_id, ensure_ascii=False)}",
         f"kind = {json.dumps(kind)}",
@@ -127,6 +130,27 @@ class CodexAutomationAuditTests(unittest.TestCase):
             result = audit_automations(tmp)
 
             self.assertEqual(result["status"], "ready")
+
+    def test_audit_reports_missing_market_cache_fallback_guard(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_automation(
+                tmp,
+                "automation",
+                "美股低估公司每周筛选",
+                "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                5,
+                include_cache_guard=False,
+            )
+
+            from codex_automation_audit import audit_automations
+
+            result = audit_automations(tmp)
+            us_check = result["checks"][0]
+
+            self.assertEqual(us_check["status"], "needs_attention")
+            self.assertTrue(
+                any("缓存回退不得视为成功" in issue for issue in us_check["issues"])
+            )
 
     def test_audit_reports_missing_acceptance_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmp:
