@@ -17,6 +17,7 @@ def write_automation(
     include_cache_guard=True,
     include_fresh_artifact_guard=True,
     include_formal_model_guard=True,
+    include_research_only_guard=True,
 ):
     path = Path(root) / automation_id / "automation.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -29,6 +30,8 @@ def write_automation(
             prompt = f"{prompt}；不得把旧产物当作本次结果"
     if kind == "cron" and include_formal_model_guard:
         prompt = f"{prompt}；正式模型不得自动修改"
+    if kind == "cron" and include_research_only_guard:
+        prompt = f"{prompt}；结果仅供研究"
     lines = [
         f"id = {json.dumps(automation_id, ensure_ascii=False)}",
         f"kind = {json.dumps(kind)}",
@@ -283,6 +286,53 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 self.assertEqual(market_check["status"], "needs_attention")
                 self.assertTrue(
                     any("正式模型不得自动修改" in issue for issue in market_check["issues"])
+                )
+
+    def test_audit_requires_research_only_guard_for_each_market_prompt(self):
+        cases = (
+            (
+                "automation",
+                "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                5,
+                0,
+            ),
+            (
+                "a-300-3",
+                "scripts\\run_cn_weekly.ps1 不提前运行三市场统一收口",
+                10,
+                1,
+            ),
+            (
+                "automation-5",
+                "scripts\\run_hk_weekly.ps1 -RunPostChecks "
+                "scripts\\run_weekly_reporting_bundle.ps1 "
+                "latest_weekly_artifact_consistency.json "
+                "latest_first_one_month_forecast_evaluation_review.json "
+                "latest_pre_submit_review.json 同一自然日",
+                30,
+                2,
+            ),
+        )
+
+        for automation_id, prompt, minute, check_index in cases:
+            with self.subTest(automation_id=automation_id), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    automation_id,
+                    automation_id,
+                    prompt,
+                    minute,
+                    include_research_only_guard=False,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                result = audit_automations(tmp)
+                market_check = result["checks"][check_index]
+
+                self.assertEqual(market_check["status"], "needs_attention")
+                self.assertTrue(
+                    any("结果仅供研究" in issue for issue in market_check["issues"])
                 )
 
     def test_audit_reports_missing_acceptance_heartbeat(self):
