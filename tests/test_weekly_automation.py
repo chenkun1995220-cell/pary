@@ -610,6 +610,15 @@ class WeeklyAutomationTests(unittest.TestCase):
             self.assertNotIn("Running: 1/8 Build historical S&P 500 membership", output)
             self.assertNotIn("Point-in-time backtest completed", output)
 
+    def test_docs_keep_hk_as_the_only_production_postcheck_owner(self):
+        doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("美股和 A 股生产任务不得使用 `-RunPostChecks`", doc)
+        self.assertIn("只有港股生产任务使用 `-RunPostChecks`", doc)
+        self.assertNotIn("生产任务建议统一使用 `-RunPostChecks`", doc)
+
     def test_point_in_time_backtest_docs_describe_run_modes_and_limits(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
             encoding="utf-8-sig"
