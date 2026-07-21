@@ -7,6 +7,7 @@ CACHE_FALLBACK_GUARD = "缓存回退不得视为成功"
 PRE_SUBMIT_RELAXATION = "-IgnorePreSubmitFailure"
 MARKET_FRESH_ARTIFACT_GUARD = "不得把旧产物当作本次结果"
 HK_FRESH_ARTIFACT_GUARD = "不得引用旧结论或旧交付产物"
+FORMAL_MODEL_GUARD = "正式模型不得自动修改"
 
 
 EXPECTED_AUTOMATIONS = [
@@ -22,6 +23,7 @@ EXPECTED_AUTOMATIONS = [
             "market_quotes.csv",
             CACHE_FALLBACK_GUARD,
             MARKET_FRESH_ARTIFACT_GUARD,
+            FORMAL_MODEL_GUARD,
         ],
         "forbidden_prompt_terms": ["-RunPostChecks", PRE_SUBMIT_RELAXATION],
     },
@@ -36,6 +38,7 @@ EXPECTED_AUTOMATIONS = [
             "不提前运行三市场统一收口",
             CACHE_FALLBACK_GUARD,
             MARKET_FRESH_ARTIFACT_GUARD,
+            FORMAL_MODEL_GUARD,
         ],
         "forbidden_prompt_terms": ["-RunPostChecks", PRE_SUBMIT_RELAXATION],
     },
@@ -55,6 +58,7 @@ EXPECTED_AUTOMATIONS = [
             "同一自然日",
             CACHE_FALLBACK_GUARD,
             HK_FRESH_ARTIFACT_GUARD,
+            FORMAL_MODEL_GUARD,
         ],
         "forbidden_prompt_terms": [PRE_SUBMIT_RELAXATION],
     },
@@ -181,6 +185,7 @@ def render_audit_report(result):
             f"- 三项市场任务必须保留提示词保护：{CACHE_FALLBACK_GUARD}。",
             "- 三项市场任务只能引用本次新产物，不得用旧报告、旧结论或旧交付产物替代本次结果。",
             f"- 三项市场生产任务不得使用提交前复核放宽参数 {PRE_SUBMIT_RELAXATION}。",
+            f"- 三项市场任务必须保持正式模型保护：{FORMAL_MODEL_GUARD}。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )
