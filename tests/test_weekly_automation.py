@@ -618,6 +618,9 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("美股和 A 股生产任务不得使用 `-RunPostChecks`", doc)
         self.assertIn("只有港股生产任务使用 `-RunPostChecks`", doc)
         self.assertNotIn("生产任务建议统一使用 `-RunPostChecks`", doc)
+        self.assertIn("收口默认严格阻断提交前复核失败", doc)
+        self.assertIn("`-IgnorePreSubmitFailure`", doc)
+        self.assertNotIn("`-Strict`", doc)
 
     def test_point_in_time_backtest_docs_describe_run_modes_and_limits(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
