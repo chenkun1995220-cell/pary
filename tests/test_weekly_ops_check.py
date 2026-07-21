@@ -19,6 +19,8 @@ def write_expected_automations(root, minute_overrides=None):
         path = Path(root) / automation_id / "automation.toml"
         path.parent.mkdir(parents=True, exist_ok=True)
         prompt = " ".join(expected["required_prompt_terms"])
+        if automation_id == "automation":
+            prompt = f'{prompt} -SecUserAgent "Test test@example.com"'
         kind = expected["kind"]
         lines = [
             f"id = {json.dumps(automation_id, ensure_ascii=False)}",

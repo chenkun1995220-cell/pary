@@ -20,6 +20,7 @@ def write_automation(
     include_research_only_guard=True,
     include_failure_evidence_guard=True,
     include_network_retry_guard=True,
+    include_sec_user_agent=True,
 ):
     path = Path(root) / automation_id / "automation.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -38,6 +39,8 @@ def write_automation(
         prompt = f"{prompt}；失败步骤；本次最新日志"
     if kind == "cron" and include_network_retry_guard:
         prompt = f"{prompt}；WinError 10013；完全相同的入口命令；重试一次"
+    if automation_id == "automation" and include_sec_user_agent:
+        prompt = f'{prompt} -SecUserAgent "Test test@example.com"'
     lines = [
         f"id = {json.dumps(automation_id, ensure_ascii=False)}",
         f"kind = {json.dumps(kind)}",
@@ -448,6 +451,37 @@ class CodexAutomationAuditTests(unittest.TestCase):
                     self.assertTrue(
                         any(required_term in issue for issue in market_check["issues"])
                     )
+
+    def test_audit_requires_nonempty_sec_user_agent_for_us_prompt(self):
+        prompts = (
+            "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+            'scripts\\run_us_universe_weekly.ps1 -SecUserAgent "" '
+            "不提前运行三市场统一收口 market_quotes.csv",
+        )
+
+        for prompt in prompts:
+            with self.subTest(prompt=prompt), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    "automation",
+                    "美股低估公司每周筛选",
+                    prompt,
+                    5,
+                    include_sec_user_agent=False,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                result = audit_automations(tmp)
+                us_check = result["checks"][0]
+
+                self.assertEqual(us_check["status"], "needs_attention")
+                self.assertTrue(
+                    any(
+                        "non-empty -SecUserAgent" in issue
+                        for issue in us_check["issues"]
+                    )
+                )
 
     def test_audit_reports_missing_acceptance_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,4 +1,5 @@
 import argparse
+import re
 import tomllib
 from pathlib import Path
 
@@ -102,6 +103,14 @@ def _load_toml(path):
     return tomllib.loads(Path(path).read_text(encoding="utf-8-sig"))
 
 
+def _has_nonempty_cli_argument(prompt, argument):
+    value_pattern = r'(?:"[^"\r\n]+"|\'[^\'\r\n]+\'|(?![-\'\"])\S+)'
+    return re.search(
+        rf"(?<!\S){re.escape(argument)}\s+{value_pattern}",
+        prompt,
+    ) is not None
+
+
 def _check_automation(root, expected):
     path = _automation_path(root, expected["id"])
     if not path.exists():
@@ -147,6 +156,11 @@ def _check_automation(root, expected):
                 issues.append(f"production prompt must not use {term}")
             else:
                 issues.append(f"prompt must not run {term} before the final HK task")
+    if expected["id"] == "automation" and not _has_nonempty_cli_argument(
+        prompt,
+        "-SecUserAgent",
+    ):
+        issues.append("US prompt must provide a non-empty -SecUserAgent value")
     return {
         "id": expected["id"],
         "name": data.get("name", expected["name"]),
@@ -204,6 +218,7 @@ def render_audit_report(result):
             f"- 三项市场任务必须保留研究用途边界：{RESEARCH_ONLY_GUARD}，不构成交易指令。",
             "- 三项市场任务失败时必须报告精确失败步骤和本次最新日志，不得用模糊成功结论替代。",
             "- 三项市场任务遇到 WinError 10013 或网络权限失败时，只允许使用完全相同的入口命令联网重试一次。",
+            "- 美股任务必须为 -SecUserAgent 提供非空值，审计不绑定具体姓名或邮箱。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )
