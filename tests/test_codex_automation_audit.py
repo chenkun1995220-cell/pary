@@ -57,18 +57,26 @@ def write_automation(
     )
 
 
-def write_acceptance_heartbeat(root, prompt=None, hour=15, minute=0):
+def write_acceptance_heartbeat(
+    root,
+    prompt=None,
+    hour=15,
+    minute=0,
+    include_fresh_artifact_guard=True,
+):
+    prompt = prompt or (
+        "latest_weekly_artifact_consistency.json "
+        "latest_extended_shadow_validation_tracker.json "
+        "latest_pre_submit_review.json "
+        "不要重新运行市场抓取，不要修改正式模型"
+    )
+    if include_fresh_artifact_guard:
+        prompt = f"{prompt}；不得继续引用旧交付"
     write_automation(
         root,
         "automation-2",
         "三市场周交付验收跟进",
-        prompt
-        or (
-            "latest_weekly_artifact_consistency.json "
-            "latest_extended_shadow_validation_tracker.json "
-            "latest_pre_submit_review.json "
-            "不要重新运行市场抓取，不要修改正式模型"
-        ),
+        prompt,
         minute,
         kind="heartbeat",
         hour=hour,
@@ -350,6 +358,20 @@ class CodexAutomationAuditTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "needs_attention")
             self.assertIn("automation-2", result["missing_automations"])
+
+    def test_audit_requires_fresh_artifact_guard_for_acceptance_heartbeat(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_acceptance_heartbeat(tmp, include_fresh_artifact_guard=False)
+
+            from codex_automation_audit import audit_automations
+
+            result = audit_automations(tmp)
+            heartbeat = result["checks"][3]
+
+            self.assertEqual(heartbeat["status"], "needs_attention")
+            self.assertTrue(
+                any("不得继续引用旧交付" in issue for issue in heartbeat["issues"])
+            )
 
     def test_audit_reports_heartbeat_schedule_and_prompt_drift(self):
         with tempfile.TemporaryDirectory() as tmp:

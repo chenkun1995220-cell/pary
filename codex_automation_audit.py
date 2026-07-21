@@ -9,6 +9,7 @@ MARKET_FRESH_ARTIFACT_GUARD = "不得把旧产物当作本次结果"
 HK_FRESH_ARTIFACT_GUARD = "不得引用旧结论或旧交付产物"
 FORMAL_MODEL_GUARD = "正式模型不得自动修改"
 RESEARCH_ONLY_GUARD = "结果仅供研究"
+ACCEPTANCE_FRESH_ARTIFACT_GUARD = "不得继续引用旧交付"
 
 
 EXPECTED_AUTOMATIONS = [
@@ -78,6 +79,7 @@ EXPECTED_AUTOMATIONS = [
             "latest_pre_submit_review.json",
             "不要重新运行市场抓取",
             "不要修改正式模型",
+            ACCEPTANCE_FRESH_ARTIFACT_GUARD,
         ],
         "forbidden_prompt_terms": [],
     },
@@ -186,6 +188,7 @@ def render_audit_report(result):
             "- 美股和 A 股任务只生成各自市场产物，不得提前运行 -RunPostChecks。",
             "- 港股任务必须使用 -RunPostChecks 调用 run_weekly_reporting_bundle.ps1，并读取 latest_weekly_artifact_consistency.json、latest_first_one_month_forecast_evaluation_review.json 和 latest_pre_submit_review.json。",
             "- 三市场周交付验收跟进必须在周六 15:00 运行，读取 latest_extended_shadow_validation_tracker.json 与提交前复核，并保持不重跑市场抓取、不修改正式模型的边界。",
+            f"- 验收完成门失败时必须停止，{ACCEPTANCE_FRESH_ARTIFACT_GUARD}、旧提交前复核或旧结论。",
             f"- 三项市场任务必须保留提示词保护：{CACHE_FALLBACK_GUARD}。",
             "- 三项市场任务只能引用本次新产物，不得用旧报告、旧结论或旧交付产物替代本次结果。",
             f"- 三项市场生产任务不得使用提交前复核放宽参数 {PRE_SUBMIT_RELAXATION}。",
