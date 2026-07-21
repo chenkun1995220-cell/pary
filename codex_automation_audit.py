@@ -10,6 +10,7 @@ HK_FRESH_ARTIFACT_GUARD = "不得引用旧结论或旧交付产物"
 FORMAL_MODEL_GUARD = "正式模型不得自动修改"
 RESEARCH_ONLY_GUARD = "结果仅供研究"
 ACCEPTANCE_FRESH_ARTIFACT_GUARD = "不得继续引用旧交付"
+FAILURE_EVIDENCE_TERMS = ("失败步骤", "本次最新日志")
 
 
 EXPECTED_AUTOMATIONS = [
@@ -27,6 +28,7 @@ EXPECTED_AUTOMATIONS = [
             MARKET_FRESH_ARTIFACT_GUARD,
             FORMAL_MODEL_GUARD,
             RESEARCH_ONLY_GUARD,
+            *FAILURE_EVIDENCE_TERMS,
         ],
         "forbidden_prompt_terms": ["-RunPostChecks", PRE_SUBMIT_RELAXATION],
     },
@@ -43,6 +45,7 @@ EXPECTED_AUTOMATIONS = [
             MARKET_FRESH_ARTIFACT_GUARD,
             FORMAL_MODEL_GUARD,
             RESEARCH_ONLY_GUARD,
+            *FAILURE_EVIDENCE_TERMS,
         ],
         "forbidden_prompt_terms": ["-RunPostChecks", PRE_SUBMIT_RELAXATION],
     },
@@ -64,6 +67,7 @@ EXPECTED_AUTOMATIONS = [
             HK_FRESH_ARTIFACT_GUARD,
             FORMAL_MODEL_GUARD,
             RESEARCH_ONLY_GUARD,
+            *FAILURE_EVIDENCE_TERMS,
         ],
         "forbidden_prompt_terms": [PRE_SUBMIT_RELAXATION],
     },
@@ -194,6 +198,7 @@ def render_audit_report(result):
             f"- 三项市场生产任务不得使用提交前复核放宽参数 {PRE_SUBMIT_RELAXATION}。",
             f"- 三项市场任务必须保持正式模型保护：{FORMAL_MODEL_GUARD}。",
             f"- 三项市场任务必须保留研究用途边界：{RESEARCH_ONLY_GUARD}，不构成交易指令。",
+            "- 三项市场任务失败时必须报告精确失败步骤和本次最新日志，不得用模糊成功结论替代。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )
