@@ -15,11 +15,17 @@ def write_automation(
     hour=14,
     target_thread_id="test-thread",
     include_cache_guard=True,
+    include_fresh_artifact_guard=True,
 ):
     path = Path(root) / automation_id / "automation.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     if kind == "cron" and include_cache_guard:
         prompt = f"{prompt}；缓存回退不得视为成功"
+    if kind == "cron" and include_fresh_artifact_guard:
+        if automation_id == "automation-5":
+            prompt = f"{prompt}；不得引用旧结论或旧交付产物"
+        else:
+            prompt = f"{prompt}；不得把旧产物当作本次结果"
     lines = [
         f"id = {json.dumps(automation_id, ensure_ascii=False)}",
         f"kind = {json.dumps(kind)}",
@@ -178,6 +184,56 @@ class CodexAutomationAuditTests(unittest.TestCase):
                     for issue in hk_check["issues"]
                 )
             )
+
+    def test_audit_requires_fresh_artifact_guard_for_each_market_prompt(self):
+        cases = (
+            (
+                "automation",
+                "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                5,
+                0,
+                "不得把旧产物当作本次结果",
+            ),
+            (
+                "a-300-3",
+                "scripts\\run_cn_weekly.ps1 不提前运行三市场统一收口",
+                10,
+                1,
+                "不得把旧产物当作本次结果",
+            ),
+            (
+                "automation-5",
+                "scripts\\run_hk_weekly.ps1 -RunPostChecks "
+                "scripts\\run_weekly_reporting_bundle.ps1 "
+                "latest_weekly_artifact_consistency.json "
+                "latest_first_one_month_forecast_evaluation_review.json "
+                "latest_pre_submit_review.json 同一自然日",
+                30,
+                2,
+                "不得引用旧结论或旧交付产物",
+            ),
+        )
+
+        for automation_id, prompt, minute, check_index, required_term in cases:
+            with self.subTest(automation_id=automation_id), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    automation_id,
+                    automation_id,
+                    prompt,
+                    minute,
+                    include_fresh_artifact_guard=False,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                result = audit_automations(tmp)
+                market_check = result["checks"][check_index]
+
+                self.assertEqual(market_check["status"], "needs_attention")
+                self.assertTrue(
+                    any(required_term in issue for issue in market_check["issues"])
+                )
 
     def test_audit_reports_missing_acceptance_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmp:

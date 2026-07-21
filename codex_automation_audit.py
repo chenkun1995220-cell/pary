@@ -5,6 +5,8 @@ from pathlib import Path
 
 CACHE_FALLBACK_GUARD = "缓存回退不得视为成功"
 PRE_SUBMIT_RELAXATION = "-IgnorePreSubmitFailure"
+MARKET_FRESH_ARTIFACT_GUARD = "不得把旧产物当作本次结果"
+HK_FRESH_ARTIFACT_GUARD = "不得引用旧结论或旧交付产物"
 
 
 EXPECTED_AUTOMATIONS = [
@@ -19,6 +21,7 @@ EXPECTED_AUTOMATIONS = [
             "不提前运行三市场统一收口",
             "market_quotes.csv",
             CACHE_FALLBACK_GUARD,
+            MARKET_FRESH_ARTIFACT_GUARD,
         ],
         "forbidden_prompt_terms": ["-RunPostChecks", PRE_SUBMIT_RELAXATION],
     },
@@ -32,6 +35,7 @@ EXPECTED_AUTOMATIONS = [
             "scripts\\run_cn_weekly.ps1",
             "不提前运行三市场统一收口",
             CACHE_FALLBACK_GUARD,
+            MARKET_FRESH_ARTIFACT_GUARD,
         ],
         "forbidden_prompt_terms": ["-RunPostChecks", PRE_SUBMIT_RELAXATION],
     },
@@ -50,6 +54,7 @@ EXPECTED_AUTOMATIONS = [
             "latest_pre_submit_review.json",
             "同一自然日",
             CACHE_FALLBACK_GUARD,
+            HK_FRESH_ARTIFACT_GUARD,
         ],
         "forbidden_prompt_terms": [PRE_SUBMIT_RELAXATION],
     },
@@ -174,6 +179,7 @@ def render_audit_report(result):
             "- 港股任务必须使用 -RunPostChecks 调用 run_weekly_reporting_bundle.ps1，并读取 latest_weekly_artifact_consistency.json、latest_first_one_month_forecast_evaluation_review.json 和 latest_pre_submit_review.json。",
             "- 三市场周交付验收跟进必须在周六 15:00 运行，读取 latest_extended_shadow_validation_tracker.json 与提交前复核，并保持不重跑市场抓取、不修改正式模型的边界。",
             f"- 三项市场任务必须保留提示词保护：{CACHE_FALLBACK_GUARD}。",
+            "- 三项市场任务只能引用本次新产物，不得用旧报告、旧结论或旧交付产物替代本次结果。",
             f"- 三项市场生产任务不得使用提交前复核放宽参数 {PRE_SUBMIT_RELAXATION}。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
