@@ -152,6 +152,33 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 any("缓存回退不得视为成功" in issue for issue in us_check["issues"])
             )
 
+    def test_audit_rejects_pre_submit_relaxation_in_production_prompt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_automation(
+                tmp,
+                "automation-5",
+                "港股大中盘每周筛选",
+                "scripts\\run_hk_weekly.ps1 -RunPostChecks -IgnorePreSubmitFailure "
+                "scripts\\run_weekly_reporting_bundle.ps1 "
+                "latest_weekly_artifact_consistency.json "
+                "latest_first_one_month_forecast_evaluation_review.json "
+                "latest_pre_submit_review.json 同一自然日",
+                30,
+            )
+
+            from codex_automation_audit import audit_automations
+
+            result = audit_automations(tmp)
+            hk_check = result["checks"][2]
+
+            self.assertEqual(hk_check["status"], "needs_attention")
+            self.assertTrue(
+                any(
+                    "production prompt must not use -IgnorePreSubmitFailure" in issue
+                    for issue in hk_check["issues"]
+                )
+            )
+
     def test_audit_reports_missing_acceptance_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmp:
             for automation_id, name, prompt, minute in (
