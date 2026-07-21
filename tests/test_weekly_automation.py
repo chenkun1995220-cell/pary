@@ -622,6 +622,16 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("`-IgnorePreSubmitFailure`", doc)
         self.assertNotIn("`-Strict`", doc)
 
+    def test_docs_reject_constituent_cache_fallback_for_production_runs(self):
+        doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
+            encoding="utf-8-sig"
+        )
+
+        self.assertIn("三市场生产任务的成分刷新必须为 `online`", doc)
+        self.assertIn("缓存回退不得视为成功", doc)
+        self.assertNotIn("失败时使用最后一次有效缓存", doc)
+        self.assertNotIn("在线校验失败时使用最后一次有效缓存", doc)
+
     def test_point_in_time_backtest_docs_describe_run_modes_and_limits(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
             encoding="utf-8-sig"
