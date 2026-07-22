@@ -22,6 +22,7 @@ POWERSHELL_ENTRYPOINT_TERMS = (
     "-File",
 )
 VALID_REASONING_EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
+SUPPORTED_AUTOMATION_VERSION = 1
 
 
 EXPECTED_AUTOMATIONS = [
@@ -138,6 +139,20 @@ def _check_automation(root, expected):
         }
     data = _load_toml(path)
     issues = []
+    configured_id = data.get("id")
+    if configured_id != expected["id"]:
+        issues.append(
+            f"id expected {expected['id']} got {configured_id!r}"
+        )
+    configured_version = data.get("version")
+    if (
+        type(configured_version) is not int
+        or configured_version != SUPPORTED_AUTOMATION_VERSION
+    ):
+        issues.append(
+            "version expected integer "
+            f"{SUPPORTED_AUTOMATION_VERSION} got {configured_version!r}"
+        )
     target = {}
     expected_kind = expected["kind"]
     expected_rrule = (
@@ -199,6 +214,7 @@ def _check_automation(root, expected):
         "status": "ready" if not issues else "needs_attention",
         "path": str(path),
         "rrule": data.get("rrule", ""),
+        "version": configured_version,
         "model": data.get("model", ""),
         "reasoning_effort": data.get("reasoning_effort", ""),
         "target_type": target.get("type", ""),
@@ -233,6 +249,8 @@ def render_audit_report(result):
     lines.extend(["", "## 任务明细"])
     for check in result["checks"]:
         lines.append(f"- {check['id']}：{check['status']}，{check['name']}")
+        if check.get("version") is not None:
+            lines.append(f"  - version: {check['version']}")
         if check.get("rrule"):
             lines.append(f"  - schedule: {check['rrule']}")
         if check.get("reasoning_effort"):
@@ -264,6 +282,7 @@ def render_audit_report(result):
             "- 美股任务必须为 -SecUserAgent 提供非空值，审计不绑定具体姓名或邮箱。",
             "- 三项市场任务必须配置合法 reasoning_effort；允许按任务选择强度，不绑定单一值。",
             "- 三项市场任务必须绑定 project 类型且提供非空 project_id；审计不绑定具体项目 ID。",
+            "- 四项自动化任务的内部 id 必须匹配任务目录，配置 version 必须为已支持的整数 1。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )

@@ -15,6 +15,10 @@ def write_automation(
     hour=14,
     target_thread_id="test-thread",
     reasoning_effort="high",
+    include_id=True,
+    configured_id=None,
+    include_version=True,
+    version=1,
     include_target=True,
     target_type="project",
     target_project_id="test-project",
@@ -51,14 +55,26 @@ def write_automation(
         prompt = f"{prompt}；powershell.exe -NoProfile -ExecutionPolicy Bypass -File"
     if automation_id == "automation" and include_sec_user_agent:
         prompt = f'{prompt} -SecUserAgent "Test test@example.com"'
-    lines = [
-        f"id = {json.dumps(automation_id, ensure_ascii=False)}",
-        f"kind = {json.dumps(kind)}",
-        f"name = {json.dumps(name, ensure_ascii=False)}",
-        f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
-        'status = "ACTIVE"',
-        f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SA;BYHOUR={hour};BYMINUTE={minute}"',
-    ]
+    lines = []
+    if include_version:
+        lines.append(f"version = {json.dumps(version)}")
+    if include_id:
+        lines.append(
+            "id = "
+            + json.dumps(
+                automation_id if configured_id is None else configured_id,
+                ensure_ascii=False,
+            )
+        )
+    lines.extend(
+        [
+            f"kind = {json.dumps(kind)}",
+            f"name = {json.dumps(name, ensure_ascii=False)}",
+            f"prompt = {json.dumps(prompt, ensure_ascii=False)}",
+            'status = "ACTIVE"',
+            f'rrule = "FREQ=WEEKLY;INTERVAL=1;BYDAY=SA;BYHOUR={hour};BYMINUTE={minute}"',
+        ]
+    )
     if kind == "cron":
         lines.extend(
             [
@@ -144,6 +160,7 @@ class CodexAutomationAuditTests(unittest.TestCase):
             self.assertEqual(result["status"], "ready")
             self.assertEqual(result["ready_count"], 4)
             self.assertEqual(result["automation_count"], 4)
+            self.assertEqual(result["checks"][0]["version"], 1)
             self.assertEqual(result["checks"][2]["id"], "automation-5")
             self.assertEqual(result["checks"][3]["id"], "automation-2")
             self.assertEqual(result["checks"][3]["kind"], "heartbeat")
@@ -154,6 +171,7 @@ class CodexAutomationAuditTests(unittest.TestCase):
             self.assertIn("latest_weekly_artifact_consistency.json", report)
             self.assertIn("latest_pre_submit_review.json", report)
             self.assertIn("automation-2", report)
+            self.assertIn("version: 1", report)
             self.assertIn("latest_extended_shadow_validation_tracker.json", report)
             self.assertIn("周六 15:00", report)
             self.assertEqual(result["checks"][0]["model"], "gpt-5.6-terra")
@@ -224,6 +242,65 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 self.assertEqual(us_check["status"], "needs_attention")
                 self.assertTrue(
                     any(expected_issue in issue for issue in us_check["issues"])
+                )
+
+    def test_audit_requires_matching_string_automation_id(self):
+        cases = (
+            {"include_id": False},
+            {"configured_id": "wrong-id"},
+            {"configured_id": 42},
+        )
+        for kwargs in cases:
+            with self.subTest(kwargs=kwargs), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    "automation",
+                    "美股低估公司每周筛选",
+                    "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                    5,
+                    **kwargs,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                us_check = audit_automations(tmp)["checks"][0]
+
+                self.assertEqual(us_check["status"], "needs_attention")
+                self.assertTrue(
+                    any(
+                        "id expected automation" in issue
+                        for issue in us_check["issues"]
+                    )
+                )
+
+    def test_audit_requires_supported_integer_automation_version(self):
+        cases = (
+            {"include_version": False},
+            {"version": "1"},
+            {"version": True},
+            {"version": 2},
+        )
+        for kwargs in cases:
+            with self.subTest(kwargs=kwargs), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    "automation",
+                    "美股低估公司每周筛选",
+                    "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                    5,
+                    **kwargs,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                us_check = audit_automations(tmp)["checks"][0]
+
+                self.assertEqual(us_check["status"], "needs_attention")
+                self.assertTrue(
+                    any(
+                        "version expected integer 1" in issue
+                        for issue in us_check["issues"]
+                    )
                 )
 
     def test_audit_allows_any_nonempty_project_id_and_reports_it(self):

@@ -23,6 +23,7 @@ def write_expected_automations(root, minute_overrides=None):
             prompt = f'{prompt} -SecUserAgent "Test test@example.com"'
         kind = expected["kind"]
         lines = [
+            "version = 1",
             f"id = {json.dumps(automation_id, ensure_ascii=False)}",
             f"kind = {json.dumps(kind)}",
             f"name = {json.dumps(expected['name'], ensure_ascii=False)}",
