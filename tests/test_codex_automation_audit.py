@@ -22,6 +22,7 @@ def write_automation(
     include_network_retry_guard=True,
     include_sec_user_agent=True,
     include_online_first_guard=True,
+    include_powershell_entrypoint=True,
 ):
     path = Path(root) / automation_id / "automation.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -42,6 +43,8 @@ def write_automation(
         prompt = f"{prompt}；WinError 10013；完全相同的入口命令；重试一次"
     if kind == "cron" and include_online_first_guard:
         prompt = f"{prompt}；首次执行正式入口；允许网络访问；CodexSandboxOffline"
+    if kind == "cron" and include_powershell_entrypoint:
+        prompt = f"{prompt}；powershell.exe -NoProfile -ExecutionPolicy Bypass -File"
     if automation_id == "automation" and include_sec_user_agent:
         prompt = f'{prompt} -SecUserAgent "Test test@example.com"'
     lines = [
@@ -533,6 +536,60 @@ class CodexAutomationAuditTests(unittest.TestCase):
                     "首次执行正式入口",
                     "允许网络访问",
                     "CodexSandboxOffline",
+                ):
+                    self.assertTrue(
+                        any(required_term in issue for issue in market_check["issues"])
+                    )
+
+    def test_audit_requires_complete_powershell_entrypoint_for_each_market_prompt(self):
+        cases = (
+            (
+                "automation",
+                "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                5,
+                0,
+            ),
+            (
+                "a-300-3",
+                "scripts\\run_cn_weekly.ps1 不提前运行三市场统一收口",
+                10,
+                1,
+            ),
+            (
+                "automation-5",
+                "scripts\\run_hk_weekly.ps1 -RunPostChecks "
+                "scripts\\run_weekly_reporting_bundle.ps1 "
+                "latest_weekly_artifact_consistency.json "
+                "latest_first_one_month_forecast_evaluation_review.json "
+                "latest_pre_submit_review.json 同一自然日",
+                30,
+                2,
+            ),
+        )
+
+        for automation_id, prompt, minute, check_index in cases:
+            with self.subTest(automation_id=automation_id), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    automation_id,
+                    automation_id,
+                    prompt,
+                    minute,
+                    include_powershell_entrypoint=False,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                result = audit_automations(tmp)
+                market_check = result["checks"][check_index]
+
+                self.assertEqual(market_check["status"], "needs_attention")
+                for required_term in (
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
                 ):
                     self.assertTrue(
                         any(required_term in issue for issue in market_check["issues"])
