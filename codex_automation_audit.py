@@ -138,6 +138,7 @@ def _check_automation(root, expected):
         }
     data = _load_toml(path)
     issues = []
+    target = {}
     expected_kind = expected["kind"]
     expected_rrule = (
         "FREQ=WEEKLY;INTERVAL=1;BYDAY=SA;"
@@ -150,6 +151,15 @@ def _check_automation(root, expected):
     if data.get("rrule") != expected_rrule:
         issues.append(f"rrule expected {expected_rrule} got {data.get('rrule', '')}")
     if expected_kind == "cron":
+        target = data.get("target")
+        if not isinstance(target, dict):
+            target = {}
+        if target.get("type") != "project":
+            issues.append(
+                f"target.type expected project got {target.get('type', '')}"
+            )
+        if not str(target.get("project_id", "")).strip():
+            issues.append("target.project_id must be configured")
         if data.get("execution_environment") != "local":
             issues.append(f"execution_environment expected local got {data.get('execution_environment', '')}")
         if not str(data.get("model", "")).strip():
@@ -191,6 +201,8 @@ def _check_automation(root, expected):
         "rrule": data.get("rrule", ""),
         "model": data.get("model", ""),
         "reasoning_effort": data.get("reasoning_effort", ""),
+        "target_type": target.get("type", ""),
+        "target_project_id": target.get("project_id", ""),
         "required_prompt_terms": expected["required_prompt_terms"],
         "issues": issues,
     }
@@ -225,6 +237,11 @@ def render_audit_report(result):
             lines.append(f"  - schedule: {check['rrule']}")
         if check.get("reasoning_effort"):
             lines.append(f"  - reasoning_effort: {check['reasoning_effort']}")
+        if check.get("target_type") or check.get("target_project_id"):
+            lines.append(
+                "  - target: "
+                f"{check.get('target_type', '')} / {check.get('target_project_id', '')}"
+            )
         for issue in check["issues"]:
             lines.append(f"  - issue: {issue}")
     lines.extend(
@@ -246,6 +263,7 @@ def render_audit_report(result):
             "- 三项市场任务必须保留 powershell.exe -NoProfile -ExecutionPolicy Bypass -File 正式入口。",
             "- 美股任务必须为 -SecUserAgent 提供非空值，审计不绑定具体姓名或邮箱。",
             "- 三项市场任务必须配置合法 reasoning_effort；允许按任务选择强度，不绑定单一值。",
+            "- 三项市场任务必须绑定 project 类型且提供非空 project_id；审计不绑定具体项目 ID。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )

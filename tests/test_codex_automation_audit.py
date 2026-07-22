@@ -15,6 +15,9 @@ def write_automation(
     hour=14,
     target_thread_id="test-thread",
     reasoning_effort="high",
+    include_target=True,
+    target_type="project",
+    target_project_id="test-project",
     include_cache_guard=True,
     include_fresh_artifact_guard=True,
     include_formal_model_guard=True,
@@ -65,6 +68,13 @@ def write_automation(
                 'cwds = ["F:\\\\chatgptssd\\\\project2"]',
             ]
         )
+        if include_target:
+            lines.append(
+                "target = { "
+                f"type = {json.dumps(target_type)}, "
+                f"project_id = {json.dumps(target_project_id)} "
+                "}"
+            )
     else:
         lines.append(f"target_thread_id = {json.dumps(target_thread_id)}")
     path.write_text(
@@ -188,6 +198,59 @@ class CodexAutomationAuditTests(unittest.TestCase):
                 self.assertTrue(
                     any("reasoning_effort" in issue for issue in us_check["issues"])
                 )
+
+    def test_audit_requires_valid_project_target_for_market_crons(self):
+        cases = (
+            ({"include_target": False}, "target.type"),
+            ({"target_type": "thread"}, "target.type"),
+            ({"target_project_id": "   "}, "target.project_id"),
+        )
+        for kwargs, expected_issue in cases:
+            with self.subTest(kwargs=kwargs), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    "automation",
+                    "美股低估公司每周筛选",
+                    "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                    5,
+                    **kwargs,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                result = audit_automations(tmp)
+                us_check = result["checks"][0]
+
+                self.assertEqual(us_check["status"], "needs_attention")
+                self.assertTrue(
+                    any(expected_issue in issue for issue in us_check["issues"])
+                )
+
+    def test_audit_allows_any_nonempty_project_id_and_reports_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write_automation(
+                tmp,
+                "automation",
+                "美股低估公司每周筛选",
+                "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                5,
+                target_project_id="migrated-project",
+            )
+
+            from codex_automation_audit import audit_automations, render_audit_report
+
+            result = audit_automations(tmp)
+            us_check = result["checks"][0]
+
+            self.assertFalse(
+                any("target." in issue for issue in us_check["issues"])
+            )
+            self.assertEqual(us_check["target_type"], "project")
+            self.assertEqual(us_check["target_project_id"], "migrated-project")
+            self.assertIn(
+                "target: project / migrated-project",
+                render_audit_report(result),
+            )
 
     def test_audit_reports_missing_market_cache_fallback_guard(self):
         with tempfile.TemporaryDirectory() as tmp:

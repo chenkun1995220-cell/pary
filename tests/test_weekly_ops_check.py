@@ -40,6 +40,7 @@ def write_expected_automations(root, minute_overrides=None):
                     'reasoning_effort = "high"',
                     'execution_environment = "local"',
                     'cwds = ["F:\\\\chatgptssd\\\\project2"]',
+                    'target = { type = "project", project_id = "test-project" }',
                 ]
             )
         else:
