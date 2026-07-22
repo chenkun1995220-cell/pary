@@ -622,6 +622,29 @@ class WeeklyAutomationTests(unittest.TestCase):
         self.assertIn("`-IgnorePreSubmitFailure`", doc)
         self.assertNotIn("`-Strict`", doc)
 
+    def test_docs_use_complete_powershell_entrypoint_for_market_weekly_commands(self):
+        doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
+            encoding="utf-8-sig"
+        )
+        market_scripts = (
+            "run_us_universe_weekly.ps1",
+            "run_cn_weekly.ps1",
+            "run_hk_weekly.ps1",
+        )
+        command_lines = [
+            line
+            for line in doc.splitlines()
+            if "powershell.exe" in line
+            and any(script in line for script in market_scripts)
+        ]
+
+        self.assertTrue(command_lines)
+        for line in command_lines:
+            self.assertIn(
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File",
+                line,
+            )
+
     def test_docs_reject_constituent_cache_fallback_for_production_runs(self):
         doc = (PROJECT_ROOT / "docs" / "美股每周自动运行说明.md").read_text(
             encoding="utf-8-sig"
