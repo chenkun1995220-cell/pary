@@ -14,6 +14,7 @@ def write_automation(
     kind="cron",
     hour=14,
     target_thread_id="test-thread",
+    reasoning_effort="high",
     include_cache_guard=True,
     include_fresh_artifact_guard=True,
     include_formal_model_guard=True,
@@ -59,7 +60,7 @@ def write_automation(
         lines.extend(
             [
                 f'model = "{model}"',
-                'reasoning_effort = "high"',
+                f'reasoning_effort = "{reasoning_effort}"',
                 'execution_environment = "local"',
                 'cwds = ["F:\\\\chatgptssd\\\\project2"]',
             ]
@@ -165,6 +166,28 @@ class CodexAutomationAuditTests(unittest.TestCase):
             result = audit_automations(tmp)
 
             self.assertEqual(result["status"], "ready")
+
+    def test_audit_requires_valid_reasoning_effort_for_market_crons(self):
+        for reasoning_effort in ("", "turbo"):
+            with self.subTest(reasoning_effort=reasoning_effort), tempfile.TemporaryDirectory() as tmp:
+                write_automation(
+                    tmp,
+                    "automation",
+                    "美股低估公司每周筛选",
+                    "scripts\\run_us_universe_weekly.ps1 不提前运行三市场统一收口 market_quotes.csv",
+                    5,
+                    reasoning_effort=reasoning_effort,
+                )
+
+                from codex_automation_audit import audit_automations
+
+                result = audit_automations(tmp)
+                us_check = result["checks"][0]
+
+                self.assertEqual(us_check["status"], "needs_attention")
+                self.assertTrue(
+                    any("reasoning_effort" in issue for issue in us_check["issues"])
+                )
 
     def test_audit_reports_missing_market_cache_fallback_guard(self):
         with tempfile.TemporaryDirectory() as tmp:

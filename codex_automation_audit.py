@@ -21,6 +21,7 @@ POWERSHELL_ENTRYPOINT_TERMS = (
     "Bypass",
     "-File",
 )
+VALID_REASONING_EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 
 
 EXPECTED_AUTOMATIONS = [
@@ -153,6 +154,12 @@ def _check_automation(root, expected):
             issues.append(f"execution_environment expected local got {data.get('execution_environment', '')}")
         if not str(data.get("model", "")).strip():
             issues.append("model must be configured")
+        if data.get("reasoning_effort") not in VALID_REASONING_EFFORTS:
+            issues.append(
+                "reasoning_effort must be one of "
+                + ", ".join(sorted(VALID_REASONING_EFFORTS))
+                + f"; got {data.get('reasoning_effort', '')}"
+            )
         if "F:\\chatgptssd\\project2" not in data.get("cwds", []):
             issues.append("cwds missing F:\\chatgptssd\\project2")
     elif not str(data.get("target_thread_id", "")).strip():
@@ -183,6 +190,7 @@ def _check_automation(root, expected):
         "path": str(path),
         "rrule": data.get("rrule", ""),
         "model": data.get("model", ""),
+        "reasoning_effort": data.get("reasoning_effort", ""),
         "required_prompt_terms": expected["required_prompt_terms"],
         "issues": issues,
     }
@@ -215,6 +223,8 @@ def render_audit_report(result):
         lines.append(f"- {check['id']}：{check['status']}，{check['name']}")
         if check.get("rrule"):
             lines.append(f"  - schedule: {check['rrule']}")
+        if check.get("reasoning_effort"):
+            lines.append(f"  - reasoning_effort: {check['reasoning_effort']}")
         for issue in check["issues"]:
             lines.append(f"  - issue: {issue}")
     lines.extend(
@@ -235,6 +245,7 @@ def render_audit_report(result):
             "- 三项市场任务首次执行正式入口时应直接使用允许网络访问的权限，不得先在 CodexSandboxOffline 离线沙箱运行。",
             "- 三项市场任务必须保留 powershell.exe -NoProfile -ExecutionPolicy Bypass -File 正式入口。",
             "- 美股任务必须为 -SecUserAgent 提供非空值，审计不绑定具体姓名或邮箱。",
+            "- 三项市场任务必须配置合法 reasoning_effort；允许按任务选择强度，不绑定单一值。",
             "- 模型版本允许升级或切换，但必须配置有效模型，并重新通过相同质量门；开发治理不绑定具体模型名称。",
         ]
     )
